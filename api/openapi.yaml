@@ -1,0 +1,40 @@
+openapi: 3.1.0
+info:
+  title: CENSE API
+  version: 0.1.0
+  description: Shared contract for the CENSE web and iOS clients.
+  license:
+    name: Proprietary
+    identifier: LicenseRef-CENSE-Proprietary
+servers:
+  - url: /api/v1
+security: []
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Check API availability
+      responses:
+        "200":
+          description: API is available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "500":
+          description: The service is unavailable
+        "400":
+          description: The request is invalid
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status, service]
+      properties:
+        status:
+          type: string
+          const: ok
+        service:
+          type: string
+          const: cense-api
