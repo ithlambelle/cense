@@ -15,7 +15,7 @@ CENSE helps students choose a first credit card with clear, personalized guidanc
 
 | Layer | Choice |
 | --- | --- |
-| Frontend | Next.js 16 and TypeScript, styled with Tailwind CSS and shadcn/ui. Mobile-first web app that can be installed to the Home Screen. A native SwiftUI app follows in MVP2 and calls the same API. |
+| Frontend | Next.js 16 and TypeScript, styled with Tailwind CSS. Mobile-first web app that can be installed to the Home Screen. A native SwiftUI app follows in MVP2 and calls the same API. |
 | Backend | TypeScript on Node.js. Next.js route handlers under `/api/v1`, described by `api/openapi.yaml`. Business rules run on the server only. Vercel Cron runs the reminder job. |
 | Database | Supabase Postgres. Schema changes only through SQL migrations in this repo. Row level security on every table that holds user data. |
 | Auth | Supabase Auth with Google and a 6-digit email code. No passwords. Sign in with Apple is added later. |
