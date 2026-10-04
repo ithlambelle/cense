@@ -123,7 +123,7 @@ npm run dev
 
 The starter intentionally runs without credentials. Add the Supabase values when the development project is available.
 
-Setup verified from a fresh clone by a second teammate: pending (Yunho).
+Setup verified from a fresh clone by a second teammate: verified by Yunho on 2026-10-04 (macOS, Node v25.1.0).
 
 ## Quality checks
 
