@@ -36,6 +36,14 @@ How a piece of work goes from the Notion board to merged code.
 
 `main` will be protected so GitHub enforces these rules (a pull request, one approval, passing checks). That needs GitHub Pro on the owner's account. Until it is switched on, follow the rules anyway: no direct pushes to `main`.
 
+## AI use
+
+- Using AI tools to write code is expected on this team. You are still responsible for everything in your pull request, and you should be able to explain what each change does without the tool.
+- In the pull request, say which tool you used and for what, and what you checked by hand. The second part is the useful one: it tells the reviewer where a person has already looked.
+- Commits made with an AI tool keep the tool's `Co-Authored-By` line.
+- AI tools work against the dev database only, never production.
+- These notes feed the AI Usage Log the course requires, which is kept in Notion.
+
 ## Secrets
 
 - Never commit a key, token or password. CI scans every push for them.
