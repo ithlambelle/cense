@@ -24,7 +24,7 @@ How a piece of work goes from the Notion board to merged code.
 - One pull request per sub-task. A user story is several pull requests, never one.
 - Keep them small. Around 100 changed lines is comfortable to review; 1,000 is usually too large. A big sub-task can be split into two pull requests.
 - Title: the story number, then what changed. Example: `US-06: click tracking`.
-- Link the story. Each user story will have one GitHub issue (created once the story revisions are final). Write `Part of #N` in the description, or `Closes #N` on the pull request that finishes the story. Until the issues exist, give the story number and its Notion link.
+- Link the story. Each user story will have one GitHub issue (created once the story revisions are final). Write `Part of #N` in the description, or `Closes #N` on the pull request that finishes the story. Until the issues exist, give the story number.
 - Every pull request gets its own preview link from Vercel. Check anything a user would see there before asking for review.
 
 ## Review and merge
@@ -39,10 +39,10 @@ How a piece of work goes from the Notion board to merged code.
 ## AI use
 
 - Using AI tools to write code is expected on this team. You are still responsible for everything in your pull request, and you should be able to explain what each change does without the tool.
-- In the pull request, say which tool you used and for what, and what you checked by hand. The second part is the useful one: it tells the reviewer where a person has already looked.
+- In the pull request, say which tool you used and for what, and what you checked by hand. The second part is useful because it tells the reviewer where a person has already looked.
 - Commits made with an AI tool keep the tool's `Co-Authored-By` line.
 - AI tools work against the dev database only, never production.
-- These notes feed the AI Usage Log the course requires, which is kept in Notion.
+- These notes feed the AI Usage Log the course requires, Github.
 
 ## Secrets
 
