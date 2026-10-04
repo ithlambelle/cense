@@ -42,7 +42,7 @@ How a piece of work goes from the Notion board to merged code.
 - In the pull request, say which tool you used and for what, and what you checked by hand. The second part is useful because it tells the reviewer where a person has already looked.
 - Commits made with an AI tool keep the tool's `Co-Authored-By` line.
 - AI tools work against the dev database only, never production.
-- These notes feed the AI Usage Log the course requires, Github.
+- These notes feed the AI Usage Log the course requires: [docs/ai-usage-log.md](docs/ai-usage-log.md).
 
 ## Secrets
 
