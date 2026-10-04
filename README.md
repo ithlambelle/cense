@@ -164,5 +164,5 @@ Who holds each account. Key values are never stored in this repo or sent over Sl
 ## How we work
 
 - Branching, pull requests, review and merging: see [CONTRIBUTING.md](CONTRIBUTING.md).
-- Project board: the team's Notion backlog holds the user stories, sub-tasks, sprints and status (link to be added here once the board is shared).
+- Project board: the [CENSE backlog in Notion](https://app.notion.com/p/CENSE-e65780cd945383649fc6813e1593290a) holds the user stories, sub-tasks, sprints and status.
 - AI Usage Log: kept in the team's Notion (link to be added here).
