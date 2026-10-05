@@ -50,7 +50,6 @@ flowchart TB
     subgraph DATA["3. Data"]
         cards["Card dataset<br/>typed files in the repo"]
         db[("Supabase Postgres<br/>system of record")]
-        rls["Database rules<br/>row level security and grants on every table<br/>a student reads only their own rows"]
         auth["Supabase Auth<br/>Google and email code sign-in"]
     end
 
@@ -76,16 +75,15 @@ flowchart TB
     api --> authz
     authz --> rules
     authz --> remind
-    cron -->|"calls a protected route"| api
+    cron --> api
     cards -->|"card facts"| rules
-    rules -->|"reads and writes as the signed-in student"| db
+    rules --> db
     remind -->|"finds what is due"| db
     remind --> notify
-    rls ---|"guards every read and write"| db
     auth -->|"sign-in codes"| resend
     notify -->|"reminder emails"| resend
     notify -.->|"push"| apns
-    api -->|"records the click, then links out"| issuers
+    api -->|"links out"| issuers
     api -->|"copies of events"| posthog
     api -.-> plaid
     api -.-> ai
