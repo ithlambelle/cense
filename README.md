@@ -29,25 +29,32 @@ CENSE helps students choose a first credit card with clear, personalized guidanc
 Solid boxes ship in MVP1 (Oct 26). Dashed boxes come in MVP2 (Nov 9) or by Demo Day (Dec 11).
 
 ```mermaid
+%%{init: {"flowchart": {"nodeSpacing": 80, "rankSpacing": 60}}}%%
 flowchart TB
     student(["Student, 18 to 21<br/>phone first"])
 
-    subgraph FE["1. Frontend: what the student touches"]
+    subgraph FE["1. Frontend"]
         web["Web app<br/>Next.js + TypeScript<br/>mobile first, installable to Home Screen"]
-        ios["iOS app, MVP2<br/>Swift and SwiftUI"]
+        ios["iOS app, MVP2<br/>Swift and SwiftUI<br/>calls the same API"]
     end
 
-    subgraph BE["2. Backend: where the work happens, hosted on Vercel"]
+    subgraph BE["2. Backend: Next.js route handlers on Vercel"]
         api["REST API /api/v1<br/>TypeScript route handlers<br/>OpenAPI contract"]
-        cron["Vercel Cron<br/>reminder job"]
+        authz["Authorization<br/>checked in server code on every request"]
+        rules["Rules engine<br/>eligibility, ranking and fit tiers<br/>runs on the server only"]
+        remind["Reminder jobs<br/>each reminder sent once"]
+        notify["notify()<br/>email now, push at MVP2"]
+        cron["Vercel Cron, every 15 min"]
     end
 
-    subgraph DATA["3. Data: where the truth lives"]
-        auth["Supabase Auth"]
+    subgraph DATA["3. Data"]
+        cards["Card dataset<br/>typed files in the repo"]
         db[("Supabase Postgres<br/>system of record")]
+        rls["Database rules<br/>row level security and grants on every table<br/>a student reads only their own rows"]
+        auth["Supabase Auth<br/>Google and email code sign-in"]
     end
 
-    subgraph EXT["4. External services: everything we did not build"]
+    subgraph EXT["4. External services"]
         resend["Resend<br/>sign-in codes and reminder emails"]
         posthog["PostHog<br/>product analytics and error tracking"]
         issuers["Card issuers<br/>preapproval check and application"]
@@ -65,11 +72,19 @@ flowchart TB
     web -->|"sign in"| auth
     ios -.->|"sign in"| auth
     web -->|"HTTPS + sign-in token"| api
-    ios -.->|"same API"| api
-    api -->|"reads and writes"| db
+    ios -.-> api
+    api --> authz
+    authz --> rules
+    authz --> remind
     cron -->|"calls a protected route"| api
-    api -->|"emails"| resend
-    api -.->|"push"| apns
+    cards -->|"card facts"| rules
+    rules -->|"reads and writes as the signed-in student"| db
+    remind -->|"finds what is due"| db
+    remind --> notify
+    rls ---|"guards every read and write"| db
+    auth -->|"sign-in codes"| resend
+    notify -->|"reminder emails"| resend
+    notify -.->|"push"| apns
     api -->|"records the click, then links out"| issuers
     api -->|"copies of events"| posthog
     api -.-> plaid
