@@ -22,6 +22,9 @@ Add a row when you start using another tool.
 | --- | --- | --- | --- | --- |
 | 2026-10-03 | Ben | Claude Code | Revised the user stories in the Master User Story Doc in response to the TA's feedback | Ben made each decision; every edit was re-read against the doc after it was applied; teammates asked to review the stories they wrote |
 | 2026-10-03 | Ben | Claude Code | Wrote the skill that loads the user stories into the Notion backlog | The reading step was run against the real doc and its counts checked (11 stories, 45 sub-tasks); the Notion-writing step has not been run yet |
+| 2026-10-04 | Ben | Claude Code | Drafted the User Story Evaluation Reflection from the TA feedback sheet and the record of story changes | Scores were recounted from the sheet and four story totals reproduced; Ben reviews and edits the draft before it is submitted |
+| 2026-10-04 | Ben | Claude Code | Created the eleven story issues (#3 to #13) from the story export | Each issue was read back after creation; Ben decided which stories get an issue |
+| 2026-10-04 | Ben | Claude Code | Edited a copy of the user flow board to match the revised stories (flows 1, 3, 4, 5, 8, 9, 10) | Every changed flow was checked by screenshot; Ben reviews before anything is pasted into the class board |
 
 ## Work in pull requests so far
 

@@ -150,10 +150,10 @@ See `web/package.json` and `web/package-lock.json` for exact versions.
 
 Who holds each account. Key values are never stored in this repo or sent over Slack. They live in Vercel's environment variables and in the Supabase dashboard; `web/.env.example` lists the variable names.
 
-| Account | Held by | Status (Oct 3) |
+| Account | Held by | Status (Oct 4) |
 | --- | --- | --- |
 | GitHub repository | Mabelle (owner) | Active |
-| Vercel | Mabelle | Account exists; connection to this repo not confirmed yet |
+| Vercel | Mabelle | Connected to this repo on Oct 4; `main` deploys to production |
 | Supabase, dev project | Ben (organization owner); Mabelle and Yunho as admins | Created |
 | Supabase, production project | Ben | Not created yet; needed before real students use the app |
 | Resend | Ben | Being set up |
