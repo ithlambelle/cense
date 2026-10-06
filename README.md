@@ -125,6 +125,17 @@ flowchart TB
 | Card terms and links go stale, so a recommendation could rest on old facts. | Card data lives in typed files in this repo, each card with a last-verified date. It is validated in CI and changes only through a reviewed pull request. |
 | The reminder job could send a reminder twice, or stop without anyone noticing. | Each reminder is claimed once by a unique key, so a rerun cannot send it again. A heartbeat check alerts the team if the job stops running. |
 
+### Mentor feedback on the stack
+
+Comments from our mentors on Oct 5, 2026, and what we did with each.
+
+| Mentor | Comment | What we did |
+| --- | --- | --- |
+| Steven (Slack) | The diagram showed no backend | Redrew it to show the route handlers, rules and reminder jobs |
+| Steven (Slack) | Had you considered Flutter | Staying with Next.js and eventually SwiftUI for higher quality UX at the cost of managing multiple languages and temporarily excluding Android. |
+| Steven (meeting) | Wants more backend detail: monolith or microservices, tiers | Diagram to be refined. Workshop meeting with mentors to be scheduled to improve specificity. |
+| Kumar (meeting) | Vercel plus Supabase is right for an MVP; moving to AWS later is common | No change |
+
 ## Local setup
 
 ```bash
