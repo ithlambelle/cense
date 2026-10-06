@@ -131,10 +131,10 @@ Comments from our mentors on Oct 5, 2026, and what we did with each.
 
 | Mentor | Comment | What we did |
 | --- | --- | --- |
-| Steven (Slack) | The diagram showed no backend | Redrew it to show the route handlers, rules and reminder jobs |
+| Steven (Slack) | The diagram showed no backend | Redrew it to show the route handlers, rules and reminder jobs. |
 | Steven (Slack) | Had you considered Flutter | Staying with Next.js and eventually SwiftUI for higher quality UX at the cost of managing multiple languages and temporarily excluding Android. |
 | Steven (meeting) | Wants more backend detail: monolith or microservices, tiers | Diagram to be refined. Workshop meeting with mentors to be scheduled to improve specificity. |
-| Kumar (meeting) | Vercel plus Supabase is right for an MVP; moving to AWS later is common | No change |
+| Kumar (meeting) | Vercel plus Supabase is right for an MVP; moving to AWS later is common | No change. |
 
 ## Local setup
 
