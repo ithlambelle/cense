@@ -14,6 +14,7 @@ import {
   createApplicationSchema,
   issuerClickSchema,
   quizDraftSchema,
+  recommendationSchema,
   saveQuizSchema,
   updateApplicationSchema,
 } from "../src/lib/api/schemas";
@@ -29,6 +30,7 @@ const errorSchema = registry.register("ApiError", z.strictObject({
 const cardContract = registry.register("Card", cardSchema);
 const quizDraftContract = registry.register("QuizDraft", quizDraftSchema);
 const applicationContract = registry.register("Application", applicationSchema);
+const recommendationContract = registry.register("Recommendation", recommendationSchema);
 
 const json = (schema: z.ZodType) => ({
   "application/json": { schema },
@@ -123,6 +125,12 @@ registry.registerPath({
     400: failure("Invalid request"), 404: failure("Card not found"),
     409: failure("No preapproval link"), ...protectedResponses,
   },
+});
+registry.registerPath({
+  method: "get", path: "/recommendations/latest", operationId: "getLatestRecommendation",
+  summary: "Read the latest server-generated recommendation",
+  security: [{ studentSession: [] }],
+  responses: { 200: ok(recommendationContract), 404: failure("No saved recommendation"), ...protectedResponses },
 });
 
 const generator = new OpenApiGeneratorV31(registry.definitions);

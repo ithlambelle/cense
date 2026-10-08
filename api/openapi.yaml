@@ -134,6 +134,32 @@ components:
         - appliedAt
         - statusUpdatedAt
       additionalProperties: false
+    Recommendation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        cardId:
+          type: string
+        fitTier:
+          type: string
+          enum:
+            - likely_fit
+            - stretch
+            - not_yet
+        reason:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - cardId
+        - fitTier
+        - reason
+        - createdAt
+      additionalProperties: false
   parameters: {}
   securitySchemes:
     studentSession:
@@ -745,6 +771,37 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "409":
           description: No preapproval link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /recommendations/latest:
+    get:
+      operationId: getLatestRecommendation
+      summary: Read the latest server-generated recommendation
+      security:
+        - studentSession: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recommendation"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No saved recommendation
           content:
             application/json:
               schema:
