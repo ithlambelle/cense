@@ -35,7 +35,8 @@ Only the dev project should be used by local and preview environments.
 - The card catalog intentionally returns `503 catalog_unavailable` until the
   approved dataset and issuer links are supplied. It does not return fake
   matches or links.
-- The recommendation write route is withheld until the server rules engine
+- The latest saved recommendation can be read. A recommendation write route is
+  withheld until the server rules engine
   and approved catalog are ready. The client must never submit its own match.
 - A full deployed sign-in test requires the screen owner's unstyled UI, dev
   Supabase configuration, and an accessible Vercel deployment.
