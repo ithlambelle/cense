@@ -3,6 +3,9 @@ info:
   title: CENSE API
   version: 0.1.0
   description: Shared REST contract for the CENSE web and iOS clients.
+  license:
+    name: Proprietary
+    identifier: LicenseRef-CENSE-Proprietary
 servers:
   - url: /api/v1
 security: []
