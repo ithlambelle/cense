@@ -2,13 +2,19 @@ openapi: 3.1.0
 info:
   title: CENSE API
   version: 0.1.0
-  description: Shared contract for the CENSE web and iOS clients.
-  license:
-    name: Proprietary
-    identifier: LicenseRef-CENSE-Proprietary
+  description: Shared REST contract for the CENSE web and iOS clients.
 servers:
   - url: /api/v1
 security: []
+components:
+  schemas: {}
+  parameters: {}
+  securitySchemes:
+    studentSession:
+      type: apiKey
+      in: header
+      name: Cookie
+      description: Supabase Auth session cookie
 paths:
   /health:
     get:
@@ -16,25 +22,1359 @@ paths:
       summary: Check API availability
       responses:
         "200":
-          description: API is available
+          description: Success
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HealthResponse"
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - ok
+                  service:
+                    type: string
+                    enum:
+                      - cense-api
+                required:
+                  - status
+                  - service
+                additionalProperties: false
         "500":
-          description: The service is unavailable
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /auth/email:
+    post:
+      operationId: sendEmailCode
+      summary: Send a six-digit email code
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+              required:
+                - email
+              additionalProperties: false
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - code_sent
+                required:
+                  - status
+                additionalProperties: false
         "400":
-          description: The request is invalid
-components:
-  schemas:
-    HealthResponse:
-      type: object
-      additionalProperties: false
-      required: [status, service]
-      properties:
-        status:
-          type: string
-          const: ok
-        service:
-          type: string
-          const: cense-api
+          description: Invalid email
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "502":
+          description: Email service unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /auth/email/verify:
+    post:
+      operationId: verifyEmailCode
+      summary: Verify an email code and create a session
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                code:
+                  type: string
+                  pattern: ^\d{6}$
+              required:
+                - email
+                - code
+              additionalProperties: false
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - signed_in
+                required:
+                  - status
+                additionalProperties: false
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "401":
+          description: Wrong or expired code
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /auth/google:
+    get:
+      operationId: startGoogleSignIn
+      summary: Start Google sign-in
+      parameters:
+        - schema:
+            type: string
+          required: false
+          name: next
+          in: query
+      responses:
+        "303":
+          description: Redirect to Google
+        "502":
+          description: Google sign-in unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /auth/callback:
+    get:
+      operationId: finishGoogleSignIn
+      summary: Finish Google sign-in
+      parameters:
+        - schema:
+            type: string
+          required: false
+          name: code
+          in: query
+        - schema:
+            type: string
+          required: false
+          name: next
+          in: query
+      responses:
+        "303":
+          description: Redirect to the app
+        "400":
+          description: Missing or invalid code
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /auth/logout:
+    post:
+      operationId: logOut
+      summary: End the session
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - signed_out
+                required:
+                  - status
+                additionalProperties: false
+        "502":
+          description: Sign-out failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /me:
+    get:
+      operationId: getMe
+      summary: Get the signed-in student
+      security:
+        - studentSession: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  email:
+                    type:
+                      - string
+                      - "null"
+                    format: email
+                required:
+                  - id
+                  - email
+                additionalProperties: false
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /cards:
+    get:
+      operationId: listCards
+      summary: List curated student cards
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cards:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        issuer:
+                          type: string
+                        name:
+                          type: string
+                        annualFeeCents:
+                          type: integer
+                          minimum: 0
+                        preapprovalUrl:
+                          type:
+                            - string
+                            - "null"
+                          format: uri
+                        applyUrl:
+                          type: string
+                          format: uri
+                        referralDisclosure:
+                          type:
+                            - string
+                            - "null"
+                      required:
+                        - id
+                        - issuer
+                        - name
+                        - annualFeeCents
+                        - preapprovalUrl
+                        - applyUrl
+                        - referralDisclosure
+                      additionalProperties: false
+                required:
+                  - cards
+                additionalProperties: false
+        "503":
+          description: Catalog unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /cards/{id}:
+    get:
+      operationId: getCard
+      summary: Get a card
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  issuer:
+                    type: string
+                  name:
+                    type: string
+                  annualFeeCents:
+                    type: integer
+                    minimum: 0
+                  preapprovalUrl:
+                    type:
+                      - string
+                      - "null"
+                    format: uri
+                  applyUrl:
+                    type: string
+                    format: uri
+                  referralDisclosure:
+                    type:
+                      - string
+                      - "null"
+                required:
+                  - id
+                  - issuer
+                  - name
+                  - annualFeeCents
+                  - preapprovalUrl
+                  - applyUrl
+                  - referralDisclosure
+                additionalProperties: false
+        "404":
+          description: Card not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /quiz:
+    get:
+      operationId: getQuiz
+      summary: Get saved quiz progress
+      security:
+        - studentSession: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  answers:
+                    type: object
+                    properties:
+                      age:
+                        type: integer
+                        minimum: 18
+                        maximum: 120
+                      annualIncomeCents:
+                        type: integer
+                        minimum: 0
+                      independentIncome:
+                        type: boolean
+                      monthlySpendingCents:
+                        type: integer
+                        minimum: 0
+                      goal:
+                        type: string
+                        enum:
+                          - build_credit
+                          - learn
+                          - other
+                    additionalProperties: false
+                  updatedAt:
+                    type: string
+                    format: date-time
+                required:
+                  - answers
+                  - updatedAt
+                additionalProperties: false
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "404":
+          description: No saved quiz
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+    put:
+      operationId: saveQuiz
+      summary: Save partial quiz progress
+      security:
+        - studentSession: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                answers:
+                  type: object
+                  properties:
+                    age:
+                      type: integer
+                      minimum: 18
+                      maximum: 120
+                    annualIncomeCents:
+                      type: integer
+                      minimum: 0
+                    independentIncome:
+                      type: boolean
+                    monthlySpendingCents:
+                      type: integer
+                      minimum: 0
+                    goal:
+                      type: string
+                      enum:
+                        - build_credit
+                        - learn
+                        - other
+                  additionalProperties: false
+              required:
+                - answers
+              additionalProperties: false
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  answers:
+                    type: object
+                    properties:
+                      age:
+                        type: integer
+                        minimum: 18
+                        maximum: 120
+                      annualIncomeCents:
+                        type: integer
+                        minimum: 0
+                      independentIncome:
+                        type: boolean
+                      monthlySpendingCents:
+                        type: integer
+                        minimum: 0
+                      goal:
+                        type: string
+                        enum:
+                          - build_credit
+                          - learn
+                          - other
+                    additionalProperties: false
+                  updatedAt:
+                    type: string
+                    format: date-time
+                required:
+                  - answers
+                  - updatedAt
+                additionalProperties: false
+        "400":
+          description: Invalid quiz answers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /applications:
+    get:
+      operationId: listApplications
+      summary: List application status records
+      security:
+        - studentSession: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  applications:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        cardId:
+                          type:
+                            - string
+                            - "null"
+                        cardName:
+                          type: string
+                        status:
+                          type: string
+                          enum:
+                            - applied
+                            - approved
+                            - rejected
+                        creditLimitCents:
+                          type:
+                            - integer
+                            - "null"
+                          minimum: 0
+                        appliedAt:
+                          type:
+                            - string
+                            - "null"
+                          format: date-time
+                        statusUpdatedAt:
+                          type: string
+                          format: date-time
+                      required:
+                        - id
+                        - cardId
+                        - cardName
+                        - status
+                        - creditLimitCents
+                        - appliedAt
+                        - statusUpdatedAt
+                      additionalProperties: false
+                required:
+                  - applications
+                additionalProperties: false
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+    post:
+      operationId: createApplication
+      summary: Record a self-reported application or owned card
+      security:
+        - studentSession: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cardId:
+                  type:
+                    - string
+                    - "null"
+                  minLength: 1
+                  maxLength: 100
+                cardName:
+                  type: string
+                  minLength: 1
+                  maxLength: 160
+                status:
+                  type: string
+                  enum:
+                    - applied
+                    - approved
+                    - rejected
+                creditLimitCents:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+              required:
+                - cardId
+                - cardName
+                - status
+                - creditLimitCents
+              additionalProperties: false
+      responses:
+        "201":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  cardId:
+                    type:
+                      - string
+                      - "null"
+                  cardName:
+                    type: string
+                  status:
+                    type: string
+                    enum:
+                      - applied
+                      - approved
+                      - rejected
+                  creditLimitCents:
+                    type:
+                      - integer
+                      - "null"
+                    minimum: 0
+                  appliedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  statusUpdatedAt:
+                    type: string
+                    format: date-time
+                required:
+                  - id
+                  - cardId
+                  - cardName
+                  - status
+                  - creditLimitCents
+                  - appliedAt
+                  - statusUpdatedAt
+                additionalProperties: false
+        "400":
+          description: Invalid application
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /applications/{id}:
+    patch:
+      operationId: updateApplication
+      summary: Update application status
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - applied
+                    - approved
+                    - rejected
+                creditLimitCents:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+              required:
+                - status
+                - creditLimitCents
+              additionalProperties: false
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  cardId:
+                    type:
+                      - string
+                      - "null"
+                  cardName:
+                    type: string
+                  status:
+                    type: string
+                    enum:
+                      - applied
+                      - approved
+                      - rejected
+                  creditLimitCents:
+                    type:
+                      - integer
+                      - "null"
+                    minimum: 0
+                  appliedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  statusUpdatedAt:
+                    type: string
+                    format: date-time
+                required:
+                  - id
+                  - cardId
+                  - cardName
+                  - status
+                  - creditLimitCents
+                  - appliedAt
+                  - statusUpdatedAt
+                additionalProperties: false
+        "400":
+          description: Invalid update
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "404":
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /issuer-clicks:
+    post:
+      operationId: recordIssuerClick
+      summary: Record an issuer link click
+      security:
+        - studentSession: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cardId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                kind:
+                  type: string
+                  enum:
+                    - preapproval
+                    - apply
+              required:
+                - cardId
+                - kind
+              additionalProperties: false
+      responses:
+        "201":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  cardId:
+                    type: string
+                  kind:
+                    type: string
+                    enum:
+                      - preapproval
+                      - apply
+                  url:
+                    type: string
+                    format: uri
+                  clickedAt:
+                    type: string
+                    format: date-time
+                required:
+                  - id
+                  - cardId
+                  - kind
+                  - url
+                  - clickedAt
+                additionalProperties: false
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "404":
+          description: Card not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: No preapproval link
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+webhooks: {}
