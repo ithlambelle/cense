@@ -2,7 +2,6 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import {
-  extendZodWithOpenApi,
   OpenAPIRegistry,
   OpenApiGeneratorV31,
 } from "@asteasolutions/zod-to-openapi";
@@ -19,16 +18,17 @@ import {
   updateApplicationSchema,
 } from "../src/lib/api/schemas";
 
-extendZodWithOpenApi(z);
-
 const registry = new OpenAPIRegistry();
-const errorSchema = z.strictObject({
+const errorSchema = registry.register("ApiError", z.strictObject({
   error: z.strictObject({
     code: z.string(),
     message: z.string(),
     details: z.unknown().optional(),
   }),
-});
+}));
+const cardContract = registry.register("Card", cardSchema);
+const quizDraftContract = registry.register("QuizDraft", quizDraftSchema);
+const applicationContract = registry.register("Application", applicationSchema);
 
 const json = (schema: z.ZodType) => ({
   "application/json": { schema },
@@ -76,40 +76,40 @@ registry.registerPath({
 });
 registry.registerPath({
   method: "get", path: "/cards", operationId: "listCards", summary: "List curated student cards",
-  responses: { 200: ok(z.strictObject({ cards: z.array(cardSchema) })), 503: failure("Catalog unavailable") },
+  responses: { 200: ok(z.strictObject({ cards: z.array(cardContract) })), 503: failure("Catalog unavailable") },
 });
 registry.registerPath({
   method: "get", path: "/cards/{id}", operationId: "getCard", summary: "Get a card",
   request: { params: z.object({ id: z.string() }) },
-  responses: { 200: ok(cardSchema), 404: failure("Card not found") },
+  responses: { 200: ok(cardContract), 404: failure("Card not found") },
 });
 registry.registerPath({
   method: "get", path: "/quiz", operationId: "getQuiz", summary: "Get saved quiz progress",
   security: [{ studentSession: [] }],
-  responses: { 200: ok(quizDraftSchema), 404: failure("No saved quiz"), ...protectedResponses },
+  responses: { 200: ok(quizDraftContract), 404: failure("No saved quiz"), ...protectedResponses },
 });
 registry.registerPath({
   method: "put", path: "/quiz", operationId: "saveQuiz", summary: "Save partial quiz progress",
   security: [{ studentSession: [] }],
   request: { body: body(saveQuizSchema) },
-  responses: { 200: ok(quizDraftSchema), 400: failure("Invalid quiz answers"), ...protectedResponses },
+  responses: { 200: ok(quizDraftContract), 400: failure("Invalid quiz answers"), ...protectedResponses },
 });
 registry.registerPath({
   method: "get", path: "/applications", operationId: "listApplications", summary: "List application status records",
   security: [{ studentSession: [] }],
-  responses: { 200: ok(z.strictObject({ applications: z.array(applicationSchema) })), ...protectedResponses },
+  responses: { 200: ok(z.strictObject({ applications: z.array(applicationContract) })), ...protectedResponses },
 });
 registry.registerPath({
   method: "post", path: "/applications", operationId: "createApplication", summary: "Record a self-reported application or owned card",
   security: [{ studentSession: [] }],
   request: { body: body(createApplicationSchema) },
-  responses: { 201: ok(applicationSchema), 400: failure("Invalid application"), 409: failure("Already exists"), ...protectedResponses },
+  responses: { 201: ok(applicationContract), 400: failure("Invalid application"), 409: failure("Already exists"), ...protectedResponses },
 });
 registry.registerPath({
   method: "patch", path: "/applications/{id}", operationId: "updateApplication", summary: "Update application status",
   security: [{ studentSession: [] }],
   request: { params: z.object({ id: z.uuid() }), body: body(updateApplicationSchema) },
-  responses: { 200: ok(applicationSchema), 400: failure("Invalid update"), 404: failure("Application not found"), ...protectedResponses },
+  responses: { 200: ok(applicationContract), 400: failure("Invalid update"), 404: failure("Application not found"), ...protectedResponses },
 });
 registry.registerPath({
   method: "post", path: "/issuer-clicks", operationId: "recordIssuerClick", summary: "Record an issuer link click",

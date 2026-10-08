@@ -10,7 +10,130 @@ servers:
   - url: /api/v1
 security: []
 components:
-  schemas: {}
+  schemas:
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details: {}
+          required:
+            - code
+            - message
+          additionalProperties: false
+      required:
+        - error
+      additionalProperties: false
+    Card:
+      type: object
+      properties:
+        id:
+          type: string
+        issuer:
+          type: string
+        name:
+          type: string
+        annualFeeCents:
+          type: integer
+          minimum: 0
+        preapprovalUrl:
+          type:
+            - string
+            - "null"
+          format: uri
+        applyUrl:
+          type: string
+          format: uri
+        referralDisclosure:
+          type:
+            - string
+            - "null"
+      required:
+        - id
+        - issuer
+        - name
+        - annualFeeCents
+        - preapprovalUrl
+        - applyUrl
+        - referralDisclosure
+      additionalProperties: false
+    QuizDraft:
+      type: object
+      properties:
+        answers:
+          type: object
+          properties:
+            age:
+              type: integer
+              minimum: 18
+              maximum: 120
+            annualIncomeCents:
+              type: integer
+              minimum: 0
+            independentIncome:
+              type: boolean
+            monthlySpendingCents:
+              type: integer
+              minimum: 0
+            goal:
+              type: string
+              enum:
+                - build_credit
+                - learn
+                - other
+          additionalProperties: false
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - answers
+        - updatedAt
+      additionalProperties: false
+    Application:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        cardId:
+          type:
+            - string
+            - "null"
+        cardName:
+          type: string
+        status:
+          type: string
+          enum:
+            - applied
+            - approved
+            - rejected
+        creditLimitCents:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+        appliedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        statusUpdatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - cardId
+        - cardName
+        - status
+        - creditLimitCents
+        - appliedAt
+        - statusUpdatedAt
+      additionalProperties: false
   parameters: {}
   securitySchemes:
     studentSession:
@@ -48,23 +171,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
   /auth/email:
     post:
       operationId: sendEmailCode
@@ -101,45 +208,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
         "502":
           description: Email service unavailable
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
   /auth/email/verify:
     post:
       operationId: verifyEmailCode
@@ -180,45 +255,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
         "401":
           description: Wrong or expired code
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
   /auth/google:
     get:
       operationId: startGoogleSignIn
@@ -237,23 +280,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
   /auth/callback:
     get:
       operationId: finishGoogleSignIn
@@ -277,23 +304,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
   /auth/logout:
     post:
       operationId: logOut
@@ -318,23 +329,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
   /me:
     get:
       operationId: getMe
@@ -366,23 +361,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
   /cards:
     get:
       operationId: listCards
@@ -398,38 +377,7 @@ paths:
                   cards:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                        issuer:
-                          type: string
-                        name:
-                          type: string
-                        annualFeeCents:
-                          type: integer
-                          minimum: 0
-                        preapprovalUrl:
-                          type:
-                            - string
-                            - "null"
-                          format: uri
-                        applyUrl:
-                          type: string
-                          format: uri
-                        referralDisclosure:
-                          type:
-                            - string
-                            - "null"
-                      required:
-                        - id
-                        - issuer
-                        - name
-                        - annualFeeCents
-                        - preapprovalUrl
-                        - applyUrl
-                        - referralDisclosure
-                      additionalProperties: false
+                      $ref: "#/components/schemas/Card"
                 required:
                   - cards
                 additionalProperties: false
@@ -438,23 +386,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
   /cards/{id}:
     get:
       operationId: getCard
@@ -471,60 +403,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  issuer:
-                    type: string
-                  name:
-                    type: string
-                  annualFeeCents:
-                    type: integer
-                    minimum: 0
-                  preapprovalUrl:
-                    type:
-                      - string
-                      - "null"
-                    format: uri
-                  applyUrl:
-                    type: string
-                    format: uri
-                  referralDisclosure:
-                    type:
-                      - string
-                      - "null"
-                required:
-                  - id
-                  - issuer
-                  - name
-                  - annualFeeCents
-                  - preapprovalUrl
-                  - applyUrl
-                  - referralDisclosure
-                additionalProperties: false
+                $ref: "#/components/schemas/Card"
         "404":
           description: Card not found
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
   /quiz:
     get:
       operationId: getQuiz
@@ -537,103 +422,25 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  answers:
-                    type: object
-                    properties:
-                      age:
-                        type: integer
-                        minimum: 18
-                        maximum: 120
-                      annualIncomeCents:
-                        type: integer
-                        minimum: 0
-                      independentIncome:
-                        type: boolean
-                      monthlySpendingCents:
-                        type: integer
-                        minimum: 0
-                      goal:
-                        type: string
-                        enum:
-                          - build_credit
-                          - learn
-                          - other
-                    additionalProperties: false
-                  updatedAt:
-                    type: string
-                    format: date-time
-                required:
-                  - answers
-                  - updatedAt
-                additionalProperties: false
+                $ref: "#/components/schemas/QuizDraft"
         "401":
           description: Sign-in required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
         "404":
           description: No saved quiz
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
         "503":
           description: Data unavailable
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
     put:
       operationId: saveQuiz
       summary: Save partial quiz progress
@@ -676,103 +483,25 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  answers:
-                    type: object
-                    properties:
-                      age:
-                        type: integer
-                        minimum: 18
-                        maximum: 120
-                      annualIncomeCents:
-                        type: integer
-                        minimum: 0
-                      independentIncome:
-                        type: boolean
-                      monthlySpendingCents:
-                        type: integer
-                        minimum: 0
-                      goal:
-                        type: string
-                        enum:
-                          - build_credit
-                          - learn
-                          - other
-                    additionalProperties: false
-                  updatedAt:
-                    type: string
-                    format: date-time
-                required:
-                  - answers
-                  - updatedAt
-                additionalProperties: false
+                $ref: "#/components/schemas/QuizDraft"
         "400":
           description: Invalid quiz answers
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
         "401":
           description: Sign-in required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
         "503":
           description: Data unavailable
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
   /applications:
     get:
       operationId: listApplications
@@ -790,45 +519,7 @@ paths:
                   applications:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                          format: uuid
-                        cardId:
-                          type:
-                            - string
-                            - "null"
-                        cardName:
-                          type: string
-                        status:
-                          type: string
-                          enum:
-                            - applied
-                            - approved
-                            - rejected
-                        creditLimitCents:
-                          type:
-                            - integer
-                            - "null"
-                          minimum: 0
-                        appliedAt:
-                          type:
-                            - string
-                            - "null"
-                          format: date-time
-                        statusUpdatedAt:
-                          type: string
-                          format: date-time
-                      required:
-                        - id
-                        - cardId
-                        - cardName
-                        - status
-                        - creditLimitCents
-                        - appliedAt
-                        - statusUpdatedAt
-                      additionalProperties: false
+                      $ref: "#/components/schemas/Application"
                 required:
                   - applications
                 additionalProperties: false
@@ -837,45 +528,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
         "503":
           description: Data unavailable
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
     post:
       operationId: createApplication
       summary: Record a self-reported application or owned card
@@ -920,133 +579,31 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    format: uuid
-                  cardId:
-                    type:
-                      - string
-                      - "null"
-                  cardName:
-                    type: string
-                  status:
-                    type: string
-                    enum:
-                      - applied
-                      - approved
-                      - rejected
-                  creditLimitCents:
-                    type:
-                      - integer
-                      - "null"
-                    minimum: 0
-                  appliedAt:
-                    type:
-                      - string
-                      - "null"
-                    format: date-time
-                  statusUpdatedAt:
-                    type: string
-                    format: date-time
-                required:
-                  - id
-                  - cardId
-                  - cardName
-                  - status
-                  - creditLimitCents
-                  - appliedAt
-                  - statusUpdatedAt
-                additionalProperties: false
+                $ref: "#/components/schemas/Application"
         "400":
           description: Invalid application
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
         "401":
           description: Sign-in required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
         "409":
           description: Already exists
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
         "503":
           description: Data unavailable
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
   /applications/{id}:
     patch:
       operationId: updateApplication
@@ -1087,133 +644,31 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    format: uuid
-                  cardId:
-                    type:
-                      - string
-                      - "null"
-                  cardName:
-                    type: string
-                  status:
-                    type: string
-                    enum:
-                      - applied
-                      - approved
-                      - rejected
-                  creditLimitCents:
-                    type:
-                      - integer
-                      - "null"
-                    minimum: 0
-                  appliedAt:
-                    type:
-                      - string
-                      - "null"
-                    format: date-time
-                  statusUpdatedAt:
-                    type: string
-                    format: date-time
-                required:
-                  - id
-                  - cardId
-                  - cardName
-                  - status
-                  - creditLimitCents
-                  - appliedAt
-                  - statusUpdatedAt
-                additionalProperties: false
+                $ref: "#/components/schemas/Application"
         "400":
           description: Invalid update
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
         "401":
           description: Sign-in required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
         "404":
           description: Application not found
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
         "503":
           description: Data unavailable
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
   /issuer-clicks:
     post:
       operationId: recordIssuerClick
@@ -1275,109 +730,29 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
         "401":
           description: Sign-in required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
         "404":
           description: Card not found
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
         "409":
           description: No preapproval link
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
         "503":
           description: Data unavailable
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
+                $ref: "#/components/schemas/ApiError"
 webhooks: {}
