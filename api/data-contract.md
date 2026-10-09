@@ -17,9 +17,9 @@ queries as that student, never with a service role key.
 
 `created_at`, `updated_at`, `clicked_at`, and `applied_at` are UTC timestamptz
 values. IDs are random UUIDs. The database should cascade student-owned records
-on account deletion. The current `card_applications` migration enforces one row
-per user and accepts a credit limit only when approved. Whether to allow multiple
-card applications needs a team decision before changing that database constraint.
+on account deletion. MVP1 keeps one card application record per user. The current
+`card_applications` migration enforces this limit and accepts a credit limit only
+when approved.
 
 The next migration can add card setup and reminders. Their API is not required
 for this first deployed vertical slice.
