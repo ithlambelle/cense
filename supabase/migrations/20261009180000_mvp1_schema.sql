@@ -120,3 +120,13 @@ create policy "Students can read their own clicks"
 create policy "Students can add their own clicks"
   on public.issuer_clicks for insert to authenticated
   with check ((select auth.uid()) = student_id);
+
+-- credit limit in whole cents, matching the API
+alter table public.card_applications drop column credit_limit;
+
+alter table public.card_applications
+  add column credit_limit_cents bigint check (credit_limit_cents >= 0);
+
+alter table public.card_applications
+  add constraint credit_limit_only_if_approved
+    check (status = 'approved' or credit_limit_cents is null);
