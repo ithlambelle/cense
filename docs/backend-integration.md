@@ -42,5 +42,6 @@ Only the dev project should be used by local and preview environments.
   Supabase configuration, and an accessible Vercel deployment.
 
 The source schemas generate [`api/openapi.yaml`](../api/openapi.yaml) with
-`cd web && npm run openapi:generate`. CI checks that the generated contract is
-committed.
+`cd web && npm run openapi:generate`. The spec generates
+[`api/openapi.d.ts`](../api/openapi.d.ts) with `npm run openapi:types` for typed
+API consumers. CI checks that both generated files are committed.
