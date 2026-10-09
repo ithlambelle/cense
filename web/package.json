@@ -11,7 +11,9 @@
     "test": "vitest run --passWithNoTests",
     "openapi:generate": "tsx scripts/generate-openapi.ts",
     "openapi:check": "npm run openapi:generate && git diff --exit-code -- ../api/openapi.yaml",
-    "check": "npm run lint && npm run typecheck && npm run test && npm run openapi:check && npm run build"
+    "openapi:types": "openapi-typescript ../api/openapi.yaml -o ../api/openapi.d.ts",
+    "openapi:types:check": "npm run openapi:types && git diff --exit-code -- ../api/openapi.d.ts",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run openapi:check && npm run openapi:types:check && npm run build"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^9.1.0",
