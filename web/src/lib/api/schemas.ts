@@ -3,6 +3,24 @@ import { z } from "zod";
 
 extendZodWithOpenApi(z);
 
+const issuerEvidenceSchema = z.strictObject({
+  sourceUrl: z.url(),
+  verifiedAt: z.iso.date(),
+});
+
+const eligibilityEvidenceSchema = z.strictObject({
+  historyNeeded: issuerEvidenceSchema,
+  studentsOnly: issuerEvidenceSchema,
+  secured: issuerEvidenceSchema,
+  depositMinCents: issuerEvidenceSchema,
+  depositMaxCents: issuerEvidenceSchema,
+  okForRebuilding: issuerEvidenceSchema,
+  preapprovalUrl: issuerEvidenceSchema,
+  runsCreditCheck: issuerEvidenceSchema,
+  openToNewApplicants: issuerEvidenceSchema,
+  taxIdNote: issuerEvidenceSchema,
+});
+
 export const cardSchema = z.strictObject({
   id: z.string(),
   issuer: z.string(),
@@ -11,12 +29,25 @@ export const cardSchema = z.strictObject({
   preapprovalUrl: z.url().nullable(),
   applyUrl: z.url(),
   referralDisclosure: z.string().nullable(),
+  historyNeeded: z.enum(["none", "limited", "established", "strong"]),
+  studentsOnly: z.boolean(),
+  secured: z.boolean(),
+  depositMinCents: z.int().nonnegative(),
+  depositMaxCents: z.int().nonnegative().nullable(),
+  okForRebuilding: z.boolean(),
+  runsCreditCheck: z.boolean(),
+  openToNewApplicants: z.boolean(),
+  taxIdNote: z.string().nullable(),
+  eligibilityEvidence: eligibilityEvidenceSchema,
 });
 
 export const quizAnswersSchema = z.strictObject({
-  age: z.int().min(18).max(120).optional(),
-  annualIncomeCents: z.int().nonnegative().optional(),
-  independentIncome: z.boolean().optional(),
+  under21: z.boolean().optional(),
+  incomeBand: z.enum(["none", "savings_only", "under_5k", "5k_to_15k", "over_15k"]).optional(),
+  student: z.boolean().optional(),
+  standing: z.enum(["none", "limited", "established", "damaged"]).optional(),
+  recentDenial: z.boolean().optional(),
+  canDeposit: z.boolean().optional(),
   monthlySpendingCents: z.int().nonnegative().optional(),
   goal: z.enum(["build_credit", "learn", "other"]).optional(),
 });

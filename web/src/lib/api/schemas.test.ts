@@ -10,11 +10,22 @@ import {
 
 describe("student API validation", () => {
   it("allows partial quiz progress", () => {
-    expect(saveQuizSchema.safeParse({ answers: { age: 19 } }).success).toBe(true);
+    expect(saveQuizSchema.safeParse({ answers: { under21: true } }).success).toBe(true);
+    expect(saveQuizSchema.safeParse({
+      answers: {
+        under21: true,
+        incomeBand: "savings_only",
+        student: true,
+        standing: "limited",
+        recentDenial: false,
+        canDeposit: true,
+      },
+    }).success).toBe(true);
   });
 
   it("rejects unrecognized or invalid quiz fields", () => {
-    expect(saveQuizSchema.safeParse({ answers: { age: 17 } }).success).toBe(false);
+    expect(saveQuizSchema.safeParse({ answers: { age: 19 } }).success).toBe(false);
+    expect(saveQuizSchema.safeParse({ answers: { incomeBand: "unknown" } }).success).toBe(false);
     expect(saveQuizSchema.safeParse({ answers: { socialSecurityNumber: "123" } }).success).toBe(false);
   });
 
