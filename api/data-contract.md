@@ -13,13 +13,15 @@ queries as that student, never with a service role key.
 | `quiz_drafts` | `student_id` UUID primary key, `answers` JSONB, `updated_at` | One resumable draft per student. Partial answers are allowed. |
 | `recommendations` | `id` UUID primary key, `student_id` UUID, `card_id` text, `fit_tier` text, `reason` text, `answer_snapshot` JSONB, `result_snapshot` JSONB, `created_at` | Store the exact server-generated result and inputs shown to the student. Never let the client write a recommendation directly. |
 | `issuer_clicks` | `id` UUID primary key, `student_id` UUID, `card_id` text, `kind` text, `clicked_at` | Append one row for each preapproval or apply click. A click is not an application. |
-| `card_applications` | `id` UUID primary key, `user_id` UUID, `card_id` text nullable, `card_name` text nullable, `source` text, `status` text, `credit_limit` numeric(10,2) nullable, `applied_at` timestamp nullable, `updated_at` timestamp, `created_at` | The deployed US-05 migration allows one record per user. Status is `applied`, `approved`, or `rejected`. The API converts decimal dollars to whole cents at its boundary. |
+| `card_applications` | `id` UUID primary key, `student_id` UUID, `card_id` text nullable, `card_name` text nullable, `source` text, `status` text, `credit_limit_cents` bigint nullable, `applied_at` timestamp nullable, `updated_at` timestamp, `created_at` | The second MVP1 migration allows multiple records per student. The MVP1 API limits each student to one record by product decision. Status is `applied`, `approved`, or `rejected`. |
 
 `created_at`, `updated_at`, `clicked_at`, and `applied_at` are UTC timestamptz
 values. IDs are random UUIDs. The database should cascade student-owned records
-on account deletion. MVP1 keeps one card application record per user. The current
-`card_applications` migration enforces this limit and accepts a credit limit only
-when approved.
+on account deletion. MVP1 keeps one card application record per user. The API
+checks for an existing record before creating one. The merged database migration
+allows multiple records per student, so the database owner still needs to enforce
+this limit in SQL if it must hold across concurrent writes and direct clients.
+Only an approved card may have a credit limit.
 
 The next migration can add card setup and reminders. Their API is not required
 for this first deployed vertical slice.
