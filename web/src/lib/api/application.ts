@@ -5,14 +5,10 @@ export type ApplicationRow = {
   card_id: string | null;
   card_name: string | null;
   status: "applied" | "approved" | "rejected";
-  credit_limit: number | null;
+  credit_limit_cents: number | null;
   applied_at: string | null;
   updated_at: string;
 };
-
-export function centsToDatabaseAmount(cents: number | null): number | null {
-  return cents === null ? null : cents / 100;
-}
 
 export function applicationFromRow(row: ApplicationRow) {
   return applicationSchema.parse({
@@ -20,7 +16,7 @@ export function applicationFromRow(row: ApplicationRow) {
     cardId: row.card_id,
     cardName: row.card_name ?? row.card_id,
     status: row.status,
-    creditLimitCents: row.credit_limit === null ? null : Math.round(row.credit_limit * 100),
+    creditLimitCents: row.credit_limit_cents,
     appliedAt: row.applied_at,
     statusUpdatedAt: row.updated_at,
   });

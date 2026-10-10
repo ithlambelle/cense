@@ -1,4 +1,4 @@
-import { applicationFromRow, centsToDatabaseAmount, type ApplicationRow } from "@/lib/api/application";
+import { applicationFromRow, type ApplicationRow } from "@/lib/api/application";
 import { authenticatedStudent } from "@/lib/api/auth";
 import { databaseError } from "@/lib/api/database";
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
@@ -21,11 +21,11 @@ export async function PATCH(
     .from("card_applications")
     .update({
       status: parsed.data.status,
-      credit_limit: centsToDatabaseAmount(parsed.data.creditLimitCents),
+      credit_limit_cents: parsed.data.creditLimitCents,
     })
     .eq("id", id)
-    .eq("user_id", student.studentId)
-    .select("id, card_id, card_name, status, credit_limit, applied_at, updated_at")
+    .eq("student_id", student.studentId)
+    .select("id, card_id, card_name, status, credit_limit_cents, applied_at, updated_at")
     .maybeSingle();
   if (error) return databaseError("application_update", error);
   if (!data) return apiError(404, "not_found", "Application not found.");
