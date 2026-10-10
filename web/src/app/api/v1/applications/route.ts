@@ -30,16 +30,6 @@ export async function POST(request: Request): Promise<Response> {
   const parsed = createApplicationSchema.safeParse(await parseJson(request));
   if (!parsed.success) return validationError(parsed.error);
 
-  const { data: existing, error: existingError } = await student.supabase
-    .from("card_applications")
-    .select("id")
-    .eq("student_id", student.studentId)
-    .limit(1);
-  if (existingError) return databaseError("application_check_existing", existingError);
-  if (existing?.length) {
-    return apiError(409, "already_exists", "This account already has a card application record.");
-  }
-
   const now = new Date().toISOString();
   const { cardId, cardName, status, creditLimitCents } = parsed.data;
   const { data, error } = await student.supabase
@@ -57,7 +47,7 @@ export async function POST(request: Request): Promise<Response> {
     .single();
 
   if (error?.code === "23505") {
-    return apiError(409, "already_exists", "This account already has a card application record.");
+    return apiError(409, "already_exists", "An active record for this card already exists.");
   }
   if (error) return databaseError("application_create", error);
 
