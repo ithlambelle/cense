@@ -1,5 +1,5 @@
 export function safeReturnPath(value: string | null): string {
-  if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) {
+  if (!value || !value.startsWith("/") || value.startsWith("//") || /[\\\t\n\r]/.test(value)) {
     return "/";
   }
 

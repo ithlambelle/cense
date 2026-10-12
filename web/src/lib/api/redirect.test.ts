@@ -7,7 +7,10 @@ describe("safeReturnPath", () => {
     expect(safeReturnPath("/quiz?step=2")).toBe("/quiz?step=2");
   });
 
-  it.each([null, "https://example.com", "//example.com", "/\\example.com"])(
+  it.each([
+    null, "https://example.com", "//example.com", "/\\example.com",
+    "/\t/example.com", "/\n/example.com", "/\r/example.com",
+  ])(
     "rejects a nonlocal redirect: %s",
     (value) => expect(safeReturnPath(value)).toBe("/"),
   );
