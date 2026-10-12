@@ -2,7 +2,7 @@ import { applicationFromRow, type ApplicationRow } from "@/lib/api/application";
 import { authenticatedStudent } from "@/lib/api/auth";
 import { databaseError } from "@/lib/api/database";
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
-import { updateApplicationSchema } from "@/lib/api/schemas";
+import { applicationIdSchema, updateApplicationSchema } from "@/lib/api/schemas";
 
 export async function PATCH(
   request: Request,
@@ -12,7 +12,9 @@ export async function PATCH(
   if (!student) return apiError(401, "unauthorized", "Sign in to continue.");
 
   const { id } = await context.params;
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return apiError(400, "invalid_request", "Invalid application ID.");
+  if (!applicationIdSchema.safeParse(id).success) {
+    return apiError(400, "invalid_request", "Invalid application ID.");
+  }
 
   const parsed = updateApplicationSchema.safeParse(await parseJson(request));
   if (!parsed.success) return validationError(parsed.error);

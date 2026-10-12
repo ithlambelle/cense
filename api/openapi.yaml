@@ -149,7 +149,9 @@ components:
             - stretch
             - not_yet
         reason:
-          type: string
+          type:
+            - string
+            - "null"
         createdAt:
           type: string
           format: date-time

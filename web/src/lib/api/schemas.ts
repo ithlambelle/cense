@@ -29,6 +29,7 @@ export const quizDraftSchema = z.strictObject({
 export const saveQuizSchema = z.strictObject({ answers: quizAnswersSchema });
 
 export const applicationStatusSchema = z.enum(["applied", "approved", "rejected"]);
+export const applicationIdSchema = z.uuid();
 
 export const applicationSchema = z.strictObject({
   id: z.uuid(),
@@ -67,6 +68,6 @@ export const recommendationSchema = z.strictObject({
   id: z.uuid(),
   cardId: z.string(),
   fitTier: z.enum(["likely_fit", "stretch", "not_yet"]),
-  reason: z.string(),
+  reason: z.string().nullable(),
   createdAt: z.iso.datetime({ offset: true }),
 });
