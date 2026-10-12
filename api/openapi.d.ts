@@ -297,7 +297,7 @@ export interface components {
             cardId: string;
             /** @enum {string} */
             fitTier: "likely_fit" | "stretch" | "not_yet";
-            reason: string;
+            reason: string | null;
             /** Format: date-time */
             createdAt: string;
         };
