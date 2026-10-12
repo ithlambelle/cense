@@ -29,6 +29,9 @@ export async function PATCH(
     .eq("student_id", student.studentId)
     .select("id, card_id, card_name, status, credit_limit_cents, applied_at, updated_at")
     .maybeSingle();
+  if (error?.code === "23505") {
+    return apiError(409, "already_exists", "An active record for this card already exists.");
+  }
   if (error) return databaseError("application_update", error);
   if (!data) return apiError(404, "not_found", "Application not found.");
 
