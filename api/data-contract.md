@@ -13,21 +13,21 @@ queries as that student, never with a service role key.
 | `quiz_drafts` | `student_id` UUID primary key, `answers` JSONB, `updated_at` | One resumable draft per student. Partial answers are allowed. |
 | `recommendations` | `id` UUID primary key, `student_id` UUID, `card_id` text, `fit_tier` text, `reason` text, `answer_snapshot` JSONB, `result_snapshot` JSONB, `created_at` | Store the exact server-generated result and inputs shown to the student. Never let the client write a recommendation directly. |
 | `issuer_clicks` | `id` UUID primary key, `student_id` UUID, `card_id` text, `kind` text, `clicked_at` | Append one row for each preapproval or apply click. A click is not an application. |
-| `applications` | `id` UUID primary key, `student_id` UUID, `card_id` text nullable, `card_name` text, `status` text, `credit_limit_cents` bigint nullable, `applied_at` timestamp nullable, `status_updated_at` timestamp, `created_at` | One record per student and card. Status is `applied`, `approved`, or `rejected`. An already-owned card starts as `approved` without `applied_at`. |
+| `card_applications` | `id` UUID primary key, `user_id` UUID, `card_id` text nullable, `card_name` text nullable, `source` text, `status` text, `credit_limit` numeric(10,2) nullable, `applied_at` timestamp nullable, `updated_at` timestamp, `created_at` | The deployed US-05 migration allows one record per user. Status is `applied`, `approved`, or `rejected`. The API converts decimal dollars to whole cents at its boundary. |
 
-`created_at`, `updated_at`, `clicked_at`, `applied_at`, and
-`status_updated_at` are UTC timestamptz values. IDs are random UUIDs. The
-database should cascade student-owned records on account deletion. The database
-owner should add uniqueness for `(student_id, card_id)` when `card_id` is present
-and ensure approved status is the only status that accepts a credit limit.
+`created_at`, `updated_at`, `clicked_at`, and `applied_at` are UTC timestamptz
+values. IDs are random UUIDs. The database should cascade student-owned records
+on account deletion. MVP1 keeps one card application record per user. The current
+`card_applications` migration enforces this limit and accepts a credit limit only
+when approved.
 
 The next migration can add card setup and reminders. Their API is not required
 for this first deployed vertical slice.
 
 ## Authorization and response rules
 
-- Enable row level security on every student table. Grant access only where
-  `student_id = auth.uid()` for the current signed-in student.
+- Enable row level security on every student table. Grant access only where its
+  owner column equals `auth.uid()` for the current signed-in student.
 - Every protected route verifies the Supabase user before querying. Return
   `401` for an absent or invalid session and `404` for another user's record.
 - The API never uses the service role key in student routes. Scheduled jobs may
