@@ -111,7 +111,7 @@ registry.registerPath({
   method: "patch", path: "/applications/{id}", operationId: "updateApplication", summary: "Update application status",
   security: [{ studentSession: [] }],
   request: { params: z.object({ id: z.uuid() }), body: body(updateApplicationSchema) },
-  responses: { 200: ok(applicationContract), 400: failure("Invalid update"), 404: failure("Application not found"), ...protectedResponses },
+  responses: { 200: ok(applicationContract), 400: failure("Invalid update"), 404: failure("Application not found"), 409: failure("Already exists"), ...protectedResponses },
 });
 registry.registerPath({
   method: "post", path: "/issuer-clicks", operationId: "recordIssuerClick", summary: "Record an issuer link click",

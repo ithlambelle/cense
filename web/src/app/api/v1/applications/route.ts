@@ -1,10 +1,10 @@
-import { applicationFromRow, centsToDatabaseAmount, type ApplicationRow } from "@/lib/api/application";
+import { applicationFromRow, type ApplicationRow } from "@/lib/api/application";
 import { authenticatedStudent } from "@/lib/api/auth";
 import { databaseError } from "@/lib/api/database";
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { createApplicationSchema } from "@/lib/api/schemas";
 
-const fields = "id, card_id, card_name, status, credit_limit, applied_at, updated_at";
+const fields = "id, card_id, card_name, status, credit_limit_cents, applied_at, updated_at";
 
 export async function GET(): Promise<Response> {
   const student = await authenticatedStudent();
@@ -13,7 +13,7 @@ export async function GET(): Promise<Response> {
   const { data, error } = await student.supabase
     .from("card_applications")
     .select(fields)
-    .eq("user_id", student.studentId)
+    .eq("student_id", student.studentId)
     .order("updated_at", { ascending: false });
   if (error) return databaseError("applications_list", error);
 
@@ -35,19 +35,19 @@ export async function POST(request: Request): Promise<Response> {
   const { data, error } = await student.supabase
     .from("card_applications")
     .insert({
-      user_id: student.studentId,
+      student_id: student.studentId,
       card_id: cardId,
       card_name: cardName,
       source: status === "approved" ? "added" : "application",
       status,
-      credit_limit: centsToDatabaseAmount(creditLimitCents),
+      credit_limit_cents: creditLimitCents,
       applied_at: status === "applied" ? now : null,
     })
     .select(fields)
     .single();
 
   if (error?.code === "23505") {
-    return apiError(409, "already_exists", "This account already has a card application record.");
+    return apiError(409, "already_exists", "An active record for this card already exists.");
   }
   if (error) return databaseError("application_create", error);
 
