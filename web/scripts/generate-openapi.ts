@@ -18,6 +18,12 @@ import {
   saveQuizSchema,
   updateApplicationSchema,
 } from "../src/lib/api/schemas";
+import {
+  passwordCredentialsSchema,
+  passwordResetRequestSchema,
+  passwordSignInSchema,
+  passwordUpdateSchema,
+} from "../src/lib/api/password";
 
 const registry = new OpenAPIRegistry();
 const errorSchema = registry.register("ApiError", z.strictObject({
@@ -56,6 +62,27 @@ registry.registerPath({
   method: "post", path: "/auth/email/verify", operationId: "verifyEmailCode", summary: "Verify an email code and create a session",
   request: { body: body(z.strictObject({ email: z.email(), code: z.string().regex(/^\d{6}$/) })) },
   responses: { 200: ok(z.strictObject({ status: z.literal("signed_in") })), 400: failure("Invalid request"), 401: failure("Wrong or expired code") },
+});
+registry.registerPath({
+  method: "post", path: "/auth/password/signup", operationId: "signUpWithPassword", summary: "Create an optional password account",
+  request: { body: body(passwordCredentialsSchema) },
+  responses: { 200: ok(z.strictObject({ status: z.enum(["signed_in", "check_email"]) })), 400: failure("Invalid request"), 502: failure("Sign-up unavailable") },
+});
+registry.registerPath({
+  method: "post", path: "/auth/password/signin", operationId: "signInWithPassword", summary: "Sign in with an existing password",
+  request: { body: body(passwordSignInSchema) },
+  responses: { 200: ok(z.strictObject({ status: z.literal("signed_in") })), 400: failure("Invalid request"), 401: failure("Incorrect credentials") },
+});
+registry.registerPath({
+  method: "post", path: "/auth/password/reset", operationId: "requestPasswordReset", summary: "Send a password reset email",
+  request: { body: body(passwordResetRequestSchema) },
+  responses: { 200: ok(z.strictObject({ status: z.literal("check_email") })), 400: failure("Invalid request"), 502: failure("Email service unavailable") },
+});
+registry.registerPath({
+  method: "post", path: "/auth/password/reset/confirm", operationId: "confirmPasswordReset", summary: "Set a password with an authenticated reset session",
+  security: [{ studentSession: [] }],
+  request: { body: body(passwordUpdateSchema) },
+  responses: { 200: ok(z.strictObject({ status: z.literal("password_updated") })), 400: failure("Invalid request"), 401: failure("Reset session required"), 502: failure("Password update failed") },
 });
 registry.registerPath({
   method: "get", path: "/auth/google", operationId: "startGoogleSignIn", summary: "Start Google sign-in",
