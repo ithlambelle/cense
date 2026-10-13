@@ -9,7 +9,9 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "check": "npm run lint && npm run typecheck && npm run test && npm run build"
+    "openapi:generate": "tsx scripts/generate-openapi.ts",
+    "openapi:check": "npm run openapi:generate && git diff --exit-code -- ../api/openapi.yaml",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run openapi:check && npm run build"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^9.1.0",
@@ -38,6 +40,7 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.3",
+    "yaml": "^2.9.1"
   }
 }
