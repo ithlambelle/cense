@@ -2,27 +2,11 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
+  --font-sans: var(--font-body);
+  --font-heading: var(--font-sora);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -48,78 +32,79 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-:root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+/* Brand tokens. Colors mirror tokens.json at the repo root; tokens.test.ts fails on drift. */
+@theme {
+  --color-navy: #0a1045;
+  --color-indigo-black: #0f0b2e;
+  --color-violet: #9740c5;
+  --color-violet-deep: #792ca2;
+  --color-white: #ffffff;
+  --color-off-white: #eceaf6;
+  --color-coral: #ff6370;
+  --color-green: #61e294;
+  --color-amber: #fdc03d;
+  --color-track: #3d3780;
+  --color-option-selected: #2a1f5e;
+
+  /* States the Figma file does not draw, derived from the tokens above. */
+  --color-violet-hover: color-mix(in oklab, var(--color-violet), var(--color-white) 12%);
+  --color-violet-pressed: color-mix(in oklab, var(--color-violet), var(--color-indigo-black) 18%);
+  --color-violet-disabled: color-mix(in srgb, var(--color-violet) 30%, transparent);
+  --color-glow: color-mix(in srgb, var(--color-off-white) 70%, transparent);
+
+  --radius-pill: 62px;
+  --radius-card: 22px;
+  --radius-input: 20px;
+  --radius-segment: 2px;
+
+  --text-title: 1.75rem;
+  --text-title--line-height: 2.25rem;
+  --text-card-name: 1.25rem;
+  --text-card-name--line-height: 1.75rem;
+  --text-section: 1rem;
+  --text-section--line-height: 1.375rem;
+  --text-button: 1.125rem;
+  --text-button--line-height: 1.75rem;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5rem;
+  --text-label: 0.875rem;
+  --text-label--line-height: 1.25rem;
+  --text-legal: 0.8125rem;
+  --text-legal--line-height: 1.25rem;
+
+  --shadow-glow-form: -5px -3px 8px 3px var(--color-glow), 5px 3px 8px 3px var(--color-violet);
+  --shadow-glow-result: -5px -3px 10px 3px var(--color-glow), 5px 3px 8px 4px var(--color-violet-deep);
+  --shadow-glow-option: 0 0 10px 3px var(--color-glow);
+
+  --container-phone: 390px;
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+/* One theme: the navy night field. shadcn components read these names. */
+:root {
+  --background: var(--color-navy);
+  --foreground: var(--color-white);
+  --card: var(--color-navy);
+  --card-foreground: var(--color-white);
+  --popover: var(--color-navy);
+  --popover-foreground: var(--color-white);
+  --primary: var(--color-violet);
+  --primary-foreground: var(--color-white);
+  --secondary: var(--color-white);
+  --secondary-foreground: var(--color-indigo-black);
+  --muted: var(--color-option-selected);
+  --muted-foreground: var(--color-off-white);
+  --accent: var(--color-option-selected);
+  --accent-foreground: var(--color-white);
+  --destructive: var(--color-coral);
+  --border: var(--color-track);
+  --input: var(--color-off-white);
+  --ring: var(--color-off-white);
+  --radius: 0.625rem;
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring;
   }
   body {
     @apply bg-background text-foreground;
