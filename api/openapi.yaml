@@ -53,6 +53,180 @@ components:
           type:
             - string
             - "null"
+        historyNeeded:
+          type: string
+          enum:
+            - none
+            - limited
+            - established
+            - strong
+        studentsOnly:
+          type: boolean
+        secured:
+          type: boolean
+        depositMinCents:
+          type: integer
+          minimum: 0
+        depositMaxCents:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+        okForRebuilding:
+          type: boolean
+        runsCreditCheck:
+          type: boolean
+        openToNewApplicants:
+          type: boolean
+        taxIdNote:
+          type:
+            - string
+            - "null"
+        eligibilityEvidence:
+          type: object
+          properties:
+            historyNeeded:
+              type: object
+              properties:
+                sourceUrl:
+                  type: string
+                  format: uri
+                verifiedAt:
+                  type: string
+                  format: date
+              required:
+                - sourceUrl
+                - verifiedAt
+              additionalProperties: false
+            studentsOnly:
+              type: object
+              properties:
+                sourceUrl:
+                  type: string
+                  format: uri
+                verifiedAt:
+                  type: string
+                  format: date
+              required:
+                - sourceUrl
+                - verifiedAt
+              additionalProperties: false
+            secured:
+              type: object
+              properties:
+                sourceUrl:
+                  type: string
+                  format: uri
+                verifiedAt:
+                  type: string
+                  format: date
+              required:
+                - sourceUrl
+                - verifiedAt
+              additionalProperties: false
+            depositMinCents:
+              type: object
+              properties:
+                sourceUrl:
+                  type: string
+                  format: uri
+                verifiedAt:
+                  type: string
+                  format: date
+              required:
+                - sourceUrl
+                - verifiedAt
+              additionalProperties: false
+            depositMaxCents:
+              type: object
+              properties:
+                sourceUrl:
+                  type: string
+                  format: uri
+                verifiedAt:
+                  type: string
+                  format: date
+              required:
+                - sourceUrl
+                - verifiedAt
+              additionalProperties: false
+            okForRebuilding:
+              type: object
+              properties:
+                sourceUrl:
+                  type: string
+                  format: uri
+                verifiedAt:
+                  type: string
+                  format: date
+              required:
+                - sourceUrl
+                - verifiedAt
+              additionalProperties: false
+            preapprovalUrl:
+              type: object
+              properties:
+                sourceUrl:
+                  type: string
+                  format: uri
+                verifiedAt:
+                  type: string
+                  format: date
+              required:
+                - sourceUrl
+                - verifiedAt
+              additionalProperties: false
+            runsCreditCheck:
+              type: object
+              properties:
+                sourceUrl:
+                  type: string
+                  format: uri
+                verifiedAt:
+                  type: string
+                  format: date
+              required:
+                - sourceUrl
+                - verifiedAt
+              additionalProperties: false
+            openToNewApplicants:
+              type: object
+              properties:
+                sourceUrl:
+                  type: string
+                  format: uri
+                verifiedAt:
+                  type: string
+                  format: date
+              required:
+                - sourceUrl
+                - verifiedAt
+              additionalProperties: false
+            taxIdNote:
+              type: object
+              properties:
+                sourceUrl:
+                  type: string
+                  format: uri
+                verifiedAt:
+                  type: string
+                  format: date
+              required:
+                - sourceUrl
+                - verifiedAt
+              additionalProperties: false
+          required:
+            - historyNeeded
+            - studentsOnly
+            - secured
+            - depositMinCents
+            - depositMaxCents
+            - okForRebuilding
+            - preapprovalUrl
+            - runsCreditCheck
+            - openToNewApplicants
+            - taxIdNote
+          additionalProperties: false
       required:
         - id
         - issuer
@@ -61,6 +235,16 @@ components:
         - preapprovalUrl
         - applyUrl
         - referralDisclosure
+        - historyNeeded
+        - studentsOnly
+        - secured
+        - depositMinCents
+        - depositMaxCents
+        - okForRebuilding
+        - runsCreditCheck
+        - openToNewApplicants
+        - taxIdNote
+        - eligibilityEvidence
       additionalProperties: false
     QuizDraft:
       type: object
@@ -68,14 +252,28 @@ components:
         answers:
           type: object
           properties:
-            age:
-              type: integer
-              minimum: 18
-              maximum: 120
-            annualIncomeCents:
-              type: integer
-              minimum: 0
-            independentIncome:
+            under21:
+              type: boolean
+            incomeBand:
+              type: string
+              enum:
+                - none
+                - savings_only
+                - under_5k
+                - 5k_to_15k
+                - over_15k
+            student:
+              type: boolean
+            standing:
+              type: string
+              enum:
+                - none
+                - limited
+                - established
+                - damaged
+            recentDenial:
+              type: boolean
+            canDeposit:
               type: boolean
             monthlySpendingCents:
               type: integer
@@ -483,14 +681,28 @@ paths:
                 answers:
                   type: object
                   properties:
-                    age:
-                      type: integer
-                      minimum: 18
-                      maximum: 120
-                    annualIncomeCents:
-                      type: integer
-                      minimum: 0
-                    independentIncome:
+                    under21:
+                      type: boolean
+                    incomeBand:
+                      type: string
+                      enum:
+                        - none
+                        - savings_only
+                        - under_5k
+                        - 5k_to_15k
+                        - over_15k
+                    student:
+                      type: boolean
+                    standing:
+                      type: string
+                      enum:
+                        - none
+                        - limited
+                        - established
+                        - damaged
+                    recentDenial:
+                      type: boolean
+                    canDeposit:
                       type: boolean
                     monthlySpendingCents:
                       type: integer

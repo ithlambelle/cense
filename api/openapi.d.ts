@@ -265,12 +265,89 @@ export interface components {
             /** Format: uri */
             applyUrl: string;
             referralDisclosure: string | null;
+            /** @enum {string} */
+            historyNeeded: "none" | "limited" | "established" | "strong";
+            studentsOnly: boolean;
+            secured: boolean;
+            depositMinCents: number;
+            depositMaxCents: number | null;
+            okForRebuilding: boolean;
+            runsCreditCheck: boolean;
+            openToNewApplicants: boolean;
+            taxIdNote: string | null;
+            eligibilityEvidence: {
+                historyNeeded: {
+                    /** Format: uri */
+                    sourceUrl: string;
+                    /** Format: date */
+                    verifiedAt: string;
+                };
+                studentsOnly: {
+                    /** Format: uri */
+                    sourceUrl: string;
+                    /** Format: date */
+                    verifiedAt: string;
+                };
+                secured: {
+                    /** Format: uri */
+                    sourceUrl: string;
+                    /** Format: date */
+                    verifiedAt: string;
+                };
+                depositMinCents: {
+                    /** Format: uri */
+                    sourceUrl: string;
+                    /** Format: date */
+                    verifiedAt: string;
+                };
+                depositMaxCents: {
+                    /** Format: uri */
+                    sourceUrl: string;
+                    /** Format: date */
+                    verifiedAt: string;
+                };
+                okForRebuilding: {
+                    /** Format: uri */
+                    sourceUrl: string;
+                    /** Format: date */
+                    verifiedAt: string;
+                };
+                preapprovalUrl: {
+                    /** Format: uri */
+                    sourceUrl: string;
+                    /** Format: date */
+                    verifiedAt: string;
+                };
+                runsCreditCheck: {
+                    /** Format: uri */
+                    sourceUrl: string;
+                    /** Format: date */
+                    verifiedAt: string;
+                };
+                openToNewApplicants: {
+                    /** Format: uri */
+                    sourceUrl: string;
+                    /** Format: date */
+                    verifiedAt: string;
+                };
+                taxIdNote: {
+                    /** Format: uri */
+                    sourceUrl: string;
+                    /** Format: date */
+                    verifiedAt: string;
+                };
+            };
         };
         QuizDraft: {
             answers: {
-                age?: number;
-                annualIncomeCents?: number;
-                independentIncome?: boolean;
+                under21?: boolean;
+                /** @enum {string} */
+                incomeBand?: "none" | "savings_only" | "under_5k" | "5k_to_15k" | "over_15k";
+                student?: boolean;
+                /** @enum {string} */
+                standing?: "none" | "limited" | "established" | "damaged";
+                recentDenial?: boolean;
+                canDeposit?: boolean;
                 monthlySpendingCents?: number;
                 /** @enum {string} */
                 goal?: "build_credit" | "learn" | "other";
@@ -686,9 +763,14 @@ export interface operations {
             content: {
                 "application/json": {
                     answers: {
-                        age?: number;
-                        annualIncomeCents?: number;
-                        independentIncome?: boolean;
+                        under21?: boolean;
+                        /** @enum {string} */
+                        incomeBand?: "none" | "savings_only" | "under_5k" | "5k_to_15k" | "over_15k";
+                        student?: boolean;
+                        /** @enum {string} */
+                        standing?: "none" | "limited" | "established" | "damaged";
+                        recentDenial?: boolean;
+                        canDeposit?: boolean;
                         monthlySpendingCents?: number;
                         /** @enum {string} */
                         goal?: "build_credit" | "learn" | "other";
