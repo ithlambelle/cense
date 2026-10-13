@@ -15,6 +15,10 @@ queries as that student, never with a service role key.
 | `issuer_clicks` | `id` UUID primary key, `student_id` UUID, `card_id` text, `kind` text, `clicked_at` | Append one row for each preapproval or apply click. A click is not an application. |
 | `card_applications` | `id` UUID primary key, `student_id` UUID, `card_id` text nullable, `card_name` text nullable, `source` text, `status` text, `credit_limit_cents` bigint nullable, `applied_at` timestamp nullable, `updated_at` timestamp, `created_at` | A student may have several card records. Status is `applied`, `approved`, or `rejected`. |
 
+When a recommendation is generated, `result_snapshot` stores the fit rules
+version and the rule identifiers that fired alongside the result. This uses the
+existing JSONB column and requires no new migration.
+
 `created_at`, `updated_at`, `clicked_at`, and `applied_at` are UTC timestamptz
 values. IDs are random UUIDs. The database should cascade student-owned records
 on account deletion. The database prevents duplicate active records for the same
@@ -48,6 +52,8 @@ empty until the team's sourced card dataset is reviewed.
 | Endpoint | Role |
 | --- | --- |
 | `POST /api/v1/auth/email`, `POST /api/v1/auth/email/verify` | Send and verify a six-digit email code. |
+| `POST /api/v1/auth/password/signup`, `POST /api/v1/auth/password/signin` | Optional password account creation and sign-in. |
+| `POST /api/v1/auth/password/reset`, `POST /api/v1/auth/password/reset/confirm` | Request a reset email and set a password with an authenticated session. |
 | `GET /api/v1/auth/google`, `GET /api/v1/auth/callback`, `POST /api/v1/auth/logout` | Google sign-in, PKCE callback, and logout. |
 | `GET /api/v1/me` | Verify the session and return the student ID and email. |
 | `GET /api/v1/cards`, `GET /api/v1/cards/{id}` | Public curated card catalog. Card facts and issuer links live in typed repository files. |
