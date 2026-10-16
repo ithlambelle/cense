@@ -31,8 +31,8 @@ quiz. Card records carry the published eligibility fields, the issuer's
 conditions, a `catalogRole` (only `recommend` cards are tiered; `explore` cards
 are for browsing) and `eligibilityEvidence`, which gives each fact a basis
 (`issuer`, `silent`, `estimate` or `decision`), its source URLs and a
-verification date. The catalog remains empty until the team's sourced card
-dataset is reviewed.
+verification date. The catalog holds 53 cards read from issuer pages, and
+review sites for estimates, on 2026-10-15; 13 are `recommend`.
 
 ## Authorization and response rules
 
