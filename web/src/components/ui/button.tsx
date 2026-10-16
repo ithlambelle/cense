@@ -13,6 +13,9 @@ const buttonVariants = cva(
           "bg-primary text-primary-foreground hover:bg-violet-hover active:bg-violet-pressed disabled:bg-violet-disabled disabled:text-foreground aria-busy:bg-primary aria-busy:text-primary-foreground",
         secondary:
           "border-[1.5px] border-primary bg-secondary text-secondary-foreground hover:bg-off-white active:bg-off-white disabled:opacity-40 aria-busy:opacity-100",
+        // "Retake quiz" on the result frame: a navy fill. Figma draws its label in
+        // indigo-black, which cannot be read on navy; white is the system's text on dark fills.
+        dark: "bg-navy text-white hover:bg-indigo-black active:bg-indigo-black disabled:opacity-40",
         outline:
           "border-border bg-transparent text-foreground hover:bg-accent",
         link: "h-auto min-h-11 rounded-none px-0 text-label text-muted-foreground underline underline-offset-2 hover:text-foreground",

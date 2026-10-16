@@ -2,12 +2,12 @@ import type { ApiData } from "../api-client/client";
 
 export type FitTier = ApiData<"/recommendations/latest", "get">["fitTier"];
 
-// Source: Notion "Fit Tier Rules v1.0", section 1. Every result carries this
+// Source: Notion "Fit Tier Rules v1.2", section 1. Every result carries this
 // line, word for word. Change it only when that page changes.
 export const GUIDANCE_LINE =
   "This is guidance from what you told us and what the issuer publishes. It is not a guarantee. Issuers also weigh things this tool does not score, including your income. The issuer's own preapproval check is the real test.";
 
-// Source: Notion "Fit Tier Rules v1.0", section 1.
+// Source: Notion "Fit Tier Rules v1.2", section 1.
 export const TIER_LABELS: Record<FitTier, string> = {
   likely_fit: "Likely fit",
   stretch: "Stretch",
@@ -28,4 +28,28 @@ export function annualFeeLine(annualFeeCents: number): string {
   const dollars = annualFeeCents / 100;
   const amount = Number.isInteger(dollars) ? dollars.toString() : dollars.toFixed(2);
   return `$${amount} annual fee`;
+}
+
+type CardFacts = {
+  secured: boolean;
+  studentsOnly: boolean;
+  depositMinCents: number;
+  conditions: { kind: string; text: string }[];
+};
+
+// The small line above the card name on the result frame ("Secured credit card").
+export function cardTypeLabel(card: CardFacts): string {
+  if (card.secured) return "Secured credit card";
+  if (card.studentsOnly) return "Student credit card";
+  return "Credit card";
+}
+
+// The line under the card name. Built only from catalog facts; null when there
+// is nothing more to say than the type label.
+export function cardDescription(card: CardFacts): string | null {
+  const limit = card.conditions.find((condition) => condition.kind === "limit_equals_money_moved");
+  if (limit) return limit.text;
+  if (card.secured && card.depositMinCents > 0) return "A refundable deposit backs the card.";
+  if (card.studentsOnly) return "Made for college students.";
+  return null;
 }

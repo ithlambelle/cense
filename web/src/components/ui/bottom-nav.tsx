@@ -38,7 +38,9 @@ function BottomNav() {
                   "flex min-h-11 flex-col items-center gap-1.5 rounded-input text-xs outline-none focus-visible:outline-2 focus-visible:outline-ring",
                   // Violet 12px text on this bar is 3.48 to 1, so the active
                   // label is white and bold and the icon carries the violet.
-                  active ? "font-bold text-foreground" : "text-muted-foreground"
+                  // Palette colours, not theme tokens: the bar stays dark in the
+                  // light theme, where foreground is indigo-black like the bar.
+                  active ? "font-bold text-white" : "text-off-white/75"
                 )}
               >
                 <Icon aria-hidden="true" className={cn("size-[22px]", active && "text-primary")} />
