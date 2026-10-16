@@ -1,124 +1,196 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
-import { BackLink } from "@/components/ui/back-link";
-import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
-import { GlowCard } from "@/components/ui/glow-card";
-import { Disclaimer, NoteLine } from "@/components/ui/note";
-import { ScreenShell } from "@/components/ui/screen-shell";
-import {
-  annualFeeLine,
-  cardDescription,
-  cardTypeLabel,
-  RESULT_DISCLAIMER,
-  RESULT_HEADLINES,
-} from "@/lib/copy/results";
+import { NoteLine } from "@/components/ui/note";
+import { cardTypeLabel, moneyAmount, RESULT_DISCLAIMER, RESULT_HEADLINES } from "@/lib/copy/results";
 import type { ResultView } from "@/lib/results/compute";
 import { cardPath, ROUTES } from "@/lib/routes";
+import { cn } from "@/lib/utils";
 
 const NO_CARD_FALLBACK = "None of the cards we list fits what you told us yet.";
 
-// The result screen, drawn from Figma 61:2851 "Result · Your starting point".
+// The result screen, drawn from Figma 397:822 (Wireframes Prototyping page).
 // Everything shown comes from computeResult (rules v1.2); nothing here decides fit.
-// Where the light frame leaves text off-white on white, the system's muted text
-// is used instead (flagged to design).
 export function ResultsView({ view }: { view: ResultView }) {
-  const nav = <BottomNav />;
-
   if (view.kind === "quiz_unfinished") {
     return (
-      <ScreenShell nav={nav} footer={<Link href={ROUTES.quiz} className={buttonVariants()}>Take the quiz</Link>}>
-        <h1 className="font-heading text-title font-bold">No card match yet</h1>
-        <p className="mt-2 text-body text-muted-foreground">
-          Answer six short questions and we’ll show a card to start with, and the reason for it.
+      <ResultLayout title="No card match yet" subtitle="Answer six short questions to see one">
+        <p className="text-body-m text-navy">
+          We’ll show a card to start with and the reasons it fits what you told us.
         </p>
-      </ScreenShell>
+        <Link href={ROUTES.quiz} className={cn(buttonVariants(), "mt-6")}>
+          Take the quiz
+        </Link>
+      </ResultLayout>
     );
   }
 
-  // In the page flow, not pinned: the guidance line is long enough that a
-  // pinned footer would cover the result on a phone. Figma draws it at the end.
-  const footer = (
-    <div className="mt-auto flex flex-col gap-3 pt-10">
-      <Link href={ROUTES.quiz} className={buttonVariants({ variant: "dark" })}>
-        Retake quiz
-      </Link>
-      <Disclaimer>{RESULT_DISCLAIMER}</Disclaimer>
-    </div>
-  );
-
   if (view.kind === "no_card") {
     return (
-      <ScreenShell nav={nav}>
-        <BackLink href={ROUTES.quiz} className="-ml-3 self-start" />
-        <h1 className="mt-4 font-heading text-title font-bold">Not quite yet</h1>
-        <p className="mt-2 text-body text-muted-foreground">{view.reason ?? NO_CARD_FALLBACK}</p>
-        {footer}
-      </ScreenShell>
+      <ResultLayout title={RESULT_HEADLINES.not_yet} subtitle="Based on your answers" footer>
+        <div className="rounded-card bg-off-white p-5">
+          <p className="text-body-m text-navy">{view.reason ?? NO_CARD_FALLBACK}</p>
+        </div>
+      </ResultLayout>
     );
   }
 
   const { card, fit, alternative } = view;
-  const description = cardDescription(card);
 
   return (
-    <ScreenShell nav={nav}>
-      <BackLink href={ROUTES.quiz} className="-ml-3 self-start" />
-      <h1 className="mt-4 font-heading text-title font-bold">{RESULT_HEADLINES[fit.tier]}</h1>
-
-      <GlowCard purpose="result" className="mt-6">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-label text-muted-foreground">{cardTypeLabel(card)}</p>
-            <Image src="/icons/card-symbol.svg" alt="" width={24} height={18} />
+    <ResultLayout title={RESULT_HEADLINES[fit.tier]} subtitle="Based on your answers" footer>
+      <section aria-labelledby="top-match" className="flex flex-col gap-4">
+        <h2 id="top-match" className="font-heading text-h6 font-medium text-indigo-black">
+          Top match
+        </h2>
+        <div className="flex flex-col gap-4 rounded-card bg-off-white p-5">
+          <div className="flex flex-col gap-[9px]">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-body-s text-indigo-black">{cardTypeLabel(card)}</p>
+              <Image src="/icons/card-symbol.svg" alt="" width={24} height={18} />
+            </div>
+            <h3 className="font-heading text-h5 font-medium text-navy">{card.name}</h3>
           </div>
-          <h2 className="font-heading text-card-name font-semibold">{card.name}</h2>
-          {description ? <p className="text-label text-muted-foreground">{description}</p> : null}
-        </div>
 
-        <div className="flex flex-col gap-2">
-          <h3 className="font-heading text-section font-semibold">
-            {fit.tier === "likely_fit" ? "Why it fits you" : "What to know"}
-          </h3>
-          <ul className="flex flex-col gap-2">
-            {fit.reasons.map((reason) => (
-              <li key={reason} className="flex items-start gap-3 text-body">
-                <Image src="/icons/fit-check.svg" alt="" width={14} height={11} className="mt-[0.4rem] shrink-0" />
-                <span>{reason}</span>
-              </li>
+          <div className="flex flex-col gap-2">
+            <h4 className="font-heading text-h6 font-medium text-navy">
+              {fit.tier === "likely_fit" ? "Why it fits you" : "What to know"}
+            </h4>
+            <ul className="flex flex-col gap-2">
+              {fit.reasons.map((reason) => (
+                <li key={reason} className="flex items-start gap-3 text-body-m text-navy">
+                  <Image src="/icons/fit-check.svg" alt="" width={14} height={11} className="mt-1.5 shrink-0" />
+                  <span>{reason}</span>
+                </li>
+              ))}
+            </ul>
+            {fit.notes.map((note) => (
+              <NoteLine key={note.id}>{note.text}</NoteLine>
             ))}
-          </ul>
-          {fit.notes.map((note) => (
-            <NoteLine key={note.id}>{note.text}</NoteLine>
-          ))}
+          </div>
+
+          <dl className="flex items-start justify-between gap-3">
+            <FactChip label="Annual fee" value={moneyAmount(card.annualFeeCents)} />
+            {card.secured && card.depositMinCents > 0 ? (
+              <FactChip label="Deposit" value={`From ${moneyAmount(card.depositMinCents)}`} />
+            ) : null}
+          </dl>
+
+          <Link href={cardPath(card.id)} className={buttonVariants()}>
+            View card
+          </Link>
         </div>
-
-        <NoteLine>
-          {card.brand} · {annualFeeLine(card.annualFeeCents)}
-        </NoteLine>
-
-        <Link href={cardPath(card.id)} className={buttonVariants()}>
-          Learn more
-        </Link>
-      </GlowCard>
+      </section>
 
       {alternative ? (
-        <section className="mt-8 flex flex-col gap-3">
-          <h2 className="font-heading text-section font-semibold text-muted-foreground">Another option</h2>
+        <section aria-labelledby="another-option" className="mt-6 flex flex-col gap-4">
+          <h2 id="another-option" className="font-heading text-h6 font-medium text-indigo-black">
+            Another option
+          </h2>
           <Link
             href={cardPath(alternative.id)}
-            className="flex flex-col gap-1 rounded-card border-[1.5px] border-primary p-5 outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="flex flex-col gap-1 rounded-card border-[1.5px] border-violet bg-white p-5 outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            <span className="font-heading text-section font-semibold">{alternative.name}</span>
-            <span className="text-label text-muted-foreground">
-              {cardTypeLabel(alternative)} · {annualFeeLine(alternative.annualFeeCents)}
-            </span>
+            <span className="font-heading text-h6 font-medium text-navy">{alternative.name}</span>
+            <span className="text-body-s text-indigo-black">{cardTypeLabel(alternative)}</span>
           </Link>
         </section>
       ) : null}
+    </ResultLayout>
+  );
+}
 
-      {footer}
-    </ScreenShell>
+// One fact on the match card, for example "Annual fee / $0".
+function FactChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex w-[108px] flex-col rounded-[9px] bg-violet/15 p-[5px]">
+      <dt className="text-body-s text-indigo-black/70">{label}</dt>
+      <dd className="font-number text-number-m font-medium text-indigo-black">{value}</dd>
+    </div>
+  );
+}
+
+type ResultLayoutProps = {
+  title: string;
+  subtitle: string;
+  // Retake quiz and the disclaimer, at the end of the page (they scroll with it).
+  footer?: boolean;
+  children: ReactNode;
+};
+
+const headerControl =
+  "flex size-12 items-center justify-center rounded-pill outline-none hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-off-white";
+
+function ResultLayout({ title, subtitle, footer = false, children }: ResultLayoutProps) {
+  return (
+    <div className="flex min-h-dvh justify-center bg-background">
+      <div className="flex w-full max-w-phone flex-col">
+        <header className="relative z-0 bg-navy px-6 pt-8 pb-11 shadow-[0_4px_8px_11px_var(--color-navy)]">
+          <HeaderStars />
+          <nav aria-label="Result" className="relative flex items-center justify-between">
+            <Link href={ROUTES.quiz} aria-label="Back to the questions" className={headerControl}>
+              <Image src="/icons/arrow-left.svg" alt="" width={48} height={48} />
+            </Link>
+            <Link href={ROUTES.home} aria-label="Close" className={headerControl}>
+              <Image src="/icons/xmark.svg" alt="" width={48} height={48} />
+            </Link>
+          </nav>
+          <div className="relative flex flex-col gap-[5px]">
+            <h1 className="font-heading text-h3 font-medium text-white">{title}</h1>
+            <p className="text-body-s text-off-white/70">{subtitle}</p>
+          </div>
+        </header>
+
+        <main className="relative flex flex-1 flex-col px-6 pt-10">
+          {children}
+          {footer ? (
+            <div className="mt-auto flex flex-col items-center gap-3 pt-10 pb-[max(1.3125rem,env(safe-area-inset-bottom))]">
+              <Link
+                href={ROUTES.quiz}
+                className="min-h-11 content-center text-body-s text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                Retake quiz
+              </Link>
+              <p className="text-center text-caption text-indigo-black/65">{RESULT_DISCLAIMER}</p>
+            </div>
+          ) : null}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+// The stars and dots in the header, placed as in the frame (390 wide).
+// Left positions are percentages so they stay put on narrower phones.
+function HeaderStars() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+      <Image
+        src="/decor/star-large.svg"
+        alt=""
+        width={23}
+        height={22}
+        className="absolute top-[18px] left-[29%] rotate-[17.75deg]"
+      />
+      <Image
+        src="/decor/star-large.svg"
+        alt=""
+        width={23}
+        height={22}
+        className="absolute top-[129px] left-[85.4%] rotate-[17.75deg]"
+      />
+      <Image
+        src="/decor/star-small.svg"
+        alt=""
+        width={14}
+        height={14}
+        className="absolute top-[157px] left-[80.8%] -rotate-[14.09deg]"
+      />
+      <Image src="/decor/dot.svg" alt="" width={4} height={4} className="absolute top-[139px] left-[73.3%]" />
+      <Image src="/decor/dot.svg" alt="" width={4} height={4} className="absolute top-[76px] left-[96.2%]" />
+      <Image src="/decor/dot.svg" alt="" width={4} height={4} className="absolute top-[163px] left-[9.5%]" />
+    </div>
   );
 }
