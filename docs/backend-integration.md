@@ -32,12 +32,12 @@ Only the dev project should be used by local and preview environments.
   contracts and implementations. Student tables must match
   [`api/data-contract.md`](../api/data-contract.md) before persistence can be
   verified.
-- The card catalog intentionally returns `503 catalog_unavailable` until the
-  approved dataset and issuer links are supplied. It does not return fake
-  matches or links.
+- The card catalog returns 53 cards with issuer links and the evidence behind
+  each fact (`web/src/lib/cards/cards.json`). Only `recommend` cards are
+  tiered by the rules in `web/src/lib/rules/fit-tier.ts`.
 - The latest saved recommendation can be read. A recommendation write route is
-  withheld until the server rules engine
-  and approved catalog are ready. The client must never submit its own match.
+  withheld until the team decides how the server writes a recommendation. The
+  client must never submit its own match.
 - A full deployed sign-in test requires the screen owner's unstyled UI, dev
   Supabase configuration, and an accessible Vercel deployment.
 

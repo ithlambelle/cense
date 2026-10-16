@@ -1,8 +1,12 @@
-import { cardSchema } from "@/lib/api/schemas";
+import { cardSchema } from "../api/schemas";
 
-// Add only team-reviewed card facts and issuer URLs from the approved dataset.
-// An empty catalog is explicit until that source is supplied.
-const cardCatalog = cardSchema.array().parse([]);
+import cards from "./cards.json";
+
+// Team-reviewed card facts. Every eligibility fact carries its basis (issuer,
+// silent, estimate or decision), the pages it was read from and the date, in
+// eligibilityEvidence. Change a value only after re-reading those pages, and
+// update its verifiedAt. Only catalogRole "recommend" cards are tiered.
+const cardCatalog = cardSchema.array().parse(cards);
 
 export function listCards() {
   return cardCatalog;
