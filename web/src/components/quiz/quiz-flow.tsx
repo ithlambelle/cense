@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { QuizScreen } from "@/components/quiz/quiz-screen";
+import { Under18Screen } from "@/components/quiz/under-18-screen";
 import { FailedScreen, LoadingScreen } from "@/components/shell/status-screens";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import { firstUnanswered, helpText, QUESTIONS, savedChoiceId, withChoice } from "@/lib/quiz/questions";
@@ -40,6 +41,7 @@ export function QuizFlow() {
   const [attempt, setAttempt] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [under18, setUnder18] = useState(false);
 
   useEffect(() => {
     let current = true;
@@ -76,6 +78,8 @@ export function QuizFlow() {
     );
   }
 
+  if (under18) return <Under18Screen onBack={() => setUnder18(false)} />;
+
   const { answers, index, choiceIds } = draft;
   const question = QUESTIONS[index];
   const isLast = index === QUESTIONS.length - 1;
@@ -93,6 +97,11 @@ export function QuizFlow() {
   }
 
   async function saveAndContinue() {
+    const chosen = question.choices.find((entry) => entry.id === choiceIds[question.field]);
+    if (chosen?.exit === "under_18") {
+      setUnder18(true);
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     // The API replaces the whole answers object, so the full draft is sent.

@@ -70,7 +70,7 @@ describe("QuizFlow", () => {
   it("shows the income help text that matches the saved age", async () => {
     server([saved({ under21: false })]);
     render(<QuizFlow />);
-    expect(await screen.findByText("Your income, plus household income you can reasonably use.")).toBeTruthy();
+    expect(await screen.findByText("Count income you can reasonably access.")).toBeTruthy();
   });
 
   it("locks the choices and Back while a save is in flight, so an answer cannot be lost", async () => {

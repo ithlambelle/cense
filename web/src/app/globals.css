@@ -45,6 +45,7 @@
   --color-amber: #fdc03d;
   --color-track: #3d3780;
   --color-option-selected: #2a1f5e;
+  --color-selected-outline: #c8c5da;
 
   /* States the Figma file does not draw, derived from the tokens above. */
   --color-violet-hover: color-mix(in oklab, var(--color-violet), var(--color-white) 12%);
@@ -74,31 +75,32 @@
 
   --shadow-glow-form: -5px -3px 8px 3px var(--color-glow), 5px 3px 8px 3px var(--color-violet);
   --shadow-glow-result: -5px -3px 10px 3px var(--color-glow), 5px 3px 8px 4px var(--color-violet-deep);
-  --shadow-glow-option: 0 0 10px 3px var(--color-glow);
+  --shadow-glow-option: 0 0 8px 4px var(--color-off-white);
 
   --container-phone: 390px;
 }
 
-/* One theme: the navy night field. shadcn components read these names. */
+/* One theme: light mode, from the latest hi-fi frames (2026-10-16).
+   shadcn components read these names. */
 :root {
-  --background: var(--color-navy);
-  --foreground: var(--color-white);
-  --card: var(--color-navy);
-  --card-foreground: var(--color-white);
-  --popover: var(--color-navy);
-  --popover-foreground: var(--color-white);
+  --background: var(--color-white);
+  --foreground: var(--color-navy);
+  --card: var(--color-white);
+  --card-foreground: var(--color-navy);
+  --popover: var(--color-white);
+  --popover-foreground: var(--color-navy);
   --primary: var(--color-violet);
   --primary-foreground: var(--color-white);
   --secondary: var(--color-white);
   --secondary-foreground: var(--color-indigo-black);
-  --muted: var(--color-option-selected);
-  --muted-foreground: var(--color-off-white);
-  --accent: var(--color-option-selected);
-  --accent-foreground: var(--color-white);
+  --muted: var(--color-off-white);
+  --muted-foreground: var(--color-indigo-black);
+  --accent: var(--color-off-white);
+  --accent-foreground: var(--color-navy);
   --destructive: var(--color-coral);
   --border: var(--color-track);
   --input: var(--color-off-white);
-  --ring: var(--color-off-white);
+  --ring: var(--color-violet);
   --radius: 0.625rem;
 }
 
