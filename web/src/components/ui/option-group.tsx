@@ -40,8 +40,10 @@ function OptionGroup<Value extends string>({
         <label
           key={option.value}
           className={cn(
-            "flex cursor-pointer items-center gap-4 has-disabled:cursor-progress rounded-card border-[1.5px] border-primary bg-background px-5 py-3 text-body text-foreground transition-colors hover:bg-option-selected/50",
-            "has-checked:border-off-white has-checked:bg-option-selected has-checked:shadow-glow-option",
+            "flex cursor-pointer items-center gap-4 has-disabled:cursor-progress rounded-card border-[1.5px] border-primary bg-background px-5 py-3 text-body text-foreground transition-colors hover:bg-off-white",
+            // Figma draws the selected label navy on this fill, which cannot be read; white is the
+            // system's text color on optionSelected (flagged to design 2026-10-16).
+            "has-checked:border-selected-outline has-checked:bg-option-selected has-checked:text-white has-checked:shadow-glow-option",
             "has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring",
             density === "roomy" ? "min-h-20" : "min-h-14"
           )}

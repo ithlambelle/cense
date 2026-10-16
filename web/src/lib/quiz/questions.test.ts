@@ -20,9 +20,14 @@ describe("quiz questions", () => {
     ]);
   });
 
-  it.each(ALL_CHOICES)("$field / $id stores an answer the API accepts", ({ field, choice }) => {
+  it.each(ALL_CHOICES.filter(({ choice }) => !choice.exit))("$field / $id stores an answer the API accepts", ({ field, choice }) => {
     expect(Object.keys(choice.stores)).toEqual([field]);
     expect(quizAnswersSchema.safeParse(choice.stores).success).toBe(true);
+  });
+
+  it("ends the quiz on Under 18 and stores nothing", () => {
+    const under18 = QUESTIONS[0].choices.find((choice) => choice.exit);
+    expect(under18).toMatchObject({ id: "under-18", label: "Under 18", exit: "under_18", stores: {} });
   });
 
   it("gives every choice in a question its own id", () => {
@@ -32,13 +37,13 @@ describe("quiz questions", () => {
     }
   });
 
-  it("maps the six credit history choices to four stored values", () => {
+  it("maps the six credit history choices to five stored values, keeping not sure as said", () => {
     const standing = QUESTIONS[3].choices.map((choice) => choice.stores.standing);
-    expect(standing).toEqual(["none", "limited", "limited", "established", "damaged", "none"]);
+    expect(standing).toEqual(["none", "limited", "limited", "established", "damaged", "not_sure"]);
   });
 
-  it("says a student loan counts on the credit history question", () => {
-    expect(QUESTIONS[3].choices[2].label).toContain("a student loan counts");
+  it("uses the hi-fi wording on the credit history question", () => {
+    expect(QUESTIONS[3].choices[2].label).toBe("A loan or card open less than 6 months");
   });
 
   it("never asks for an exact age, an exact income or an ID number", () => {
@@ -51,8 +56,8 @@ describe("income help text", () => {
   const income = QUESTIONS[1];
 
   it("changes with the age answer", () => {
-    expect(helpText(income, { under21: true })).toContain("Count only money that is yours");
-    expect(helpText(income, { under21: false })).toBe("Your income, plus household income you can reasonably use.");
+    expect(helpText(income, { under21: true })).toBe("Count your own independent income.");
+    expect(helpText(income, { under21: false })).toBe("Count income you can reasonably access.");
   });
 
   it("is absent until the age is known, and on every other question", () => {
@@ -70,7 +75,7 @@ describe("answers", () => {
   });
 
   it("replaces an earlier answer to the same question", () => {
-    expect(withChoice({ under21: true }, QUESTIONS[0].choices[1])).toEqual({ under21: false });
+    expect(withChoice({ under21: true }, QUESTIONS[0].choices[2])).toEqual({ under21: false });
   });
 
   it("finds the saved choice, including a saved false", () => {

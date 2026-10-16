@@ -10,6 +10,8 @@ export type Choice = {
   label: string;
   // What choosing this stores. Field names and values come from the schema.
   stores: Partial<QuizAnswers>;
+  // Ends the quiz instead of continuing. Nothing is saved (rules v1.2, section 2, Q1).
+  exit?: "under_18";
 };
 
 export type Question = {
@@ -19,13 +21,14 @@ export type Question = {
   choices: Choice[];
 };
 
-// Wording follows the hi-fi screens, except where "Fit Tier Rules v1.0"
-// section 2 requires more (question 4's third choice and the income help text).
+// Wording follows the light-mode hi-fi screens exactly. "Under 18" is not drawn
+// yet; rules v1.2 section 2 requires it and it has been asked of design.
 export const QUESTIONS: Question[] = [
   {
     field: "under21",
     title: "How old are you?",
     choices: [
+      { id: "under-18", label: "Under 18", stores: {}, exit: "under_18" },
       { id: "18-to-20", label: "18 to 20", stores: { under21: true } },
       { id: "21-or-over", label: "21 or over", stores: { under21: false } },
     ],
@@ -57,13 +60,13 @@ export const QUESTIONS: Question[] = [
       { id: "authorized-user", label: "Authorized user on someone else’s card", stores: { standing: "limited" } },
       {
         id: "under-6-months",
-        label: "A loan or card open less than 6 months (a student loan counts)",
+        label: "A loan or card open less than 6 months",
         stores: { standing: "limited" },
       },
       { id: "6-months-on-time", label: "One open 6+ months and paid on time", stores: { standing: "established" } },
       { id: "missed-payments", label: "Missed payments or collections", stores: { standing: "damaged" } },
-      // "Not sure" counts as none (rules, section 2).
-      { id: "not-sure", label: "Not sure", stores: { standing: "none" } },
+      // Stored as said; the rules count it as none (rules v1.2, section 2).
+      { id: "not-sure", label: "Not sure", stores: { standing: "not_sure" } },
     ],
   },
   {
@@ -84,9 +87,8 @@ export const QUESTIONS: Question[] = [
   },
 ];
 
-const INCOME_HELP_UNDER_21 =
-  "Count only money that is yours: pay from a job, money regularly put into an account in your name, student loan money left after your school is paid.";
-const INCOME_HELP_21_OR_OVER = "Your income, plus household income you can reasonably use.";
+const INCOME_HELP_UNDER_21 = "Count your own independent income.";
+const INCOME_HELP_21_OR_OVER = "Count income you can reasonably access.";
 
 // Only the income question has help text, and it depends on the age answer.
 export function helpText(question: Question, answers: QuizAnswers): string | null {
@@ -100,11 +102,11 @@ export function withChoice(answers: QuizAnswers, choice: Choice): QuizAnswers {
 }
 
 // The choice to show as selected for saved answers. When two choices store the
-// same value ("None" and "Not sure"), the first one listed is shown.
+// same value, the first one listed is shown.
 export function savedChoiceId(question: Question, answers: QuizAnswers): string | null {
   const saved = answers[question.field];
   if (saved === undefined) return null;
-  return question.choices.find((choice) => choice.stores[question.field] === saved)?.id ?? null;
+  return question.choices.find((choice) => !choice.exit && choice.stores[question.field] === saved)?.id ?? null;
 }
 
 // Index of the first question with no answer, or null when all are answered.
