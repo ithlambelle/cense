@@ -257,9 +257,14 @@ export interface components {
         };
         Card: {
             id: string;
-            issuer: string;
+            brand: string;
+            issuingBank: string;
             name: string;
+            /** @enum {string} */
+            catalogRole: "recommend" | "explore";
+            catalogRoleReason: string;
             annualFeeCents: number;
+            foreignTransactionFeePercent: number;
             /** Format: uri */
             preapprovalUrl: string | null;
             /** Format: uri */
@@ -267,6 +272,7 @@ export interface components {
             referralDisclosure: string | null;
             /** @enum {string} */
             historyNeeded: "none" | "limited" | "established" | "strong";
+            minHistoryMonths: number | null;
             studentsOnly: boolean;
             secured: boolean;
             depositMinCents: number;
@@ -274,69 +280,40 @@ export interface components {
             okForRebuilding: boolean;
             runsCreditCheck: boolean;
             openToNewApplicants: boolean;
-            taxIdNote: string | null;
+            conditions: components["schemas"]["CardCondition"][];
             eligibilityEvidence: {
-                historyNeeded: {
-                    /** Format: uri */
-                    sourceUrl: string;
-                    /** Format: date */
-                    verifiedAt: string;
-                };
-                studentsOnly: {
-                    /** Format: uri */
-                    sourceUrl: string;
-                    /** Format: date */
-                    verifiedAt: string;
-                };
-                secured: {
-                    /** Format: uri */
-                    sourceUrl: string;
-                    /** Format: date */
-                    verifiedAt: string;
-                };
-                depositMinCents: {
-                    /** Format: uri */
-                    sourceUrl: string;
-                    /** Format: date */
-                    verifiedAt: string;
-                };
-                depositMaxCents: {
-                    /** Format: uri */
-                    sourceUrl: string;
-                    /** Format: date */
-                    verifiedAt: string;
-                };
-                okForRebuilding: {
-                    /** Format: uri */
-                    sourceUrl: string;
-                    /** Format: date */
-                    verifiedAt: string;
-                };
-                preapprovalUrl: {
-                    /** Format: uri */
-                    sourceUrl: string;
-                    /** Format: date */
-                    verifiedAt: string;
-                };
-                runsCreditCheck: {
-                    /** Format: uri */
-                    sourceUrl: string;
-                    /** Format: date */
-                    verifiedAt: string;
-                };
-                openToNewApplicants: {
-                    /** Format: uri */
-                    sourceUrl: string;
-                    /** Format: date */
-                    verifiedAt: string;
-                };
-                taxIdNote: {
-                    /** Format: uri */
-                    sourceUrl: string;
-                    /** Format: date */
-                    verifiedAt: string;
-                };
+                annualFeeCents: components["schemas"]["CardFieldEvidence"];
+                historyNeeded: components["schemas"]["CardFieldEvidence"];
+                minHistoryMonths: components["schemas"]["CardFieldEvidence"];
+                studentsOnly: components["schemas"]["CardFieldEvidence"];
+                secured: components["schemas"]["CardFieldEvidence"];
+                depositMinCents: components["schemas"]["CardFieldEvidence"];
+                depositMaxCents: components["schemas"]["CardFieldEvidence"];
+                okForRebuilding: components["schemas"]["CardFieldEvidence"];
+                preapprovalUrl: components["schemas"]["CardFieldEvidence"];
+                runsCreditCheck: components["schemas"]["CardFieldEvidence"];
+                openToNewApplicants: components["schemas"]["CardFieldEvidence"];
+                foreignTransactionFeePercent: components["schemas"]["CardFieldEvidence"];
+                issuingBank: components["schemas"]["CardFieldEvidence"];
             };
+        };
+        CardCondition: {
+            /** @enum {string} */
+            kind: "requires_bank_account" | "relationship_helps_approval" | "rewards_need_direct_deposit" | "deposit_by_bank_transfer" | "limit_equals_money_moved" | "no_utilization_reporting" | "graduation_review" | "one_card_per_period" | "income_over_housing_minimum";
+            /** @enum {string} */
+            affects: "approval" | "rewards" | "deposit" | "credit_building";
+            text: string;
+            /** Format: uri */
+            sourceUrl: string;
+            /** Format: date */
+            verifiedAt: string;
+        };
+        CardFieldEvidence: {
+            /** @enum {string} */
+            basis: "issuer" | "silent" | "estimate" | "decision";
+            sourceUrls: string[];
+            /** Format: date */
+            verifiedAt: string;
         };
         QuizDraft: {
             answers: {
@@ -345,7 +322,7 @@ export interface components {
                 incomeBand?: "none" | "savings_only" | "under_5k" | "5k_to_15k" | "over_15k";
                 student?: boolean;
                 /** @enum {string} */
-                standing?: "none" | "limited" | "established" | "damaged";
+                standing?: "none" | "limited" | "established" | "damaged" | "not_sure";
                 recentDenial?: boolean;
                 canDeposit?: boolean;
                 monthlySpendingCents?: number;
@@ -768,7 +745,7 @@ export interface operations {
                         incomeBand?: "none" | "savings_only" | "under_5k" | "5k_to_15k" | "over_15k";
                         student?: boolean;
                         /** @enum {string} */
-                        standing?: "none" | "limited" | "established" | "damaged";
+                        standing?: "none" | "limited" | "established" | "damaged" | "not_sure";
                         recentDenial?: boolean;
                         canDeposit?: boolean;
                         monthlySpendingCents?: number;

@@ -34,12 +34,25 @@ components:
       properties:
         id:
           type: string
-        issuer:
+        brand:
+          type: string
+        issuingBank:
           type: string
         name:
           type: string
+        catalogRole:
+          type: string
+          enum:
+            - recommend
+            - explore
+        catalogRoleReason:
+          type: string
+          minLength: 1
         annualFeeCents:
           type: integer
+          minimum: 0
+        foreignTransactionFeePercent:
+          type: number
           minimum: 0
         preapprovalUrl:
           type:
@@ -60,6 +73,11 @@ components:
             - limited
             - established
             - strong
+        minHistoryMonths:
+          type:
+            - integer
+            - "null"
+          minimum: 0
         studentsOnly:
           type: boolean
         secured:
@@ -78,145 +96,43 @@ components:
           type: boolean
         openToNewApplicants:
           type: boolean
-        taxIdNote:
-          type:
-            - string
-            - "null"
+        conditions:
+          type: array
+          items:
+            $ref: "#/components/schemas/CardCondition"
         eligibilityEvidence:
           type: object
           properties:
+            annualFeeCents:
+              $ref: "#/components/schemas/CardFieldEvidence"
             historyNeeded:
-              type: object
-              properties:
-                sourceUrl:
-                  type: string
-                  format: uri
-                verifiedAt:
-                  type: string
-                  format: date
-              required:
-                - sourceUrl
-                - verifiedAt
-              additionalProperties: false
+              $ref: "#/components/schemas/CardFieldEvidence"
+            minHistoryMonths:
+              $ref: "#/components/schemas/CardFieldEvidence"
             studentsOnly:
-              type: object
-              properties:
-                sourceUrl:
-                  type: string
-                  format: uri
-                verifiedAt:
-                  type: string
-                  format: date
-              required:
-                - sourceUrl
-                - verifiedAt
-              additionalProperties: false
+              $ref: "#/components/schemas/CardFieldEvidence"
             secured:
-              type: object
-              properties:
-                sourceUrl:
-                  type: string
-                  format: uri
-                verifiedAt:
-                  type: string
-                  format: date
-              required:
-                - sourceUrl
-                - verifiedAt
-              additionalProperties: false
+              $ref: "#/components/schemas/CardFieldEvidence"
             depositMinCents:
-              type: object
-              properties:
-                sourceUrl:
-                  type: string
-                  format: uri
-                verifiedAt:
-                  type: string
-                  format: date
-              required:
-                - sourceUrl
-                - verifiedAt
-              additionalProperties: false
+              $ref: "#/components/schemas/CardFieldEvidence"
             depositMaxCents:
-              type: object
-              properties:
-                sourceUrl:
-                  type: string
-                  format: uri
-                verifiedAt:
-                  type: string
-                  format: date
-              required:
-                - sourceUrl
-                - verifiedAt
-              additionalProperties: false
+              $ref: "#/components/schemas/CardFieldEvidence"
             okForRebuilding:
-              type: object
-              properties:
-                sourceUrl:
-                  type: string
-                  format: uri
-                verifiedAt:
-                  type: string
-                  format: date
-              required:
-                - sourceUrl
-                - verifiedAt
-              additionalProperties: false
+              $ref: "#/components/schemas/CardFieldEvidence"
             preapprovalUrl:
-              type: object
-              properties:
-                sourceUrl:
-                  type: string
-                  format: uri
-                verifiedAt:
-                  type: string
-                  format: date
-              required:
-                - sourceUrl
-                - verifiedAt
-              additionalProperties: false
+              $ref: "#/components/schemas/CardFieldEvidence"
             runsCreditCheck:
-              type: object
-              properties:
-                sourceUrl:
-                  type: string
-                  format: uri
-                verifiedAt:
-                  type: string
-                  format: date
-              required:
-                - sourceUrl
-                - verifiedAt
-              additionalProperties: false
+              $ref: "#/components/schemas/CardFieldEvidence"
             openToNewApplicants:
-              type: object
-              properties:
-                sourceUrl:
-                  type: string
-                  format: uri
-                verifiedAt:
-                  type: string
-                  format: date
-              required:
-                - sourceUrl
-                - verifiedAt
-              additionalProperties: false
-            taxIdNote:
-              type: object
-              properties:
-                sourceUrl:
-                  type: string
-                  format: uri
-                verifiedAt:
-                  type: string
-                  format: date
-              required:
-                - sourceUrl
-                - verifiedAt
-              additionalProperties: false
+              $ref: "#/components/schemas/CardFieldEvidence"
+            foreignTransactionFeePercent:
+              $ref: "#/components/schemas/CardFieldEvidence"
+            issuingBank:
+              $ref: "#/components/schemas/CardFieldEvidence"
           required:
+            - annualFeeCents
             - historyNeeded
+            - minHistoryMonths
             - studentsOnly
             - secured
             - depositMinCents
@@ -225,17 +141,23 @@ components:
             - preapprovalUrl
             - runsCreditCheck
             - openToNewApplicants
-            - taxIdNote
+            - foreignTransactionFeePercent
+            - issuingBank
           additionalProperties: false
       required:
         - id
-        - issuer
+        - brand
+        - issuingBank
         - name
+        - catalogRole
+        - catalogRoleReason
         - annualFeeCents
+        - foreignTransactionFeePercent
         - preapprovalUrl
         - applyUrl
         - referralDisclosure
         - historyNeeded
+        - minHistoryMonths
         - studentsOnly
         - secured
         - depositMinCents
@@ -243,8 +165,70 @@ components:
         - okForRebuilding
         - runsCreditCheck
         - openToNewApplicants
-        - taxIdNote
+        - conditions
         - eligibilityEvidence
+      additionalProperties: false
+    CardCondition:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+            - requires_bank_account
+            - relationship_helps_approval
+            - rewards_need_direct_deposit
+            - deposit_by_bank_transfer
+            - limit_equals_money_moved
+            - no_utilization_reporting
+            - graduation_review
+            - one_card_per_period
+            - income_over_housing_minimum
+        affects:
+          type: string
+          enum:
+            - approval
+            - rewards
+            - deposit
+            - credit_building
+        text:
+          type: string
+          minLength: 1
+        sourceUrl:
+          type: string
+          format: uri
+        verifiedAt:
+          type: string
+          format: date
+      required:
+        - kind
+        - affects
+        - text
+        - sourceUrl
+        - verifiedAt
+      additionalProperties: false
+    CardFieldEvidence:
+      type: object
+      properties:
+        basis:
+          type: string
+          enum:
+            - issuer
+            - silent
+            - estimate
+            - decision
+        sourceUrls:
+          type: array
+          items:
+            type: string
+            format: uri
+          minItems: 1
+        verifiedAt:
+          type: string
+          format: date
+      required:
+        - basis
+        - sourceUrls
+        - verifiedAt
       additionalProperties: false
     QuizDraft:
       type: object
@@ -271,6 +255,7 @@ components:
                 - limited
                 - established
                 - damaged
+                - not_sure
             recentDenial:
               type: boolean
             canDeposit:
@@ -700,6 +685,7 @@ paths:
                         - limited
                         - established
                         - damaged
+                        - not_sure
                     recentDenial:
                       type: boolean
                     canDeposit:
