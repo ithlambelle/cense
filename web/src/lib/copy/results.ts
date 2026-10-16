@@ -7,6 +7,12 @@ export type FitTier = ApiData<"/recommendations/latest", "get">["fitTier"];
 export const GUIDANCE_LINE =
   "This is guidance from what you told us and what the issuer publishes. It is not a guarantee. Issuers also weigh things this tool does not score, including your income. The issuer's own preapproval check is the real test.";
 
+// The line under the result, from Figma 61:2851. Ben chose it over
+// GUIDANCE_LINE for the result screen on 2026-10-16, to refine over time.
+// The Notion rules still ask for GUIDANCE_LINE on every result: update that
+// page or bring it back when the wording is settled.
+export const RESULT_DISCLAIMER = "Recommendations are educational, not financial advice.";
+
 // Source: Notion "Fit Tier Rules v1.2", section 1.
 export const TIER_LABELS: Record<FitTier, string> = {
   likely_fit: "Likely fit",

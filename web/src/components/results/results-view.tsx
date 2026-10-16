@@ -11,7 +11,7 @@ import {
   annualFeeLine,
   cardDescription,
   cardTypeLabel,
-  GUIDANCE_LINE,
+  RESULT_DISCLAIMER,
   RESULT_HEADLINES,
 } from "@/lib/copy/results";
 import type { ResultView } from "@/lib/results/compute";
@@ -44,7 +44,7 @@ export function ResultsView({ view }: { view: ResultView }) {
       <Link href={ROUTES.quiz} className={buttonVariants({ variant: "dark" })}>
         Retake quiz
       </Link>
-      <Disclaimer>{GUIDANCE_LINE}</Disclaimer>
+      <Disclaimer>{RESULT_DISCLAIMER}</Disclaimer>
     </div>
   );
 
