@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { QuizScreen } from "@/components/quiz/quiz-screen";
+import { Under18Screen } from "@/components/quiz/under-18-screen";
 import { Button } from "@/components/ui/button";
 import { ScreenShell } from "@/components/ui/screen-shell";
 import { helpText, QUESTIONS, savedChoiceId, withChoice } from "@/lib/quiz/questions";
@@ -14,12 +15,15 @@ export function QuizPreview() {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<QuizAnswers>({});
   const [choiceIds, setChoiceIds] = useState<Record<string, string>>({});
+  const [under18, setUnder18] = useState(false);
 
   function restart() {
     setIndex(0);
     setAnswers({});
     setChoiceIds({});
   }
+
+  if (under18) return <Under18Screen onBack={() => setUnder18(false)} />;
 
   if (index >= QUESTIONS.length) {
     return (
@@ -50,7 +54,11 @@ export function QuizPreview() {
       selectedChoiceId={choiceIds[question.field] ?? savedChoiceId(question, answers)}
       onSelect={select}
       onBack={() => setIndex(Math.max(0, index - 1))}
-      onContinue={() => setIndex(index + 1)}
+      onContinue={() => {
+        const chosen = question.choices.find((entry) => entry.id === choiceIds[question.field]);
+        if (chosen?.exit === "under_18") setUnder18(true);
+        else setIndex(index + 1);
+      }}
     />
   );
 }
