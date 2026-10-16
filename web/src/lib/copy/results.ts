@@ -20,20 +20,25 @@ export const TIER_LABELS: Record<FitTier, string> = {
   not_yet: "Not yet",
 };
 
-// The headline follows the tier, so a stretch or a not yet is never
-// introduced as a great fit. Not from the hi-fi, which draws one outcome.
+// The header on the result screen (Figma 397:822 draws "Maya, here’s your
+// match"; we do not collect names, so it is left out). It follows the tier, so
+// a stretch or a not yet is never introduced as a sure match.
 export const RESULT_HEADLINES: Record<FitTier, string> = {
-  likely_fit: "Here’s a great place to start",
+  likely_fit: "Here’s your match",
   stretch: "A card that could work",
   not_yet: "Not quite yet",
 };
 
+// Whole cents to a short amount: 0 -> "$0", 4900 -> "$49", 9950 -> "$99.50".
+export function moneyAmount(cents: number): string {
+  const dollars = cents / 100;
+  return `$${Number.isInteger(dollars) ? dollars.toString() : dollars.toFixed(2)}`;
+}
+
 // Whole cents to a short fee line. Never implies a card is free of other costs.
 export function annualFeeLine(annualFeeCents: number): string {
   if (annualFeeCents === 0) return "No annual fee";
-  const dollars = annualFeeCents / 100;
-  const amount = Number.isInteger(dollars) ? dollars.toString() : dollars.toFixed(2);
-  return `$${amount} annual fee`;
+  return `${moneyAmount(annualFeeCents)} annual fee`;
 }
 
 type CardFacts = {
