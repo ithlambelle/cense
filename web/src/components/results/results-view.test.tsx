@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { listCards } from "@/lib/cards/catalog";
-import { GUIDANCE_LINE, RESULT_HEADLINES } from "@/lib/copy/results";
+import { RESULT_DISCLAIMER, RESULT_HEADLINES } from "@/lib/copy/results";
 import { computeResult } from "@/lib/results/compute";
 import { cardPath, ROUTES } from "@/lib/routes";
 
@@ -22,7 +22,7 @@ describe("ResultsView", () => {
   it("shows the gate's reason, or a fallback, when no card fits", () => {
     const { unmount } = render(<ResultsView view={{ kind: "no_card", ruleId: "G2", reason: "Issuers need income." }} />);
     expect(screen.getByText("Issuers need income.")).toBeTruthy();
-    expect(screen.getByText(GUIDANCE_LINE)).toBeTruthy();
+    expect(screen.getByText(RESULT_DISCLAIMER)).toBeTruthy();
     unmount();
     render(<ResultsView view={{ kind: "no_card", ruleId: null, reason: null }} />);
     expect(screen.getByText("None of the cards we list fits what you told us yet.")).toBeTruthy();
@@ -42,6 +42,6 @@ describe("ResultsView", () => {
       cardPath(view.alternative.id),
     );
     expect(screen.getByRole("link", { name: "Retake quiz" }).getAttribute("href")).toBe(ROUTES.quiz);
-    expect(screen.getByText(GUIDANCE_LINE)).toBeTruthy();
+    expect(screen.getByText(RESULT_DISCLAIMER)).toBeTruthy();
   });
 });
