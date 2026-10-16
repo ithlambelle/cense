@@ -3748,7 +3748,7 @@
     "preapprovalUrl": "https://secure.bankofamerica.com/apply-now-services/cards-prequal/initialize-prequal?requesttype=CCAPQ&campaignid=4079543&productoffercode=V7&appflow=USA&locale=en_US&lobchannelcode=BPCSPP",
     "applyUrl": "https://www.bankofamerica.com/credit-cards/products/student-cash-back-credit-card/",
     "referralDisclosure": null,
-    "historyNeeded": "limited",
+    "historyNeeded": "established",
     "minHistoryMonths": null,
     "studentsOnly": true,
     "secured": false,
@@ -3776,7 +3776,7 @@
         "verifiedAt": "2026-10-15"
       },
       "historyNeeded": {
-        "basis": "decision",
+        "basis": "estimate",
         "sourceUrls": [
           "https://www.nerdwallet.com/reviews/credit-cards/bank-of-america-customized-cash-for-students",
           "https://www.nerdwallet.com/reviews/credit-cards/bank-of-america-unlimited-cash-rewards-for-students",
@@ -3881,7 +3881,7 @@
     "preapprovalUrl": "https://secure.bankofamerica.com/apply-now-services/cards-prequal/initialize-prequal?requesttype=CCAPQ&campaignid=4082120&productoffercode=WV&appflow=USA&locale=en_US&lobchannelcode=BPCSPP",
     "applyUrl": "https://www.bankofamerica.com/credit-cards/products/unlimited-cash-back-student-credit-card/",
     "referralDisclosure": null,
-    "historyNeeded": "limited",
+    "historyNeeded": "established",
     "minHistoryMonths": null,
     "studentsOnly": true,
     "secured": false,
@@ -3909,7 +3909,7 @@
         "verifiedAt": "2026-10-15"
       },
       "historyNeeded": {
-        "basis": "decision",
+        "basis": "estimate",
         "sourceUrls": [
           "https://www.nerdwallet.com/reviews/credit-cards/bank-of-america-customized-cash-for-students",
           "https://www.nerdwallet.com/reviews/credit-cards/bank-of-america-unlimited-cash-rewards-for-students",
@@ -4014,7 +4014,7 @@
     "preapprovalUrl": "https://secure.bankofamerica.com/apply-now-services/cards-prequal/initialize-prequal?requesttype=CCAPQ&campaignid=4079335&productoffercode=A4&appflow=USA&locale=en_US&lobchannelcode=BPCSPP",
     "applyUrl": "https://www.bankofamerica.com/credit-cards/products/student-rewards-credit-card/",
     "referralDisclosure": null,
-    "historyNeeded": "limited",
+    "historyNeeded": "established",
     "minHistoryMonths": null,
     "studentsOnly": true,
     "secured": false,
@@ -4042,7 +4042,7 @@
         "verifiedAt": "2026-10-15"
       },
       "historyNeeded": {
-        "basis": "decision",
+        "basis": "estimate",
         "sourceUrls": [
           "https://www.nerdwallet.com/reviews/credit-cards/bank-of-america-customized-cash-for-students",
           "https://www.nerdwallet.com/reviews/credit-cards/bank-of-america-unlimited-cash-rewards-for-students",
@@ -4147,7 +4147,7 @@
     "preapprovalUrl": "https://secure.bankofamerica.com/apply-now-services/cards-prequal/initialize-prequal?requesttype=CCAPQ&campaignid=4079408&productoffercode=42&appflow=USA&locale=en_US&lobchannelcode=BPCSPP",
     "applyUrl": "https://www.bankofamerica.com/credit-cards/products/low-interest-student-credit-card/",
     "referralDisclosure": null,
-    "historyNeeded": "limited",
+    "historyNeeded": "established",
     "minHistoryMonths": null,
     "studentsOnly": true,
     "secured": false,
@@ -4175,7 +4175,7 @@
         "verifiedAt": "2026-10-15"
       },
       "historyNeeded": {
-        "basis": "decision",
+        "basis": "estimate",
         "sourceUrls": [
           "https://www.nerdwallet.com/reviews/credit-cards/bank-of-america-customized-cash-for-students",
           "https://www.nerdwallet.com/reviews/credit-cards/bank-of-america-unlimited-cash-rewards-for-students",
