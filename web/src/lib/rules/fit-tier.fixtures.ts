@@ -40,11 +40,12 @@ export const SECTION_7_CARDS: RuleCard[] = [
   card("discover-it-student-chrome", "none", { studentsOnly: true, preapprovalUrl: PREAPPROVAL, conditions: ["one_card_per_period", "income_over_housing_minimum"] }),
   card("capital-one-savor-students", "limited", { studentsOnly: true, preapprovalUrl: PREAPPROVAL, conditions: ["income_over_housing_minimum"] }),
   card("capital-one-quicksilver-students", "limited", { studentsOnly: true, preapprovalUrl: PREAPPROVAL, conditions: ["income_over_housing_minimum"] }),
-  // Bank of America publishes no credit level. "limited" is a team decision.
-  card("bofa-customized-cash-students", "limited", { studentsOnly: true, preapprovalUrl: PREAPPROVAL, historyBasis: "decision", conditions: ["one_card_per_period"] }),
-  card("bofa-unlimited-cash-students", "limited", { studentsOnly: true, preapprovalUrl: PREAPPROVAL, historyBasis: "decision", conditions: ["one_card_per_period"] }),
-  card("bofa-travel-rewards-students", "limited", { studentsOnly: true, preapprovalUrl: PREAPPROVAL, historyBasis: "decision", conditions: ["one_card_per_period"] }),
-  card("bofa-bankamericard-students", "limited", { studentsOnly: true, preapprovalUrl: PREAPPROVAL, historyBasis: "decision", conditions: ["one_card_per_period"] }),
+  // Bank of America publishes no credit level. "established" is an estimate
+  // from review sites (690 to 750 or better).
+  card("bofa-customized-cash-students", "established", { studentsOnly: true, preapprovalUrl: PREAPPROVAL, historyBasis: "estimate", conditions: ["one_card_per_period"] }),
+  card("bofa-unlimited-cash-students", "established", { studentsOnly: true, preapprovalUrl: PREAPPROVAL, historyBasis: "estimate", conditions: ["one_card_per_period"] }),
+  card("bofa-travel-rewards-students", "established", { studentsOnly: true, preapprovalUrl: PREAPPROVAL, historyBasis: "estimate", conditions: ["one_card_per_period"] }),
+  card("bofa-bankamericard-students", "established", { studentsOnly: true, preapprovalUrl: PREAPPROVAL, historyBasis: "estimate", conditions: ["one_card_per_period"] }),
   card("chase-freedom-rise", "none", { preapprovalUrl: PREAPPROVAL, conditions: ["relationship_helps_approval", "graduation_review"] }),
   card("capital-one-platinum", "limited", { preapprovalUrl: PREAPPROVAL, conditions: ["one_card_per_period", "income_over_housing_minimum"] }),
   card("capital-one-platinum-secured", "none", { ...SECURED_49_TO_200, preapprovalUrl: PREAPPROVAL, conditions: ["one_card_per_period", "deposit_by_bank_transfer", "income_over_housing_minimum"] }),

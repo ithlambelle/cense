@@ -25,15 +25,17 @@ function pick(answers: RuleAnswers, cards: RuleCard[]) {
 // Rows are students 1 to 8, columns are the cards in SECTION_7_CARDS order.
 // A cell is the tier followed by the rule IDs that fired.
 const L = "likely_fit";
+// The four Bank of America student cards (columns 5 to 8) need established history.
+const BOFA = (cell: string) => Array<string>(4).fill(cell);
 const SECTION_7_TABLE: string[][] = [
-  [L, L, "stretch C1", "stretch C1", "stretch C1", "stretch C1", "stretch C1", "stretch C1", L, "stretch C1", L, L, L],
+  [L, L, "stretch C1", "stretch C1", ...BOFA("not_yet G5"), L, "stretch C1", L, L, L],
   Array(13).fill("not_yet G1"),
-  [L, L, "stretch C1", "stretch C1", "stretch C1", "stretch C1", "stretch C1", "stretch C1", L, "stretch C1", L, L, L],
-  Array(13).fill(L),
+  [L, L, "stretch C1", "stretch C1", ...BOFA("not_yet G5"), L, "stretch C1", L, L, L],
+  [L, L, L, L, ...BOFA("stretch C1"), L, L, L, L, L],
   [...Array(8).fill("not_yet G3"), L, L, L, L, L],
-  ["stretch C2", "stretch C2", ...Array(6).fill("stretch C1 C2"), "stretch C2", "stretch C1 C2", "stretch C2", "stretch C2", "stretch C2"],
-  ["stretch C3", "stretch C3", ...Array(6).fill("stretch C1 C3"), "stretch C3", "stretch C1 C3", L, L, L],
-  [L, L, ...Array(6).fill("stretch C1"), L, "stretch C1", "not_yet G6", "not_yet G6", L],
+  ["stretch C2", "stretch C2", "stretch C1 C2", "stretch C1 C2", ...BOFA("not_yet G5"), "stretch C2", "stretch C1 C2", "stretch C2", "stretch C2", "stretch C2"],
+  ["stretch C3", "stretch C3", "stretch C1 C3", "stretch C1 C3", ...BOFA("not_yet G5"), "stretch C3", "stretch C1 C3", L, L, L],
+  [L, L, "stretch C1", "stretch C1", ...BOFA("not_yet G5"), L, "stretch C1", "not_yet G6", "not_yet G6", L],
 ];
 
 // The recommended card for each student in section 7.
