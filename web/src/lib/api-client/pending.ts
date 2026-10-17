@@ -9,36 +9,41 @@
 // dynamic import, so they are not in a production bundle).
 import { z } from "zod";
 
+import { PASSWORD_MAX, PASSWORD_MIN } from "../auth/password";
 import { FALLBACK_MESSAGE, OFFLINE_MESSAGE, readApiError, withTimeout } from "./client";
 
 const isoDate = z.iso.date();
 
 // C2: a reapply reminder email (D8).
-export const reminderSchema = z.strictObject({
+const reminderSchema = z.strictObject({
   id: z.uuid(),
   applicationId: z.uuid(),
   remindOn: isoDate,
   createdAt: z.iso.datetime({ offset: true }),
 });
-export const createReminderSchema = z.strictObject({ applicationId: z.uuid(), remindOn: isoDate });
+const createReminderSchema = z.strictObject({ applicationId: z.uuid(), remindOn: isoDate });
 
 // C3: the first-month plan's three actions for the approved card.
-export const planActionsSchema = z.strictObject({
+const planActionsSchema = z.strictObject({
   autopay: z.boolean(),
   plannedPurchase: z.boolean(),
   paymentReminder: z.boolean(),
 });
-export const planSchema = z.strictObject({
+const planSchema = z.strictObject({
   applicationId: z.uuid(),
   actions: planActionsSchema,
   updatedAt: z.iso.datetime({ offset: true }),
 });
-export const updatePlanSchema = z.strictObject({ actions: planActionsSchema.partial() });
+const updatePlanSchema = z.strictObject({ actions: planActionsSchema.partial() });
+
+export type Reminder = z.infer<typeof reminderSchema>;
+export type PlanActions = z.infer<typeof planActionsSchema>;
+export type Plan = z.infer<typeof planSchema>;
 
 // Mabelle's draft PR #24 (password sign-in). Same shapes as its contract;
 // removed from here once #24 merges and the routes are in the real contract.
 const email = z.email().max(254);
-const newPassword = z.string().min(8).max(128);
+const newPassword = z.string().min(PASSWORD_MIN).max(PASSWORD_MAX);
 
 const ENDPOINTS = {
   "POST /auth/password/signup": {
@@ -76,7 +81,7 @@ export type PendingResult<Data> =
   // `code` is the API's error code when it sent one (for example invalid_credentials).
   | { kind: "failed"; message: string; code?: string };
 
-export function mocksEnabled(): boolean {
+function mocksEnabled(): boolean {
   return process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_CENSE_MOCKS === "1";
 }
 

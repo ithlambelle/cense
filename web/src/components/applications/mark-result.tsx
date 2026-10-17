@@ -6,12 +6,13 @@ import { useState, type FormEvent } from "react";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { Button } from "@/components/ui/button";
+import { choiceRowClass } from "@/components/ui/choice-row";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { SelectedMark } from "@/components/ui/selected-mark";
 import { TextField } from "@/components/ui/text-field";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
-import type { Application } from "@/lib/home/state";
-import { applicationPath, ROUTES, signInPath } from "@/lib/routes";
+import type { Application } from "@/lib/api/application";
+import { applicationPath, deniedPath, ROUTES, signInPath, waitingPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
 import { cn } from "@/lib/utils";
 
@@ -75,14 +76,14 @@ export function MarkResult({ application }: { application: Application }) {
       return;
     }
     // Stays pending while the next screen loads.
-    router.push(status === "rejected" ? `${ROUTES.denied}?application=${encodeURIComponent(application.id)}` : ROUTES.home);
+    router.push(status === "rejected" ? deniedPath("options", application.id) : ROUTES.home);
     router.refresh();
   }
 
   function choose(next: Choice) {
     setError(null);
     if (next === "waiting") {
-      router.push(`${applicationPath(application.id)}/waiting`);
+      router.push(waitingPath(application.id));
       return;
     }
     setChoice(next);
@@ -119,7 +120,8 @@ export function MarkResult({ application }: { application: Application }) {
                 disabled={pending}
                 onClick={() => choose(option.id)}
                 className={cn(
-                  "flex min-h-14 w-full items-center gap-4 rounded-[18px] border-[1.5px] border-violet bg-white px-5 py-3 text-left text-body-m text-navy outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress",
+                  choiceRowClass,
+                  "gap-4 text-left disabled:cursor-progress",
                   choice === option.id && "bg-off-white",
                 )}
               >

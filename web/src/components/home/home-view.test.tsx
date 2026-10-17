@@ -4,7 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { listCards } from "@/lib/cards/catalog";
 import { RESULT_HEADLINES } from "@/lib/copy/results";
-import { homeState, type Application } from "@/lib/home/state";
+import type { Application } from "@/lib/api/application";
+import { homeState } from "@/lib/home/state";
 import { computeResult } from "@/lib/results/compute";
 
 import { HomeView } from "./home-view";

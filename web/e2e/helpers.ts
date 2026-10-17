@@ -1,4 +1,4 @@
-// Created with Claude Code. Shared steps for the Playwright journey tests.
+// Shared steps for the Playwright journey tests.
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type BrowserContext, type Page } from "@playwright/test";
 
@@ -7,7 +7,7 @@ import { QUESTIONS, type QuizAnswers } from "../src/lib/quiz/questions";
 const MAILPIT = process.env.E2E_MAILPIT_URL ?? "http://127.0.0.1:54324";
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
-export const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
+const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
 // A unique address per test run, so every test starts with a fresh student.
 export function uniqueEmail(journey: string): string {
@@ -104,4 +104,42 @@ export async function takeQuiz(page: Page, picks: QuizPicks, checkA11y: (screen:
     await answer.click();
   }
   await page.waitForURL("**/results");
+}
+
+type SessionCookie = { access_token: string; expires_at: number } & Record<string, unknown>;
+
+// @supabase/ssr keeps the session in one cookie, or in numbered chunks
+// (name.0, name.1 ...) when it is long, as "base64-" plus base64url JSON.
+async function sessionCookies(context: BrowserContext) {
+  const chunks = (await context.cookies())
+    .filter((cookie) => /^sb-.+-auth-token(\.\d+)?$/.test(cookie.name))
+    .sort((a, b) => Number(a.name.split(".").pop()) - Number(b.name.split(".").pop()));
+  if (chunks.length === 0) throw new Error("No Supabase session cookie found");
+  const raw = decodeURIComponent(chunks.map((cookie) => cookie.value).join(""));
+  const session = JSON.parse(Buffer.from(raw.replace(/^base64-/, ""), "base64url").toString("utf8")) as SessionCookie;
+  return { chunks, session };
+}
+
+// When the session's access token expires (seconds since 1970).
+export async function sessionExpiresAt(context: BrowserContext): Promise<number> {
+  return (await sessionCookies(context)).session.expires_at;
+}
+
+// Makes the signed-in student's access token look an hour old: expires_at and
+// the token's own exp claim are moved into the past. The refresh token is left
+// alone, so the session proxy (src/proxy.ts) should refresh it on the next page.
+export async function expireAccessToken(context: BrowserContext) {
+  const { chunks, session } = await sessionCookies(context);
+  const past = Math.floor(Date.now() / 1000) - 3600;
+  const [header, payload, signature] = session.access_token.split(".");
+  const claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as Record<string, unknown>;
+  const expired: SessionCookie = {
+    ...session,
+    access_token: [header, Buffer.from(JSON.stringify({ ...claims, exp: past })).toString("base64url"), signature].join("."),
+    expires_at: past,
+  };
+  const value = `base64-${Buffer.from(JSON.stringify(expired)).toString("base64url")}`;
+  // Written back under the same cookie names, split as evenly as the original.
+  const size = Math.ceil(value.length / chunks.length);
+  await context.addCookies(chunks.map((cookie, index) => ({ ...cookie, value: value.slice(index * size, (index + 1) * size) })));
 }

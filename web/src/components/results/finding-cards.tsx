@@ -20,9 +20,9 @@ export function FindingCards() {
             <p className="text-body-s text-indigo-black/70">Finding the right cards for you</p>
           </div>
         </main>
-          <div className="sticky bottom-0">
-            <BottomNav />
-          </div>
+        <div className="sticky bottom-0">
+          <BottomNav />
+        </div>
       </div>
     </div>
   );

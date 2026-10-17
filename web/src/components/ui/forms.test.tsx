@@ -25,6 +25,14 @@ describe("TextField", () => {
     render(<TextField label="Email" />);
     expect(screen.getByLabelText("Email").hasAttribute("aria-invalid")).toBe(false);
   });
+
+  it("stays focusable while disabled: read-only and announced as disabled", () => {
+    render(<TextField label="Email" disabled />);
+    const input = screen.getByLabelText("Email") as HTMLInputElement;
+    expect(input.disabled).toBe(false);
+    expect(input.readOnly).toBe(true);
+    expect(input.getAttribute("aria-disabled")).toBe("true");
+  });
 });
 
 describe("CodeInput", () => {

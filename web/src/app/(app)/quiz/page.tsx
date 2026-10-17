@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
 import { QuizFlow } from "@/components/quiz/quiz-flow";
-
 import { ROUTES } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
 

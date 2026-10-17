@@ -1,16 +1,13 @@
 import ChevronRight from "@gravity-ui/icons/ChevronRight";
 import Link from "next/link";
-import type { z } from "zod";
 
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
-import type { cardSchema } from "@/lib/api/schemas";
+import type { Card } from "@/lib/cards/catalog";
 import { cardDisplayName, cardTypeLabel } from "@/lib/copy/results";
 import { moneyAmount } from "@/lib/money";
 import { cardPath, ROUTES, signInPath } from "@/lib/routes";
-
-type Card = z.infer<typeof cardSchema>;
 
 // The card list (S13). No hi-fi frame yet: outlined cards in the style of the
 // resource list (Figma 459:643) and the result's "Another option", proposed to

@@ -19,8 +19,3 @@ export function DeniedLayout({ backHref, children }: { backHref: string; childre
     </div>
   );
 }
-
-// Keeps the tracked card with the student as they move through the guide.
-export function withApplication(path: string, applicationId: string | null): string {
-  return applicationId ? `${path}?application=${encodeURIComponent(applicationId)}` : path;
-}

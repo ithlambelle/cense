@@ -1,18 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import type { z } from "zod";
 
-import { DeniedLayout, withApplication } from "@/components/denied/denied-layout";
+import { DeniedLayout } from "@/components/denied/denied-layout";
 import { ReminderSavedView } from "@/components/denied/reminder-saved-view";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { FALLBACK_MESSAGE } from "@/lib/api-client/client";
-import { pendingRequest, type reminderSchema } from "@/lib/api-client/pending";
+import { pendingRequest, type Reminder } from "@/lib/api-client/pending";
 import { formatIsoDate } from "@/lib/dates";
-import { ROUTES, signInPath } from "@/lib/routes";
+import { deniedPath, ROUTES, signInPath } from "@/lib/routes";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
-
-type Reminder = z.infer<typeof reminderSchema>;
 
 async function loadReminders(): Promise<LoadOutcome<Reminder[]>> {
   const result = await pendingRequest("GET /reminders");
@@ -67,7 +64,7 @@ export function ReminderSavedCheck({ applicationId }: { applicationId: string })
             <h1 className="font-heading text-h1 font-medium text-navy">We couldn’t find a reminder</h1>
             <p className="text-body-m text-indigo-black">No reapply reminder is saved for this card, so no email is set.</p>
           </div>
-          <Link href={withApplication(`${ROUTES.denied}/reminder`, applicationId)} className={buttonVariants()}>
+          <Link href={deniedPath("reminder", applicationId)} className={buttonVariants()}>
             Set a reminder
           </Link>
           <Link href={ROUTES.home} className={buttonVariants({ variant: "secondary" })}>

@@ -10,7 +10,7 @@ import { ErrorMessage } from "@/components/ui/error-message";
 import { PasswordField } from "@/components/ui/password-field";
 import { FALLBACK_MESSAGE } from "@/lib/api-client/client";
 import { pendingRequest } from "@/lib/api-client/pending";
-import { passwordProblem } from "@/lib/auth/password";
+import { PASSWORD_MIN, passwordProblem } from "@/lib/auth/password";
 import { ROUTES } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
 
@@ -58,7 +58,7 @@ export function ResetPassword() {
     return (
       <AuthLayout title="This link has expired" back={<BackLinkHome />}>
         <p className="text-body-m text-indigo-black">Reset links work once and for a short time. Ask for a new one.</p>
-        <Link href="/forgot-password" className={buttonVariants()}>
+        <Link href={ROUTES.forgotPassword} className={buttonVariants()}>
           Send a new link
         </Link>
       </AuthLayout>
@@ -72,7 +72,7 @@ export function ResetPassword() {
           label="New password"
           name="new-password"
           autoComplete="new-password"
-          placeholder="At least 8 characters"
+          placeholder={`At least ${PASSWORD_MIN} characters`}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           error={errors.password}

@@ -1,4 +1,12 @@
+import type { z } from "zod";
+
 import { applicationSchema } from "./schemas";
+
+// A tracked card as the app and the API see it.
+export type Application = z.infer<typeof applicationSchema>;
+
+// The card_applications columns every read selects, in ApplicationRow's shape.
+export const APPLICATION_FIELDS = "id, card_id, card_name, status, credit_limit_cents, applied_at, updated_at";
 
 export type ApplicationRow = {
   id: string;
@@ -10,7 +18,7 @@ export type ApplicationRow = {
   updated_at: string;
 };
 
-export function applicationFromRow(row: ApplicationRow) {
+export function applicationFromRow(row: ApplicationRow): Application {
   return applicationSchema.parse({
     id: row.id,
     cardId: row.card_id,

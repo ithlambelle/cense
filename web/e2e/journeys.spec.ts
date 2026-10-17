@@ -1,9 +1,18 @@
-// Created with Claude Code. Student journeys through the real UI against the
+// Student journeys through the real UI against the
 // local stack (dev server on :3300, local Supabase, Mailpit). Each test signs
 // up its own fresh student. Run with: npm run e2e
 import { expect, test } from "@playwright/test";
 
-import { axeChecker, blockExternalRequests, LIKELY_FIT_PICKS, signUp, takeQuiz, uniqueEmail } from "./helpers";
+import {
+  axeChecker,
+  blockExternalRequests,
+  expireAccessToken,
+  LIKELY_FIT_PICKS,
+  sessionExpiresAt,
+  signUp,
+  takeQuiz,
+  uniqueEmail,
+} from "./helpers";
 
 const DISCOVER = { id: "discover-it-student-cash-back", name: "Discover it Student Cash Back" };
 
@@ -120,4 +129,30 @@ test("student marks an applied card as denied and reaches the five-step plan", a
   await expect(page.getByRole("heading", { level: 1, name: "A steady five-step plan" })).toBeVisible();
   await expect(page.getByRole("main").getByRole("list").first().getByRole("listitem")).toHaveCount(5);
   await checkA11y("denied: five-step plan");
+});
+
+// Regression: a session whose access token has expired must be refreshed by
+// the session proxy, not treated as signed out or shown an error screen.
+test("student whose access token has expired still loads Home and Cards", async ({ page, context }) => {
+  const checkA11y = axeChecker(page);
+  await signUp(page, uniqueEmail("expired"), checkA11y);
+  await expect(page).toHaveURL(/\/home$/);
+
+  await expireAccessToken(context);
+  expect(await sessionExpiresAt(context)).toBeLessThan(Date.now() / 1000);
+
+  await page.goto("/home");
+  await expect(page).toHaveURL(/\/home$/);
+  await expect(page.getByRole("heading", { name: "6 questions to your first card" })).toBeVisible();
+  await checkA11y("home: after refresh");
+  // The proxy wrote a fresh session.
+  expect(await sessionExpiresAt(context)).toBeGreaterThan(Date.now() / 1000);
+
+  await expireAccessToken(context);
+  await page.goto("/cards");
+  await expect(page.getByRole("heading", { level: 1, name: "Cards" })).toBeVisible();
+  // Only a signed-in visitor gets the bottom bar on the card list.
+  await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
+  await checkA11y("cards: after refresh");
+  expect(await sessionExpiresAt(context)).toBeGreaterThan(Date.now() / 1000);
 });

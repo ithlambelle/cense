@@ -16,13 +16,10 @@ const baseButtonVariants = cva(
         // "I already have an account" on the welcome frame (397:1505): navy outline and label.
         navyOutline:
           "border-[1.5px] border-navy bg-white text-navy hover:bg-off-white active:bg-off-white disabled:opacity-40 aria-busy:opacity-100",
-        outline:
-          "border-track bg-transparent text-navy hover:bg-off-white",
         link: "h-auto min-h-11 rounded-none px-0 text-body-s text-indigo-black underline underline-offset-2 hover:text-navy",
       },
       size: {
         default: "h-14 w-full px-6",
-        sm: "h-11 px-5 text-body-m font-semibold",
       },
     },
     defaultVariants: {

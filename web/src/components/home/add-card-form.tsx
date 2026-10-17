@@ -18,7 +18,7 @@ type AddCardFormProps = {
 };
 
 // For a student who already has a card. Only its name is asked for.
-export function AddCardForm({ onAdded, onCancel, onSignedOut }: AddCardFormProps) {
+function AddCardForm({ onAdded, onCancel, onSignedOut }: AddCardFormProps) {
   const isMounted = useIsMounted();
   const [cardName, setCardName] = useState("");
   const [pending, setPending] = useState(false);

@@ -3,6 +3,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { TYPE_SCALE } from "../utils";
+
 // tokens.json is the shared source for web and iOS. globals.css mirrors its
 // colors for Tailwind. This fails when the two drift apart.
 const tokens = JSON.parse(readFileSync(join(process.cwd(), "..", "tokens.json"), "utf8")) as {
@@ -26,5 +28,13 @@ describe("design tokens", () => {
 
   it.each(Object.entries(tokens.radius))("radius %s matches globals.css", (name, token) => {
     expect(cssValue(`--radius-${kebab(name)}`)).toBe(`${token.$value.value}${token.$value.unit}`);
+  });
+
+  // cn() only keeps a type size class it knows (lib/utils.ts), so a size added
+  // to globals.css without it would be dropped next to a text color.
+  it("registers every --text-* size with cn()", () => {
+    // Names such as h1 or body-s; the --text-h1--line-height companions are skipped.
+    const sizes = new Set([...css.matchAll(/--text-([a-z0-9]+(?:-[a-z0-9]+)*):/g)].map((match) => match[1]));
+    expect([...sizes].sort()).toEqual([...TYPE_SCALE].sort());
   });
 });
