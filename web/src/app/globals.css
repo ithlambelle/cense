@@ -49,6 +49,7 @@
   --color-option-selected: #2a1f5e;
   --color-selected-outline: #c8c5da;
   --color-light-blue: #bae4ff;
+  --color-hairline: #dcd7eb;
 
   /* States the Figma file does not draw, derived from the tokens above. */
   --color-violet-hover: color-mix(in oklab, var(--color-violet), var(--color-white) 12%);

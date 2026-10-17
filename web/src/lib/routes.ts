@@ -11,7 +11,16 @@ export const ROUTES = {
   settings: "/settings",
   // Decides where a student lands after signing in.
   start: "/start",
+  // The rejection guide (Figma Denial Overview frames).
+  denied: "/denied",
+  // The first-month plan for an approved card.
+  plan: "/plan",
 } as const;
+
+// Where a student marks what the issuer decided for one tracked card.
+export function applicationPath(applicationId: string): string {
+  return `/applications/${encodeURIComponent(applicationId)}`;
+}
 
 export function cardPath(cardId: string): string {
   return `/cards/${encodeURIComponent(cardId)}`;

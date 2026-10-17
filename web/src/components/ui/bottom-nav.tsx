@@ -1,32 +1,45 @@
 "use client"
 
-import { CreditCard, House } from "lucide-react"
+import CreditCard from "@gravity-ui/icons/CreditCard"
+import House from "@gravity-ui/icons/House"
+import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 import { ROUTES } from "@/lib/routes"
 import { cn } from "@/lib/utils"
 
-// MVP1 has two tabs (US-02). The hi-fi draws four for a later product.
+// MVP1 has two tabs (Ben, 2026-10-16). The frames draw four (Today, Learn,
+// Goals, Invest) for a later product; Learn, Goals and Invest have no MVP1 screens.
 const TABS = [
   { href: ROUTES.home, label: "Home", Icon: House },
   { href: ROUTES.cards, label: "Cards", Icon: CreditCard },
 ] as const
 
 function isActive(pathname: string, href: string): boolean {
-  if (href === ROUTES.cards) return pathname.startsWith(ROUTES.cards)
-  return pathname.startsWith(href)
+  return pathname === href || pathname.startsWith(`${href}/`)
 }
 
+// The navy bar with stars from the frames (395:755): the active tab is light
+// blue and semibold, the others off-white.
 function BottomNav() {
   const pathname = usePathname()
 
   return (
     <nav
       aria-label="Main"
-      className="flex justify-center border-t border-track bg-indigo-black px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+      className="relative flex justify-center bg-navy px-3 pt-3 pb-[max(1.8rem,env(safe-area-inset-bottom))] shadow-[0_-4px_8px_11px_var(--color-navy)]"
     >
-      <ul className="flex w-full max-w-phone">
+      {/* Drawn for the four-tab bar; shifted so no star sits on the two MVP1 tabs. */}
+      <Image
+        src="/decor/nav-stars.svg"
+        alt=""
+        aria-hidden="true"
+        width={353}
+        height={90}
+        className="pointer-events-none absolute top-0 left-[calc(50%+40px)] -translate-x-1/2"
+      />
+      <ul className="relative flex w-full max-w-phone">
         {TABS.map(({ href, label, Icon }) => {
           const active = isActive(pathname, href)
           return (
@@ -35,15 +48,11 @@ function BottomNav() {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex min-h-11 flex-col items-center gap-1.5 rounded-input text-xs outline-none focus-visible:outline-2 focus-visible:outline-ring",
-                  // Violet 12px text on this bar is 3.48 to 1, so the active
-                  // label is white and bold and the icon carries the violet.
-                  // Palette colours, not theme tokens: the bar stays dark in the
-                  // light theme, where foreground is indigo-black like the bar.
-                  active ? "font-bold text-white" : "text-off-white/75"
+                  "flex min-h-11 flex-col items-center gap-[7px] rounded-input text-body-s outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-light-blue",
+                  active ? "font-semibold text-light-blue" : "text-off-white"
                 )}
               >
-                <Icon aria-hidden="true" className={cn("size-[22px]", active && "text-primary")} />
+                <Icon aria-hidden="true" width={22} height={22} />
                 {label}
               </Link>
             </li>
