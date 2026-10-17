@@ -4,11 +4,12 @@ import CreditCard from "@gravity-ui/icons/CreditCard";
 import Hourglass from "@gravity-ui/icons/Hourglass";
 import Image from "next/image";
 import Link from "next/link";
-import type { ComponentType, ReactNode, SVGProps } from "react";
+import type { ComponentType, SVGProps } from "react";
 
 import { Greeting } from "@/components/home/greeting";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
+import { StatusPill } from "@/components/ui/status-pill";
 import { findCard } from "@/lib/cards/catalog";
 import { cardDisplayName, cardTypeLabel, moneyAmount } from "@/lib/copy/results";
 import type { Application, HomeState } from "@/lib/home/state";
@@ -235,14 +236,6 @@ function StatusCard({
         ))}
       </dl>
     </section>
-  );
-}
-
-function StatusPill({ children }: { children: ReactNode }) {
-  return (
-    <p className="shrink-0 rounded-pill bg-off-white px-2.5 py-[5px] text-body-s font-semibold text-violet">
-      {children}
-    </p>
   );
 }
 
