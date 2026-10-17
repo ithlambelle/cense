@@ -47,6 +47,7 @@ How a piece of work goes from the Notion board to merged code.
 ## Secrets
 
 - Never commit a key, token or password. CI scans every push for them.
+- A pre-commit hook also scans what you are about to commit, so a secret is caught on your laptop. It turns on when you run `npm install` in `web/` and needs [gitleaks](https://github.com/gitleaks/gitleaks) (macOS: `brew install gitleaks`). If it flags something that is not a secret, such as a made-up test password, change the value or add `gitleaks:allow` as a comment on that line. Skip the hook only in an emergency: `git commit --no-verify`.
 - `web/.env.example` lists the variable names with no values. Copy it to `web/.env.local` and fill in the values from the Supabase dashboard.
 - Do not paste keys into Slack or Notion.
 
