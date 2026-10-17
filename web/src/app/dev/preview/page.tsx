@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { AccountView } from "@/components/account/account-view";
 import { MarkResult } from "@/components/applications/mark-result";
 import { DeniedOptionsView } from "@/components/denied/options-view";
 import { DeniedPlanView } from "@/components/denied/plan-view";
@@ -8,6 +9,8 @@ import { FixableView } from "@/components/denied/fixable-view";
 import { ReminderSavedView } from "@/components/denied/reminder-saved-view";
 import { ReminderSetup } from "@/components/denied/reminder-setup";
 import { SecondLook } from "@/components/denied/second-look";
+import { AddCardScreen } from "@/components/home/add-card-form";
+import { FirstMonthPlan } from "@/components/plan/first-month-plan";
 import { devPagesEnabled } from "@/lib/dev-only";
 import type { Application } from "@/lib/home/state";
 
@@ -36,6 +39,9 @@ const SCREENS = {
   "second-look": () => <SecondLook applicationId={SAMPLE_ID} />,
   "second-look-approved": () => <SecondLook applicationId={SAMPLE_ID} initialView="approved" />,
   "second-look-not-approved": () => <SecondLook applicationId={SAMPLE_ID} initialView="not-approved" />,
+  account: () => <AccountView email="student@example.edu" card={{ ...SAMPLE_APPLICATION, status: "approved", creditLimitCents: 50000 }} />,
+  "add-card": () => <AddCardScreen />,
+  plan: () => <FirstMonthPlan application={{ ...SAMPLE_APPLICATION, status: "approved", creditLimitCents: 50000 }} />,
 } as const;
 
 export default async function PreviewPage({ searchParams }: { searchParams: Promise<{ screen?: string }> }) {

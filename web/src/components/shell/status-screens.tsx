@@ -1,18 +1,23 @@
-import type { ReactNode } from "react";
-
 import Link from "next/link";
 
+import { MessageScreen } from "@/components/shell/message-screen";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ROUTES } from "@/lib/routes";
-import { ScreenShell } from "@/components/ui/screen-shell";
 
-export function LoadingScreen({ label, nav }: { label: string; nav?: ReactNode }) {
+// While a client screen reads its data (the quiz draft).
+export function LoadingScreen({ label }: { label: string }) {
   return (
-    <ScreenShell nav={nav}>
-      <p role="status" className="mt-15 text-body text-muted-foreground">
-        {label}
-      </p>
-    </ScreenShell>
+    <div className="flex min-h-dvh justify-center bg-background">
+      <main className="flex w-full max-w-phone flex-col items-center justify-center gap-3 px-6">
+        <span
+          aria-hidden="true"
+          className="size-6 rounded-full border-2 border-violet border-r-transparent motion-safe:animate-spin"
+        />
+        <p role="status" className="text-body-m text-indigo-black">
+          {label}
+        </p>
+      </main>
+    </div>
   );
 }
 
@@ -20,30 +25,15 @@ type FailedScreenProps = {
   title: string;
   message: string;
   onRetry: () => void;
-  nav?: ReactNode;
-  // False on the card list itself, where the link would lead back here.
-  offerCards?: boolean;
 };
 
-export function FailedScreen({ title, message, onRetry, nav, offerCards = true }: FailedScreenProps) {
+export function FailedScreen({ title, message, onRetry }: FailedScreenProps) {
   return (
-    <ScreenShell
-      nav={nav}
-      footer={
-        <>
-          <Button onClick={onRetry}>Try again</Button>
-          {nav || !offerCards ? null : (
-            <Link href={ROUTES.cards} className={buttonVariants({ variant: "link", className: "self-center" })}>
-              Browse cards
-            </Link>
-          )}
-        </>
-      }
-    >
-      <h1 className="mt-15 font-heading text-title font-bold">{title}</h1>
-      <p role="alert" className="mt-2 text-body text-muted-foreground">
-        {message}
-      </p>
-    </ScreenShell>
+    <MessageScreen title={title} body={message}>
+      <Button onClick={onRetry}>Try again</Button>
+      <Link href={ROUTES.home} className={buttonVariants({ variant: "secondary" })}>
+        Go to Home
+      </Link>
+    </MessageScreen>
   );
 }
