@@ -1,0 +1,173 @@
+"use client";
+
+import BellSlash from "@gravity-ui/icons/BellSlash";
+import Calendar from "@gravity-ui/icons/Calendar";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+import { DeniedLayout, withApplication } from "@/components/denied/denied-layout";
+import { Notice } from "@/components/denied/parts";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { ErrorMessage } from "@/components/ui/error-message";
+import { SelectedMark } from "@/components/ui/selected-mark";
+import { pendingRequest } from "@/lib/api-client/pending";
+import { addMonths, formatIsoDate, toIsoDate } from "@/lib/dates";
+import { ROUTES, signInPath } from "@/lib/routes";
+import { useNow } from "@/lib/use-now";
+
+type Choice = "six-months" | "custom";
+
+// Choose when to check in (Figma 397:2362, S23). Saves a reapply reminder
+// email (spec C2). Until the backend route exists the screen says so and shows
+// the date to note down; it never claims a reminder was saved.
+export function ReminderSetup({ applicationId }: { applicationId: string | null }) {
+  const router = useRouter();
+  const now = useNow();
+  const today = now ? toIsoDate(now) : null;
+  const [choice, setChoice] = useState<Choice>("six-months");
+  const [customDate, setCustomDate] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
+
+  const sixMonths = today ? toIsoDate(addMonths(new Date(`${today}T12:00:00`), 6)) : null;
+  const tomorrow = today ? toIsoDate(new Date(new Date(`${today}T12:00:00`).getTime() + 86_400_000)) : undefined;
+  const latest = today ? toIsoDate(addMonths(new Date(`${today}T12:00:00`), 24)) : undefined;
+  const remindOn = choice === "six-months" ? sixMonths : customDate || null;
+  const remindOnLabel = remindOn ? formatIsoDate(remindOn) : null;
+
+  async function save() {
+    if (!applicationId || !remindOn || !remindOnLabel) return;
+    if (today && remindOn <= today) {
+      setError("Pick a date after today.");
+      return;
+    }
+    setPending(true);
+    setError(null);
+    const result = await pendingRequest("POST /reminders", { applicationId, remindOn });
+    if (result.kind === "ok") {
+      router.push(`${ROUTES.denied}/reminder/saved?application=${encodeURIComponent(applicationId)}`);
+      return;
+    }
+    setPending(false);
+    if (result.kind === "signed-out") {
+      router.replace(signInPath(ROUTES.home));
+      return;
+    }
+    if (result.kind === "unavailable") {
+      setUnavailable(true);
+      return;
+    }
+    setError(result.message);
+  }
+
+  return (
+    <DeniedLayout backHref={withApplication(`${ROUTES.denied}/plan`, applicationId)}>
+      <div className="flex flex-col gap-2">
+        <h1 className="font-heading text-h1 font-medium text-navy">Choose when to check in</h1>
+        <p className="text-body-m text-indigo-black">
+          A reminder email can help you wait while you build history, without another application today.
+        </p>
+      </div>
+
+      <div role="group" aria-label="When to remind you" className="flex flex-col gap-6">
+        <TimingOption
+          selected={choice === "six-months"}
+          onSelect={() => setChoice("six-months")}
+          title="In about 6 months"
+          detail={sixMonths ? (formatIsoDate(sixMonths) ?? "") : ""}
+        />
+        <TimingOption
+          selected={choice === "custom"}
+          onSelect={() => setChoice("custom")}
+          title="Choose another date"
+          detail="Pick a date that works for you"
+        />
+      </div>
+
+      {choice === "custom" ? (
+        <label className="flex flex-col gap-1">
+          <span className="text-body-s text-indigo-black">Reminder date</span>
+          <input
+            type="date"
+            value={customDate}
+            min={tomorrow}
+            max={latest}
+            onChange={(event) => setCustomDate(event.target.value)}
+            className="h-12 rounded-input border-[1.5px] border-off-white bg-off-white px-3.5 text-body-m text-indigo-black outline-none focus:border-violet"
+          />
+        </label>
+      ) : null}
+
+      <section className="flex flex-col gap-3 rounded-card border-[1.5px] border-violet p-5">
+        <div className="flex items-center gap-2">
+          <Calendar aria-hidden="true" width={22} height={22} className="text-violet" />
+          <h2 className="font-heading text-h6 font-medium text-indigo-black">Before you reapply</h2>
+        </div>
+        <ul className="flex flex-col text-body-s text-indigo-black">
+          {["Check your credit reports again", "Look for on-time history", "Use preapproval before a full application"].map((item) => (
+            <li key={item}>
+              <span aria-hidden="true">• </span>
+              {item}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <Notice icon={BellSlash} title="Only this reminder will be saved">
+        The rejected card’s first-month plan and card reminders stay off.
+      </Notice>
+
+      {unavailable ? (
+        <section role="status" className="flex flex-col gap-2 rounded-input border border-hairline p-4">
+          <h2 className="font-heading text-h6 font-medium text-navy">Reminder emails aren’t on yet</h2>
+          <p className="text-body-s text-indigo-black">
+            We can’t send reminders yet, so nothing was saved. Note the date for now: {remindOnLabel}.
+          </p>
+        </section>
+      ) : null}
+      {error ? <ErrorMessage>{error}</ErrorMessage> : null}
+
+      {applicationId ? (
+        <Button pending={pending} disabled={!remindOnLabel} onClick={save}>
+          Save reapply reminder
+        </Button>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <p className="text-body-s text-indigo-black">Open this from your card on Home to set a reminder for it.</p>
+          <Link href={ROUTES.home} className={buttonVariants()}>
+            Go to Home
+          </Link>
+        </div>
+      )}
+    </DeniedLayout>
+  );
+}
+
+function TimingOption({
+  selected,
+  onSelect,
+  title,
+  detail,
+}: {
+  selected: boolean;
+  onSelect: () => void;
+  title: string;
+  detail: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onSelect}
+      className="flex min-h-20 w-full items-center gap-4 rounded-card border-[1.5px] border-violet bg-white px-5 py-3 text-left outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+    >
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-indigo-black">
+        <span className="font-heading text-h6 font-medium">{title}</span>
+        <span className="min-h-5 text-body-s">{detail}</span>
+      </span>
+      {selected ? <SelectedMark /> : null}
+    </button>
+  );
+}

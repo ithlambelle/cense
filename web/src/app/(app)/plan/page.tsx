@@ -1,0 +1,36 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+
+import { FirstMonthPlan } from "@/components/plan/first-month-plan";
+import { AppHeader } from "@/components/ui/app-header";
+import { buttonVariants } from "@/components/ui/button";
+import { authenticatedStudent } from "@/lib/api/auth";
+import { ROUTES, signInPath } from "@/lib/routes";
+import { loadStudentSnapshot } from "@/lib/student-data";
+
+export const metadata: Metadata = { title: "Your first-month plan | CENSE" };
+
+// The plan is for the most recently approved card.
+export default async function PlanPage() {
+  const student = await authenticatedStudent();
+  if (!student) redirect(signInPath(ROUTES.home));
+  const { applications } = await loadStudentSnapshot(student);
+  const approved = applications.find((application) => application.status === "approved");
+  if (approved) return <FirstMonthPlan application={approved} />;
+
+  return (
+    <div className="flex min-h-dvh justify-center bg-background">
+      <div className="flex w-full max-w-phone flex-col">
+        <AppHeader backHref={ROUTES.home} title="My card, month 1" />
+        <main className="flex flex-1 flex-col gap-4 px-6 pt-4 pb-6">
+          <h1 className="font-heading text-h2 font-medium text-navy">No approved card yet</h1>
+          <p className="text-body-m text-indigo-black">Your first-month plan starts when a card is approved. Update a card on Home when you hear back.</p>
+          <Link href={ROUTES.home} className={buttonVariants()}>
+            Go to Home
+          </Link>
+        </main>
+      </div>
+    </div>
+  );
+}

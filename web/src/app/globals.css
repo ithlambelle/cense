@@ -2,27 +2,13 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
+  --font-sans: var(--font-body);
+  --font-heading: var(--font-sora);
+  --font-number: var(--font-unbounded);
+  --font-google: var(--font-google-sans);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -48,78 +34,102 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-:root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+/* Brand tokens. Colors mirror tokens.json at the repo root; tokens.test.ts fails on drift. */
+@theme {
+  --color-navy: #0a1045;
+  --color-indigo-black: #0f0b2e;
+  --color-violet: #9740c5;
+  --color-violet-deep: #792ca2;
+  --color-white: #ffffff;
+  --color-off-white: #eceaf6;
+  --color-coral: #ff6370;
+  --color-green: #61e294;
+  --color-amber: #fdc03d;
+  --color-track: #3d3780;
+  --color-option-selected: #2a1f5e;
+  --color-selected-outline: #c8c5da;
+  --color-light-blue: #bae4ff;
+  --color-hairline: #dcd7eb;
+
+  /* States the Figma file does not draw, derived from the tokens above. Hover
+     darkens rather than lightens: white text on violet is 5.45:1, and a 12%
+     white mix fell to 4.28:1, under WCAG 1.4.3's 4.5:1 (caught by the e2e
+     axe check). */
+  --color-violet-hover: color-mix(in oklab, var(--color-violet), var(--color-indigo-black) 8%);
+  --color-violet-pressed: color-mix(in oklab, var(--color-violet), var(--color-indigo-black) 18%);
+  /* Plain rgb() rather than color-mix(): same color, wider support. */
+  --color-violet-disabled: rgb(151 64 197 / 0.3);
+  --color-glow: rgb(236 234 246 / 0.7);
+
+  --radius-pill: 62px;
+  --radius-card: 22px;
+  --radius-input: 20px;
+  --radius-segment: 2px;
+
+  /* Typography frame 219:3094 (2026-10-16): Sora Medium for H1 to H6, Inter
+     Regular for body, Unbounded for numbers. Numbers use the mobile column of
+     the responsive scale, since every screen is a phone screen. */
+  --text-h1: 2rem;
+  --text-h1--line-height: 2.5rem;
+  --text-h2: 1.75rem;
+  --text-h2--line-height: 2.25rem;
+  --text-h3: 1.5rem;
+  --text-h3--line-height: 2rem;
+  --text-h4: 1.25rem;
+  --text-h4--line-height: 1.75rem;
+  --text-h5: 1.125rem;
+  --text-h5--line-height: 1.5rem;
+  --text-h6: 1rem;
+  --text-h6--line-height: 1.375rem;
+  --text-body-s: 0.875rem;
+  --text-body-s--line-height: 1.25rem;
+  --text-body-m: 1rem;
+  --text-body-m--line-height: 1.5rem;
+  --text-body-l: 1.125rem;
+  --text-body-l--line-height: 1.75rem;
+  --text-number-s: 0.75rem;
+  --text-number-s--line-height: 1rem;
+  --text-number-m: 1rem;
+  --text-number-m--line-height: 1.375rem;
+  --text-number-l: 1.25rem;
+  --text-number-l--line-height: 1.75rem;
+  --text-number-xl: 1.75rem;
+  --text-number-xl--line-height: 2.25rem;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.125rem;
+
+  --shadow-glow-form: -5px -3px 8px 3px var(--color-glow), 5px 3px 8px 3px var(--color-violet);
+
+  --container-phone: 390px;
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+/* One theme: light mode, from the latest hi-fi frames (2026-10-16).
+   shadcn components read these names. */
+:root {
+  --background: var(--color-white);
+  --foreground: var(--color-navy);
+  --card: var(--color-white);
+  --card-foreground: var(--color-navy);
+  --popover: var(--color-white);
+  --popover-foreground: var(--color-navy);
+  --primary: var(--color-violet);
+  --primary-foreground: var(--color-white);
+  --secondary: var(--color-white);
+  --secondary-foreground: var(--color-indigo-black);
+  --muted: var(--color-off-white);
+  --muted-foreground: var(--color-indigo-black);
+  --accent: var(--color-off-white);
+  --accent-foreground: var(--color-navy);
+  --destructive: var(--color-coral);
+  --border: var(--color-track);
+  --input: var(--color-off-white);
+  --ring: var(--color-violet);
+  --radius: 0.625rem;
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring;
   }
   body {
     @apply bg-background text-foreground;
