@@ -62,21 +62,6 @@
   --radius-input: 20px;
   --radius-segment: 2px;
 
-  --text-title: 1.75rem;
-  --text-title--line-height: 2.25rem;
-  --text-card-name: 1.25rem;
-  --text-card-name--line-height: 1.75rem;
-  --text-section: 1rem;
-  --text-section--line-height: 1.375rem;
-  --text-button: 1.125rem;
-  --text-button--line-height: 1.75rem;
-  --text-body: 1rem;
-  --text-body--line-height: 1.5rem;
-  --text-label: 0.875rem;
-  --text-label--line-height: 1.25rem;
-  --text-legal: 0.8125rem;
-  --text-legal--line-height: 1.25rem;
-
   /* Typography frame 219:3094 (2026-10-16): Sora Medium for H1 to H6, Inter
      Regular for body, Unbounded for numbers. Numbers use the mobile column of
      the responsive scale, since every screen is a phone screen. */
@@ -110,8 +95,6 @@
   --text-caption--line-height: 1.125rem;
 
   --shadow-glow-form: -5px -3px 8px 3px var(--color-glow), 5px 3px 8px 3px var(--color-violet);
-  --shadow-glow-result: -5px -3px 10px 3px var(--color-glow), 5px 3px 8px 4px var(--color-violet-deep);
-  --shadow-glow-option: 0 0 8px 4px var(--color-off-white);
 
   --container-phone: 390px;
 }

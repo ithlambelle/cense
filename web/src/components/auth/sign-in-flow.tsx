@@ -209,7 +209,7 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
           {copy.switchLink}
         </Link>
       </p>
-      <p className="text-center text-legal text-indigo-black/70">
+      <p className="text-center text-body-s text-indigo-black/70">
         Cense saves your email, your quiz answers and your card match. We never ask for your Social Security number
         or date of birth.
       </p>
