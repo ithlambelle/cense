@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { AuthLayout, BackButton, BackLinkHome } from "@/components/auth/auth-layout";
 import { GoogleButton } from "@/components/auth/google-button";
@@ -60,7 +60,14 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [cooldown, startCooldown] = useCooldown();
+  // True once the student has left the first step, so later steps take focus.
+  const [moved, setMoved] = useState(false);
   const copy = COPY[mode];
+
+  function goTo(next: typeof step) {
+    setMoved(true);
+    setStep(next);
+  }
 
   async function sendCode(): Promise<boolean> {
     setPending(true);
@@ -84,7 +91,13 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
 
   async function submitEmail(event: FormEvent) {
     event.preventDefault();
-    if (await sendCode()) setStep("code");
+    if (pending) return;
+    // The button stays enabled (as drawn); an empty or unfinished email is explained instead.
+    if (!looksLikeEmail(email)) {
+      setError(email.trim() === "" ? "Enter your email." : "That email doesn’t look quite right.");
+      return;
+    }
+    if (await sendCode()) goTo("code");
   }
 
   async function resend() {
@@ -96,6 +109,11 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
 
   async function submitCode(event: FormEvent) {
     event.preventDefault();
+    if (pending) return;
+    if (code.length !== CODE_LENGTH) {
+      setError(`Enter the ${CODE_LENGTH}-digit code from the email.`);
+      return;
+    }
     setPending(true);
     setError(null);
     setNotice(null);
@@ -122,16 +140,20 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
         }}
         onConfirmEmail={(address) => {
           setEmail(address);
-          setStep("confirm-email");
+          goTo("confirm-email");
         }}
-        onUseCode={() => setStep("email")}
+        onUseCode={() => goTo("email")}
       />
     );
   }
 
   if (step === "confirm-email") {
     return (
-      <AuthLayout title="Check your email" back={<BackButton disabled={false} onClick={() => setStep("password")} />}>
+      <AuthLayout
+        title="Check your email"
+        focusTitle
+        back={<BackButton disabled={false} onClick={() => goTo("password")} />}
+      >
         <p className="text-body-m text-indigo-black">
           We sent a link to {email.trim()}. Open it to confirm your account, then log in.
         </p>
@@ -146,11 +168,12 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
     return (
       <AuthLayout
         title="Check your email"
+        focusTitle
         back={
           <BackButton
             disabled={pending}
             onClick={() => {
-              setStep("email");
+              goTo("email");
               setCode("");
               setError(null);
               setNotice(null);
@@ -161,7 +184,7 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
         <p className="text-body-s text-indigo-black/70">We sent a 6-digit code to {email.trim()}.</p>
         <form method="post" onSubmit={submitCode} className="flex flex-col gap-4 py-5" noValidate>
           <CodeInput value={code} onChange={setCode} error={error ?? undefined} disabled={pending} />
-          <Button type="submit" disabled={code.length !== CODE_LENGTH} pending={pending}>
+          <Button type="submit" pending={pending}>
             Verify
           </Button>
         </form>
@@ -176,11 +199,11 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
   }
 
   return (
-    <AuthLayout title={copy.title} back={<BackLinkHome />}>
+    <AuthLayout title={copy.title} focusTitle={moved} back={<BackLinkHome />}>
       {initialError ? <ErrorMessage>{initialError}</ErrorMessage> : null}
       <GoogleButton href={googleSignInPath(next)} />
       <p className="text-center text-body-s text-navy">or</p>
-      <form method="post" onSubmit={submitEmail} className="flex flex-col gap-4" noValidate>
+      <form method="post" onSubmit={submitEmail} className="flex flex-col gap-4 py-5" noValidate>
         <TextField
           label="Email"
           type="email"
@@ -193,11 +216,11 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
           error={error ?? undefined}
           disabled={pending}
         />
-        <Button type="submit" disabled={email.trim() === "" || cooldown > 0} pending={pending}>
+        <Button type="submit" disabled={cooldown > 0} pending={pending}>
           {cooldown > 0 ? `Email me a code in ${cooldown}s` : "Email me a code"}
         </Button>
       </form>
-      <Button variant="link" className="self-center text-violet" onClick={() => setStep("password")}>
+      <Button variant="link" className="self-center text-violet" onClick={() => goTo("password")}>
         Use a password instead
       </Button>
       <p className="flex min-h-11 items-center justify-center gap-1 text-body-s text-indigo-black">
@@ -236,9 +259,19 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUse
   const [errors, setErrors] = useState<{ email?: string; password?: string; repeat?: string; form?: string }>({});
   const [pending, setPending] = useState(false);
   const signUp = mode === "sign-up";
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const repeatRef = useRef<HTMLInputElement>(null);
+
+  // The title stays the same on this step, so focus goes to its first field to
+  // show that the form changed (WCAG 2.4.3).
+  useEffect(() => {
+    emailRef.current?.focus();
+  }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (pending) return;
     const next: typeof errors = {};
     if (!looksLikeEmail(email)) next.email = "That email doesn’t look quite right.";
     if (signUp) {
@@ -249,7 +282,11 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUse
       next.password = "Enter your password.";
     }
     setErrors(next);
-    if (Object.keys(next).length > 0) return;
+    if (Object.keys(next).length > 0) {
+      // Focus the first field to fix, so its error is what gets announced.
+      (next.email ? emailRef : next.password ? passwordRef : repeatRef).current?.focus();
+      return;
+    }
 
     setPending(true);
     const body = { email: email.trim(), password };
@@ -277,7 +314,7 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUse
 
   return (
     <AuthLayout title={title} back={<BackButton disabled={pending} onClick={onUseCode} />}>
-      <form method="post" onSubmit={submit} className="flex flex-col gap-3" noValidate>
+      <form method="post" onSubmit={submit} className="flex flex-col gap-3 py-5" noValidate>
         <TextField
           label="Email"
           type="email"
@@ -285,6 +322,7 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUse
           autoComplete="email"
           inputMode="email"
           placeholder="Your email"
+          ref={emailRef}
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           error={errors.email}
@@ -295,6 +333,7 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUse
           name="password"
           autoComplete={signUp ? "new-password" : "current-password"}
           placeholder="Your password"
+          ref={passwordRef}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           error={errors.password}

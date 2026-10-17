@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 import { AppHeader } from "@/components/ui/app-header";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
+import { SelectedMark } from "@/components/ui/selected-mark";
 import { TextField } from "@/components/ui/text-field";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import type { Application } from "@/lib/home/state";
@@ -84,6 +85,7 @@ export function MarkResult({ application }: { application: Application }) {
 
   function submitApproved(event: FormEvent) {
     event.preventDefault();
+    if (pending) return;
     const cents = limitToCents(limit);
     if (cents === undefined) {
       setLimitError("Enter the limit in dollars, like 500 or 1,500.");
@@ -112,11 +114,12 @@ export function MarkResult({ application }: { application: Application }) {
                 disabled={pending}
                 onClick={() => choose(option.id)}
                 className={cn(
-                  "flex min-h-14 w-full items-center rounded-[18px] border-[1.5px] border-violet bg-white px-5 py-3 text-left text-body-m text-navy outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress",
+                  "flex min-h-14 w-full items-center gap-4 rounded-[18px] border-[1.5px] border-violet bg-white px-5 py-3 text-left text-body-m text-navy outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress",
                   choice === option.id && "bg-off-white",
                 )}
               >
-                {option.label}
+                <span className="flex-1">{option.label}</span>
+                {choice === option.id ? <SelectedMark /> : null}
               </button>
             ))}
           </div>

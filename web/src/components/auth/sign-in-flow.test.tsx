@@ -87,12 +87,15 @@ describe("SignInFlow", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("keeps Verify off until six digits are entered", async () => {
-    server([CODE_SENT]);
+  it("explains a short code instead of sending it", async () => {
+    const fetchFn = server([CODE_SENT]);
     render(<SignInFlow mode="sign-in" next={null} initialError={null} />);
     await reachCodeStep();
+    const calls = fetchFn.mock.calls.length;
     fireEvent.change(screen.getByLabelText("Verification code"), { target: { value: "4829" } });
-    expect(screen.getByRole("button", { name: "Verify" }).hasAttribute("disabled")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Enter the 6-digit code from the email.");
+    expect(fetchFn.mock.calls.length).toBe(calls);
   });
 
   it("holds the resend control during the cooldown", async () => {

@@ -22,6 +22,7 @@ export function ForgotPassword() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (pending) return;
     if (!looksLikeEmail(email)) {
       setError("That email doesn’t look quite right.");
       return;

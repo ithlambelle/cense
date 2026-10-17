@@ -23,6 +23,11 @@ export function AddCardForm({ onAdded, onCancel, onSignedOut }: AddCardFormProps
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (pending) return;
+    if (cardName.trim() === "") {
+      setError("Enter the card’s name.");
+      return;
+    }
     setPending(true);
     setError(null);
     const result = await apiRequest("post", "/applications", {
@@ -58,7 +63,7 @@ export function AddCardForm({ onAdded, onCancel, onSignedOut }: AddCardFormProps
         error={error ?? undefined}
         disabled={pending}
       />
-      <Button type="submit" disabled={cardName.trim() === ""} pending={pending}>
+      <Button type="submit" pending={pending}>
         Add card
       </Button>
       <Button type="button" variant="link" className="self-center text-violet" disabled={pending} onClick={onCancel}>
