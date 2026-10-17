@@ -63,7 +63,7 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
           <div className="flex flex-col gap-2">
             <h1 className="font-heading text-h1 font-medium text-navy">The issuer approved your application</h1>
             <p className="text-body-m text-indigo-black">
-              The corrected information was reviewed. Watch for the issuer’s confirmation and card delivery details.
+              Good news. Watch for the issuer’s confirmation and card delivery details.
             </p>
           </div>
         </div>
@@ -102,7 +102,7 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
             {[
               "Check your reports and keep the corrected records.",
               "Build history with a secured card, credit-builder loan, or authorized-user option.",
-              "Wait about 6 months and use preapproval first.",
+              "Many people wait about 6 months, then use preapproval first.",
             ].map((item) => (
               <li key={item} className="flex items-start gap-2 text-body-s text-indigo-black">
                 <Check aria-hidden="true" width={16} height={16} className="mt-0.5 shrink-0 text-violet" />

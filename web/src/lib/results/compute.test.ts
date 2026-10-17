@@ -43,7 +43,34 @@ describe("computeResult", () => {
     expect(view.fit.cardId).toBe(view.card.id);
     expect(view.fit.reasons.length).toBeGreaterThan(0);
     expect(view.alternative).not.toBeNull();
-    expect(view.alternative?.id).not.toBe(view.card.id);
+    expect(view.alternative?.card.id).not.toBe(view.card.id);
+  });
+
+  it("gives another option its own fit: the rules' pick and tier once the top card is set aside", () => {
+    for (const answers of [ALL_SIX, { ...ALL_SIX, standing: "limited" }, { ...ALL_SIX, recentDenial: true }] as const) {
+      const view = computeResult(answers, cards);
+      if (view.kind !== "match" || !view.alternative) throw new Error("expected a match with another option");
+      const rest = evaluateFit(answers, cards.filter((card) => card.id !== view.card.id));
+      if (rest.status !== "complete") throw new Error("expected complete answers");
+      expect(view.alternative.card.id).toBe(rest.recommendedCardId);
+      expect(view.alternative.fit).toEqual(rest.cards.find((fit) => fit.cardId === rest.recommendedCardId));
+      expect(view.alternative.fit.reasons.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps a stretch alternative marked as a stretch beside a likely fit top card", () => {
+    const top = computeResult(ALL_SIX, cards);
+    if (top.kind !== "match") throw new Error("expected a match");
+    expect(top.fit.tier).toBe("likely_fit");
+    // Only the top card and one that needs more history than the student has.
+    const stretchCard = cards.find((card) => card.catalogRole === "recommend" && card.historyNeeded === "limited");
+    if (!stretchCard) throw new Error("expected a recommend card that asks for limited history");
+    const view = computeResult(ALL_SIX, [top.card, stretchCard]);
+    if (view.kind !== "match" || !view.alternative) throw new Error("expected a match with another option");
+    expect(view.fit.tier).toBe("likely_fit");
+    expect(view.alternative.card.id).toBe(stretchCard.id);
+    expect(view.alternative.fit.tier).toBe("stretch");
+    expect(view.alternative.fit.ruleIds).toContain("C1");
   });
 
   it("leaves out another option when only one card is listed", () => {

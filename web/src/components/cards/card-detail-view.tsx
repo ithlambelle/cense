@@ -1,4 +1,4 @@
-import CircleCheck from "@gravity-ui/icons/CircleCheck";
+import CircleInfo from "@gravity-ui/icons/CircleInfo";
 import Image from "next/image";
 import type { z } from "zod";
 
@@ -9,6 +9,7 @@ import { FactChip } from "@/components/ui/fact-chip";
 import type { cardSchema } from "@/lib/api/schemas";
 import { cardDisplayName, cardTypeLabel, moneyAmount } from "@/lib/copy/results";
 import { ROUTES } from "@/lib/routes";
+import { cardNotes } from "@/lib/rules/fit-tier";
 
 type Card = z.infer<typeof cardSchema>;
 
@@ -48,7 +49,8 @@ export function CardDetailView({ card, signedIn }: { card: Card; signedIn: boole
               <ul className="flex flex-col gap-2">
                 {approval.map((condition) => (
                   <li key={condition.kind} className="flex items-start gap-3 text-body-s text-indigo-black">
-                    <CircleCheck aria-hidden="true" width={18} height={18} className="mt-0.5 shrink-0 text-violet" />
+                    {/* An info mark, not a check: many of these are reasons an issuer says no. */}
+                    <CircleInfo aria-hidden="true" width={18} height={18} className="mt-0.5 shrink-0 text-violet" />
                     <span>{condition.text}</span>
                   </li>
                 ))}
@@ -56,7 +58,17 @@ export function CardDetailView({ card, signedIn }: { card: Card; signedIn: boole
             </section>
           ) : null}
 
-          <IssuerActions card={card} signedIn={signedIn} />
+          <IssuerActions
+            card={{
+              id: card.id,
+              brand: card.brand,
+              name: card.name,
+              preapprovalUrl: card.preapprovalUrl,
+              referralDisclosure: card.referralDisclosure,
+            }}
+            notes={cardNotes(card).map((note) => note.text)}
+            signedIn={signedIn}
+          />
         </main>
         {signedIn ? (
           <div className="sticky bottom-0">

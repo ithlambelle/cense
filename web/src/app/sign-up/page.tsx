@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Sign up | CENSE" };
 // account on first use. The API sends Google failures to /sign-in.
 // A Map, so a crafted value such as ?error=constructor finds nothing.
 const GOOGLE_ERRORS = new Map([
-  ["cancelled", "Google sign-in was cancelled. Try again, or use an email code."],
+  ["cancelled", "Google sign-in was canceled. Try again, or use an email code."],
   ["callback", "Google sign-in didn’t finish. Try again, or use an email code."],
 ]);
 

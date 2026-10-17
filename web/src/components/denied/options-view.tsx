@@ -15,7 +15,7 @@ export function DeniedOptionsView({ applicationId }: { applicationId: string | n
         <Image src="/mascot/penny.png" alt="" width={214} height={214} className="rotate-[0.84deg]" priority />
       </div>
       <p className="text-body-m text-indigo-black">
-        First applications are often denied because lenders cannot see enough history yet. We’ll help you check the
+        A common reason first applications are denied is that lenders can’t see enough history yet. We’ll help you check the
         reason before you do anything else.
       </p>
       <section className="flex gap-3 rounded-input bg-off-white p-4">
@@ -23,7 +23,7 @@ export function DeniedOptionsView({ applicationId }: { applicationId: string | n
         <div className="flex flex-col gap-1 text-indigo-black">
           <h2 className="font-heading text-h6 font-medium">“No credit file” is not a mistake</h2>
           <p className="text-body-s">
-            It usually means there isn’t enough credit history to score yet, not that you did something wrong.
+            It means the credit bureau doesn’t have a record for you yet. That’s common for students and isn’t a mark against you.
           </p>
         </div>
       </section>

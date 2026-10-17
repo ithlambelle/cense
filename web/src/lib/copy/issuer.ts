@@ -1,8 +1,8 @@
-// Fixed wording for the hand-off to a card issuer. Sources: story US-06 and
-// Notion "Fit Tier Rules v1.0" (note N1). Change only when a source changes.
+// Fixed wording for the hand-off to a card issuer. Source: story US-06. Change
+// only when the source changes. Notes N1 and N2 come from cardNotes in the
+// fit tier rules, so they are never repeated here.
 export const PREAPPROVAL_LABEL = "Check if you’re preapproved";
 export const PREAPPROVAL_LINE = "This check won’t affect your credit score.";
-export const NO_PREAPPROVAL_LINE = "This issuer has no preapproval check, so applying is the only way to find out.";
 export const HAND_OFF_LINE =
   "Cense doesn’t submit applications or see your credit report. Preapproval is not a guarantee of approval.";
 export const DID_YOU_APPLY = "Did you finish applying?";

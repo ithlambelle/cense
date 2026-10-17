@@ -131,6 +131,39 @@ describe("QuizFlow", () => {
     expect(push).toHaveBeenCalledWith("/home");
   });
 
+  it("on a retake, holds the edits and saves them once at the last question", async () => {
+    const all = { under21: true, incomeBand: "under_5k", student: true, standing: "none", recentDenial: false, canDeposit: true };
+    const fetchFn = server([saved(all), saved({ ...all, under21: false, canDeposit: false })]);
+    render(<QuizFlow />);
+    expect(await screen.findByText("Question 1 of 6")).toBeTruthy();
+    fireEvent.click(answer("21 or over"));
+    expect(await screen.findByText("Question 2 of 6")).toBeTruthy();
+    // The same answers as saved, through question 5.
+    for (const [choice, next] of [["Under $5k", 3], ["Yes", 4], ["None", 5], ["No", 6]] as const) {
+      fireEvent.click(answer(choice));
+      expect(await screen.findByText(`Question ${next} of 6`)).toBeTruthy();
+    }
+    // Only the first read so far: no answer was saved on the way.
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    fireEvent.click(answer("No"));
+    await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/results"));
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(fetchFn.mock.calls[1][1]?.method).toBe("PUT");
+    expect(sentAnswers(fetchFn, 1)).toEqual({ ...all, under21: false, canDeposit: false });
+  });
+
+  it("on a retake, closing midway saves nothing, so the saved answers stay whole", async () => {
+    const all = { under21: true, incomeBand: "under_5k", student: true, standing: "none", recentDenial: false, canDeposit: true };
+    const fetchFn = server([saved(all)]);
+    render(<QuizFlow />);
+    await screen.findByText("Question 1 of 6");
+    fireEvent.click(answer("21 or over"));
+    expect(await screen.findByText("Question 2 of 6")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Close quiz" }));
+    expect(push).toHaveBeenCalledWith("/home");
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+
   it("sends a signed-out student to sign in, with a way back to the quiz", async () => {
     server([{ status: 401, body: { error: { code: "unauthorized", message: "Sign in to continue." } } }]);
     render(<QuizFlow />);
