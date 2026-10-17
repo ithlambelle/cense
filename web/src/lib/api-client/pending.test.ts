@@ -12,9 +12,16 @@ afterEach(() => {
 });
 
 describe("pendingRequest", () => {
-  it("says unavailable while the backend route does not exist", async () => {
-    answer(404, { error: { code: "not_found", message: "Not found" } });
+  it("says unavailable while the backend route does not exist (Next's HTML 404 or a 501)", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => new Response("<html>404</html>", { status: 404 })));
     expect(await pendingRequest("GET /reminders")).toEqual({ kind: "unavailable" });
+    answer(501, {});
+    expect(await pendingRequest("GET /reminders")).toEqual({ kind: "unavailable" });
+  });
+
+  it("treats a JSON 404 from a real route as an answer, not a missing route", async () => {
+    answer(404, { error: { code: "not_found", message: "No plan yet." } });
+    expect(await pendingRequest("GET /plan")).toEqual({ kind: "failed", message: "No plan yet.", code: "not_found" });
   });
 
   it("says signed-out on 401 and failed on a server error", async () => {

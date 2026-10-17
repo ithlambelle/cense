@@ -4,9 +4,10 @@ import CreditCard from "@gravity-ui/icons/CreditCard";
 import Hourglass from "@gravity-ui/icons/Hourglass";
 import Image from "next/image";
 import Link from "next/link";
-import type { ComponentType, SVGProps } from "react";
+import type { ComponentType, ReactNode, SVGProps } from "react";
 
 import { Greeting } from "@/components/home/greeting";
+import { UpdatedLine } from "@/components/home/updated-line";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -130,13 +131,6 @@ function previewKind(card: { secured: boolean; studentsOnly: boolean }): string 
   return "CREDIT";
 }
 
-function updatedLine(application: Application): string {
-  const days = Math.floor((Date.now() - Date.parse(application.statusUpdatedAt)) / 86_400_000);
-  if (days <= 0) return "Application updated today";
-  if (days === 1) return "Application updated yesterday";
-  return `Application updated ${days} days ago`;
-}
-
 function TrackedCard({ application }: { application: Application }) {
   const card = application.cardId ? findCard(application.cardId) : undefined;
   const rows: Row[] =
@@ -158,7 +152,7 @@ function TrackedCard({ application }: { application: Application }) {
   return (
     <StatusCard
       title={application.cardName}
-      subtitle={updatedLine(application)}
+      subtitle={<UpdatedLine iso={application.statusUpdatedAt} />}
       pill={PILLS[application.status]}
       preview={{ name: application.cardName, kind: card ? previewKind(card) : "CREDIT" }}
       rows={rows}
@@ -208,7 +202,7 @@ function StatusCard({
   rows,
 }: {
   title: string;
-  subtitle: string;
+  subtitle: ReactNode;
   pill: string;
   preview: { name: string; kind: string };
   rows: Row[];

@@ -1,21 +1,8 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useNow } from "@/lib/use-now";
 
-// The date and greeting use the student's own clock and time zone, so they are
-// worked out in the browser. The server renders a neutral greeting, and the
-// browser fills in the date after hydration (no mismatch, no wrong date).
-function subscribe() {
-  return () => undefined;
-}
-
-// Read once per page load: the snapshot must be stable between renders.
-let loadedAt: number | null = null;
-function clientNow(): number {
-  loadedAt ??= Date.now();
-  return loadedAt;
-}
-
+// The date and greeting use the student's own clock and time zone (see useNow).
 function greetingFor(hour: number): string {
   if (hour < 12) return "Good morning";
   if (hour < 18) return "Good afternoon";
@@ -23,8 +10,7 @@ function greetingFor(hour: number): string {
 }
 
 export function Greeting({ subtitle }: { subtitle: string }) {
-  const now = useSyncExternalStore(subscribe, clientNow, () => null);
-  const date = now === null ? null : new Date(now);
+  const date = useNow();
 
   return (
     <div className="flex flex-col gap-1.5">

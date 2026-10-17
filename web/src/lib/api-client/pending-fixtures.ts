@@ -1,7 +1,7 @@
 // Development-only answers for the pending endpoints (see pending.ts). Loaded
 // only when mocks are on. Kept per browser tab so a walkthrough behaves like
-// the real thing. CENSE_FIXTURE_SENTINEL: a build check greps for this string
-// to prove fixtures never reach a production bundle.
+// the real thing. CENSE_FIXTURE_SENTINEL: `npm run fixtures:check` (part of
+// `npm run check`) fails if this string shows up in the browser bundle.
 export const FIXTURE_SENTINEL = "CENSE_FIXTURE_SENTINEL";
 
 type Reminder = { id: string; applicationId: string; remindOn: string; createdAt: string };
