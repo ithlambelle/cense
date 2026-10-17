@@ -27,7 +27,7 @@ describe("HomeFlow", () => {
     render(<HomeFlow />);
     expect((await screen.findByRole("link", { name: "Take the quiz" })).getAttribute("href")).toBe("/quiz");
     expect(screen.getByRole("button", { name: "Add a card I already have" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Browse cards" }).getAttribute("href")).toBe("/");
+    expect(screen.getByRole("link", { name: "Browse cards" }).getAttribute("href")).toBe("/cards");
   });
 
   it("shows each card's status in plain words", async () => {

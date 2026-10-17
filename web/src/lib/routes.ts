@@ -1,8 +1,10 @@
 // Every screen address in one place, and the only places a visitor may be
 // sent after signing in.
 export const ROUTES = {
-  cards: "/",
+  welcome: "/",
+  cards: "/cards",
   signIn: "/sign-in",
+  signUp: "/sign-up",
   quiz: "/quiz",
   results: "/results",
   home: "/home",
@@ -31,6 +33,11 @@ export function allowedNext(value: string | null | undefined): string | null {
 export function signInPath(next: string | null): string {
   const allowed = allowedNext(next);
   return allowed ? `${ROUTES.signIn}?next=${encodeURIComponent(allowed)}` : ROUTES.signIn;
+}
+
+export function signUpPath(next: string | null): string {
+  const allowed = allowedNext(next);
+  return allowed ? `${ROUTES.signUp}?next=${encodeURIComponent(allowed)}` : ROUTES.signUp;
 }
 
 export function googleSignInPath(next: string | null): string {

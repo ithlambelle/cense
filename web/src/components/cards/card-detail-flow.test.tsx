@@ -55,7 +55,7 @@ describe("CardDetailFlow", () => {
     expect(screen.getByText("$39 annual fee")).toBeTruthy();
     expect(screen.getByText("You must open a checking account with this bank.")).toBeTruthy();
     expect(screen.queryByText("The bank reviews you for an upgrade.")).toBeNull();
-    expect(screen.getByRole("link", { name: "Back" }).getAttribute("href")).toBe("/");
+    expect(screen.getByRole("link", { name: "Back" }).getAttribute("href")).toBe("/cards");
   });
 
   it("sends a signed-out visitor who taps Apply to sign in, opening no tab", async () => {
@@ -78,6 +78,6 @@ describe("CardDetailFlow", () => {
     server({ "/api/v1/me": SIGNED_OUT });
     render(<CardDetailFlow cardId="sample-card" />);
     expect(await screen.findByRole("button", { name: "Try again" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Browse cards" }).getAttribute("href")).toBe("/");
+    expect(screen.getByRole("link", { name: "Browse cards" }).getAttribute("href")).toBe("/cards");
   });
 });
