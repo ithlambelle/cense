@@ -70,4 +70,28 @@ describe("FirstMonthPlan", () => {
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(autopay.getAttribute("aria-checked")).toBe("false");
   });
+
+  it("undoes only the action whose save failed, keeping another that saved meanwhile", async () => {
+    let failAutopay: (r: Response) => void = () => undefined;
+    const fetchFn = vi.fn<typeof fetch>(async (_url, init) => {
+      if (!init?.method || init.method === "GET") return Response.json(plan({}), { status: 200 });
+      const body = JSON.parse(String(init.body));
+      if ("autopay" in body.actions) return new Promise<Response>((resolve) => { failAutopay = resolve; });
+      return Response.json(plan({ plannedPurchase: true }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchFn);
+    render(<FirstMonthPlan application={application} />);
+    await screen.findByText("0 of 3 done");
+    const autopay = screen.getByRole("checkbox", { name: /Turn on autopay/ });
+    const purchase = screen.getByRole("checkbox", { name: /Choose one planned purchase/ });
+    fireEvent.click(autopay);
+    expect(autopay.hasAttribute("disabled")).toBe(true);
+    fireEvent.click(purchase);
+    await waitFor(() => expect(purchase.getAttribute("aria-checked")).toBe("true"));
+    failAutopay(Response.json({}, { status: 500 }));
+    await screen.findByRole("alert");
+    expect(autopay.getAttribute("aria-checked")).toBe("false");
+    expect(purchase.getAttribute("aria-checked")).toBe("true");
+  });
 });
+

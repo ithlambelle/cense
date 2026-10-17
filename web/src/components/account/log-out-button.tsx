@@ -7,6 +7,18 @@ import { ErrorMessage } from "@/components/ui/error-message";
 import { apiRequest, failureMessage } from "@/lib/api-client/client";
 import { ROUTES } from "@/lib/routes";
 
+// Per-tab notes such as "waiting to hear if you finished applying" belong to
+// the student who left; the next person on this tab must not inherit them.
+function forgetTabState() {
+  try {
+    for (const key of Object.keys(sessionStorage)) {
+      if (key.startsWith("cense:")) sessionStorage.removeItem(key);
+    }
+  } catch {
+    // Storage can be off; nothing was kept then.
+  }
+}
+
 // Logging out keeps answers and cards saved for next time.
 export function LogOutButton() {
   const router = useRouter();
@@ -22,6 +34,7 @@ export function LogOutButton() {
       setError(failureMessage(result));
       return;
     }
+    forgetTabState();
     router.replace(ROUTES.welcome);
     router.refresh();
   }

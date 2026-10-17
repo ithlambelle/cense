@@ -116,10 +116,12 @@ export async function pendingRequest<E extends PendingEndpoint>(
   } catch {
     return { kind: "failed", message: OFFLINE_MESSAGE };
   }
-  if (response.status === 404 || response.status === 501) return { kind: "unavailable" };
   const payload: unknown = await response.json().catch(() => null);
+  const apiError = readError(payload);
+  // A route that is not built yet answers 501, or Next's own HTML 404. A 404
+  // in the API's JSON error shape is a real answer (for example "no plan yet").
+  if (response.status === 501 || (response.status === 404 && !apiError)) return { kind: "unavailable" };
   if (!response.ok) {
-    const apiError = readError(payload);
     // A 401 from a sign-in route means wrong details, not an ended session.
     if (response.status === 401 && (!apiError || apiError.code === "unauthorized")) return { kind: "signed-out" };
     return { kind: "failed", message: apiError?.message ?? FAILED_MESSAGE, code: apiError?.code };
