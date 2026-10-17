@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { BackLink } from "@/components/ui/back-link";
 import { BottomNav } from "@/components/ui/bottom-nav";
@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { CodeInput } from "@/components/ui/code-input";
 import { GlowCard } from "@/components/ui/glow-card";
 import { Disclaimer, NoteLine } from "@/components/ui/note";
-import { OptionGroup } from "@/components/ui/option-group";
-import { ProgressSegments, progressLabel } from "@/components/ui/progress-segments";
+import { ProgressBar } from "@/components/ui/progress-bar";
 import { ScreenShell } from "@/components/ui/screen-shell";
 import { TextField } from "@/components/ui/text-field";
 
@@ -22,22 +21,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-const TWO_OPTIONS = [
-  { value: "yes", label: "Yes" },
-  { value: "no", label: "No" },
-];
-
-const SIX_OPTIONS = [
-  { value: "a", label: "A short choice" },
-  { value: "b", label: "A longer choice that wraps onto a second line at this width" },
-  { value: "c", label: "Another choice" },
-];
-
 export function Gallery() {
-  const questionId = useId();
-  const compactId = useId();
-  const [two, setTwo] = useState<string | null>(null);
-  const [many, setMany] = useState<string | null>("a");
   const [code, setCode] = useState("");
   const [pending, setPending] = useState(false);
 
@@ -45,9 +29,7 @@ export function Gallery() {
     <ScreenShell
         nav={<BottomNav />}
         footer={
-          <Button disabled={two === null} onClick={() => setTwo(null)}>
-            Continue
-          </Button>
+          <Button onClick={() => window.scrollTo({ top: 0 })}>Back to top</Button>
         }
       >
         <h1 className="font-heading text-title font-bold">Components</h1>
@@ -87,26 +69,10 @@ export function Gallery() {
           <BackLink onClick={() => undefined} />
         </Section>
 
-        <Section title="Progress">
-          <div className="flex items-center justify-between">
-            <BackLink onClick={() => undefined} />
-            <p className="text-label text-muted-foreground">{progressLabel(4, 6)}</p>
-          </div>
-          <ProgressSegments current={4} total={6} />
-        </Section>
-
-        <Section title="Options, two choices">
-          <p id={questionId} className="font-heading text-title font-bold">
-            Could you put down a refundable deposit of up to $200?
-          </p>
-          <OptionGroup labelledBy={questionId} options={TWO_OPTIONS} value={two} onChange={setTwo} />
-        </Section>
-
-        <Section title="Options, more choices">
-          <p id={compactId} className="font-heading text-title font-bold">
-            A question with more choices
-          </p>
-          <OptionGroup labelledBy={compactId} options={SIX_OPTIONS} value={many} onChange={setMany} density="compact" />
+        <Section title="Progress (quiz)">
+          <p className="text-body-s text-indigo-black">Question 4 of 6</p>
+          <ProgressBar current={4} total={6} />
+          <p className="text-body-s text-indigo-black/70">The full quiz with its answer buttons is at /dev/quiz.</p>
         </Section>
 
         <Section title="Form card and fields">

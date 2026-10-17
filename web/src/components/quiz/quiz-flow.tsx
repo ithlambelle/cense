@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { QuizScreen } from "@/components/quiz/quiz-screen";
-import { Under18Screen } from "@/components/quiz/under-18-screen";
 import { FailedScreen, LoadingScreen } from "@/components/shell/status-screens";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import { firstUnanswered, helpText, QUESTIONS, savedChoiceId, withChoice } from "@/lib/quiz/questions";
@@ -33,15 +32,23 @@ async function fetchDraft(): Promise<Draft | "signed-out"> {
   return { status: "failed", message: failureMessage(result) };
 }
 
-// The quiz against the API. Answers are saved on each Continue and kept in
-// memory only: never in the address bar, a cookie or browser storage.
+// How long the chosen answer shows its check before the next question appears,
+// so the tap visibly registered. Feedback only: the save itself is not delayed.
+export const CHOICE_FEEDBACK_MS = 300;
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// The quiz against the API. Tapping an answer saves the whole draft and moves
+// on. Answers are kept in memory only: never in the address bar, a cookie or
+// browser storage.
 export function QuizFlow() {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [under18, setUnder18] = useState(false);
 
   useEffect(() => {
     let current = true;
@@ -78,34 +85,23 @@ export function QuizFlow() {
     );
   }
 
-  if (under18) return <Under18Screen onBack={() => setUnder18(false)} />;
-
   const { answers, index, choiceIds } = draft;
   const question = QUESTIONS[index];
   const isLast = index === QUESTIONS.length - 1;
 
-  function select(choiceId: string) {
+  async function choose(choiceId: string) {
     const choice = question.choices.find((entry) => entry.id === choiceId);
-    if (!choice) return;
+    if (!choice || saving) return;
+    const nextAnswers = withChoice(answers, choice);
+    const nextChoiceIds = { ...choiceIds, [question.field]: choiceId };
     setSaveError(null);
-    setDraft({
-      status: "ready",
-      index,
-      answers: withChoice(answers, choice),
-      choiceIds: { ...choiceIds, [question.field]: choiceId },
-    });
-  }
-
-  async function saveAndContinue() {
-    const chosen = question.choices.find((entry) => entry.id === choiceIds[question.field]);
-    if (chosen?.exit === "under_18") {
-      setUnder18(true);
-      return;
-    }
     setSaving(true);
-    setSaveError(null);
+    setDraft({ status: "ready", index, answers: nextAnswers, choiceIds: nextChoiceIds });
     // The API replaces the whole answers object, so the full draft is sent.
-    const result = await apiRequest("put", "/quiz", { body: { answers } });
+    const [result] = await Promise.all([
+      apiRequest("put", "/quiz", { body: { answers: nextAnswers } }),
+      wait(CHOICE_FEEDBACK_MS),
+    ]);
     if (!result.ok) {
       setSaving(false);
       if (isUnauthorized(result)) {
@@ -116,18 +112,18 @@ export function QuizFlow() {
       return;
     }
     if (isLast) {
-      // Stays pending while the results screen loads.
+      // Stays locked while the result screen loads.
       router.push(ROUTES.results);
       return;
     }
     setSaving(false);
-    setDraft({ status: "ready", answers, choiceIds, index: index + 1 });
+    setDraft({ status: "ready", answers: nextAnswers, choiceIds: nextChoiceIds, index: index + 1 });
   }
 
   function back() {
     setSaveError(null);
     if (index === 0) {
-      router.push(ROUTES.cards);
+      router.push(ROUTES.home);
       return;
     }
     setDraft({ status: "ready", answers, choiceIds, index: index - 1 });
@@ -140,9 +136,9 @@ export function QuizFlow() {
       total={QUESTIONS.length}
       help={helpText(question, answers)}
       selectedChoiceId={choiceIds[question.field] ?? savedChoiceId(question, answers)}
-      onSelect={select}
+      onChoose={choose}
       onBack={back}
-      onContinue={saveAndContinue}
+      onClose={() => router.push(ROUTES.home)}
       pending={saving}
       error={saveError}
     />
