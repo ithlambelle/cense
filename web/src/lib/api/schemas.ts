@@ -3,33 +3,74 @@ import { z } from "zod";
 
 extendZodWithOpenApi(z);
 
-const issuerEvidenceSchema = z.strictObject({
-  sourceUrl: z.url(),
+// Where a card fact comes from (Fit Tier Rules v1.2, section 3).
+// issuer: the issuer states it. silent: the issuer's page was checked and says
+// nothing, so the value is false, 0 or null. estimate: the issuer publishes
+// nothing and the value is reasoned from the outside sources listed.
+// decision: the team decided it.
+export const evidenceBasisSchema = z.enum(["issuer", "silent", "estimate", "decision"]);
+
+// Catalog links are shown to students and handed to the browser, so only https.
+const httpsUrl = () => z.url({ protocol: /^https$/ });
+
+const fieldEvidenceSchema = z.strictObject({
+  basis: evidenceBasisSchema,
+  sourceUrls: z.array(httpsUrl()).min(1),
   verifiedAt: z.iso.date(),
-});
+}).openapi("CardFieldEvidence");
 
 const eligibilityEvidenceSchema = z.strictObject({
-  historyNeeded: issuerEvidenceSchema,
-  studentsOnly: issuerEvidenceSchema,
-  secured: issuerEvidenceSchema,
-  depositMinCents: issuerEvidenceSchema,
-  depositMaxCents: issuerEvidenceSchema,
-  okForRebuilding: issuerEvidenceSchema,
-  preapprovalUrl: issuerEvidenceSchema,
-  runsCreditCheck: issuerEvidenceSchema,
-  openToNewApplicants: issuerEvidenceSchema,
-  taxIdNote: issuerEvidenceSchema,
+  annualFeeCents: fieldEvidenceSchema,
+  historyNeeded: fieldEvidenceSchema,
+  minHistoryMonths: fieldEvidenceSchema,
+  studentsOnly: fieldEvidenceSchema,
+  secured: fieldEvidenceSchema,
+  depositMinCents: fieldEvidenceSchema,
+  depositMaxCents: fieldEvidenceSchema,
+  okForRebuilding: fieldEvidenceSchema,
+  preapprovalUrl: fieldEvidenceSchema,
+  runsCreditCheck: fieldEvidenceSchema,
+  openToNewApplicants: fieldEvidenceSchema,
+  foreignTransactionFeePercent: fieldEvidenceSchema,
+  issuingBank: fieldEvidenceSchema,
 });
+
+// Something the student signs up for beyond the card itself, stated by the
+// issuer. A new kind is added to the rules page first, then here.
+export const cardConditionKindSchema = z.enum([
+  "requires_bank_account",
+  "relationship_helps_approval",
+  "rewards_need_direct_deposit",
+  "deposit_by_bank_transfer",
+  "limit_equals_money_moved",
+  "no_utilization_reporting",
+  "graduation_review",
+  "one_card_per_period",
+  "income_over_housing_minimum",
+]);
+
+const cardConditionSchema = z.strictObject({
+  kind: cardConditionKindSchema,
+  affects: z.enum(["approval", "rewards", "deposit", "credit_building"]),
+  text: z.string().min(1),
+  sourceUrl: httpsUrl(),
+  verifiedAt: z.iso.date(),
+}).openapi("CardCondition");
 
 export const cardSchema = z.strictObject({
   id: z.string(),
-  issuer: z.string(),
+  brand: z.string(),
+  issuingBank: z.string(),
   name: z.string(),
+  catalogRole: z.enum(["recommend", "explore"]),
+  catalogRoleReason: z.string().min(1),
   annualFeeCents: z.int().nonnegative(),
-  preapprovalUrl: z.url().nullable(),
-  applyUrl: z.url(),
+  foreignTransactionFeePercent: z.number().nonnegative(),
+  preapprovalUrl: httpsUrl().nullable(),
+  applyUrl: httpsUrl(),
   referralDisclosure: z.string().nullable(),
   historyNeeded: z.enum(["none", "limited", "established", "strong"]),
+  minHistoryMonths: z.int().nonnegative().nullable(),
   studentsOnly: z.boolean(),
   secured: z.boolean(),
   depositMinCents: z.int().nonnegative(),
@@ -37,15 +78,24 @@ export const cardSchema = z.strictObject({
   okForRebuilding: z.boolean(),
   runsCreditCheck: z.boolean(),
   openToNewApplicants: z.boolean(),
-  taxIdNote: z.string().nullable(),
+  conditions: z.array(cardConditionSchema),
   eligibilityEvidence: eligibilityEvidenceSchema,
-});
+}).refine(
+  (card) => card.eligibilityEvidence.historyNeeded.basis !== "silent",
+  { message: "A history level comes from the issuer, an estimate or a decision, never silence.", path: ["eligibilityEvidence", "historyNeeded", "basis"] },
+).refine(
+  (card) => card.secured || (card.depositMinCents === 0 && card.depositMaxCents === null),
+  { message: "An unsecured card has no deposit.", path: ["depositMinCents"] },
+).refine(
+  (card) => card.depositMaxCents === null || card.depositMaxCents >= card.depositMinCents,
+  { message: "The largest required deposit cannot be below the smallest.", path: ["depositMaxCents"] },
+);
 
 export const quizAnswersSchema = z.strictObject({
   under21: z.boolean().optional(),
   incomeBand: z.enum(["none", "savings_only", "under_5k", "5k_to_15k", "over_15k"]).optional(),
   student: z.boolean().optional(),
-  standing: z.enum(["none", "limited", "established", "damaged"]).optional(),
+  standing: z.enum(["none", "limited", "established", "damaged", "not_sure"]).optional(),
   recentDenial: z.boolean().optional(),
   canDeposit: z.boolean().optional(),
   monthlySpendingCents: z.int().nonnegative().optional(),

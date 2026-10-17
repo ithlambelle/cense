@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   applicationIdSchema,
+  cardSchema,
   createApplicationSchema,
   recommendationSchema,
   saveQuizSchema,
@@ -21,6 +22,10 @@ describe("student API validation", () => {
         canDeposit: true,
       },
     }).success).toBe(true);
+  });
+
+  it("stores a not sure answer about credit history as given", () => {
+    expect(saveQuizSchema.parse({ answers: { standing: "not_sure" } }).answers.standing).toBe("not_sure");
   });
 
   it("rejects unrecognized or invalid quiz fields", () => {
@@ -53,5 +58,76 @@ describe("student API validation", () => {
       reason: null,
       createdAt: "2026-10-12T09:00:00Z",
     }).success).toBe(true);
+  });
+
+  describe("card", () => {
+    const evidence = { basis: "issuer", sourceUrls: ["https://issuer.example/card"], verifiedAt: "2026-10-15" };
+    const valid = {
+      id: "example-card",
+      brand: "Example",
+      issuingBank: "Example Bank, N.A.",
+      name: "Example Card",
+      catalogRole: "recommend",
+      catalogRoleReason: "Built for students.",
+      annualFeeCents: 0,
+      foreignTransactionFeePercent: 3,
+      preapprovalUrl: null,
+      applyUrl: "https://issuer.example/card",
+      referralDisclosure: null,
+      historyNeeded: "none",
+      minHistoryMonths: null,
+      studentsOnly: true,
+      secured: false,
+      depositMinCents: 0,
+      depositMaxCents: null,
+      okForRebuilding: false,
+      runsCreditCheck: true,
+      openToNewApplicants: true,
+      conditions: [],
+      eligibilityEvidence: Object.fromEntries([
+        "annualFeeCents", "historyNeeded", "minHistoryMonths", "studentsOnly", "secured", "depositMinCents",
+        "depositMaxCents", "okForRebuilding", "preapprovalUrl", "runsCreditCheck", "openToNewApplicants",
+        "foreignTransactionFeePercent", "issuingBank",
+      ].map((field) => [field, evidence])),
+    };
+
+    it("accepts a card with evidence for every eligibility field", () => {
+      expect(cardSchema.safeParse(valid).success).toBe(true);
+    });
+
+    it("needs at least one source for each fact", () => {
+      const noSource = { ...valid, eligibilityEvidence: { ...valid.eligibilityEvidence, secured: { ...evidence, sourceUrls: [] } } };
+      expect(cardSchema.safeParse(noSource).success).toBe(false);
+    });
+
+    it("rejects a deposit on an unsecured card", () => {
+      expect(cardSchema.safeParse({ ...valid, depositMinCents: 4900 }).success).toBe(false);
+      expect(cardSchema.safeParse({ ...valid, depositMaxCents: 20000 }).success).toBe(false);
+    });
+
+    it("rejects a silent basis for the history level", () => {
+      const silent = { ...valid, eligibilityEvidence: { ...valid.eligibilityEvidence, historyNeeded: { ...evidence, basis: "silent" } } };
+      expect(cardSchema.safeParse(silent).success).toBe(false);
+    });
+
+    it("accepts only https links", () => {
+      expect(cardSchema.safeParse({ ...valid, applyUrl: "javascript:alert(1)" }).success).toBe(false);
+      expect(cardSchema.safeParse({ ...valid, preapprovalUrl: "http://issuer.example/check" }).success).toBe(false);
+      const badSource = { ...evidence, sourceUrls: ["data:text/html,hi"] };
+      expect(cardSchema.safeParse({ ...valid, eligibilityEvidence: { ...valid.eligibilityEvidence, secured: badSource } }).success).toBe(false);
+    });
+
+    it("rejects a deposit range that runs backwards", () => {
+      expect(cardSchema.safeParse({ ...valid, secured: true, depositMinCents: 20000, depositMaxCents: 4900 }).success).toBe(false);
+    });
+
+    it("rejects a condition kind the rules do not know", () => {
+      const condition = { kind: "requires_apple_device", affects: "approval", text: "x", sourceUrl: "https://issuer.example", verifiedAt: "2026-10-15" };
+      expect(cardSchema.safeParse({ ...valid, conditions: [condition] }).success).toBe(false);
+    });
+
+    it("no longer accepts a tax ID note", () => {
+      expect(cardSchema.safeParse({ ...valid, taxIdNote: null }).success).toBe(false);
+    });
   });
 });

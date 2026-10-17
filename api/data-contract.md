@@ -24,12 +24,15 @@ approved card may have a credit limit.
 The second migration includes card setup columns. Card setup and reminder APIs
 are not required for this first deployed vertical slice.
 
-Quiz drafts use the fit-rules v1.0 answers: `under21`, `incomeBand`, `student`,
-`standing`, `recentDenial`, and `canDeposit`, plus monthly spending and goal.
-The draft is partial until the student finishes the quiz. Card records carry
-the published eligibility fields and `eligibilityEvidence`, which pairs each
-field with an issuer source URL and verification date. The catalog remains
-empty until the team's sourced card dataset is reviewed.
+Quiz drafts use the fit-rules v1.2 answers: `under21`, `incomeBand`, `student`,
+`standing` (including `not_sure`), `recentDenial`, and `canDeposit`, plus
+monthly spending and goal. The draft is partial until the student finishes the
+quiz. Card records carry the published eligibility fields, the issuer's
+conditions, a `catalogRole` (only `recommend` cards are tiered; `explore` cards
+are for browsing) and `eligibilityEvidence`, which gives each fact a basis
+(`issuer`, `silent`, `estimate` or `decision`), its source URLs and a
+verification date. The catalog remains empty until the team's sourced card
+dataset is reviewed.
 
 ## Authorization and response rules
 
