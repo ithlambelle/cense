@@ -33,7 +33,28 @@ export const planSchema = z.strictObject({
 });
 export const updatePlanSchema = z.strictObject({ actions: planActionsSchema.partial() });
 
+// Mabelle's draft PR #24 (password sign-in). Same shapes as its contract;
+// removed from here once #24 merges and the routes are in the real contract.
+const email = z.email().max(254);
+const newPassword = z.string().min(8).max(128);
+
 const ENDPOINTS = {
+  "POST /auth/password/signup": {
+    request: z.strictObject({ email, password: newPassword }),
+    response: z.strictObject({ status: z.enum(["signed_in", "check_email"]) }),
+  },
+  "POST /auth/password/signin": {
+    request: z.strictObject({ email, password: z.string().min(1) }),
+    response: z.strictObject({ status: z.literal("signed_in") }),
+  },
+  "POST /auth/password/reset": {
+    request: z.strictObject({ email }),
+    response: z.strictObject({ status: z.literal("check_email") }),
+  },
+  "POST /auth/password/reset/confirm": {
+    request: z.strictObject({ password: newPassword }),
+    response: z.strictObject({ status: z.literal("password_updated") }),
+  },
   "GET /reminders": { response: z.strictObject({ reminders: z.array(reminderSchema) }) },
   "POST /reminders": { request: createReminderSchema, response: reminderSchema },
   "GET /plan": { response: planSchema },
@@ -50,10 +71,16 @@ export type PendingResult<Data> =
   // The backend route is not built yet.
   | { kind: "unavailable" }
   | { kind: "signed-out" }
-  | { kind: "failed"; message: string };
+  // `code` is the API's error code when it sent one (for example invalid_credentials).
+  | { kind: "failed"; message: string; code?: string };
 
 const FAILED_MESSAGE = "Something went wrong. Please try again.";
 const OFFLINE_MESSAGE = "We couldn’t reach Cense. Check your connection and try again.";
+
+function readError(payload: unknown): { code: string; message: string } | null {
+  const parsed = z.object({ error: z.object({ code: z.string(), message: z.string() }) }).safeParse(payload);
+  return parsed.success ? parsed.data.error : null;
+}
 
 export function mocksEnabled(): boolean {
   return process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_CENSE_MOCKS === "1";
@@ -67,9 +94,14 @@ export async function pendingRequest<E extends PendingEndpoint>(
   const [method, path] = endpoint.split(" ") as [string, string];
 
   if (mocksEnabled()) {
-    const { mockPending } = await import("./pending-fixtures");
-    const data = await mockPending(endpoint, body);
-    return { kind: "ok", data: spec.response.parse(data) as ResponseOf<E> };
+    const { mockPending, MockApiError } = await import("./pending-fixtures");
+    try {
+      const data = await mockPending(endpoint, body);
+      return { kind: "ok", data: spec.response.parse(data) as ResponseOf<E> };
+    } catch (error) {
+      if (error instanceof MockApiError) return { kind: "failed", message: error.message, code: error.code };
+      throw error;
+    }
   }
 
   let response: Response;
@@ -85,8 +117,13 @@ export async function pendingRequest<E extends PendingEndpoint>(
     return { kind: "failed", message: OFFLINE_MESSAGE };
   }
   if (response.status === 404 || response.status === 501) return { kind: "unavailable" };
-  if (response.status === 401) return { kind: "signed-out" };
-  if (!response.ok) return { kind: "failed", message: FAILED_MESSAGE };
-  const parsed = spec.response.safeParse(await response.json().catch(() => null));
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const apiError = readError(payload);
+    // A 401 from a sign-in route means wrong details, not an ended session.
+    if (response.status === 401 && (!apiError || apiError.code === "unauthorized")) return { kind: "signed-out" };
+    return { kind: "failed", message: apiError?.message ?? FAILED_MESSAGE, code: apiError?.code };
+  }
+  const parsed = spec.response.safeParse(payload);
   return parsed.success ? { kind: "ok", data: parsed.data as ResponseOf<E> } : { kind: "failed", message: FAILED_MESSAGE };
 }

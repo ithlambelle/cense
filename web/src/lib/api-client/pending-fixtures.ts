@@ -11,6 +11,16 @@ type Plan = {
   updatedAt: string;
 };
 
+export class MockApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 const MOCK_APPLICATION_ID = "00000000-0000-4000-8000-000000000001";
 
 function read<T>(key: string, fallback: T): T {
@@ -53,6 +63,18 @@ export async function mockPending(endpoint: string, body: unknown): Promise<unkn
       write("plan", next);
       return next;
     }
+    case "POST /auth/password/signup":
+      return { status: "signed_in" };
+    case "POST /auth/password/signin":
+      // Mocks only: the password "wrong-password" shows the incorrect-details state.
+      if ((body as { password: string }).password === "wrong-password") {
+        throw new MockApiError(401, "invalid_credentials", "The email or password is incorrect.");
+      }
+      return { status: "signed_in" };
+    case "POST /auth/password/reset":
+      return { status: "check_email" };
+    case "POST /auth/password/reset/confirm":
+      return { status: "password_updated" };
     default:
       throw new Error(`${FIXTURE_SENTINEL}: no mock for ${endpoint}`);
   }
