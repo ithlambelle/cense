@@ -30,13 +30,19 @@ describe("GET /quiz", () => {
     expect(await response.json()).toEqual({ answers: { under21: true }, updatedAt: UPDATED });
   });
 
-  it("answers a draft the schema rejects as an empty draft, so the student can start over", async () => {
+  it("keeps only the valid answers of a draft the schema rejects", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    for (const answers of [{ under21: true, retiredField: 1 }, { incomeBand: "lots" }, null, "text"]) {
+    const cases: [unknown, unknown][] = [
+      [{ under21: true, retiredField: 1 }, { under21: true }],
+      [{ under21: false, incomeBand: "lots", student: true }, { under21: false, student: true }],
+      [null, {}],
+      ["text", {}],
+    ];
+    for (const [answers, kept] of cases) {
       auth.authenticatedStudent.mockResolvedValue(studentWithDraft({ answers, updated_at: UPDATED }));
       const response = await GET();
       expect(response.status).toBe(200);
-      expect(await response.json()).toEqual({ answers: {}, updatedAt: UPDATED });
+      expect(await response.json()).toEqual({ answers: kept, updatedAt: UPDATED });
     }
     // Logged without the answers themselves.
     expect(warn).toHaveBeenCalledTimes(4);

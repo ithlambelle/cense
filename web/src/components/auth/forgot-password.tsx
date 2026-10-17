@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { AuthLayout, BackLinkTo } from "@/components/auth/auth-layout";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,12 @@ export function ForgotPassword() {
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [sent, setSent] = useState(false);
+  const sentRef = useRef<HTMLParagraphElement>(null);
+
+  // The form is replaced by the message, so focus moves to it (WCAG 2.4.3).
+  useEffect(() => {
+    if (sent) sentRef.current?.focus();
+  }, [sent]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -48,7 +54,7 @@ export function ForgotPassword() {
   return (
     <AuthLayout title="Forgot password?" back={<BackLinkTo href={ROUTES.signIn} label="Back to log in" />}>
       {sent ? (
-        <p role="status" className="text-body-m text-indigo-black">
+        <p ref={sentRef} tabIndex={-1} role="status" className="text-body-m text-indigo-black outline-none">
           If an account uses {email.trim()}, we sent it a link to set a new password. The link opens this app.
         </p>
       ) : (

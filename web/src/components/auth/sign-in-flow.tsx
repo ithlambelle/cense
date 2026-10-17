@@ -149,7 +149,9 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
 
   if (step === "confirm-email") {
     return (
+      // A key per step, so each step mounts its own layout and takes focus.
       <AuthLayout
+        key="confirm-email"
         title="Check your email"
         focusTitle
         back={<BackButton disabled={false} onClick={() => goTo("password")} />}
@@ -167,6 +169,7 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
   if (step === "code") {
     return (
       <AuthLayout
+        key="code"
         title="Check your email"
         focusTitle
         back={
@@ -199,7 +202,7 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
   }
 
   return (
-    <AuthLayout title={copy.title} focusTitle={moved} back={<BackLinkHome />}>
+    <AuthLayout key="email" title={copy.title} focusTitle={moved} back={<BackLinkHome />}>
       {initialError ? <ErrorMessage>{initialError}</ErrorMessage> : null}
       <GoogleButton href={googleSignInPath(next)} />
       <p className="text-center text-body-s text-navy">or</p>
@@ -345,6 +348,7 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUse
             name="repeat-password"
             autoComplete="new-password"
             placeholder="Your password again"
+            ref={repeatRef}
             value={repeat}
             onChange={(event) => setRepeat(event.target.value)}
             error={errors.repeat}
