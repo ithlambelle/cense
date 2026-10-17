@@ -348,7 +348,7 @@ export interface components {
         Recommendation: {
             /** Format: uuid */
             id: string;
-            cardId: string;
+            cardId: string | null;
             /** @enum {string} */
             fitTier: "likely_fit" | "stretch" | "not_yet";
             reason: string | null;

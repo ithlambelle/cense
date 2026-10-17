@@ -60,6 +60,16 @@ describe("student API validation", () => {
     }).success).toBe(true);
   });
 
+  it("accepts a recommendation with no suitable card", () => {
+    expect(recommendationSchema.safeParse({
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      cardId: null,
+      fitTier: "not_yet",
+      reason: null,
+      createdAt: "2026-10-12T09:00:00Z",
+    }).success).toBe(true);
+  });
+
   describe("card", () => {
     const evidence = { basis: "issuer", sourceUrls: ["https://issuer.example/card"], verifiedAt: "2026-10-15" };
     const valid = {

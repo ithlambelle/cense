@@ -324,7 +324,9 @@ components:
           type: string
           format: uuid
         cardId:
-          type: string
+          type:
+            - string
+            - "null"
         fitTier:
           type: string
           enum:
