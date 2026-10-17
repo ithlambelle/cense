@@ -9,8 +9,12 @@ export async function POST(request: Request): Promise<Response> {
   const parsed = requestSchema.safeParse(await parseJson(request));
   if (!parsed.success) return validationError(parsed.error);
 
+  const callback = new URL("/api/v1/auth/callback", request.url);
   const supabase = await createStudentClient();
-  const { error } = await supabase.auth.signInWithOtp({ email: parsed.data.email });
+  const { error } = await supabase.auth.signInWithOtp({
+    email: parsed.data.email,
+    options: { emailRedirectTo: callback.toString() },
+  });
   if (error) {
     return apiError(502, "email_code_failed", "We could not send a code. Please try again.");
   }

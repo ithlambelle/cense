@@ -50,7 +50,11 @@ can confirm a reset.
 
 The Supabase project needs Google OAuth enabled, the app origin and callback
 URL allowed in Auth redirect settings, and an email template using
-`{{ .Token }}` to send a six-digit code rather than a magic link. Set
+`{{ .Token }}` to send a six-digit code rather than a magic link. Set up custom
+SMTP to send codes to addresses outside the Supabase project team.
+Email requests now pass the requesting deployment's callback URL so any
+remaining magic links return to that deployment; allowlist preview callback
+URLs in Supabase Auth redirect settings before testing them. Set
 `NEXT_PUBLIC_SUPABASE_URL` and either `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 or the existing `NEXT_PUBLIC_SUPABASE_ANON_KEY` in local and Vercel settings.
 Only the dev project should be used by local and preview environments.
