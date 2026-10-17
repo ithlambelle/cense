@@ -28,7 +28,7 @@ function BottomNav() {
   return (
     <nav
       aria-label="Main"
-      className="relative flex justify-center bg-navy px-3 pt-3 pb-[max(1.8rem,env(safe-area-inset-bottom))] shadow-[0_-4px_8px_11px_var(--color-navy)]"
+      className="relative flex justify-center overflow-x-clip bg-navy px-3 pt-3 pb-[max(1.8rem,env(safe-area-inset-bottom))] shadow-[0_-4px_8px_11px_var(--color-navy)]"
     >
       {/* Drawn for the four-tab bar; shifted so no star sits on the two MVP1 tabs. */}
       <Image
