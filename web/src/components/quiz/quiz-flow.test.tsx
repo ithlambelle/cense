@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CHOICE_FEEDBACK_MS, QuizFlow } from "./quiz-flow";
 import { ADVANCE_HINT } from "./quiz-screen";
@@ -31,13 +31,27 @@ function sentAnswers(fetchFn: ReturnType<typeof server>, call: number) {
   return JSON.parse(String(fetchFn.mock.calls[call][1]?.body)).answers;
 }
 
+// Fake timers, so the check shown after a tap (CHOICE_FEEDBACK_MS) passes when
+// a test says so instead of really waiting at every step. shouldAdvanceTime
+// keeps Testing Library's own short setTimeout waits running.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+});
+
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   push.mockClear();
   replace.mockClear();
 });
 
 const answer = (name: string) => screen.getByRole("button", { name });
+
+// Taps an answer and lets its feedback delay pass.
+async function tap(name: string) {
+  fireEvent.click(answer(name));
+  await act(() => vi.advanceTimersByTimeAsync(CHOICE_FEEDBACK_MS));
+}
 
 describe("QuizFlow", () => {
   it("starts at question 1 when nothing is saved and says that a tap moves on", async () => {
@@ -64,6 +78,7 @@ describe("QuizFlow", () => {
     await screen.findByText("Question 2 of 6");
     fireEvent.click(answer("None"));
     expect(answer("None").getAttribute("aria-pressed")).toBe("true");
+    await act(() => vi.advanceTimersByTimeAsync(CHOICE_FEEDBACK_MS));
     expect(await screen.findByText("Question 3 of 6")).toBeTruthy();
     expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1 }));
     expect(fetchFn.mock.calls[1][1]?.method).toBe("PUT");
@@ -93,6 +108,7 @@ describe("QuizFlow", () => {
     expect(screen.getByRole("button", { name: "Close quiz" }).hasAttribute("disabled")).toBe(true);
 
     release(saved({ under21: true }));
+    await act(() => vi.advanceTimersByTimeAsync(CHOICE_FEEDBACK_MS));
     expect(await screen.findByText("Question 2 of 6")).toBeTruthy();
     // The second tap, made while saving, sent nothing.
     expect(fetchFn).toHaveBeenCalledTimes(2);
@@ -103,7 +119,7 @@ describe("QuizFlow", () => {
     server([NO_DRAFT, { status: 500, body: "crash" }]);
     render(<QuizFlow />);
     await screen.findByText("Question 1 of 6");
-    fireEvent.click(answer("18 to 20"));
+    await tap("18 to 20");
     expect((await screen.findByRole("alert")).textContent).not.toContain("crash");
     expect(screen.getByText("Question 1 of 6")).toBeTruthy();
     expect(answer("18 to 20").getAttribute("aria-pressed")).toBe("true");
@@ -115,7 +131,7 @@ describe("QuizFlow", () => {
     const fetchFn = server([saved(five), saved({ ...five, canDeposit: true })]);
     render(<QuizFlow />);
     expect(await screen.findByText("Question 6 of 6")).toBeTruthy();
-    fireEvent.click(answer("Yes"));
+    await tap("Yes");
     await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/results"));
     expect(sentAnswers(fetchFn, 1)).toEqual({ ...five, canDeposit: true });
   });
@@ -134,7 +150,7 @@ describe("QuizFlow", () => {
     // The bottom bar took the student elsewhere before the save answered.
     unmount();
     release(saved({ ...five, canDeposit: true }));
-    await new Promise((resolve) => setTimeout(resolve, CHOICE_FEEDBACK_MS + 50));
+    await vi.advanceTimersByTimeAsync(CHOICE_FEEDBACK_MS);
     expect(push).not.toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
   });
@@ -155,16 +171,16 @@ describe("QuizFlow", () => {
     const fetchFn = server([saved(all), saved({ ...all, under21: false, canDeposit: false })]);
     render(<QuizFlow />);
     expect(await screen.findByText("Question 1 of 6")).toBeTruthy();
-    fireEvent.click(answer("21 or over"));
+    await tap("21 or over");
     expect(await screen.findByText("Question 2 of 6")).toBeTruthy();
     // The same answers as saved, through question 5.
     for (const [choice, next] of [["Under $5k", 3], ["Yes", 4], ["None", 5], ["No", 6]] as const) {
-      fireEvent.click(answer(choice));
+      await tap(choice);
       expect(await screen.findByText(`Question ${next} of 6`)).toBeTruthy();
     }
     // Only the first read so far: no answer was saved on the way.
     expect(fetchFn).toHaveBeenCalledTimes(1);
-    fireEvent.click(answer("No"));
+    await tap("No");
     await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/results"));
     expect(fetchFn).toHaveBeenCalledTimes(2);
     expect(fetchFn.mock.calls[1][1]?.method).toBe("PUT");
@@ -176,7 +192,7 @@ describe("QuizFlow", () => {
     const fetchFn = server([saved(all)]);
     render(<QuizFlow />);
     await screen.findByText("Question 1 of 6");
-    fireEvent.click(answer("21 or over"));
+    await tap("21 or over");
     expect(await screen.findByText("Question 2 of 6")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Close quiz" }));
     expect(push).toHaveBeenCalledWith("/home");

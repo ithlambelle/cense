@@ -1,18 +1,15 @@
 import CircleInfo from "@gravity-ui/icons/CircleInfo";
 import Image from "next/image";
-import type { z } from "zod";
 
 import { IssuerActions } from "@/components/cards/issuer-actions";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { FactChip } from "@/components/ui/fact-chip";
-import type { cardSchema } from "@/lib/api/schemas";
+import type { Card } from "@/lib/cards/catalog";
 import { cardDisplayName, cardTypeLabel } from "@/lib/copy/results";
 import { moneyAmount } from "@/lib/money";
 import { ROUTES } from "@/lib/routes";
 import { cardNotes } from "@/lib/rules/fit-tier";
-
-type Card = z.infer<typeof cardSchema>;
 
 // A card's page (S14). There is no hi-fi frame yet: built from the result
 // card's parts (type line, card symbol, fact chips) and the lo-fi hand-off

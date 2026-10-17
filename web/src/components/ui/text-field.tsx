@@ -1,5 +1,6 @@
 import { useId, type ComponentProps, type ReactNode } from "react"
 
+import { ErrorMessage } from "@/components/ui/error-message"
 import { cn } from "@/lib/utils"
 
 type TextFieldProps = Omit<ComponentProps<"input">, "id" | "aria-invalid" | "aria-describedby"> & {
@@ -15,8 +16,7 @@ type TextFieldProps = Omit<ComponentProps<"input">, "id" | "aria-invalid" | "ari
 
 // From the auth frames (405:509 and the focused and error states): off-white
 // fill, 20px corners, violet edge when focused, coral edge when invalid. The
-// error text itself is indigo-black with a coral marker (coral text on white
-// fails WCAG AA contrast).
+// error is an ErrorMessage: indigo-black text with a coral marker.
 //
 // `disabled` makes the field read-only rather than natively disabled: a
 // disabled input drops keyboard focus to the page while a form is sending
@@ -57,12 +57,7 @@ function TextField({ label, hint, error, trailing, className, inputClassName, di
           {hint}
         </p>
       ) : null}
-      {error ? (
-        <p id={errorId} role="alert" className="flex items-start gap-2 text-body-s text-indigo-black">
-          <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 rounded-full bg-coral" />
-          <span>{error}</span>
-        </p>
-      ) : null}
+      {error ? <ErrorMessage id={errorId}>{error}</ErrorMessage> : null}
     </div>
   )
 }

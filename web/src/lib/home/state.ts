@@ -1,9 +1,5 @@
-import type { z } from "zod";
-
-import type { applicationSchema } from "../api/schemas";
+import type { Application } from "../api/application";
 import type { ResultView } from "../results/compute";
-
-export type Application = z.infer<typeof applicationSchema>;
 
 export type HomeState =
   // No complete quiz and nothing tracked. `started` is true when some answers are saved.

@@ -22,7 +22,7 @@ import { useIsMounted } from "@/lib/use-is-mounted";
 // so a shorter wait here would only produce errors.
 const RESEND_COOLDOWN_SECONDS = 60;
 
-export type AuthMode = "sign-in" | "sign-up";
+type AuthMode = "sign-in" | "sign-up";
 
 type SignInFlowProps = {
   mode: AuthMode;
@@ -48,10 +48,12 @@ function useCooldown(): [number, () => void] {
 }
 
 // Sign in and sign up, from the auth frames (405:509, 397:1908, 397:1867) in
-// Ben's order (2026-10-16): Google first, then an email code. Both modes use
-// the same email code, which creates the account on first use; they differ
-// only in wording. The email and code live in this component's memory only and
-// never in the address bar.
+// Ben's order (2026-10-16): Google first, then an email code. The email code
+// step is the same in both modes and creates the account on first use. The
+// password step is not: sign-up asks for the password twice and calls the
+// sign-up route; log-in calls the sign-in route and links to Forgot password.
+// The email and code live in this component's memory only and never in the
+// address bar.
 export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
   const router = useRouter();
   const isMounted = useIsMounted();
@@ -188,7 +190,7 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
           />
         }
       >
-        <p className="text-body-s text-indigo-black/70">We sent a 6-digit code to {email.trim()}.</p>
+        <p className="text-body-s text-indigo-black/70">We sent a {CODE_LENGTH}-digit code to {email.trim()}.</p>
         <form method="post" onSubmit={submitCode} className="flex flex-col gap-4 py-5" noValidate>
           <CodeInput value={code} onChange={setCode} error={error ?? undefined} disabled={pending} />
           <Button type="submit" pending={pending}>
@@ -367,7 +369,7 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUse
       </form>
       {signUp ? null : (
         <Link
-          href="/forgot-password"
+          href={ROUTES.forgotPassword}
           className="min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 outline-none focus-visible:outline-2 focus-visible:outline-ring"
         >
           Forgot password?

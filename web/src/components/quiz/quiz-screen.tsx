@@ -122,9 +122,7 @@ export function QuizScreen({
                   )}
                 >
                   <span className="flex-1">{choice.label}</span>
-                  {selected ? (
-                    <SelectedMark />
-                  ) : null}
+                  {selected ? <SelectedMark /> : null}
                 </button>
               );
             })}
@@ -132,9 +130,9 @@ export function QuizScreen({
 
           {error ? <ErrorMessage>{error}</ErrorMessage> : null}
         </main>
-          <div className="sticky bottom-0">
-            <BottomNav />
-          </div>
+        <div className="sticky bottom-0">
+          <BottomNav />
+        </div>
       </div>
     </div>
   );

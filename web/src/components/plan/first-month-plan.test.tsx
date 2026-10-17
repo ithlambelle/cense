@@ -2,7 +2,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { Application } from "@/lib/home/state";
+import type { Application } from "@/lib/api/application";
 
 import { FirstMonthPlan } from "./first-month-plan";
 

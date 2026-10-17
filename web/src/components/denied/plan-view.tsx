@@ -1,8 +1,8 @@
 import Link from "next/link";
 
-import { DeniedLayout, withApplication } from "@/components/denied/denied-layout";
+import { DeniedLayout } from "@/components/denied/denied-layout";
 import { buttonVariants } from "@/components/ui/button";
-import { ROUTES } from "@/lib/routes";
+import { deniedPath } from "@/lib/routes";
 
 type Step = { title: string; body: string; link?: { href: string; label: string } };
 
@@ -40,7 +40,7 @@ const STEPS: Step[] = [
 // A steady five-step plan (S22). The steps are a real sequence, so they are numbered.
 export function DeniedPlanView({ applicationId }: { applicationId: string | null }) {
   return (
-    <DeniedLayout backHref={withApplication(ROUTES.denied, applicationId)}>
+    <DeniedLayout backHref={deniedPath("options", applicationId)}>
       <div className="flex flex-col gap-2">
         <h1 className="font-heading text-h1 font-medium text-navy">A steady five-step plan</h1>
         <p className="text-body-m text-indigo-black">Take these in order. You do not need to solve everything today.</p>
@@ -73,7 +73,7 @@ export function DeniedPlanView({ applicationId }: { applicationId: string | null
         ))}
       </ol>
       <div className="flex flex-col gap-2">
-        <Link href={withApplication(`${ROUTES.denied}/reminder`, applicationId)} className={buttonVariants()}>
+        <Link href={deniedPath("reminder", applicationId)} className={buttonVariants()}>
           Set a 6-month reminder
         </Link>
         <p className="text-center text-body-s text-indigo-black">

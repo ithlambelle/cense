@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { isValidElement, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { Application } from "@/lib/home/state";
+import type { Application } from "@/lib/api/application";
 
 import PlanPage from "./page";
 

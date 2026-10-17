@@ -10,23 +10,23 @@ import { NoteLine } from "@/components/ui/note";
 import {
   cardDisplayName,
   cardTypeLabel,
+  NO_CARD_FALLBACK,
   RESULT_DISCLAIMER,
   RESULT_HEADLINES,
   TIER_LABELS,
 } from "@/lib/copy/results";
 import { moneyAmount } from "@/lib/money";
+import { QUESTIONS } from "@/lib/quiz/questions";
 import type { ResultView } from "@/lib/results/compute";
 import { cardPath, ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
-
-const NO_CARD_FALLBACK = "None of the cards we list fits what you told us yet.";
 
 // The result screen, drawn from Figma 397:822 (Wireframes Prototyping page).
 // Everything shown comes from computeResult (rules v1.2); nothing here decides fit.
 export function ResultsView({ view }: { view: ResultView }) {
   if (view.kind === "quiz_unfinished") {
     return (
-      <ResultLayout title="No card match yet" subtitle="Answer six short questions to see one">
+      <ResultLayout title="No card match yet" subtitle={`Answer ${QUESTIONS.length} short questions to see one`}>
         <p className="text-body-m text-navy">
           We’ll show a card to start with and the reasons it fits what you told us.
         </p>

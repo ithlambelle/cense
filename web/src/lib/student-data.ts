@@ -1,14 +1,11 @@
 import "server-only";
 
-import { applicationFromRow, type ApplicationRow } from "@/lib/api/application";
+import { APPLICATION_FIELDS, applicationFromRow, type Application, type ApplicationRow } from "@/lib/api/application";
 import { validAnswers } from "@/lib/api/quiz-answers";
-import type { authenticatedStudent } from "@/lib/api/auth";
+import type { Student } from "@/lib/api/auth";
 import { listCards } from "@/lib/cards/catalog";
-import type { Application } from "@/lib/home/state";
 import { firstUnanswered } from "@/lib/quiz/questions";
 import { computeResult, type ResultView } from "@/lib/results/compute";
-
-type Student = NonNullable<Awaited<ReturnType<typeof authenticatedStudent>>>;
 
 export type StudentSnapshot = {
   applications: Application[];
@@ -16,8 +13,6 @@ export type StudentSnapshot = {
   // True when at least one quiz answer is saved.
   quizStarted: boolean;
 };
-
-const APPLICATION_FIELDS = "id, card_id, card_name, status, credit_limit_cents, applied_at, updated_at";
 
 // What a signed-in screen needs to decide what to show, read on the server
 // with the student's own session (RLS limits every read to their rows). Both

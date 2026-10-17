@@ -64,12 +64,16 @@ describe("pendingRequest", () => {
   });
 
   it("uses fixtures only when mocks are switched on outside production", async () => {
-    const fetchFn = vi.fn<typeof fetch>();
+    const fetchFn = vi.fn<typeof fetch>(async () => new Response("<html>404</html>", { status: 404 }));
     vi.stubGlobal("fetch", fetchFn);
     vi.stubEnv("NEXT_PUBLIC_CENSE_MOCKS", "1");
+    vi.stubEnv("NODE_ENV", "development");
+    expect((await pendingRequest("GET /plan")).kind).toBe("ok");
+    expect(fetchFn).not.toHaveBeenCalled();
+
     vi.stubEnv("NODE_ENV", "production");
-    await pendingRequest("GET /plan").catch(() => undefined);
-    expect(fetchFn).toHaveBeenCalled();
+    expect(await pendingRequest("GET /plan")).toEqual({ kind: "unavailable" });
+    expect(fetchFn).toHaveBeenCalledOnce();
   });
 
   it("treats a 401 with invalid_credentials as wrong details, not a signed-out student", async () => {

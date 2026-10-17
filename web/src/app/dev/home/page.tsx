@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { HomeView } from "@/components/home/home-view";
 import { listCards } from "@/lib/cards/catalog";
 import { devPagesEnabled } from "@/lib/dev-only";
-import { homeState, type Application } from "@/lib/home/state";
+import type { Application } from "@/lib/api/application";
+import { homeState } from "@/lib/home/state";
 import { computeResult } from "@/lib/results/compute";
 
 export const metadata: Metadata = { title: "Home preview", robots: { index: false } };
@@ -49,5 +50,6 @@ export default async function HomePreviewPage({ searchParams }: { searchParams: 
       true,
     ),
   };
-  return <HomeView state={views[state as keyof typeof views] ?? views.no_quiz} />;
+  // Own keys only, so ?state=constructor falls back instead of crashing.
+  return <HomeView state={Object.hasOwn(views, state) ? views[state as keyof typeof views] : views.no_quiz} />;
 }

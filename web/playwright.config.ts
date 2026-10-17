@@ -1,7 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
 // Journey tests against the running dev server and LOCAL Supabase stack
-// (sign-in codes are read from Mailpit). Start both first, then: npm run e2e
+// (sign-in codes are read from Mailpit). Start both first (the app with
+// npm run dev:local), then: npm run e2e
 // No webServer block: the tests reuse the server already on :3300.
 export default defineConfig({
   testDir: "./e2e",

@@ -1,7 +1,8 @@
 // Dev only: seeds six test students into the LOCAL Supabase stack, one per
 // Home state, through the app's own API (sign in by email code, save the quiz,
-// track cards). No admin key is used. Run with the dev server on :3300:
-//   node scripts/seed-local.mjs
+// track cards). No admin key is used. Run with the dev server on :3300
+// (npm run dev:local):
+//   npm run seed:local
 // Sign-in codes are read from Mailpit, the local mail catcher. The emails are
 // written to scripts/seed-students.local.json (git-ignored).
 import { readFileSync, writeFileSync } from "node:fs";

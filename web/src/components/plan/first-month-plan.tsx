@@ -10,14 +10,13 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusPill } from "@/components/ui/status-pill";
-import { pendingRequest } from "@/lib/api-client/pending";
-import type { Application } from "@/lib/home/state";
+import { pendingRequest, type PlanActions } from "@/lib/api-client/pending";
+import type { Application } from "@/lib/api/application";
 import { ROUTES, signInPath } from "@/lib/routes";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
 import { cn } from "@/lib/utils";
 
-type Actions = { autopay: boolean; plannedPurchase: boolean; paymentReminder: boolean };
-type ActionKey = keyof Actions;
+type ActionKey = keyof PlanActions;
 
 const ACTIONS: { key: ActionKey; title: string; detail: string }[] = [
   { key: "autopay", title: "Turn on autopay", detail: "Set autopay for at least the minimum payment, or the full statement balance if your bank account can always cover it." },
@@ -25,11 +24,11 @@ const ACTIONS: { key: ActionKey; title: string; detail: string }[] = [
   { key: "paymentReminder", title: "Set a payment reminder", detail: "Use the due date on your card statement." },
 ];
 
-const NONE_DONE: Actions = { autopay: false, plannedPurchase: false, paymentReminder: false };
+const NONE_DONE: PlanActions = { autopay: false, plannedPurchase: false, paymentReminder: false };
 
 type SaveState = "loading" | "saved" | "unavailable" | "failed";
 
-type SavedPlan = { actions: Actions; state: "saved" | "unavailable" };
+type SavedPlan = { actions: PlanActions; state: "saved" | "unavailable" };
 
 async function loadPlan(): Promise<LoadOutcome<SavedPlan>> {
   const result = await pendingRequest("GET /plan");
@@ -50,7 +49,7 @@ async function loadPlan(): Promise<LoadOutcome<SavedPlan>> {
 export function FirstMonthPlan({ application }: { application: Application }) {
   // The return-path allow-list does not include this page, so Home it is.
   const { loaded, retry } = useLoaded(loadPlan, signInPath(ROUTES.home));
-  const start: { actions: Actions; state: SaveState } =
+  const start: { actions: PlanActions; state: SaveState } =
     loaded.status === "ready" ? loaded.data : { actions: NONE_DONE, state: loaded.status };
   // A key per load state, so the checks start again from what was loaded.
   return (
@@ -69,10 +68,10 @@ function PlanScreen({
   onRetry,
 }: {
   application: Application;
-  start: { actions: Actions; state: SaveState };
+  start: { actions: PlanActions; state: SaveState };
   onRetry: (() => void) | null;
 }) {
-  const [actions, setActions] = useState<Actions>(start.actions);
+  const [actions, setActions] = useState<PlanActions>(start.actions);
   const [state, setState] = useState<SaveState>(start.state);
   const [error, setError] = useState<string | null>(null);
   // Actions whose save is still in flight; each is locked until its answer arrives.
@@ -124,10 +123,10 @@ function PlanScreen({
                 Your first-month actions
               </h2>
               <p className="text-body-s text-indigo-black" aria-live="polite">
-                {done} of 3 done
+                {done} of {ACTIONS.length} done
               </p>
             </div>
-            <ProgressBar current={done} total={3} />
+            <ProgressBar current={done} total={ACTIONS.length} />
             <ul className="flex flex-col gap-3">
               {ACTIONS.map((action) => (
                 <li key={action.key}>
@@ -174,7 +173,7 @@ function PlanScreen({
             </div>
           ) : null}
           {error ? <ErrorMessage>{error}</ErrorMessage> : null}
-          {done === 3 ? (
+          {done === ACTIONS.length ? (
             <p role="status" className="rounded-input bg-off-white p-4 text-body-s text-indigo-black">
               All three done. Keep paying your statement balance in full by the due date.
             </p>

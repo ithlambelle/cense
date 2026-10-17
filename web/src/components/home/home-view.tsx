@@ -13,10 +13,12 @@ import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import { findCard } from "@/lib/cards/catalog";
-import { cardDisplayName, cardTypeLabel, RESULT_HEADLINES, TIER_LABELS } from "@/lib/copy/results";
-import type { Application, HomeState } from "@/lib/home/state";
+import { cardDisplayName, cardTypeLabel, NO_CARD_FALLBACK, RESULT_HEADLINES, TIER_LABELS } from "@/lib/copy/results";
+import type { Application } from "@/lib/api/application";
+import type { HomeState } from "@/lib/home/state";
 import { moneyAmount } from "@/lib/money";
-import { applicationPath, cardPath, planPath, ROUTES } from "@/lib/routes";
+import { QUESTIONS } from "@/lib/quiz/questions";
+import { applicationPath, cardPath, deniedPath, planPath, ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
@@ -56,7 +58,7 @@ function HomeContent({ state }: { state: HomeState }) {
         <Greeting subtitle="Let’s find your first card." />
         <QuizPrompt started={state.started} />
         <Link
-          href={`${ROUTES.home}/add-card`}
+          href={ROUTES.addCard}
           className="min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
         >
           I already have a card
@@ -72,7 +74,7 @@ function HomeContent({ state }: { state: HomeState }) {
         <NextStep
           icon={Comment}
           title="No card fits yet"
-          body={state.reason ?? "None of the cards we list fits what you told us yet."}
+          body={state.reason ?? NO_CARD_FALLBACK}
           action={{ href: ROUTES.results, label: "See why" }}
         />
       </>
@@ -182,7 +184,7 @@ function TrackedNextStep({ application }: { application: Application }) {
         icon={Comment}
         title="A denial isn’t the end"
         body="Understand the reason and choose a calm next step."
-        action={{ href: `${ROUTES.denied}?application=${encodeURIComponent(application.id)}`, label: "I was denied" }}
+        action={{ href: deniedPath("options", application.id), label: "I was denied" }}
       />
     );
   }
@@ -288,9 +290,9 @@ function QuizPrompt({ started }: { started: boolean }) {
   return (
     <section aria-labelledby="quiz-prompt" className="flex flex-col rounded-card bg-off-white p-5">
       <ol aria-hidden="true" className="flex items-center gap-1.5">
-        {Array.from({ length: 6 }, (_, index) => (
+        {QUESTIONS.map((question, index) => (
           <li
-            key={index}
+            key={question.field}
             className={cn(
               "flex size-[22px] items-center justify-center rounded-full",
               index === 0 ? "bg-navy" : "border-[1.5px] border-indigo-black/70",
@@ -301,7 +303,7 @@ function QuizPrompt({ started }: { started: boolean }) {
         ))}
       </ol>
       <h2 id="quiz-prompt" className="pt-6 font-heading text-h3 font-medium text-indigo-black">
-        6 questions to your first card
+        {QUESTIONS.length} questions to your first card
       </h2>
       <p className="pt-3 text-body-s text-indigo-black/70">
         Light up each star and we’ll match you with cards built for where you are.
@@ -327,7 +329,7 @@ function OtherCards({ applications }: { applications: Application[] }) {
                 application.status === "applied"
                   ? applicationPath(application.id)
                   : application.status === "rejected"
-                    ? `${ROUTES.denied}?application=${encodeURIComponent(application.id)}`
+                    ? deniedPath("options", application.id)
                     : planPath(application.id)
               }
               className="flex items-center justify-between gap-3 rounded-card border border-hairline bg-white px-5 py-4 outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"

@@ -201,7 +201,7 @@ describe("IssuerActions", () => {
     const fetchFn = answer(201, click("https://issuer.example/apply"));
     await reachQuestion(fetchFn);
     fireEvent.click(screen.getByRole("button", { name: "Yes, I finished" }));
-    expect(await screen.findByRole("status")).toBeTruthy();
+    expect((await screen.findByRole("status")).textContent).toContain("Saved as applied.");
     expect(fetchFn.mock.calls[1][0]).toBe("/api/v1/applications");
     expect(JSON.parse(String(fetchFn.mock.calls[1][1]?.body))).toEqual({
       cardId: "sample-card",

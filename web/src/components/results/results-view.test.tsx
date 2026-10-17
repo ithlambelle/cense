@@ -45,7 +45,7 @@ describe("ResultsView", () => {
     expect(screen.getByText("None of the cards we list fits what you told us yet.")).toBeTruthy();
   });
 
-  it("shows the card, the rules' reasons, another option and the guidance line", () => {
+  it("shows the card, the rules' reasons, another option and the disclaimer", () => {
     const view = computeResult(ALL_SIX, listCards());
     if (view.kind !== "match" || !view.alternative) throw new Error("expected a match with another option");
     render(<ResultsView view={view} />);
