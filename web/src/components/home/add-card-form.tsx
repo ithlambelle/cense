@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { AppHeader } from "@/components/ui/app-header";
+import { BottomNav } from "@/components/ui/bottom-nav";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
@@ -95,6 +96,9 @@ export function AddCardScreen() {
             onSignedOut={() => router.replace(signInPath(ROUTES.home))}
           />
         </main>
+        <div className="sticky bottom-0">
+          <BottomNav />
+        </div>
       </div>
     </div>
   );

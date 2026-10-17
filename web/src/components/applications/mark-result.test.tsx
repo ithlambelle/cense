@@ -8,7 +8,7 @@ import { limitToCents, MarkResult } from "./mark-result";
 
 const push = vi.fn();
 const replace = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace, refresh: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/home", useRouter: () => ({ push, replace, refresh: vi.fn() }) }));
 
 const ID = "00000000-0000-4000-8000-000000000001";
 const application: Application = {

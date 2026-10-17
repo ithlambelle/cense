@@ -6,7 +6,7 @@ import { IssuerActions } from "./issuer-actions";
 
 const push = vi.fn();
 const router = { push, replace: vi.fn(), refresh: vi.fn() };
-vi.mock("next/navigation", () => ({ useRouter: () => router }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/home", useRouter: () => router }));
 
 const APPLY = "Apply on Sample Bank’s site: Sample Bank Card";
 const PREAPPROVAL = "Check if you’re preapproved: Sample Bank Card";
