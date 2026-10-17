@@ -23,7 +23,7 @@ export function DeniedOptionsView({ applicationId }: { applicationId: string | n
         <div className="flex flex-col gap-1 text-indigo-black">
           <h2 className="font-heading text-h6 font-medium">“No credit file” is not a mistake</h2>
           <p className="text-body-s">
-            It means the credit bureau doesn’t have a record for you yet. That’s common for students and isn’t a mark against you.
+            It usually means the credit bureau doesn’t have a record for you yet. That’s common for students and isn’t a mark against you. If you have used credit before, check that your details were entered correctly.
           </p>
         </div>
       </section>
