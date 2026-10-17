@@ -104,6 +104,26 @@ describe("MarkResult", () => {
     expect(fetchFn).not.toHaveBeenCalled();
   });
 
+  it("does not move a student who left while the update was saving", async () => {
+    let release: (response: Response) => void = () => undefined;
+    const fetchFn = vi.fn<typeof fetch>(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = resolve;
+        }),
+    );
+    vi.stubGlobal("fetch", fetchFn);
+    const { unmount } = render(<MarkResult application={application} />);
+    fireEvent.click(screen.getByRole("button", { name: "I was denied" }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, mark as denied" }));
+    await waitFor(() => expect(fetchFn).toHaveBeenCalled());
+    unmount();
+    release(Response.json({ ...saved, status: "rejected" }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(push).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
   it("stays on the screen with the API's reason when a save fails", async () => {
     server(409, { error: { code: "already_exists", message: "An active record for this card already exists." } });
     render(<MarkResult application={application} />);

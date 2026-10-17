@@ -10,11 +10,11 @@ import { NoteLine } from "@/components/ui/note";
 import {
   cardDisplayName,
   cardTypeLabel,
-  moneyAmount,
   RESULT_DISCLAIMER,
   RESULT_HEADLINES,
   TIER_LABELS,
 } from "@/lib/copy/results";
+import { moneyAmount } from "@/lib/money";
 import type { ResultView } from "@/lib/results/compute";
 import { cardPath, ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";

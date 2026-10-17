@@ -3,9 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { FALLBACK_MESSAGE } from "@/lib/api-client/client";
 import { reportError } from "@/lib/report-error";
-
-export const LOAD_FAILED_MESSAGE = "Something went wrong on our side. Please try again.";
 
 export type Loaded<Data> =
   | { status: "loading" }
@@ -32,7 +31,7 @@ export function useLoaded<Data>(
       // screen with a retry, never an endless "Loading".
       .catch((error: unknown): LoadOutcome<Data> => {
         reportError("useLoaded", error);
-        return { status: "failed", message: LOAD_FAILED_MESSAGE };
+        return { status: "failed", message: FALLBACK_MESSAGE };
       })
       .then((outcome) => {
         if (!current) return;

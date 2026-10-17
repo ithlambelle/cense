@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { annualFeeLine, GUIDANCE_LINE, moneyAmount, RESULT_DISCLAIMER, RESULT_HEADLINES, TIER_LABELS } from "./results";
+import { annualFeeLine, GUIDANCE_LINE, RESULT_DISCLAIMER, RESULT_HEADLINES, TIER_LABELS } from "./results";
 
 describe("result wording", () => {
   it("keeps the guidance line word for word", () => {
@@ -24,11 +24,5 @@ describe("result wording", () => {
     expect(annualFeeLine(0)).toBe("No annual fee");
     expect(annualFeeLine(3900)).toBe("$39 annual fee");
     expect(annualFeeLine(9950)).toBe("$99.50 annual fee");
-  });
-
-  it("writes amounts from whole cents", () => {
-    expect(moneyAmount(0)).toBe("$0");
-    expect(moneyAmount(4900)).toBe("$49");
-    expect(moneyAmount(9950)).toBe("$99.50");
   });
 });

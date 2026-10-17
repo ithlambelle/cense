@@ -31,3 +31,13 @@ export function homeState(applications: Application[], quiz: ResultView, quizSta
   if (quiz.kind === "no_card") return { kind: "no_card", reason: quiz.reason };
   return { kind: "no_quiz", started: quizStarted };
 }
+
+// Which approved card the first-month plan is for: the one asked for (from
+// Home's "Your other cards"), or else the most recently changed approved card.
+// A card that is not approved, or not this student's, is never shown.
+export function planApplication(applications: Application[], requestedId: string | null): Application | null {
+  const approved = applications
+    .filter((application) => application.status === "approved")
+    .sort((a, b) => Date.parse(b.statusUpdatedAt) - Date.parse(a.statusUpdatedAt));
+  return approved.find((application) => application.id === requestedId) ?? approved[0] ?? null;
+}

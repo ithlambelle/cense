@@ -15,6 +15,7 @@ import { ErrorMessage } from "@/components/ui/error-message";
 import { StatusPill } from "@/components/ui/status-pill";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import { ROUTES, signInPath } from "@/lib/routes";
+import { useIsMounted } from "@/lib/use-is-mounted";
 
 type View = "ask" | "approved" | "not-approved";
 
@@ -25,6 +26,7 @@ type View = "ask" | "approved" | "not-approved";
 // details" button and "Card delivery" row are left out (no such screen or data).
 export function SecondLook({ applicationId, initialView = "ask" }: { applicationId: string | null; initialView?: View }) {
   const router = useRouter();
+  const isMounted = useIsMounted();
   const [view, setView] = useState<View>(initialView);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,10 +39,14 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
       pathParams: { id: applicationId },
       body: { status: "approved", creditLimitCents: null },
     });
+    if (!isMounted()) return;
     setPending(false);
     if (result.ok) {
+      // No router.refresh() here: this page sends an approved card to Home, so
+      // a refresh would replace this outcome before the student sees it. Home
+      // is rendered fresh on the way there (dynamic pages are not kept in the
+      // client cache, Next staleTimes.dynamic = 0).
       setView("approved");
-      router.refresh();
       return;
     }
     if (isUnauthorized(result)) {

@@ -14,6 +14,7 @@ import { SelectedMark } from "@/components/ui/selected-mark";
 import { pendingRequest } from "@/lib/api-client/pending";
 import { addMonths, formatIsoDate, toIsoDate } from "@/lib/dates";
 import { ROUTES, signInPath } from "@/lib/routes";
+import { useIsMounted } from "@/lib/use-is-mounted";
 import { useNow } from "@/lib/use-now";
 
 type Choice = "six-months" | "custom";
@@ -23,6 +24,7 @@ type Choice = "six-months" | "custom";
 // the date to note down; it never claims a reminder was saved.
 export function ReminderSetup({ applicationId }: { applicationId: string | null }) {
   const router = useRouter();
+  const isMounted = useIsMounted();
   const now = useNow();
   const today = now ? toIsoDate(now) : null;
   const [choice, setChoice] = useState<Choice>("six-months");
@@ -31,21 +33,31 @@ export function ReminderSetup({ applicationId }: { applicationId: string | null 
   const [error, setError] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
 
-  const sixMonths = today ? toIsoDate(addMonths(new Date(`${today}T12:00:00`), 6)) : null;
-  const tomorrow = today ? toIsoDate(new Date(new Date(`${today}T12:00:00`).getTime() + 86_400_000)) : undefined;
-  const latest = today ? toIsoDate(addMonths(new Date(`${today}T12:00:00`), 24)) : undefined;
+  // Midday, so adding a day never lands on the wrong date across a clock change.
+  const todayNoon = today ? new Date(`${today}T12:00:00`) : null;
+  const sixMonths = todayNoon ? toIsoDate(addMonths(todayNoon, 6)) : null;
+  const tomorrow = todayNoon ? toIsoDate(new Date(todayNoon.getTime() + 86_400_000)) : undefined;
+  const latest = todayNoon ? toIsoDate(addMonths(todayNoon, 24)) : undefined;
   const remindOn = choice === "six-months" ? sixMonths : customDate || null;
   const remindOnLabel = remindOn ? formatIsoDate(remindOn) : null;
 
   async function save() {
-    if (!applicationId || !remindOn || !remindOnLabel) return;
-    if (today && remindOn <= today) {
+    if (!applicationId || !today || !latest || !remindOn || !remindOnLabel) return;
+    // The input's min and max only guide the date picker; a typed date can
+    // pass them, so both ends are checked here. ISO dates compare as text.
+    if (remindOn <= today) {
       setError("Pick a date after today.");
+      return;
+    }
+    if (remindOn > latest) {
+      setError(`Pick a date no later than ${formatIsoDate(latest)}.`);
       return;
     }
     setPending(true);
     setError(null);
     const result = await pendingRequest("POST /reminders", { applicationId, remindOn });
+    // The student left while it saved: the answer must not move them again.
+    if (!isMounted()) return;
     if (result.kind === "ok") {
       router.push(`${ROUTES.denied}/reminder/saved?application=${encodeURIComponent(applicationId)}`);
       return;

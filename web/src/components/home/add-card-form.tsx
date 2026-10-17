@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import { ROUTES, signInPath } from "@/lib/routes";
+import { useIsMounted } from "@/lib/use-is-mounted";
 
 type AddCardFormProps = {
   onAdded: () => void;
@@ -18,6 +19,7 @@ type AddCardFormProps = {
 
 // For a student who already has a card. Only its name is asked for.
 export function AddCardForm({ onAdded, onCancel, onSignedOut }: AddCardFormProps) {
+  const isMounted = useIsMounted();
   const [cardName, setCardName] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +36,8 @@ export function AddCardForm({ onAdded, onCancel, onSignedOut }: AddCardFormProps
     const result = await apiRequest("post", "/applications", {
       body: { cardId: null, cardName: cardName.trim(), status: "approved", creditLimitCents: null },
     });
+    // The student left while it saved: the answer must not move them again.
+    if (!isMounted()) return;
     if (result.ok) {
       onAdded();
       return;

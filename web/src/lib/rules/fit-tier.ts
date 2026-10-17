@@ -1,6 +1,7 @@
 import type { z } from "zod";
 
 import type { cardSchema, quizAnswersSchema, recommendationSchema } from "../api/schemas";
+import { moneyAmount } from "../money";
 
 // Fit Tier Rules. Every rule ID, reason and note below is quoted from the
 // team's Notion page "Fit Tier Rules v1.2 (Credit Card Recommender)". Change
@@ -157,22 +158,14 @@ function needsDeposit(card: RuleCard): boolean {
   return card.depositMinCents > 0;
 }
 
-function dollars(cents: number): string {
-  const wholeDollars = cents % 100 === 0;
-  return `$${(cents / 100).toLocaleString("en-US", {
-    minimumFractionDigits: wholeDollars ? 0 : 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
 // G6 reason, built from the card's deposit (rules, section 5).
 function depositReason(card: RuleCard): string {
   const min = card.depositMinCents;
   const max = card.depositMaxCents;
   let amount: string;
-  if (max === null) amount = `at least ${dollars(min)}`;
-  else if (max === min) amount = dollars(min);
-  else amount = `${dollars(min)} to ${dollars(max)}`;
+  if (max === null) amount = `at least ${moneyAmount(min)}`;
+  else if (max === min) amount = moneyAmount(min);
+  else amount = `${moneyAmount(min)} to ${moneyAmount(max)}`;
   return `This card needs a refundable deposit of ${amount} to open.`;
 }
 

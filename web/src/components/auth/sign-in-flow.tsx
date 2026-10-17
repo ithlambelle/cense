@@ -11,10 +11,11 @@ import { CODE_LENGTH, CodeInput } from "@/components/ui/code-input";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { PasswordField } from "@/components/ui/password-field";
 import { TextField } from "@/components/ui/text-field";
-import { apiRequest, failureMessage } from "@/lib/api-client/client";
+import { apiRequest, FALLBACK_MESSAGE, failureMessage } from "@/lib/api-client/client";
 import { pendingRequest } from "@/lib/api-client/pending";
 import { looksLikeEmail, passwordProblem } from "@/lib/auth/password";
 import { googleSignInPath, ROUTES, signInPath, signUpPath } from "@/lib/routes";
+import { useIsMounted } from "@/lib/use-is-mounted";
 
 // Seconds before a new code can be sent. Supabase allows one code request per
 // 60 seconds by default (https://supabase.com/docs/guides/auth/auth-email-passwordless),
@@ -53,6 +54,7 @@ function useCooldown(): [number, () => void] {
 // never in the address bar.
 export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
   const router = useRouter();
+  const isMounted = useIsMounted();
   const [step, setStep] = useState<"email" | "code" | "password" | "confirm-email">("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -118,6 +120,8 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
     setError(null);
     setNotice(null);
     const result = await apiRequest("post", "/auth/email/verify", { body: { email: email.trim(), code } });
+    // The student left while it was checked: the answer must not move them again.
+    if (!isMounted()) return;
     if (!result.ok) {
       setPending(false);
       setError(failureMessage(result));
@@ -262,6 +266,7 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUse
   const [errors, setErrors] = useState<{ email?: string; password?: string; repeat?: string; form?: string }>({});
   const [pending, setPending] = useState(false);
   const signUp = mode === "sign-up";
+  const isMounted = useIsMounted();
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const repeatRef = useRef<HTMLInputElement>(null);
@@ -296,6 +301,7 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUse
     const result = signUp
       ? await pendingRequest("POST /auth/password/signup", body)
       : await pendingRequest("POST /auth/password/signin", body);
+    if (!isMounted()) return;
     if (result.kind === "ok") {
       if (result.data.status === "check_email") {
         setPending(false);
@@ -311,7 +317,7 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUse
     } else if (result.kind === "failed" && result.code === "invalid_credentials") {
       setErrors({ password: "Not quite. Give your password another try." });
     } else {
-      setErrors({ form: result.kind === "failed" ? result.message : "Something went wrong. Please try again." });
+      setErrors({ form: result.kind === "failed" ? result.message : FALLBACK_MESSAGE });
     }
   }
 
