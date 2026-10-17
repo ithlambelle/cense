@@ -4,6 +4,10 @@ import { notFound } from "next/navigation";
 import { MarkResult } from "@/components/applications/mark-result";
 import { DeniedOptionsView } from "@/components/denied/options-view";
 import { DeniedPlanView } from "@/components/denied/plan-view";
+import { FixableView } from "@/components/denied/fixable-view";
+import { ReminderSavedView } from "@/components/denied/reminder-saved-view";
+import { ReminderSetup } from "@/components/denied/reminder-setup";
+import { SecondLook } from "@/components/denied/second-look";
 import { devPagesEnabled } from "@/lib/dev-only";
 import type { Application } from "@/lib/home/state";
 
@@ -26,6 +30,12 @@ const SCREENS = {
   "mark-result": () => <MarkResult application={SAMPLE_APPLICATION} />,
   denied: () => <DeniedOptionsView applicationId={SAMPLE_ID} />,
   "denied-plan": () => <DeniedPlanView applicationId={SAMPLE_ID} />,
+  reminder: () => <ReminderSetup applicationId={SAMPLE_ID} />,
+  "reminder-saved": () => <ReminderSavedView dateLabel="April 16, 2027" />,
+  fixable: () => <FixableView applicationId={SAMPLE_ID} />,
+  "second-look": () => <SecondLook applicationId={SAMPLE_ID} />,
+  "second-look-approved": () => <SecondLook applicationId={SAMPLE_ID} initialView="approved" />,
+  "second-look-not-approved": () => <SecondLook applicationId={SAMPLE_ID} initialView="not-approved" />,
 } as const;
 
 export default async function PreviewPage({ searchParams }: { searchParams: Promise<{ screen?: string }> }) {
