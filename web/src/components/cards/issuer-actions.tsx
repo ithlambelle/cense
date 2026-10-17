@@ -14,7 +14,6 @@ import {
   applyLabel,
   DID_YOU_APPLY,
   HAND_OFF_LINE,
-  NO_PREAPPROVAL_LINE,
   PREAPPROVAL_LABEL,
   PREAPPROVAL_LINE,
   safeIssuerUrl,
@@ -22,7 +21,12 @@ import {
 import { cardDisplayName } from "@/lib/copy/results";
 import { cardPath, ROUTES, signInPath } from "@/lib/routes";
 
-type Card = ApiData<"/cards/{id}", "get">;
+// Only the fields this client component reads, so the rest of the catalog
+// entry (such as its evidence links) is never sent to the browser.
+export type IssuerCard = Pick<
+  ApiData<"/cards/{id}", "get">,
+  "id" | "brand" | "name" | "preapprovalUrl" | "referralDisclosure"
+>;
 type Kind = "preapproval" | "apply";
 
 type Stage =
@@ -65,7 +69,9 @@ function isWaiting(cardId: string): boolean {
 }
 
 type IssuerActionsProps = {
-  card: Card;
+  card: IssuerCard;
+  // The card's notes from the fit tier rules (cardNotes), worked out on the server.
+  notes: string[];
   // False when the page knows the visitor is signed out. Then a tap goes
   // straight to sign-in, returning to this card.
   signedIn: boolean;
@@ -75,7 +81,7 @@ type IssuerActionsProps = {
 // next before the student leaves Cense (lo-fi 219:909, screens 02 and 04).
 // The click is saved first; the API answers with the address to open. Cense
 // never submits an application.
-export function IssuerActions({ card, signedIn }: IssuerActionsProps) {
+export function IssuerActions({ card, notes, signedIn }: IssuerActionsProps) {
   const router = useRouter();
   const [chosenStage, setChosenStage] = useState<Stage | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -213,9 +219,10 @@ export function IssuerActions({ card, signedIn }: IssuerActionsProps) {
           </Button>
           <NoteLine className="text-center">{PREAPPROVAL_LINE}</NoteLine>
         </>
-      ) : (
-        <NoteLine>{NO_PREAPPROVAL_LINE}</NoteLine>
-      )}
+      ) : null}
+      {notes.map((note) => (
+        <NoteLine key={note}>{note}</NoteLine>
+      ))}
       <Button
         aria-label={`${applyLabel(card.brand)}: ${cardDisplayName(card)}`}
         variant={card.preapprovalUrl !== null ? "secondary" : "default"}

@@ -82,7 +82,7 @@ export function WelcomeScreen() {
             href={ROUTES.cards}
             className="min-h-6 content-center self-center text-body-s text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            Browse student cards
+            Browse cards
           </Link>
         </div>
       </main>

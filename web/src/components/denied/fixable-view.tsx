@@ -12,15 +12,17 @@ import { ROUTES } from "@/lib/routes";
 // frame says to use the one in the letter), so the second look is the action.
 // Reconsideration is described by issuers such as American Express
 // (https://www.americanexpress.com/en-us/credit-cards/credit-intel/credit-card-reconsideration/);
-// the copy does not present it as a right or promise an outcome.
+// the copy does not present it as a right or promise an outcome. Report
+// errors go to the credit bureau first, per the CFPB
+// (https://www.consumerfinance.gov/ask-cfpb/how-do-i-dispute-an-error-on-my-credit-report-en-314/).
 export function FixableView({ applicationId }: { applicationId: string | null }) {
   return (
     <DeniedLayout backHref={withApplication(ROUTES.denied, applicationId)}>
       <div className="flex flex-col gap-2">
         <h1 className="font-heading text-h1 font-medium text-navy">Contact the issuer directly</h1>
         <p className="text-body-m text-indigo-black">
-          If the letter or report shows incorrect personal information, income, or another fixable issue, customer
-          service can explain how to correct it.
+          If your application had a mistake, such as wrong personal information or income, call the issuer. If your
+          credit report has an error, dispute it with the credit bureau (Equifax, Experian or TransUnion) first.
         </p>
       </div>
       <section className="flex flex-col gap-3 rounded-card border-[1.5px] border-violet p-5">

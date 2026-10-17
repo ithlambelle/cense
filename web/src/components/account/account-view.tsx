@@ -67,7 +67,7 @@ export function AccountView({ email, card }: { email: string | null; card: Appli
               {[
                 { href: ROUTES.results, label: "Card quiz results" },
                 { href: `${ROUTES.home}/add-card`, label: "Add a card I already have" },
-                { href: ROUTES.cards, label: "Browse student cards" },
+                { href: ROUTES.cards, label: "Browse cards" },
               ].map((row, index) => (
                 <li key={row.href} className={index > 0 ? "border-t border-hairline" : undefined}>
                   <Link

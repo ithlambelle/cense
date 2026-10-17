@@ -27,13 +27,18 @@ const googleFont = Google_Sans({
   // Next has no size-adjust values for Google Sans, so a plain fallback is named.
   adjustFontFallback: false,
   fallback: ["Arial", "sans-serif"],
+  // Used only on the sign-in screens, so it is not preloaded on every page.
+  preload: false,
 });
 
 // Number text (amounts, counts), from the typography frame.
 const numberFont = Unbounded({
   variable: "--font-unbounded",
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "500"],
+  // Used on Home, results, card pages and the denial steps, not on Welcome,
+  // where preloading it competed with the mascot image.
+  preload: false,
 });
 
 export const metadata: Metadata = {

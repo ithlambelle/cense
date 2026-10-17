@@ -42,7 +42,7 @@ export function WaitingView({ application }: { application: Application }) {
           </section>
           <div className="mt-auto flex flex-col gap-3">
             <Link href={ROUTES.home} className={buttonVariants()}>
-              Back to Home
+              Go to Home
             </Link>
             <Link href={applicationPath(id)} className={buttonVariants({ variant: "secondary" })}>
               I heard back

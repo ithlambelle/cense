@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { listCards } from "@/lib/cards/catalog";
+import { RESULT_HEADLINES } from "@/lib/copy/results";
 import { homeState, type Application } from "@/lib/home/state";
 import { computeResult } from "@/lib/results/compute";
 
@@ -34,9 +35,25 @@ describe("HomeView", () => {
   it("shows the match and sends the student to its card page", () => {
     const state = homeState([], computeResult(ALL_SIX, cards), true);
     if (state.kind !== "matched") throw new Error("expected a match");
+    expect(state.result.fit.tier).toBe("likely_fit");
     render(<HomeView state={state} />);
-    expect(screen.getByText("YOUR MATCH")).toBeTruthy();
+    expect(screen.getByText("LIKELY FIT")).toBeTruthy();
+    expect(screen.getByText(`${RESULT_HEADLINES.likely_fit}.`)).toBeTruthy();
     expect(link("View card")).toBe(`/cards/${state.result.card.id}`);
+  });
+
+  it("never calls a stretch a sure match: tier label, its first caution and a link to the reasons", () => {
+    const state = homeState([], computeResult({ ...ALL_SIX, recentDenial: true }, cards), true);
+    if (state.kind !== "matched") throw new Error("expected a match");
+    expect(state.result.fit.tier).toBe("stretch");
+    render(<HomeView state={state} />);
+    expect(screen.getByText("STRETCH")).toBeTruthy();
+    expect(screen.getByText(`${RESULT_HEADLINES.stretch}.`)).toBeTruthy();
+    expect(screen.getByText(state.result.fit.reasons[0])).toBeTruthy();
+    expect(link("See why")).toBe("/results");
+    expect(screen.queryByText("LIKELY FIT")).toBeNull();
+    expect(screen.queryByText(/match is ready/)).toBeNull();
+    expect(screen.queryByText(/does not affect your credit score/)).toBeNull();
   });
 
   it("explains a no-card result and links to the reason", () => {

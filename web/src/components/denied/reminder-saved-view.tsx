@@ -7,8 +7,9 @@ import { OutcomeMark } from "@/components/denied/parts";
 import { buttonVariants } from "@/components/ui/button";
 import { ROUTES } from "@/lib/routes";
 
-// Your reminder is saved (Figma 397:2323, S24). Only reached after the server
-// confirmed the reminder, so it can say an email will come (D8).
+// Your reminder is saved (Figma 397:2323, S24). Rendered by
+// ReminderSavedCheck only once the reminder is found, so it can say an email
+// will come (D8).
 export function ReminderSavedView({ dateLabel }: { dateLabel: string }) {
   return (
     <DeniedLayout backHref={ROUTES.home}>

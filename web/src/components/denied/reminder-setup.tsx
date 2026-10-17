@@ -47,7 +47,7 @@ export function ReminderSetup({ applicationId }: { applicationId: string | null 
     setError(null);
     const result = await pendingRequest("POST /reminders", { applicationId, remindOn });
     if (result.kind === "ok") {
-      router.push(`${ROUTES.denied}/reminder/saved?application=${encodeURIComponent(applicationId)}&on=${result.data.remindOn}`);
+      router.push(`${ROUTES.denied}/reminder/saved?application=${encodeURIComponent(applicationId)}`);
       return;
     }
     setPending(false);

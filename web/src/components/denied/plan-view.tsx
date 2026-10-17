@@ -8,7 +8,9 @@ type Step = { title: string; body: string; link?: { href: string; label: string 
 
 // From Figma 397:2407. Step 1 is reworded: the frame says "Review the reason
 // and instructions within 30 days", which reads as a deadline for the student.
-// The 30 days is the issuer's: Regulation B, 12 CFR 1002.9(a)(1)
+// The 30 days is the issuer's and runs from a completed application, and the
+// notice may give the reasons or the right to ask for them within 60 days:
+// Regulation B, 12 CFR 1002.9(a)(1)(i) and (a)(2)
 // (https://www.consumerfinance.gov/rules-policy/regulations/1002/9/). Step 2:
 // AnnualCreditReport.com is the official free source and checking your own
 // report does not hurt your score (CFPB,
@@ -16,7 +18,7 @@ type Step = { title: string; body: string; link?: { href: string; label: string 
 const STEPS: Step[] = [
   {
     title: "Read the issuer’s letter",
-    body: "The issuer has to send you the reason within 30 days. It explains why, and what you can do next.",
+    body: "The issuer has to send a written notice within 30 days of your completed application. It lists the reasons, or tells you how to ask for them (ask within 60 days).",
   },
   {
     title: "Check all three credit reports",
@@ -30,7 +32,8 @@ const STEPS: Step[] = [
   },
   {
     title: "Reapply in about 6 months",
-    body: "Give positive history time to appear, then check preapproval before applying.",
+    // A rule of thumb, not an issuer rule: no primary source sets a waiting period.
+    body: "Many people wait about 6 months so new on-time history can show. Then check preapproval before applying.",
   },
 ];
 
@@ -74,7 +77,7 @@ export function DeniedPlanView({ applicationId }: { applicationId: string | null
           Set a 6-month reminder
         </Link>
         <p className="text-center text-body-s text-indigo-black">
-          This saves only a reapply reminder. No card plan or card reminders will start.
+          Next you’ll pick a date. Only a reapply reminder is set; no card plan or card reminders start.
         </p>
       </div>
     </DeniedLayout>
