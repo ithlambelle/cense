@@ -8,7 +8,7 @@ import { ADVANCE_HINT } from "./quiz-screen";
 const push = vi.fn();
 const replace = vi.fn();
 const router = { push, replace, refresh: vi.fn() };
-vi.mock("next/navigation", () => ({ useRouter: () => router }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/home", useRouter: () => router }));
 
 type Reply = { status: number; body: unknown };
 

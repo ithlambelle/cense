@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { AppHeader } from "@/components/ui/app-header";
+import { BottomNav } from "@/components/ui/bottom-nav";
 
 // The frame around the rejection guide screens (Figma "Denial Overview").
 // The frames draw a bookmark in the header; saving guides is not in MVP1, so
@@ -11,6 +12,9 @@ export function DeniedLayout({ backHref, children }: { backHref: string; childre
       <div className="flex w-full max-w-phone flex-col">
         <AppHeader backHref={backHref} title="Denial Overview" />
         <main className="flex flex-1 flex-col gap-[18px] px-6 pt-4 pb-6">{children}</main>
+        <div className="sticky bottom-0">
+          <BottomNav />
+        </div>
       </div>
     </div>
   );

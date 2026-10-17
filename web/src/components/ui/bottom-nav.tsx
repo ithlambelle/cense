@@ -9,6 +9,8 @@ import { usePathname } from "next/navigation"
 import { ROUTES } from "@/lib/routes"
 import { cn } from "@/lib/utils"
 
+// Shown on every signed-in screen, including the quiz, results and the denial
+// guide (Ben, 2026-10-17); a future search view may hide it.
 // MVP1 has two tabs (Ben, 2026-10-16). The frames draw four (Today, Learn,
 // Goals, Invest) for a later product; Learn, Goals and Invest have no MVP1 screens.
 const TABS = [
@@ -23,7 +25,8 @@ function isActive(pathname: string, href: string): boolean {
 // The navy bar with stars from the frames (395:755): the active tab is light
 // blue and semibold, the others off-white.
 function BottomNav() {
-  const pathname = usePathname()
+  // usePathname can return null outside the App Router (Next docs), so no tab is active then.
+  const pathname = usePathname() ?? ""
 
   return (
     <nav

@@ -6,7 +6,7 @@ import { ForgotPassword } from "./forgot-password";
 import { SignInFlow } from "./sign-in-flow";
 
 const replace = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace, push: vi.fn(), refresh: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/home", useRouter: () => ({ replace, push: vi.fn(), refresh: vi.fn() }) }));
 
 function server(status: number, body: unknown) {
   const fetchFn = vi.fn<typeof fetch>(async () => Response.json(body, { status }));
