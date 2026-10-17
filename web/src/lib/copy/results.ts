@@ -48,6 +48,12 @@ type CardFacts = {
   conditions: { kind: string; text: string }[];
 };
 
+// The card's name as students know it, with the brand in front when the
+// catalog name leaves it out ("Platinum Secured" -> "Capital One Platinum Secured").
+export function cardDisplayName(card: { brand: string; name: string }): string {
+  return card.name.toLowerCase().startsWith(card.brand.toLowerCase()) ? card.name : `${card.brand} ${card.name}`;
+}
+
 // The small line above the card name on the result frame ("Secured credit card").
 export function cardTypeLabel(card: CardFacts): string {
   if (card.secured) return "Secured credit card";

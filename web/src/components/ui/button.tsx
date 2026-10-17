@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 
 // Hover, pressed, keyboard focus and pending are not drawn in Figma. They are
 // added in the system's style; the designers agreed to that on 2026-10-11.
-const buttonVariants = cva(
+const baseButtonVariants = cva(
   "group/button inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-pill border border-transparent font-sans text-button whitespace-nowrap transition-colors outline-none select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed aria-busy:cursor-progress motion-safe:active:translate-y-px [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
@@ -35,6 +35,12 @@ const buttonVariants = cva(
   }
 )
 
+// Merged so a variant's border color wins over the base transparent border,
+// for links styled as buttons as well as for Button.
+function buttonVariants(...args: Parameters<typeof baseButtonVariants>): string {
+  return cn(baseButtonVariants(...args))
+}
+
 function Spinner() {
   return (
     <span
@@ -45,7 +51,7 @@ function Spinner() {
 }
 
 type ButtonProps = ButtonPrimitive.Props &
-  VariantProps<typeof buttonVariants> & {
+  VariantProps<typeof baseButtonVariants> & {
     // Shows a spinner and blocks a second press while a request is in flight.
     pending?: boolean
   }

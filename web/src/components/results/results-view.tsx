@@ -3,8 +3,9 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { buttonVariants } from "@/components/ui/button";
+import { FactChip } from "@/components/ui/fact-chip";
 import { NoteLine } from "@/components/ui/note";
-import { cardTypeLabel, moneyAmount, RESULT_DISCLAIMER, RESULT_HEADLINES } from "@/lib/copy/results";
+import { cardDisplayName, cardTypeLabel, moneyAmount, RESULT_DISCLAIMER, RESULT_HEADLINES } from "@/lib/copy/results";
 import type { ResultView } from "@/lib/results/compute";
 import { cardPath, ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -51,7 +52,7 @@ export function ResultsView({ view }: { view: ResultView }) {
               <p className="text-body-s text-indigo-black">{cardTypeLabel(card)}</p>
               <Image src="/icons/card-symbol.svg" alt="" width={24} height={18} />
             </div>
-            <h3 className="font-heading text-h5 font-medium text-navy">{card.name}</h3>
+            <h3 className="font-heading text-h5 font-medium text-navy">{cardDisplayName(card)}</h3>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -93,22 +94,12 @@ export function ResultsView({ view }: { view: ResultView }) {
             href={cardPath(alternative.id)}
             className="flex flex-col gap-1 rounded-card border-[1.5px] border-violet bg-white p-5 outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            <span className="font-heading text-h6 font-medium text-navy">{alternative.name}</span>
+            <span className="font-heading text-h6 font-medium text-navy">{cardDisplayName(alternative)}</span>
             <span className="text-body-s text-indigo-black">{cardTypeLabel(alternative)}</span>
           </Link>
         </section>
       ) : null}
     </ResultLayout>
-  );
-}
-
-// One fact on the match card, for example "Annual fee / $0".
-function FactChip({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex w-[108px] flex-col rounded-[9px] bg-violet/15 p-[5px]">
-      <dt className="text-body-s text-indigo-black/70">{label}</dt>
-      <dd className="font-number text-number-m font-medium text-indigo-black">{value}</dd>
-    </div>
   );
 }
 
