@@ -157,7 +157,7 @@ function ResultLayout({ title, subtitle, footer = false, children }: ResultLayou
           </div>
         </header>
 
-        <main className="relative flex flex-1 flex-col px-6 pt-10">
+        <main className="stagger relative flex flex-1 flex-col px-6 pt-10">
           {children}
           {footer ? (
             <div className="mt-auto flex flex-col items-center gap-3 pt-10 pb-[max(1.3125rem,env(safe-area-inset-bottom))]">

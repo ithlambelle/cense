@@ -8,7 +8,7 @@ export function FindingCards() {
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
-        <main className="flex flex-1 flex-col items-center justify-center gap-[53px] px-6 pb-[165px]">
+        <main className="stagger flex flex-1 flex-col items-center justify-center gap-[53px] px-6 pb-[165px]">
           <picture>
             <source media="(prefers-reduced-motion: reduce)" srcSet="/mascot/penny-loading-still.png" />
             {/* A plain img: next/image cannot sit inside picture, and the files are already sized for 2x. */}

@@ -51,7 +51,7 @@ export function AuthLayout({
 
   return (
     <div className="flex min-h-dvh justify-center bg-background">
-      <main className="flex w-full max-w-phone flex-col px-6 pt-8 pb-6">
+      <main className="stagger flex w-full max-w-phone flex-col px-6 pt-8 pb-6">
         {back}
         <div className="flex flex-col gap-4 pt-3">
           <div className="flex items-center gap-2">

@@ -40,7 +40,7 @@ export function HomeView({ state }: { state: HomeState }) {
           </Link>
           <p className="flex-1 text-right text-body-s text-indigo-black">Home</p>
         </header>
-        <main className="flex flex-1 flex-col gap-[18px] px-6 pt-4 pb-6">
+        <main className="stagger flex flex-1 flex-col gap-[18px] px-6 pt-4 pb-6">
           <HomeContent state={state} />
         </main>
         <div className="sticky bottom-0">

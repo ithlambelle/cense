@@ -106,7 +106,7 @@ function PlanScreen({
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
         <AppHeader backHref={ROUTES.home} title="My card, month 1" />
-        <main className="flex flex-1 flex-col gap-6 px-6 pt-4 pb-6">
+        <main className="stagger flex flex-1 flex-col gap-6 px-6 pt-4 pb-6">
           <div className="flex flex-col gap-2">
             <h1 className="font-heading text-h2 font-medium text-navy">Your first-month plan</h1>
             <p className="text-body-m text-indigo-black">Start small and build good habits without taking on debt.</p>

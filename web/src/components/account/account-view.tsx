@@ -18,7 +18,7 @@ export function AccountView({ email, card }: { email: string | null; card: Appli
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
         <AppHeader backHref={ROUTES.home} title="Profile" />
-        <main className="flex flex-1 flex-col gap-6 px-6 pt-4 pb-6">
+        <main className="stagger flex flex-1 flex-col gap-6 px-6 pt-4 pb-6">
           <div className="flex items-center gap-4">
             <div
               aria-hidden="true"
