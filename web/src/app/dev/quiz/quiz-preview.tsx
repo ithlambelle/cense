@@ -4,7 +4,6 @@ import { useState } from "react";
 
 import { QuizScreen } from "@/components/quiz/quiz-screen";
 import { Button } from "@/components/ui/button";
-import { ScreenShell } from "@/components/ui/screen-shell";
 import { helpText, QUESTIONS, savedChoiceId, withChoice } from "@/lib/quiz/questions";
 import type { QuizAnswers } from "@/lib/quiz/questions";
 
@@ -23,12 +22,13 @@ export function QuizPreview() {
 
   if (index >= QUESTIONS.length) {
     return (
-      <ScreenShell footer={<Button variant="secondary" onClick={restart}>Start again</Button>}>
-        <h1 className="font-heading text-h3 font-medium">That’s the last question</h1>
-        <p className="mt-2 text-body-m text-indigo-black">
-          This is a preview of the quiz. Your answers were not saved.
-        </p>
-      </ScreenShell>
+      <main className="mx-auto flex min-h-dvh max-w-phone flex-col gap-4 px-6 pt-8 pb-6">
+        <h1 className="font-heading text-h3 font-medium text-navy">That’s the last question</h1>
+        <p className="text-body-m text-indigo-black">This is a preview of the quiz. Your answers were not saved.</p>
+        <Button variant="secondary" onClick={restart}>
+          Start again
+        </Button>
+      </main>
     );
   }
 

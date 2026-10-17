@@ -5,27 +5,24 @@ import { cn } from "@/lib/utils"
 // Hover, pressed, keyboard focus and pending are not drawn in Figma. They are
 // added in the system's style; the designers agreed to that on 2026-10-11.
 const baseButtonVariants = cva(
-  "group/button inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-pill border border-transparent font-sans text-button whitespace-nowrap transition-colors outline-none select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed aria-busy:cursor-progress motion-safe:active:translate-y-px [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "group/button inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-pill border border-transparent font-sans text-body-l whitespace-nowrap transition-colors outline-none select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed aria-busy:cursor-progress motion-safe:active:translate-y-px [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground hover:bg-violet-hover active:bg-violet-pressed disabled:bg-violet-disabled disabled:text-foreground aria-busy:bg-primary aria-busy:text-primary-foreground",
+          "bg-violet text-white hover:bg-violet-hover active:bg-violet-pressed disabled:bg-violet-disabled disabled:text-navy aria-busy:bg-violet aria-busy:text-white",
         secondary:
-          "border-[1.5px] border-primary bg-secondary text-secondary-foreground hover:bg-off-white active:bg-off-white disabled:opacity-40 aria-busy:opacity-100",
-        // "Retake quiz" on the result frame: a navy fill. Figma draws its label in
-        // indigo-black, which cannot be read on navy; white is the system's text on dark fills.
-        dark: "bg-navy text-white hover:bg-indigo-black active:bg-indigo-black disabled:opacity-40",
+          "border-[1.5px] border-violet bg-white text-indigo-black hover:bg-off-white active:bg-off-white disabled:opacity-40 aria-busy:opacity-100",
         // "I already have an account" on the welcome frame (397:1505): navy outline and label.
         navyOutline:
           "border-[1.5px] border-navy bg-white text-navy hover:bg-off-white active:bg-off-white disabled:opacity-40 aria-busy:opacity-100",
         outline:
-          "border-border bg-transparent text-foreground hover:bg-accent",
-        link: "h-auto min-h-11 rounded-none px-0 text-label text-muted-foreground underline underline-offset-2 hover:text-foreground",
+          "border-track bg-transparent text-navy hover:bg-off-white",
+        link: "h-auto min-h-11 rounded-none px-0 text-body-s text-indigo-black underline underline-offset-2 hover:text-navy",
       },
       size: {
         default: "h-14 w-full px-6",
-        sm: "h-11 px-5 text-body font-bold",
+        sm: "h-11 px-5 text-body-m font-semibold",
       },
     },
     defaultVariants: {
