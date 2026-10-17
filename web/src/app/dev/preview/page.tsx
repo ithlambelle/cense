@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 
 import { AccountView } from "@/components/account/account-view";
 import { MarkResult } from "@/components/applications/mark-result";
+import { WaitingView } from "@/components/applications/waiting-view";
+import { CardDetailView } from "@/components/cards/card-detail-view";
 import { DeniedOptionsView } from "@/components/denied/options-view";
 import { DeniedPlanView } from "@/components/denied/plan-view";
 import { FixableView } from "@/components/denied/fixable-view";
@@ -11,6 +13,7 @@ import { ReminderSetup } from "@/components/denied/reminder-setup";
 import { SecondLook } from "@/components/denied/second-look";
 import { AddCardScreen } from "@/components/home/add-card-form";
 import { FirstMonthPlan } from "@/components/plan/first-month-plan";
+import { findCard } from "@/lib/cards/catalog";
 import { devPagesEnabled } from "@/lib/dev-only";
 import type { Application } from "@/lib/home/state";
 
@@ -31,6 +34,11 @@ const SAMPLE_APPLICATION: Application = {
 // fails (no session), which is expected.
 const SCREENS = {
   "mark-result": () => <MarkResult application={SAMPLE_APPLICATION} />,
+  waiting: () => <WaitingView application={SAMPLE_APPLICATION} />,
+  "card-signed-in": () => {
+    const card = findCard("discover-it-student-cash-back");
+    return card ? <CardDetailView card={card} signedIn /> : null;
+  },
   denied: () => <DeniedOptionsView applicationId={SAMPLE_ID} />,
   "denied-plan": () => <DeniedPlanView applicationId={SAMPLE_ID} />,
   reminder: () => <ReminderSetup applicationId={SAMPLE_ID} />,
