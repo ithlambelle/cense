@@ -23,6 +23,7 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
 
   return (
     <SignInFlow
+      mode="sign-in"
       next={allowedNext(first(params.next))}
       initialError={errorKey ? (GOOGLE_ERRORS.get(errorKey) ?? null) : null}
     />

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Sora, Unbounded } from "next/font/google";
+import { Google_Sans, Inter, Sora, Unbounded } from "next/font/google";
 import "./globals.css";
 
 // The body font is set in this one place. The designers chose Inter on
@@ -15,6 +15,18 @@ const headingFont = Sora({
   // 500 is the heading weight in the typography frame. 600 and 700 stay until
   // every screen has moved to it.
   weight: ["500", "600", "700"],
+});
+
+// Only for the "Continue with Google" button: Google's sign-in branding
+// guidelines set its label in Google Sans Medium.
+// https://developers.google.com/identity/branding-guidelines
+const googleFont = Google_Sans({
+  variable: "--font-google-sans",
+  subsets: ["latin"],
+  weight: ["500"],
+  // Next has no size-adjust values for Google Sans, so a plain fallback is named.
+  adjustFontFallback: false,
+  fallback: ["Arial", "sans-serif"],
 });
 
 // Number text (amounts, counts), from the typography frame.
@@ -33,7 +45,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${bodyFont.variable} ${headingFont.variable} ${numberFont.variable} h-full antialiased`}
+      className={`${bodyFont.variable} ${headingFont.variable} ${numberFont.variable} ${googleFont.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

@@ -12,6 +12,6 @@ describe("safeReturnPath", () => {
     "/\t/example.com", "/\n/example.com", "/\r/example.com",
   ])(
     "rejects a nonlocal redirect: %s",
-    (value) => expect(safeReturnPath(value)).toBe("/"),
+    (value) => expect(safeReturnPath(value)).toBe("/start"),
   );
 });

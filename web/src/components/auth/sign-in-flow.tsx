@@ -1,30 +1,36 @@
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
-import { BackLink } from "@/components/ui/back-link";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { GoogleButton } from "@/components/auth/google-button";
+import { Button } from "@/components/ui/button";
 import { CODE_LENGTH, CodeInput } from "@/components/ui/code-input";
-import { GlowCard } from "@/components/ui/glow-card";
-import { ScreenShell } from "@/components/ui/screen-shell";
+import { ErrorMessage } from "@/components/ui/error-message";
 import { TextField } from "@/components/ui/text-field";
 import { apiRequest, failureMessage } from "@/lib/api-client/client";
-import { googleSignInPath, ROUTES } from "@/lib/routes";
+import { googleSignInPath, ROUTES, signInPath, signUpPath } from "@/lib/routes";
 
-function sendLabel(cooldown: number): string {
-  return cooldown > 0 ? `Send a new code in ${cooldown}s` : "Send email code";
-}
+// Seconds before a new code can be sent. Supabase allows one code request per
+// 60 seconds by default (https://supabase.com/docs/guides/auth/auth-email-passwordless),
+// so a shorter wait here would only produce errors.
+const RESEND_COOLDOWN_SECONDS = 60;
 
-// Seconds before "Send a new code" can be pressed again. The server has no
-// rate limit yet, so the screen must not make repeat sends easy.
-const RESEND_COOLDOWN_SECONDS = 30;
+export type AuthMode = "sign-in" | "sign-up";
 
 type SignInFlowProps = {
+  mode: AuthMode;
   // Where to go after signing in. Already checked against the allow-list.
   next: string | null;
   // A message for a Google sign-in that was cancelled or failed.
   initialError: string | null;
+};
+
+const COPY: Record<AuthMode, { title: string; switchText: string; switchLink: string }> = {
+  "sign-up": { title: "Let’s get started", switchText: "Already have an account?", switchLink: "Log in" },
+  "sign-in": { title: "Welcome back", switchText: "Don’t have an account?", switchLink: "Sign up" },
 };
 
 function useCooldown(): [number, () => void] {
@@ -37,9 +43,12 @@ function useCooldown(): [number, () => void] {
   return [secondsLeft, () => setSecondsLeft(RESEND_COOLDOWN_SECONDS)];
 }
 
-// Two screens at most: choose Google or an email, then enter the code.
-// The email address and the code live in this component's memory only.
-export function SignInFlow({ next, initialError }: SignInFlowProps) {
+// Sign in and sign up, from the auth frames (405:509, 397:1908, 397:1867) in
+// Ben's order (2026-10-16): Google first, then an email code. Both modes use
+// the same email code, which creates the account on first use; they differ
+// only in wording. The email and code live in this component's memory only and
+// never in the address bar.
+export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
   const router = useRouter();
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
@@ -48,6 +57,7 @@ export function SignInFlow({ next, initialError }: SignInFlowProps) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [cooldown, startCooldown] = useCooldown();
+  const copy = COPY[mode];
 
   async function sendCode(): Promise<boolean> {
     setPending(true);
@@ -58,9 +68,11 @@ export function SignInFlow({ next, initialError }: SignInFlowProps) {
     if (!result.ok) {
       // With no answer, the code may still have been sent, so the wait starts.
       if (result.kind === "network") startCooldown();
-      setError(result.kind === "api" && result.code === "invalid_request"
-        ? "That email doesn’t look quite right."
-        : failureMessage(result));
+      setError(
+        result.kind === "api" && result.code === "invalid_request"
+          ? "That email doesn’t look quite right."
+          : failureMessage(result),
+      );
       return false;
     }
     startCooldown();
@@ -97,79 +109,110 @@ export function SignInFlow({ next, initialError }: SignInFlowProps) {
 
   if (step === "code") {
     return (
-      <ScreenShell>
-        <BackLink
-          disabled={pending}
-          onClick={() => {
-            setStep("email");
-            setCode("");
-            setError(null);
-            setNotice(null);
-          }}
-        />
-        <h1 className="mt-3 font-heading text-title font-bold">Check your email</h1>
-        <p className="mt-2 text-label text-muted-foreground">Sent to {email.trim()}</p>
-        <GlowCard purpose="form" className="mt-4">
-          <form method="post" onSubmit={submitCode} className="flex flex-col gap-4" noValidate>
-            <CodeInput value={code} onChange={setCode} error={error ?? undefined} disabled={pending} />
-            <Button type="submit" disabled={code.length !== CODE_LENGTH} pending={pending}>
-              Verify
-            </Button>
-          </form>
-        </GlowCard>
-        <Button variant="link" className="mt-2 self-center" disabled={cooldown > 0 || pending} onClick={resend}>
-          {cooldown > 0 ? `Send a new code in ${cooldown}s` : "Send a new code"}
+      <AuthLayout
+        title="Check your email"
+        back={
+          <BackButton
+            disabled={pending}
+            onClick={() => {
+              setStep("email");
+              setCode("");
+              setError(null);
+              setNotice(null);
+            }}
+          />
+        }
+      >
+        <p className="text-body-s text-indigo-black/70">We sent a 6-digit code to {email.trim()}.</p>
+        <form method="post" onSubmit={submitCode} className="flex flex-col gap-4 py-5" noValidate>
+          <CodeInput value={code} onChange={setCode} error={error ?? undefined} disabled={pending} />
+          <Button type="submit" disabled={code.length !== CODE_LENGTH} pending={pending}>
+            Verify
+          </Button>
+        </form>
+        <Button variant="link" className="self-center text-violet" disabled={cooldown > 0 || pending} onClick={resend}>
+          {cooldown > 0 ? `Resend email in ${cooldown}s` : "Resend email"}
         </Button>
-        <p aria-live="polite" className="text-center text-label text-muted-foreground">
+        <p aria-live="polite" className="text-center text-body-s text-indigo-black/70">
           {notice}
         </p>
-      </ScreenShell>
+      </AuthLayout>
     );
   }
 
   return (
-    <ScreenShell>
-      <BackLink href={ROUTES.cards} />
-      <h1 className="mt-3 font-heading text-title font-bold">Let’s get started</h1>
-      <p className="mt-2 text-label text-muted-foreground">
-        Sign in to save your answers and your card match.
+    <AuthLayout title={copy.title} back={<BackLinkHome />}>
+      {initialError ? <ErrorMessage>{initialError}</ErrorMessage> : null}
+      <GoogleButton href={googleSignInPath(next)} />
+      <p className="text-center text-body-s text-navy">or</p>
+      <form method="post" onSubmit={submitEmail} className="flex flex-col gap-4" noValidate>
+        <TextField
+          label="Email"
+          type="email"
+          name="email"
+          autoComplete="email"
+          inputMode="email"
+          placeholder="Your email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          error={error ?? undefined}
+          disabled={pending}
+        />
+        <Button type="submit" disabled={email.trim() === "" || cooldown > 0} pending={pending}>
+          {cooldown > 0 ? `Email me a code in ${cooldown}s` : "Email me a code"}
+        </Button>
+      </form>
+      <p className="flex min-h-11 items-center justify-center gap-1 text-body-s text-indigo-black">
+        {copy.switchText}
+        <Link
+          href={mode === "sign-up" ? signInPath(next) : signUpPath(next)}
+          className="text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          {copy.switchLink}
+        </Link>
       </p>
-      {initialError ? (
-        <p role="alert" className="mt-4 text-label text-destructive">
-          {initialError}
-        </p>
-      ) : null}
-      {/* A plain link: the browser must leave the page to reach Google. */}
-      <a href={googleSignInPath(next)} className={buttonVariants({ variant: "secondary", className: "mt-6" })}>
-        {/* Google's own "G" mark, unaltered, as its sign-in branding asks. */}
-        {/* eslint-disable-next-line @next/next/no-img-element -- a 20px static SVG; next/image adds nothing here */}
-        <img src="/google-g.svg" alt="" width={20} height={20} />
-        Continue with Google
-      </a>
-      <p className="my-3 text-center text-label text-muted-foreground">or</p>
-      <GlowCard purpose="form">
-        <form method="post" onSubmit={submitEmail} className="flex flex-col gap-4" noValidate>
-          <TextField
-            label="Email"
-            type="email"
-            name="email"
-            autoComplete="email"
-            inputMode="email"
-            placeholder="Your email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            error={error ?? undefined}
-            disabled={pending}
-          />
-          <Button type="submit" disabled={email.trim() === "" || cooldown > 0} pending={pending}>
-            {sendLabel(cooldown)}
-          </Button>
-        </form>
-      </GlowCard>
-      <p className="mt-6 text-center text-legal text-muted-foreground">
+      <p className="text-center text-legal text-indigo-black/70">
         Cense saves your email, your quiz answers and your card match. We never ask for your Social Security number
         or date of birth.
       </p>
-    </ScreenShell>
+    </AuthLayout>
+  );
+}
+
+const backControl =
+  "flex h-12 w-[88px] items-center rounded-pill outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress";
+
+function BackLinkHome() {
+  return (
+    <Link href={ROUTES.welcome} aria-label="Back" className={backControl}>
+      <Image src="/icons/back-arrow.svg" alt="" width={33} height={33} />
+    </Link>
+  );
+}
+
+function BackButton({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} aria-label="Back" className={backControl}>
+      <Image src="/icons/back-arrow.svg" alt="" width={33} height={33} />
+    </button>
+  );
+}
+
+// The page frame shared by the auth screens: back control, then a Sora title
+// with the amber star beside it, as drawn.
+function AuthLayout({ title, back, children }: { title: string; back: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex min-h-dvh justify-center bg-background">
+      <main className="flex w-full max-w-phone flex-col px-6 pt-8 pb-6">
+        {back}
+        <div className="flex flex-col gap-4 pt-3">
+          <div className="flex items-center gap-1">
+            <h1 className="font-heading text-h2 font-medium text-navy">{title}</h1>
+            <Image src="/decor/star-large.svg" alt="" width={23} height={22} className="rotate-[17.75deg]" />
+          </div>
+          {children}
+        </div>
+      </main>
+    </div>
   );
 }

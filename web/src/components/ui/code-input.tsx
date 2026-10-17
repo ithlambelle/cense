@@ -33,7 +33,7 @@ function CodeInput({ value, onChange, label = "Verification code", error, disabl
       pattern="[0-9]*"
       maxLength={CODE_LENGTH + 3}
       placeholder="6-digit code"
-      className="tracking-[0.35em] placeholder:tracking-normal"
+      inputClassName="tracking-[0.35em] placeholder:tracking-normal"
     />
   )
 }
