@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { AppHeader } from "@/components/ui/app-header";
+import { BottomNav } from "@/components/ui/bottom-nav";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { SelectedMark } from "@/components/ui/selected-mark";
@@ -155,6 +156,9 @@ export function MarkResult({ application }: { application: Application }) {
 
           {error ? <ErrorMessage>{error}</ErrorMessage> : null}
         </main>
+        <div className="sticky bottom-0">
+          <BottomNav />
+        </div>
       </div>
     </div>
   );

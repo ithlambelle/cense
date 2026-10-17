@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { FactChip } from "@/components/ui/fact-chip";
 import { NoteLine } from "@/components/ui/note";
@@ -170,6 +171,9 @@ function ResultLayout({ title, subtitle, footer = false, children }: ResultLayou
             </div>
           ) : null}
         </main>
+        <div className="sticky bottom-0">
+          <BottomNav />
+        </div>
       </div>
     </div>
   );

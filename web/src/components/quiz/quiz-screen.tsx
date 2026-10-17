@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useId, useRef } from "react";
 
+import { BottomNav } from "@/components/ui/bottom-nav";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { SelectedMark } from "@/components/ui/selected-mark";
@@ -63,73 +64,78 @@ export function QuizScreen({
 
   return (
     <div className="flex min-h-dvh justify-center bg-background">
-      <main className="flex w-full max-w-phone flex-col gap-6 px-6 pt-8 pb-6">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <button type="button" onClick={onBack} disabled={pending} aria-label="Back" className={control}>
-              <Image src="/icons/arrow-left-dark.svg" alt="" width={48} height={48} />
-            </button>
-            <p className="text-body-s text-indigo-black">
-              Question {step} of {total}
-            </p>
-            <button type="button" onClick={onClose} disabled={pending} aria-label="Close quiz" className={control}>
-              <Image src="/icons/xmark-dark.svg" alt="" width={48} height={48} />
-            </button>
-          </div>
-          <ProgressBar current={step} total={total} />
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <h1
-            id={titleId}
-            ref={titleRef}
-            tabIndex={-1}
-            className="font-heading text-h3 font-medium text-navy outline-none"
-          >
-            {question.title}
-          </h1>
-          <p className="text-body-s text-indigo-black/70">
-            {help ? `${question.subtitle} ${help}` : question.subtitle}
-          </p>
-          {step === 1 ? (
-            <p id={hintId} className="text-body-s text-indigo-black/70">
-              {ADVANCE_HINT}
-            </p>
-          ) : null}
-        </div>
-
-        <div
-          role="group"
-          aria-labelledby={titleId}
-          aria-describedby={step === 1 ? hintId : undefined}
-          className={cn("flex flex-col pt-2", question.choices.length >= 6 ? "gap-5" : "gap-6")}
-        >
-          {question.choices.map((choice) => {
-            const selected = choice.id === selectedChoiceId;
-            return (
-              <button
-                key={choice.id}
-                type="button"
-                aria-pressed={selected}
-                disabled={pending}
-                onClick={() => onChoose(choice.id)}
-                className={cn(
-                  "flex w-full items-center gap-4 border-[1.5px] border-violet bg-white px-[18px] py-3 text-left text-body-m text-navy outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress",
-                  compact ? "min-h-14 rounded-[18px]" : "min-h-20 rounded-card",
-                  selected && "bg-off-white",
-                )}
-              >
-                <span className="flex-1">{choice.label}</span>
-                {selected ? (
-                  <SelectedMark />
-                ) : null}
+      <div className="flex w-full max-w-phone flex-col">
+        <main className="flex flex-1 flex-col gap-6 px-6 pt-8 pb-6">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <button type="button" onClick={onBack} disabled={pending} aria-label="Back" className={control}>
+                <Image src="/icons/arrow-left-dark.svg" alt="" width={48} height={48} />
               </button>
-            );
-          })}
-        </div>
+              <p className="text-body-s text-indigo-black">
+                Question {step} of {total}
+              </p>
+              <button type="button" onClick={onClose} disabled={pending} aria-label="Close quiz" className={control}>
+                <Image src="/icons/xmark-dark.svg" alt="" width={48} height={48} />
+              </button>
+            </div>
+            <ProgressBar current={step} total={total} />
+          </div>
 
-        {error ? <ErrorMessage>{error}</ErrorMessage> : null}
-      </main>
+          <div className="flex flex-col gap-2">
+            <h1
+              id={titleId}
+              ref={titleRef}
+              tabIndex={-1}
+              className="font-heading text-h3 font-medium text-navy outline-none"
+            >
+              {question.title}
+            </h1>
+            <p className="text-body-s text-indigo-black/70">
+              {help ? `${question.subtitle} ${help}` : question.subtitle}
+            </p>
+            {step === 1 ? (
+              <p id={hintId} className="text-body-s text-indigo-black/70">
+                {ADVANCE_HINT}
+              </p>
+            ) : null}
+          </div>
+
+          <div
+            role="group"
+            aria-labelledby={titleId}
+            aria-describedby={step === 1 ? hintId : undefined}
+            className={cn("flex flex-col pt-2", question.choices.length >= 6 ? "gap-5" : "gap-6")}
+          >
+            {question.choices.map((choice) => {
+              const selected = choice.id === selectedChoiceId;
+              return (
+                <button
+                  key={choice.id}
+                  type="button"
+                  aria-pressed={selected}
+                  disabled={pending}
+                  onClick={() => onChoose(choice.id)}
+                  className={cn(
+                    "flex w-full items-center gap-4 border-[1.5px] border-violet bg-white px-[18px] py-3 text-left text-body-m text-navy outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress",
+                    compact ? "min-h-14 rounded-[18px]" : "min-h-20 rounded-card",
+                    selected && "bg-off-white",
+                  )}
+                >
+                  <span className="flex-1">{choice.label}</span>
+                  {selected ? (
+                    <SelectedMark />
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+
+          {error ? <ErrorMessage>{error}</ErrorMessage> : null}
+        </main>
+          <div className="sticky bottom-0">
+            <BottomNav />
+          </div>
+      </div>
     </div>
   );
 }

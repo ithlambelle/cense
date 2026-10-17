@@ -6,7 +6,7 @@ import { SignInFlow } from "./sign-in-flow";
 
 const replace = vi.fn();
 const router = { push: vi.fn(), replace, refresh: vi.fn() };
-vi.mock("next/navigation", () => ({ useRouter: () => router }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/home", useRouter: () => router }));
 
 function server(replies: { status: number; body: unknown }[]) {
   const fetchFn = vi.fn<typeof fetch>(async () => {

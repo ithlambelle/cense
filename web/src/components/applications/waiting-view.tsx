@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AppHeader } from "@/components/ui/app-header";
+import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
 import type { Application } from "@/lib/home/state";
 import { applicationPath, ROUTES } from "@/lib/routes";
@@ -49,6 +50,9 @@ export function WaitingView({ application }: { application: Application }) {
             </Link>
           </div>
         </main>
+        <div className="sticky bottom-0">
+          <BottomNav />
+        </div>
       </div>
     </div>
   );
