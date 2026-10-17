@@ -24,7 +24,7 @@ const WRONG_CODE = { status: 401, body: { error: { code: "invalid_code", message
 
 async function reachCodeStep() {
   fireEvent.change(screen.getByLabelText("Email"), { target: { value: " student@example.edu " } });
-  fireEvent.click(screen.getByRole("button", { name: "Send email code" }));
+  fireEvent.click(screen.getByRole("button", { name: "Email me a code" }));
   await screen.findByRole("heading", { name: "Check your email" });
 }
 
@@ -36,30 +36,31 @@ afterEach(() => {
 
 describe("SignInFlow", () => {
   it("offers Google first, pointed at an allowed place to return to", () => {
-    render(<SignInFlow next="/quiz" initialError={null} />);
+    render(<SignInFlow mode="sign-in" next="/quiz" initialError={null} />);
     const google = screen.getByRole("link", { name: "Continue with Google" });
     expect(google.getAttribute("href")).toBe("/api/v1/auth/google?next=%2Fquiz");
   });
 
   it("shows a cancelled Google sign-in as its own message, not as an email error", () => {
-    render(<SignInFlow next={null} initialError="Google sign-in was cancelled." />);
+    render(<SignInFlow mode="sign-in" next={null} initialError="Google sign-in was cancelled." />);
     expect(screen.getByRole("alert").textContent).toBe("Google sign-in was cancelled.");
+    expect(screen.getByRole("heading", { name: "Welcome back" })).toBeTruthy();
     expect(screen.getByLabelText("Email").hasAttribute("aria-invalid")).toBe(false);
   });
 
   it("sends the trimmed email in the request body and never in the address", async () => {
     const fetchFn = server([CODE_SENT]);
-    render(<SignInFlow next={null} initialError={null} />);
+    render(<SignInFlow mode="sign-in" next={null} initialError={null} />);
     await reachCodeStep();
     expect(fetchFn.mock.calls[0][0]).toBe("/api/v1/auth/email");
     expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toEqual({ email: "student@example.edu" });
     expect(window.location.href).not.toContain("student");
-    expect(screen.getByText("Sent to student@example.edu")).toBeTruthy();
+    expect(screen.getByText("We sent a 6-digit code to student@example.edu.")).toBeTruthy();
   });
 
   it("verifies the code and goes to the allowed next place", async () => {
     const fetchFn = server([CODE_SENT, SIGNED_IN]);
-    render(<SignInFlow next="/quiz" initialError={null} />);
+    render(<SignInFlow mode="sign-in" next="/quiz" initialError={null} />);
     await reachCodeStep();
     fireEvent.change(screen.getByLabelText("Verification code"), { target: { value: "482916" } });
     fireEvent.click(screen.getByRole("button", { name: "Verify" }));
@@ -69,7 +70,7 @@ describe("SignInFlow", () => {
 
   it("goes to the landing check when no next was given", async () => {
     server([CODE_SENT, SIGNED_IN]);
-    render(<SignInFlow next={null} initialError={null} />);
+    render(<SignInFlow mode="sign-in" next={null} initialError={null} />);
     await reachCodeStep();
     fireEvent.change(screen.getByLabelText("Verification code"), { target: { value: "482916" } });
     fireEvent.click(screen.getByRole("button", { name: "Verify" }));
@@ -78,7 +79,7 @@ describe("SignInFlow", () => {
 
   it("shows a plain message for a wrong or expired code and stays on the screen", async () => {
     server([CODE_SENT, WRONG_CODE]);
-    render(<SignInFlow next={null} initialError={null} />);
+    render(<SignInFlow mode="sign-in" next={null} initialError={null} />);
     await reachCodeStep();
     fireEvent.change(screen.getByLabelText("Verification code"), { target: { value: "000000" } });
     fireEvent.click(screen.getByRole("button", { name: "Verify" }));
@@ -88,7 +89,7 @@ describe("SignInFlow", () => {
 
   it("keeps Verify off until six digits are entered", async () => {
     server([CODE_SENT]);
-    render(<SignInFlow next={null} initialError={null} />);
+    render(<SignInFlow mode="sign-in" next={null} initialError={null} />);
     await reachCodeStep();
     fireEvent.change(screen.getByLabelText("Verification code"), { target: { value: "4829" } });
     expect(screen.getByRole("button", { name: "Verify" }).hasAttribute("disabled")).toBe(true);
@@ -96,9 +97,9 @@ describe("SignInFlow", () => {
 
   it("holds the resend control during the cooldown", async () => {
     const fetchFn = server([CODE_SENT]);
-    render(<SignInFlow next={null} initialError={null} />);
+    render(<SignInFlow mode="sign-in" next={null} initialError={null} />);
     await reachCodeStep();
-    const resend = screen.getByRole("button", { name: /Send a new code in \d+s/ });
+    const resend = screen.getByRole("button", { name: /Resend email in \d+s/ });
     expect(resend.hasAttribute("disabled")).toBe(true);
     fireEvent.click(resend);
     expect(fetchFn).toHaveBeenCalledTimes(1);
@@ -106,10 +107,10 @@ describe("SignInFlow", () => {
 
   it("does not let Back then Send skip the cooldown", async () => {
     const fetchFn = server([CODE_SENT]);
-    render(<SignInFlow next={null} initialError={null} />);
+    render(<SignInFlow mode="sign-in" next={null} initialError={null} />);
     await reachCodeStep();
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
-    const send = screen.getByRole("button", { name: /Send a new code in \d+s/ });
+    const send = screen.getByRole("button", { name: /Email me a code in \d+s/ });
     expect(send.hasAttribute("disabled")).toBe(true);
     fireEvent.click(send);
     expect(fetchFn).toHaveBeenCalledTimes(1);
@@ -122,10 +123,10 @@ describe("SignInFlow", () => {
         throw new TypeError("Failed to fetch");
       }),
     );
-    render(<SignInFlow next={null} initialError={null} />);
+    render(<SignInFlow mode="sign-in" next={null} initialError={null} />);
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "student@example.edu" } });
-    fireEvent.click(screen.getByRole("button", { name: "Send email code" }));
-    const send = await screen.findByRole("button", { name: /Send a new code in \d+s/ });
+    fireEvent.click(screen.getByRole("button", { name: "Email me a code" }));
+    const send = await screen.findByRole("button", { name: /Email me a code in \d+s/ });
     expect(send.hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("alert").textContent).toContain("connection");
   });
@@ -145,7 +146,7 @@ describe("SignInFlow", () => {
         return Response.json(WRONG_CODE.body, { status: 401 });
       }),
     );
-    render(<SignInFlow next={null} initialError={null} />);
+    render(<SignInFlow mode="sign-in" next={null} initialError={null} />);
     await reachCodeStep();
     fireEvent.change(screen.getByLabelText("Verification code"), { target: { value: "000000" } });
     fireEvent.click(screen.getByRole("button", { name: "Verify" }));
@@ -156,8 +157,24 @@ describe("SignInFlow", () => {
   });
 
   it("asks for nothing but an email", () => {
-    render(<SignInFlow next={null} initialError={null} />);
+    render(<SignInFlow mode="sign-in" next={null} initialError={null} />);
     expect(screen.getAllByRole("textbox")).toHaveLength(1);
     expect(document.querySelector('input[type="password"]')).toBeNull();
+  });
+
+  it("words the screen for sign-up and links each mode to the other with the same next place", () => {
+    const { unmount } = render(<SignInFlow mode="sign-up" next="/quiz" initialError={null} />);
+    expect(screen.getByRole("heading", { name: "Let’s get started" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Log in" }).getAttribute("href")).toBe("/sign-in?next=%2Fquiz");
+    unmount();
+    render(<SignInFlow mode="sign-in" next="/quiz" initialError={null} />);
+    expect(screen.getByRole("link", { name: "Sign up" }).getAttribute("href")).toBe("/sign-up?next=%2Fquiz");
+  });
+
+  it("puts Google before the email code, as Ben ordered", () => {
+    render(<SignInFlow mode="sign-up" next={null} initialError={null} />);
+    const google = screen.getByRole("link", { name: "Continue with Google" });
+    const email = screen.getByRole("button", { name: "Email me a code" });
+    expect(google.compareDocumentPosition(email) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

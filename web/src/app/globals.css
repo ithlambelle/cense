@@ -8,6 +8,7 @@
   --font-sans: var(--font-body);
   --font-heading: var(--font-sora);
   --font-number: var(--font-unbounded);
+  --font-google: var(--font-google-sans);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);

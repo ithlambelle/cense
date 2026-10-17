@@ -24,7 +24,7 @@ export function AccountScreen() {
       setError(failureMessage(result));
       return;
     }
-    router.replace(ROUTES.cards);
+    router.replace(ROUTES.welcome);
     router.refresh();
   }
 

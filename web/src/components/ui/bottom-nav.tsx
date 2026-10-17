@@ -14,7 +14,7 @@ const TABS = [
 ] as const
 
 function isActive(pathname: string, href: string): boolean {
-  if (href === ROUTES.cards) return pathname === "/" || pathname.startsWith("/cards")
+  if (href === ROUTES.cards) return pathname.startsWith(ROUTES.cards)
   return pathname.startsWith(href)
 }
 
