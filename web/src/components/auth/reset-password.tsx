@@ -8,15 +8,18 @@ import { AuthLayout, BackLinkHome } from "@/components/auth/auth-layout";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { PasswordField } from "@/components/ui/password-field";
+import { FALLBACK_MESSAGE } from "@/lib/api-client/client";
 import { pendingRequest } from "@/lib/api-client/pending";
 import { passwordProblem } from "@/lib/auth/password";
 import { ROUTES } from "@/lib/routes";
+import { useIsMounted } from "@/lib/use-is-mounted";
 
 // Set a new password (S4). Reached from the reset email through the auth
 // callback, which signs the student in with a recovery session (PR #24 docs).
 // No frame: built from the sign-up form's parts and proposed to design.
 export function ResetPassword() {
   const router = useRouter();
+  const isMounted = useIsMounted();
   const [password, setPassword] = useState("");
   const [repeat, setRepeat] = useState("");
   const [errors, setErrors] = useState<{ password?: string; repeat?: string; form?: string }>({});
@@ -32,6 +35,8 @@ export function ResetPassword() {
     setErrors({});
     setPending(true);
     const result = await pendingRequest("POST /auth/password/reset/confirm", { password });
+    // The student left while it saved: the answer must not move them again.
+    if (!isMounted()) return;
     if (result.kind === "ok") {
       router.replace(ROUTES.start);
       router.refresh();
@@ -45,7 +50,7 @@ export function ResetPassword() {
           ? "Setting a new password isn’t available yet."
           : result.kind === "failed"
             ? result.message
-            : "Something went wrong. Please try again.",
+            : FALLBACK_MESSAGE,
     });
   }
 

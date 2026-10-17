@@ -12,6 +12,7 @@ import { TextField } from "@/components/ui/text-field";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import type { Application } from "@/lib/home/state";
 import { applicationPath, ROUTES, signInPath } from "@/lib/routes";
+import { useIsMounted } from "@/lib/use-is-mounted";
 import { cn } from "@/lib/utils";
 
 type Choice = "approved" | "denied" | "waiting";
@@ -47,6 +48,7 @@ function centsToField(cents: number | null): string {
 // "I haven't heard yet" saves nothing: there is no such status (plan P-3).
 export function MarkResult({ application }: { application: Application }) {
   const router = useRouter();
+  const isMounted = useIsMounted();
   const [choice, setChoice] = useState<Choice | null>(null);
   // Starts from the saved limit, so marking an approved card again never erases it.
   const [limit, setLimit] = useState(centsToField(application.creditLimitCents));
@@ -61,6 +63,8 @@ export function MarkResult({ application }: { application: Application }) {
       pathParams: { id: application.id },
       body: { status, creditLimitCents },
     });
+    // The student left while it saved: the answer must not move them again.
+    if (!isMounted()) return;
     if (!result.ok) {
       setPending(false);
       if (isUnauthorized(result)) {

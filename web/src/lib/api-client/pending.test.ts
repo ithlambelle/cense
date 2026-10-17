@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { FALLBACK_MESSAGE, OFFLINE_MESSAGE, REQUEST_TIMEOUT_MS } from "./client";
 import { pendingRequest } from "./pending";
 
 function answer(status: number, body: unknown) {
@@ -7,6 +8,7 @@ function answer(status: number, body: unknown) {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
@@ -28,7 +30,29 @@ describe("pendingRequest", () => {
     answer(401, {});
     expect(await pendingRequest("GET /plan")).toEqual({ kind: "signed-out" });
     answer(500, {});
-    expect((await pendingRequest("GET /plan")).kind).toBe("failed");
+    expect(await pendingRequest("GET /plan")).toEqual({ kind: "failed", message: FALLBACK_MESSAGE, code: undefined });
+  });
+
+  it("gives up after the same timeout as every other request, so a stalled sign-in cannot spin for ever", async () => {
+    vi.useFakeTimers();
+    // A request that never answers until it is cut off.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(
+        (_, init) =>
+          new Promise((_, reject) => {
+            init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+          }),
+      ),
+    );
+    const result = pendingRequest("POST /auth/password/signin", { email: "a@b.edu", password: "x" });
+    await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS);
+    expect(await result).toEqual({ kind: "failed", message: OFFLINE_MESSAGE });
+  });
+
+  it("says the connection failed when no answer comes back", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => Promise.reject(new TypeError("Failed to fetch"))));
+    expect(await pendingRequest("GET /plan")).toEqual({ kind: "failed", message: OFFLINE_MESSAGE });
   });
 
   it("accepts a real answer only when it matches the spec", async () => {

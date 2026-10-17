@@ -2,17 +2,18 @@
 
 import Check from "@gravity-ui/icons/Check";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusPill } from "@/components/ui/status-pill";
 import { pendingRequest } from "@/lib/api-client/pending";
 import type { Application } from "@/lib/home/state";
-import { ROUTES } from "@/lib/routes";
+import { ROUTES, signInPath } from "@/lib/routes";
+import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
 import { cn } from "@/lib/utils";
 
 type Actions = { autopay: boolean; plannedPurchase: boolean; paymentReminder: boolean };
@@ -28,35 +29,54 @@ const NONE_DONE: Actions = { autopay: false, plannedPurchase: false, paymentRemi
 
 type SaveState = "loading" | "saved" | "unavailable" | "failed";
 
+type SavedPlan = { actions: Actions; state: "saved" | "unavailable" };
+
+async function loadPlan(): Promise<LoadOutcome<SavedPlan>> {
+  const result = await pendingRequest("GET /plan");
+  if (result.kind === "ok") return { status: "ready", data: { actions: result.data.actions, state: "saved" } };
+  // No plan saved yet: start empty, with saving on.
+  if (result.kind === "failed" && result.code === "not_found") {
+    return { status: "ready", data: { actions: NONE_DONE, state: "saved" } };
+  }
+  if (result.kind === "unavailable") return { status: "ready", data: { actions: NONE_DONE, state: "unavailable" } };
+  if (result.kind === "signed-out") return "signed-out";
+  return { status: "failed", message: result.message };
+}
+
 // Your first-month plan (S20), from the lo-fi board 219:2. Progress is saved
 // through spec C3 once it exists; until then the screen says checks are not
 // kept. The lo-fi's "suggested monthly spending limit" is left out: there is
 // no sourced, rules-approved way to work one out yet.
 export function FirstMonthPlan({ application }: { application: Application }) {
-  const [actions, setActions] = useState<Actions>(NONE_DONE);
-  const [state, setState] = useState<SaveState>("loading");
+  // The return-path allow-list does not include this page, so Home it is.
+  const { loaded, retry } = useLoaded(loadPlan, signInPath(ROUTES.home));
+  const start: { actions: Actions; state: SaveState } =
+    loaded.status === "ready" ? loaded.data : { actions: NONE_DONE, state: loaded.status };
+  // A key per load state, so the checks start again from what was loaded.
+  return (
+    <PlanScreen
+      key={loaded.status}
+      application={application}
+      start={start}
+      onRetry={loaded.status === "failed" ? retry : null}
+    />
+  );
+}
+
+function PlanScreen({
+  application,
+  start,
+  onRetry,
+}: {
+  application: Application;
+  start: { actions: Actions; state: SaveState };
+  onRetry: (() => void) | null;
+}) {
+  const [actions, setActions] = useState<Actions>(start.actions);
+  const [state, setState] = useState<SaveState>(start.state);
   const [error, setError] = useState<string | null>(null);
   // Actions whose save is still in flight; each is locked until its answer arrives.
   const [saving, setSaving] = useState<Set<ActionKey>>(new Set());
-
-  useEffect(() => {
-    let current = true;
-    pendingRequest("GET /plan").then((result) => {
-      if (!current) return;
-      if (result.kind === "ok") {
-        setActions(result.data.actions);
-        setState("saved");
-      } else if (result.kind === "failed" && result.code === "not_found") {
-        // No plan saved yet: start empty, with saving on.
-        setState("saved");
-      } else {
-        setState(result.kind === "unavailable" ? "unavailable" : "failed");
-      }
-    });
-    return () => {
-      current = false;
-    };
-  }, []);
 
   async function toggle(key: ActionKey) {
     const value = !actions[key];
@@ -143,7 +163,16 @@ export function FirstMonthPlan({ application }: { application: Application }) {
               Saving your plan isn’t available yet, so your checks won’t be kept after you leave this page.
             </p>
           ) : null}
-          {state === "failed" ? <ErrorMessage>We couldn’t load your saved plan. Your checks won’t be kept.</ErrorMessage> : null}
+          {state === "failed" ? (
+            <div className="flex flex-col gap-2">
+              <ErrorMessage>We couldn’t load your saved plan. Your checks won’t be kept.</ErrorMessage>
+              {onRetry ? (
+                <Button variant="link" className="self-start text-violet" onClick={onRetry}>
+                  Try again
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
           {error ? <ErrorMessage>{error}</ErrorMessage> : null}
           {done === 3 ? (
             <p role="status" className="rounded-input bg-off-white p-4 text-body-s text-indigo-black">

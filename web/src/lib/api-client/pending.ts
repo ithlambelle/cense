@@ -9,6 +9,8 @@
 // dynamic import, so they are not in a production bundle).
 import { z } from "zod";
 
+import { FALLBACK_MESSAGE, OFFLINE_MESSAGE, readApiError, withTimeout } from "./client";
+
 const isoDate = z.iso.date();
 
 // C2: a reapply reminder email (D8).
@@ -74,14 +76,6 @@ export type PendingResult<Data> =
   // `code` is the API's error code when it sent one (for example invalid_credentials).
   | { kind: "failed"; message: string; code?: string };
 
-const FAILED_MESSAGE = "Something went wrong. Please try again.";
-const OFFLINE_MESSAGE = "We couldn’t reach Cense. Check your connection, then try again.";
-
-function readError(payload: unknown): { code: string; message: string } | null {
-  const parsed = z.object({ error: z.object({ code: z.string(), message: z.string() }) }).safeParse(payload);
-  return parsed.success ? parsed.data.error : null;
-}
-
 export function mocksEnabled(): boolean {
   return process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_CENSE_MOCKS === "1";
 }
@@ -104,28 +98,35 @@ export async function pendingRequest<E extends PendingEndpoint>(
     }
   }
 
-  let response: Response;
-  try {
-    response = await fetch(`/api/v1${path}`, {
-      method,
-      credentials: "same-origin",
-      cache: "no-store",
-      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-  } catch {
-    return { kind: "failed", message: OFFLINE_MESSAGE };
-  }
-  const payload: unknown = await response.json().catch(() => null);
-  const apiError = readError(payload);
+  // Same timeout as every other request, so a stalled sign-in cannot spin for ever.
+  const answer = await withTimeout(async (signal) => {
+    try {
+      const response = await fetch(`/api/v1${path}`, {
+        signal,
+        method,
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      const payload: unknown = await response.json().catch(() => null);
+      // Cut off while reading the answer is a connection problem, not a bad answer.
+      return signal.aborted ? null : { response, payload };
+    } catch {
+      return null;
+    }
+  });
+  if (!answer) return { kind: "failed", message: OFFLINE_MESSAGE };
+  const { response, payload } = answer;
+  const apiError = readApiError(payload);
   // A route that is not built yet answers 501, or Next's own HTML 404. A 404
   // in the API's JSON error shape is a real answer (for example "no plan yet").
   if (response.status === 501 || (response.status === 404 && !apiError)) return { kind: "unavailable" };
   if (!response.ok) {
     // A 401 from a sign-in route means wrong details, not an ended session.
     if (response.status === 401 && (!apiError || apiError.code === "unauthorized")) return { kind: "signed-out" };
-    return { kind: "failed", message: apiError?.message ?? FAILED_MESSAGE, code: apiError?.code };
+    return { kind: "failed", message: apiError?.message ?? FALLBACK_MESSAGE, code: apiError?.code };
   }
   const parsed = spec.response.safeParse(payload);
-  return parsed.success ? { kind: "ok", data: parsed.data as ResponseOf<E> } : { kind: "failed", message: FAILED_MESSAGE };
+  return parsed.success ? { kind: "ok", data: parsed.data as ResponseOf<E> } : { kind: "failed", message: FALLBACK_MESSAGE };
 }

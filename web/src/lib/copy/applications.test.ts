@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { dollars, STATUS_LABELS, statusDetail } from "./applications";
+import { STATUS_LABELS, statusDetail } from "./applications";
 
 const base = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -16,13 +16,10 @@ describe("application status wording", () => {
     expect(STATUS_LABELS).toEqual({ applied: "Applied", approved: "Approved", rejected: "Not approved" });
   });
 
-  it("writes a credit limit from whole cents", () => {
-    expect(dollars(50000)).toBe("$500");
-    expect(dollars(150000)).toBe("$1,500");
-  });
-
   it("shows the limit on an approved card", () => {
     expect(statusDetail({ ...base, status: "approved", creditLimitCents: 50000 })).toBe("$500 credit limit");
+    // Cents are kept, never rounded away: $1,500.50, not $1,501.
+    expect(statusDetail({ ...base, status: "approved", creditLimitCents: 150050 })).toBe("$1,500.50 credit limit");
   });
 
   it("shows the application date in the viewer's time zone", () => {

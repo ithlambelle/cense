@@ -6,7 +6,8 @@ import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
 import type { cardSchema } from "@/lib/api/schemas";
-import { cardDisplayName, cardTypeLabel, moneyAmount } from "@/lib/copy/results";
+import { cardDisplayName, cardTypeLabel } from "@/lib/copy/results";
+import { moneyAmount } from "@/lib/money";
 import { cardPath, ROUTES, signInPath } from "@/lib/routes";
 
 type Card = z.infer<typeof cardSchema>;

@@ -47,7 +47,20 @@ type RequestArgs<Path extends keyof paths, M extends Method> = [RequestBody<Path
 
 // Long enough for a slow phone connection, short enough that a stalled
 // request cannot leave a button spinning for ever.
-const REQUEST_TIMEOUT_MS = 15_000;
+export const REQUEST_TIMEOUT_MS = 15_000;
+
+// Runs a request that is cut off after REQUEST_TIMEOUT_MS. Every browser
+// request goes through this (pending.ts too). Built by hand because older
+// phones lack AbortSignal.timeout.
+export async function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await run(controller.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function resolvePath(path: string, pathParams: Record<string, string>): string {
   return path.replace(/\{(\w+)\}/g, (_, name: string) => {
@@ -58,7 +71,8 @@ function resolvePath(path: string, pathParams: Record<string, string>): string {
   });
 }
 
-function readApiError(payload: unknown): { code: string; message: string } | null {
+// The API's error shape, { error: { code, message } }, or null for anything else.
+export function readApiError(payload: unknown): { code: string; message: string } | null {
   if (typeof payload !== "object" || payload === null || !("error" in payload)) return null;
   const error = payload.error;
   if (typeof error !== "object" || error === null) return null;
@@ -77,14 +91,7 @@ export async function apiRequest<Path extends keyof paths, M extends MethodOf<Pa
   const { body, pathParams = {}, fetchFn = fetch } = options ?? {};
 
   const url = `/api/v1${resolvePath(path, pathParams)}`;
-  // Built by hand because older phones lack AbortSignal.timeout.
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    return await send(fetchFn, url, method, body, controller.signal);
-  } finally {
-    clearTimeout(timer);
-  }
+  return withTimeout((signal) => send(fetchFn, url, method, body, signal));
 }
 
 async function send<Data>(
@@ -130,8 +137,9 @@ export function isUnauthorized(failure: ApiFailure): boolean {
   return failure.kind === "api" && failure.status === 401 && failure.code === "unauthorized";
 }
 
-const OFFLINE_MESSAGE = "We couldn’t reach Cense. Check your connection, then try again.";
-const FALLBACK_MESSAGE = "Something went wrong on our side. Please try again.";
+export const OFFLINE_MESSAGE = "We couldn’t reach Cense. Check your connection, then try again.";
+// The one line for a failure with nothing more specific to say.
+export const FALLBACK_MESSAGE = "Something went wrong on our side. Please try again.";
 
 // What to show a student. The API's own message for errors it names, and a
 // plain line otherwise. Never a raw error or a response body.

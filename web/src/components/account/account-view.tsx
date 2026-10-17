@@ -4,8 +4,9 @@ import Link from "next/link";
 import { LogOutButton } from "@/components/account/log-out-button";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
-import { dollars, STATUS_LABELS } from "@/lib/copy/applications";
+import { STATUS_LABELS } from "@/lib/copy/applications";
 import type { Application } from "@/lib/home/state";
+import { moneyAmount } from "@/lib/money";
 import { ROUTES } from "@/lib/routes";
 
 // Your account (S28): the MVP1 subset of the Profile frame (416:342), in the
@@ -47,7 +48,7 @@ export function AccountView({ email, card }: { email: string | null; card: Appli
                   <span className="text-body-s font-semibold text-navy">{card.cardName}</span>
                   <span className="text-caption text-indigo-black">
                     {STATUS_LABELS[card.status]}
-                    {card.status === "approved" && card.creditLimitCents !== null ? `, ${dollars(card.creditLimitCents)} limit` : ""}
+                    {card.status === "approved" && card.creditLimitCents !== null ? `, ${moneyAmount(card.creditLimitCents)} limit` : ""}
                   </span>
                 </span>
                 <ChevronRight aria-hidden="true" width={16} height={16} className="shrink-0 text-violet" />

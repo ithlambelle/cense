@@ -2,7 +2,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { QuizFlow } from "./quiz-flow";
+import { CHOICE_FEEDBACK_MS, QuizFlow } from "./quiz-flow";
 import { ADVANCE_HINT } from "./quiz-screen";
 
 const push = vi.fn();
@@ -120,6 +120,25 @@ describe("QuizFlow", () => {
     expect(sentAnswers(fetchFn, 1)).toEqual({ ...five, canDeposit: true });
   });
 
+  it("does not open results when the student left while the last answer was saving", async () => {
+    const five = { under21: true, incomeBand: "under_5k", student: true, standing: "none", recentDenial: false };
+    let release: (reply: Reply) => void = () => undefined;
+    const held = new Promise<Reply>((resolve) => {
+      release = resolve;
+    });
+    const fetchFn = server([saved(five), held]);
+    const { unmount } = render(<QuizFlow />);
+    expect(await screen.findByText("Question 6 of 6")).toBeTruthy();
+    fireEvent.click(answer("Yes"));
+    await vi.waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(2));
+    // The bottom bar took the student elsewhere before the save answered.
+    unmount();
+    release(saved({ ...five, canDeposit: true }));
+    await new Promise((resolve) => setTimeout(resolve, CHOICE_FEEDBACK_MS + 50));
+    expect(push).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
   it("goes back a question keeping the answer, and closes to Home", async () => {
     server([saved({ under21: true })]);
     render(<QuizFlow />);
@@ -162,6 +181,22 @@ describe("QuizFlow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close quiz" }));
     expect(push).toHaveBeenCalledWith("/home");
     expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the bottom bar while the quiz loads and when loading fails, then retries", async () => {
+    let release: (reply: Reply) => void = () => undefined;
+    const held = new Promise<Reply>((resolve) => {
+      release = resolve;
+    });
+    server([held, NO_DRAFT]);
+    render(<QuizFlow />);
+    expect(screen.getByRole("status").textContent).toBe("Loading your quiz");
+    expect(screen.getByRole("navigation", { name: "Main" })).toBeTruthy();
+    release({ status: 500, body: "crash" });
+    expect(await screen.findByRole("heading", { name: "We couldn’t load your quiz" })).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: "Main" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("Question 1 of 6")).toBeTruthy();
   });
 
   it("sends a signed-out student to sign in, with a way back to the quiz", async () => {

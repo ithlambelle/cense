@@ -20,6 +20,7 @@ import {
 } from "@/lib/copy/issuer";
 import { cardDisplayName } from "@/lib/copy/results";
 import { cardPath, ROUTES, signInPath } from "@/lib/routes";
+import { useIsMounted } from "@/lib/use-is-mounted";
 
 // Only the fields this client component reads, so the rest of the catalog
 // entry (such as its evidence links) is never sent to the browser.
@@ -83,6 +84,7 @@ type IssuerActionsProps = {
 // never submits an application.
 export function IssuerActions({ card, notes, signedIn }: IssuerActionsProps) {
   const router = useRouter();
+  const isMounted = useIsMounted();
   const [chosenStage, setChosenStage] = useState<Stage | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Ask again after a reload if the student left for the application. Read
@@ -114,7 +116,7 @@ export function IssuerActions({ card, notes, signedIn }: IssuerActionsProps) {
       tab?.close();
       setStage({ name: "idle" });
       if (isUnauthorized(result)) {
-        router.push(signInPath(cardPath(card.id)));
+        if (isMounted()) router.push(signInPath(cardPath(card.id)));
         return;
       }
       setError(failureMessage(result));
@@ -157,7 +159,7 @@ export function IssuerActions({ card, notes, signedIn }: IssuerActionsProps) {
     }
     setStage({ name: "asking" });
     if (isUnauthorized(result)) {
-      router.push(signInPath(cardPath(card.id)));
+      if (isMounted()) router.push(signInPath(cardPath(card.id)));
       return;
     }
     setError(failureMessage(result));

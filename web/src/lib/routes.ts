@@ -22,6 +22,11 @@ export function applicationPath(applicationId: string): string {
   return `/applications/${encodeURIComponent(applicationId)}`;
 }
 
+// The first-month plan for one approved card.
+export function planPath(applicationId: string): string {
+  return `${ROUTES.plan}?application=${encodeURIComponent(applicationId)}`;
+}
+
 export function cardPath(cardId: string): string {
   return `/cards/${encodeURIComponent(cardId)}`;
 }

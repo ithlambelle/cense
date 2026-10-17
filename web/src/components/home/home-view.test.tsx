@@ -75,17 +75,28 @@ describe("HomeView", () => {
     expect(link("I was denied")).toBe(`/denied?application=${ID}`);
   });
 
-  it("shows an approved card's limit and the first-month plan", () => {
+  it("shows an approved card's limit and the first-month plan for that card", () => {
     render(<HomeView state={homeState([app("approved", { creditLimitCents: 50000 })], NONE, true)} />);
     expect(screen.getByText("$500")).toBeTruthy();
-    expect(link("See my first-month plan")).toBe("/plan");
+    expect(link("See my first-month plan")).toBe(`/plan?application=${ID}`);
+  });
+
+  it("writes a limit with a thousands separator, and cents only when there are some", () => {
+    const { unmount } = render(<HomeView state={homeState([app("approved", { creditLimitCents: 150000 })], NONE, true)} />);
+    expect(screen.getByText("$1,500")).toBeTruthy();
+    unmount();
+    render(<HomeView state={homeState([app("approved", { creditLimitCents: 150050 })], NONE, true)} />);
+    expect(screen.getByText("$1,500.50")).toBeTruthy();
   });
 
   it("lists other tracked cards below the newest one", () => {
     const older = app("approved", { id: "00000000-0000-4000-8000-000000000002", cardName: "Older Card", statusUpdatedAt: "2026-01-01T00:00:00Z" });
     render(<HomeView state={homeState([older, app("applied")], NONE, true)} />);
     expect(screen.getByRole("heading", { name: "Your other cards" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Older Card/ }).getAttribute("href")).toBe("/plan");
+    // Each approved card opens its own plan, not the newest approved card's.
+    expect(screen.getByRole("link", { name: /Older Card/ }).getAttribute("href")).toBe(
+      "/plan?application=00000000-0000-4000-8000-000000000002",
+    );
   });
 
   it("links the avatar to the account screen and marks Home in the bottom bar", () => {

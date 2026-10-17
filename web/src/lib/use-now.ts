@@ -25,6 +25,9 @@ function refresh() {
 function subscribe(listener: () => void) {
   listeners.add(listener);
   if (listeners.size === 1) {
+    // Nothing kept the time current while no screen was listening, so it is
+    // read again now rather than at the next tick, up to 30 seconds later.
+    refresh();
     timer = setInterval(refresh, 30_000);
     document.addEventListener("visibilitychange", refresh);
     window.addEventListener("focus", refresh);
@@ -40,7 +43,9 @@ function subscribe(listener: () => void) {
 }
 
 function getSnapshot(): number {
-  current ??= minuteNow();
+  // With no screen listening the kept time may be hours old (a student who
+  // left Home yesterday), so the first render reads the clock again.
+  if (current === null || listeners.size === 0) current = minuteNow();
   return current;
 }
 
