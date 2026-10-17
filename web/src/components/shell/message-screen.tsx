@@ -26,7 +26,7 @@ export function MessageScreen({ title, body, children, bottomNav = false }: Mess
             bottomNav ? "pb-6" : "pb-[max(1.5rem,env(safe-area-inset-bottom))]",
           )}
         >
-          <div className="flex flex-1 flex-col items-center justify-center gap-5 text-center">
+          <div className="stagger flex flex-1 flex-col items-center justify-center gap-5 text-center">
             <Image src="/mascot/penny.png" alt="" width={140} height={140} />
             <h1 className="font-heading text-h2 font-medium text-navy">{title}</h1>
             <p className="text-body-m text-indigo-black">{body}</p>

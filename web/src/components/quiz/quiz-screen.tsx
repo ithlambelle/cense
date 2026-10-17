@@ -82,7 +82,8 @@ export function QuizScreen({
             <ProgressBar current={step} total={total} />
           </div>
 
-          <div className="flex flex-col gap-2">
+          {/* Keyed by question, so each new one fades up in its turn. */}
+          <div key={`title-${question.field}`} className="flex animate-fade-up flex-col gap-2">
             <h1
               id={titleId}
               ref={titleRef}
@@ -104,10 +105,15 @@ export function QuizScreen({
 
           {/* Answer labels are the student's answers (income, recent denial). */}
           <div
+            key={`choices-${question.field}`}
             role="group"
             aria-labelledby={titleId}
             aria-describedby={step === 1 ? hintId : undefined}
-            className={cn(SENSITIVE, "flex flex-col pt-2", question.choices.length >= 6 ? "gap-5" : "gap-6")}
+            className={cn(
+              SENSITIVE,
+              "stagger flex flex-col pt-2 [--stagger-offset:120ms]",
+              question.choices.length >= 6 ? "gap-5" : "gap-6",
+            )}
           >
             {question.choices.map((choice) => {
               const selected = choice.id === selectedChoiceId;
@@ -119,7 +125,7 @@ export function QuizScreen({
                   disabled={pending}
                   onClick={() => onChoose(choice.id)}
                   className={cn(
-                    "flex w-full items-center gap-4 border-[1.5px] border-violet bg-white px-[18px] py-3 text-left text-body-m text-navy outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress",
+                    "flex w-full items-center gap-4 border-[1.5px] border-violet bg-white px-[18px] py-3 text-left text-body-m text-navy outline-none transition-[background-color,scale] duration-200 ease-out-soft hover:bg-off-white motion-safe:active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress",
                     compact ? "min-h-14 rounded-[18px]" : "min-h-20 rounded-card",
                     selected && "bg-off-white",
                   )}
@@ -131,7 +137,11 @@ export function QuizScreen({
             })}
           </div>
 
-          {error ? <ErrorMessage>{error}</ErrorMessage> : null}
+          {error ? (
+            <div className="animate-fade-up">
+              <ErrorMessage>{error}</ErrorMessage>
+            </div>
+          ) : null}
         </main>
         <div className="sticky bottom-0">
           <BottomNav />
