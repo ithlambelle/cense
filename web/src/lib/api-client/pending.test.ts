@@ -40,4 +40,13 @@ describe("pendingRequest", () => {
     await pendingRequest("GET /plan").catch(() => undefined);
     expect(fetchFn).toHaveBeenCalled();
   });
+
+  it("treats a 401 with invalid_credentials as wrong details, not a signed-out student", async () => {
+    answer(401, { error: { code: "invalid_credentials", message: "The email or password is incorrect." } });
+    expect(await pendingRequest("POST /auth/password/signin", { email: "a@b.edu", password: "x" })).toEqual({
+      kind: "failed",
+      message: "The email or password is incorrect.",
+      code: "invalid_credentials",
+    });
+  });
 });
