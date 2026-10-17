@@ -6,14 +6,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { DeniedLayout, withApplication } from "@/components/denied/denied-layout";
+import { DeniedLayout } from "@/components/denied/denied-layout";
 import { Notice } from "@/components/denied/parts";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { SelectedMark } from "@/components/ui/selected-mark";
 import { pendingRequest } from "@/lib/api-client/pending";
 import { addMonths, formatIsoDate, toIsoDate } from "@/lib/dates";
-import { ROUTES, signInPath } from "@/lib/routes";
+import { deniedPath, ROUTES, signInPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
 import { useNow } from "@/lib/use-now";
 
@@ -59,7 +59,7 @@ export function ReminderSetup({ applicationId }: { applicationId: string | null 
     // The student left while it saved: the answer must not move them again.
     if (!isMounted()) return;
     if (result.kind === "ok") {
-      router.push(`${ROUTES.denied}/reminder/saved?application=${encodeURIComponent(applicationId)}`);
+      router.push(deniedPath("reminderSaved", applicationId));
       return;
     }
     setPending(false);
@@ -75,7 +75,7 @@ export function ReminderSetup({ applicationId }: { applicationId: string | null 
   }
 
   return (
-    <DeniedLayout backHref={withApplication(`${ROUTES.denied}/plan`, applicationId)}>
+    <DeniedLayout backHref={deniedPath("plan", applicationId)}>
       <div className="flex flex-col gap-2">
         <h1 className="font-heading text-h1 font-medium text-navy">Choose when to check in</h1>
         <p className="text-body-m text-indigo-black">

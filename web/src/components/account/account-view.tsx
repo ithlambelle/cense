@@ -5,7 +5,7 @@ import { LogOutButton } from "@/components/account/log-out-button";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { STATUS_LABELS } from "@/lib/copy/applications";
-import type { Application } from "@/lib/home/state";
+import type { Application } from "@/lib/api/application";
 import { moneyAmount } from "@/lib/money";
 import { ROUTES } from "@/lib/routes";
 
@@ -67,7 +67,7 @@ export function AccountView({ email, card }: { email: string | null; card: Appli
             <ul className="overflow-hidden rounded-input border border-hairline">
               {[
                 { href: ROUTES.results, label: "Card quiz results" },
-                { href: `${ROUTES.home}/add-card`, label: "Add a card I already have" },
+                { href: ROUTES.addCard, label: "Add a card I already have" },
                 { href: ROUTES.cards, label: "Browse cards" },
               ].map((row, index) => (
                 <li key={row.href} className={index > 0 ? "border-t border-hairline" : undefined}>

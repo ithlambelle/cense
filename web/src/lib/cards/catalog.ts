@@ -1,3 +1,5 @@
+import type { z } from "zod";
+
 import { cardSchema } from "../api/schemas";
 
 import cards from "./cards.json";
@@ -7,6 +9,9 @@ import cards from "./cards.json";
 // eligibilityEvidence. Change a value only after re-reading those pages, and
 // update its verifiedAt. Only catalogRole "recommend" cards are tiered.
 const cardCatalog = cardSchema.array().parse(cards);
+
+// One card from the catalog, as the API returns it.
+export type Card = z.infer<typeof cardSchema>;
 
 export function listCards() {
   return cardCatalog;

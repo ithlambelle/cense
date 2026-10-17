@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 
 import { ResultsView } from "@/components/results/results-view";
-import { authenticatedStudent } from "@/lib/api/auth";
 import { validAnswers } from "@/lib/api/quiz-answers";
 import { listCards } from "@/lib/cards/catalog";
 import { computeResult } from "@/lib/results/compute";
-import { ROUTES, signInPath } from "@/lib/routes";
+import { ROUTES } from "@/lib/routes";
+import { requireStudent } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Your card match | CENSE" };
 
@@ -14,8 +13,7 @@ export const metadata: Metadata = { title: "Your card match | CENSE" };
 // yet: once the recommendation save route lands, read the saved result here
 // and keep computeResult's shape.
 export default async function ResultsPage() {
-  const student = await authenticatedStudent();
-  if (!student) redirect(signInPath(ROUTES.results));
+  const student = await requireStudent(ROUTES.results);
 
   const { data, error } = await student.supabase
     .from("quiz_drafts")

@@ -8,14 +8,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { DeniedLayout, withApplication } from "@/components/denied/denied-layout";
+import { DeniedLayout } from "@/components/denied/denied-layout";
 import { Notice, OutcomeMark } from "@/components/denied/parts";
 import { buttonVariants } from "@/components/ui/button";
+import { choiceRowClass } from "@/components/ui/choice-row";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { StatusPill } from "@/components/ui/status-pill";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
-import { ROUTES, signInPath } from "@/lib/routes";
+import { deniedPath, ROUTES, signInPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
+import { cn } from "@/lib/utils";
 
 type View = "ask" | "approved" | "not-approved";
 
@@ -91,7 +93,7 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
 
   if (view === "not-approved") {
     return (
-      <DeniedLayout backHref={withApplication(`${ROUTES.denied}/fixable`, applicationId)}>
+      <DeniedLayout backHref={deniedPath("fixable", applicationId)}>
         <div className="flex flex-col items-center gap-4 pt-5 text-center">
           <OutcomeMark icon={Hourglass} />
           <StatusPill>NOT APPROVED</StatusPill>
@@ -121,10 +123,10 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
           The first-month card plan and card reminders will not start.
         </Notice>
         <div className="flex flex-col gap-2">
-          <Link href={withApplication(`${ROUTES.denied}/reminder`, applicationId)} className={buttonVariants()}>
+          <Link href={deniedPath("reminder", applicationId)} className={buttonVariants()}>
             Set a 6-month reminder
           </Link>
-          <Link href={withApplication(`${ROUTES.denied}/plan`, applicationId)} className={buttonVariants({ variant: "secondary" })}>
+          <Link href={deniedPath("plan", applicationId)} className={buttonVariants({ variant: "secondary" })}>
             Review all 5 steps
           </Link>
         </div>
@@ -133,7 +135,7 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
   }
 
   return (
-    <DeniedLayout backHref={withApplication(`${ROUTES.denied}/fixable`, applicationId)}>
+    <DeniedLayout backHref={deniedPath("fixable", applicationId)}>
       <div className="flex flex-col gap-2">
         <h1 className="font-heading text-h1 font-medium text-navy">How did the second look go?</h1>
         <p className="text-body-m text-indigo-black">Tell us what the issuer said, and we’ll update your card.</p>
@@ -145,10 +147,7 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
         <ChoiceButton disabled={pending} onClick={() => setView("not-approved")}>
           The decision didn’t change
         </ChoiceButton>
-        <Link
-          href={ROUTES.home}
-          className="flex min-h-14 w-full items-center rounded-[18px] border-[1.5px] border-violet bg-white px-5 py-3 text-body-m text-navy outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        >
+        <Link href={ROUTES.home} className={choiceRowClass}>
           I’m still waiting to hear
         </Link>
       </div>
@@ -166,7 +165,7 @@ function ChoiceButton({ children, onClick, disabled }: { children: string; onCli
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex min-h-14 w-full items-center rounded-[18px] border-[1.5px] border-violet bg-white px-5 py-3 text-left text-body-m text-navy outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
+      className={cn(choiceRowClass, "text-left disabled:cursor-not-allowed disabled:opacity-50")}
     >
       {children}
     </button>

@@ -32,7 +32,7 @@ function CodeInput({ value, onChange, label = "Verification code", error, disabl
       autoComplete="one-time-code"
       pattern="[0-9]*"
       maxLength={CODE_LENGTH + 3}
-      placeholder="6-digit code"
+      placeholder={`${CODE_LENGTH}-digit code`}
       inputClassName="tracking-[0.35em] placeholder:tracking-normal"
     />
   )

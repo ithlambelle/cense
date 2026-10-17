@@ -42,6 +42,17 @@ describe("loadStudentSnapshot", () => {
     expect(snapshot.quizStarted).toBe(true);
   });
 
+  it("counts one saved answer as started", async () => {
+    const snapshot = await loadStudentSnapshot(studentWithDraft({ under21: true }));
+    expect(snapshot.quiz.kind).toBe("quiz_unfinished");
+    expect(snapshot.quizStarted).toBe(true);
+  });
+
+  it("is not started when the saved draft has no answers", async () => {
+    const snapshot = await loadStudentSnapshot(studentWithDraft({}));
+    expect(snapshot.quizStarted).toBe(false);
+  });
+
   it("is not started when nothing is saved", async () => {
     const snapshot = await loadStudentSnapshot(studentWithDraft(undefined));
     expect(snapshot).toEqual({ applications: [], quiz: { kind: "quiz_unfinished" }, quizStarted: false });

@@ -15,16 +15,49 @@ export const ROUTES = {
   denied: "/denied",
   // The first-month plan for an approved card.
   plan: "/plan",
+  // For a student who already has a card.
+  addCard: "/home/add-card",
+  forgotPassword: "/forgot-password",
+  // Opened from the password reset email.
+  resetPassword: "/reset-password",
 } as const;
+
+// Keeps the tracked card with the student as they move between screens.
+function withApplication(path: string, applicationId: string | null): string {
+  return applicationId ? `${path}?application=${encodeURIComponent(applicationId)}` : path;
+}
 
 // Where a student marks what the issuer decided for one tracked card.
 export function applicationPath(applicationId: string): string {
   return `/applications/${encodeURIComponent(applicationId)}`;
 }
 
+// "I haven’t heard yet" for one tracked card.
+export function waitingPath(applicationId: string): string {
+  return `${applicationPath(applicationId)}/waiting`;
+}
+
 // The first-month plan for one approved card.
 export function planPath(applicationId: string): string {
-  return `${ROUTES.plan}?application=${encodeURIComponent(applicationId)}`;
+  return withApplication(ROUTES.plan, applicationId);
+}
+
+// The rejection guide's screens, starting from Denial Options.
+const DENIED_STEPS = {
+  options: ROUTES.denied,
+  plan: `${ROUTES.denied}/plan`,
+  fixable: `${ROUTES.denied}/fixable`,
+  reminder: `${ROUTES.denied}/reminder`,
+  reminderSaved: `${ROUTES.denied}/reminder/saved`,
+  secondLook: `${ROUTES.denied}/second-look`,
+} as const;
+
+export type DeniedStep = keyof typeof DENIED_STEPS;
+
+// One rejection guide screen for a tracked card. Without a card the screens
+// still open, and ask the student to start from the card on Home.
+export function deniedPath(step: DeniedStep, applicationId: string | null): string {
+  return withApplication(DENIED_STEPS[step], applicationId);
 }
 
 export function cardPath(cardId: string): string {

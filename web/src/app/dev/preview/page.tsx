@@ -15,7 +15,7 @@ import { AddCardScreen } from "@/components/home/add-card-form";
 import { FirstMonthPlan } from "@/components/plan/first-month-plan";
 import { findCard } from "@/lib/cards/catalog";
 import { localDevOnly } from "@/lib/dev-only";
-import type { Application } from "@/lib/home/state";
+import type { Application } from "@/lib/api/application";
 
 export const metadata: Metadata = { title: "Screen preview", robots: { index: false } };
 
@@ -56,7 +56,7 @@ const SCREENS = {
 export default async function PreviewPage({ searchParams }: { searchParams: Promise<{ screen?: string }> }) {
   if (!localDevOnly()) notFound();
   const { screen = "" } = await searchParams;
-  const render = SCREENS[screen as keyof typeof SCREENS];
-  if (!render) notFound();
-  return render();
+  // Own keys only, so ?screen=constructor finds nothing instead of crashing.
+  if (!Object.hasOwn(SCREENS, screen)) notFound();
+  return SCREENS[screen as keyof typeof SCREENS]();
 }

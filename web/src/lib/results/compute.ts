@@ -1,9 +1,6 @@
-import type { z } from "zod";
-
-import { quizAnswersSchema, type cardSchema } from "../api/schemas";
+import { quizAnswersSchema } from "../api/schemas";
+import type { Card } from "../cards/catalog";
 import { evaluateFit, type CardFit, type IncomeGateId } from "../rules/fit-tier";
-
-type Card = z.infer<typeof cardSchema>;
 
 export type ResultView =
   | { kind: "quiz_unfinished" }

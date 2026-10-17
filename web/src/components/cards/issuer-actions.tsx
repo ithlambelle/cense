@@ -24,7 +24,7 @@ import { useIsMounted } from "@/lib/use-is-mounted";
 
 // Only the fields this client component reads, so the rest of the catalog
 // entry (such as its evidence links) is never sent to the browser.
-export type IssuerCard = Pick<
+type IssuerCard = Pick<
   ApiData<"/cards/{id}", "get">,
   "id" | "brand" | "name" | "preapprovalUrl" | "referralDisclosure"
 >;

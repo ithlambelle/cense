@@ -9,8 +9,10 @@ import { usePathname } from "next/navigation"
 import { ROUTES } from "@/lib/routes"
 import { cn } from "@/lib/utils"
 
-// Shown on every signed-in screen, including the quiz, results and the denial
-// guide (Ben, 2026-10-17); a future search view may hide it.
+// Shown on the signed-in app screens, including the quiz, results and the
+// denial guide (Ben, 2026-10-17), and on the card pages when signed in. The
+// sign-in screens, password reset, and the not-found and error pages leave it
+// out. A future search view may hide it.
 // MVP1 has two tabs (Ben, 2026-10-16). The frames draw four (Today, Learn,
 // Goals, Invest) for a later product; Learn, Goals and Invest have no MVP1 screens.
 const TABS = [

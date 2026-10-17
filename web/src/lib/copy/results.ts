@@ -1,5 +1,4 @@
 import type { ApiData } from "../api-client/client";
-import { moneyAmount } from "../money";
 
 export type FitTier = ApiData<"/recommendations/latest", "get">["fitTier"];
 
@@ -13,6 +12,9 @@ export const GUIDANCE_LINE =
 // The Notion rules still ask for GUIDANCE_LINE on every result: update that
 // page or bring it back when the wording is settled.
 export const RESULT_DISCLAIMER = "Recommendations are educational, not financial advice.";
+
+// Shown when no listed card fits and the rules gave no reason of their own.
+export const NO_CARD_FALLBACK = "None of the cards we list fits what you told us yet.";
 
 // Source: Notion "Fit Tier Rules v1.2", section 1.
 export const TIER_LABELS: Record<FitTier, string> = {
@@ -30,19 +32,6 @@ export const RESULT_HEADLINES: Record<FitTier, string> = {
   not_yet: "Not quite yet",
 };
 
-// Whole cents to a short fee line. Never implies a card is free of other costs.
-export function annualFeeLine(annualFeeCents: number): string {
-  if (annualFeeCents === 0) return "No annual fee";
-  return `${moneyAmount(annualFeeCents)} annual fee`;
-}
-
-type CardFacts = {
-  secured: boolean;
-  studentsOnly: boolean;
-  depositMinCents: number;
-  conditions: { kind: string; text: string }[];
-};
-
 // The card's name as students know it, with the brand in front when the
 // catalog name leaves it out ("Platinum Secured" -> "Capital One Platinum Secured").
 export function cardDisplayName(card: { brand: string; name: string }): string {
@@ -50,18 +39,8 @@ export function cardDisplayName(card: { brand: string; name: string }): string {
 }
 
 // The small line above the card name on the result frame ("Secured credit card").
-export function cardTypeLabel(card: CardFacts): string {
+export function cardTypeLabel(card: { secured: boolean; studentsOnly: boolean }): string {
   if (card.secured) return "Secured credit card";
   if (card.studentsOnly) return "Student credit card";
   return "Credit card";
-}
-
-// The line under the card name. Built only from catalog facts; null when there
-// is nothing more to say than the type label.
-export function cardDescription(card: CardFacts): string | null {
-  const limit = card.conditions.find((condition) => condition.kind === "limit_equals_money_moved");
-  if (limit) return limit.text;
-  if (card.secured && card.depositMinCents > 0) return "A refundable deposit backs the card.";
-  if (card.studentsOnly) return "Made for college students.";
-  return null;
 }

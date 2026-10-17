@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { allowedNext, googleSignInPath, signInPath } from "./routes";
+import { allowedNext, deniedPath, googleSignInPath, planPath, signInPath, waitingPath } from "./routes";
 
 describe("allowedNext", () => {
   it.each(["/quiz", "/results", "/home", "/cards/discover-cash-back"])("keeps %s", (path) => {
@@ -41,5 +41,21 @@ describe("sign-in paths", () => {
   it("sends Google sign-in to the landing check unless an allowed next is given", () => {
     expect(googleSignInPath("/quiz")).toBe("/api/v1/auth/google?next=%2Fquiz");
     expect(googleSignInPath("https://evil.example")).toBe("/api/v1/auth/google?next=%2Fstart");
+  });
+});
+
+describe("tracked card paths", () => {
+  const ID = "00000000-0000-4000-8000-000000000001";
+
+  it("keeps the card with the student through the rejection guide", () => {
+    expect(deniedPath("options", ID)).toBe(`/denied?application=${ID}`);
+    expect(deniedPath("reminderSaved", ID)).toBe(`/denied/reminder/saved?application=${ID}`);
+    expect(deniedPath("secondLook", null)).toBe("/denied/second-look");
+  });
+
+  it("builds the plan and waiting screens for one card, both allowed after sign-in", () => {
+    expect(planPath(ID)).toBe(`/plan?application=${ID}`);
+    expect(waitingPath(ID)).toBe(`/applications/${ID}/waiting`);
+    expect(allowedNext(waitingPath(ID))).toBe(waitingPath(ID));
   });
 });

@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import type { Application } from "../api/application";
 import { listCards } from "../cards/catalog";
 import { computeResult } from "../results/compute";
-import { homeState, planApplication, type Application } from "./state";
+import { homeState, planApplication } from "./state";
 
 const ALL_SIX = { under21: true, incomeBand: "under_5k", student: true, standing: "none", recentDenial: false, canDeposit: true };
 const cards = listCards();

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { annualFeeLine, GUIDANCE_LINE, RESULT_DISCLAIMER, RESULT_HEADLINES, TIER_LABELS } from "./results";
+import { GUIDANCE_LINE, RESULT_DISCLAIMER, RESULT_HEADLINES, TIER_LABELS } from "./results";
 
 describe("result wording", () => {
   it("keeps the guidance line word for word", () => {
@@ -18,11 +18,5 @@ describe("result wording", () => {
 
   it("names the three tiers", () => {
     expect(TIER_LABELS).toEqual({ likely_fit: "Likely fit", stretch: "Stretch", not_yet: "Not yet" });
-  });
-
-  it("writes the annual fee from whole cents", () => {
-    expect(annualFeeLine(0)).toBe("No annual fee");
-    expect(annualFeeLine(3900)).toBe("$39 annual fee");
-    expect(annualFeeLine(9950)).toBe("$99.50 annual fee");
   });
 });

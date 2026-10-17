@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
-import type { Application } from "@/lib/home/state";
+import type { Application } from "@/lib/api/application";
 import { applicationPath, ROUTES } from "@/lib/routes";
 
 // "Not yet" from the mark-result screen (S19). No frame: built from the

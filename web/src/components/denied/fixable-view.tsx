@@ -2,10 +2,10 @@ import Handset from "@gravity-ui/icons/Handset";
 import Shield from "@gravity-ui/icons/Shield";
 import Link from "next/link";
 
-import { DeniedLayout, withApplication } from "@/components/denied/denied-layout";
+import { DeniedLayout } from "@/components/denied/denied-layout";
 import { Notice, NumberedSteps } from "@/components/denied/parts";
 import { buttonVariants } from "@/components/ui/button";
-import { ROUTES } from "@/lib/routes";
+import { deniedPath } from "@/lib/routes";
 
 // Contact the issuer directly (Figma 397:2276, S25). The frame's "Call issuer
 // customer service" button is left out: Cense does not know the number (the
@@ -17,7 +17,7 @@ import { ROUTES } from "@/lib/routes";
 // (https://www.consumerfinance.gov/ask-cfpb/how-do-i-dispute-an-error-on-my-credit-report-en-314/).
 export function FixableView({ applicationId }: { applicationId: string | null }) {
   return (
-    <DeniedLayout backHref={withApplication(ROUTES.denied, applicationId)}>
+    <DeniedLayout backHref={deniedPath("options", applicationId)}>
       <div className="flex flex-col gap-2">
         <h1 className="font-heading text-h1 font-medium text-navy">Contact the issuer directly</h1>
         <p className="text-body-m text-indigo-black">
@@ -44,7 +44,7 @@ export function FixableView({ applicationId }: { applicationId: string | null })
       <Notice icon={Shield} title="A second look is not a new application">
         Ask whether another hard credit check is required before you agree to anything.
       </Notice>
-      <Link href={withApplication(`${ROUTES.denied}/second-look`, applicationId)} className={buttonVariants()}>
+      <Link href={deniedPath("secondLook", applicationId)} className={buttonVariants()}>
         I requested a second look
       </Link>
       <p className="text-center text-body-s text-indigo-black">

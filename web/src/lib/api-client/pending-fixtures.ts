@@ -1,15 +1,11 @@
 // Development-only answers for the pending endpoints (see pending.ts). Loaded
 // only when mocks are on. Kept per browser tab so a walkthrough behaves like
-// the real thing. CENSE_FIXTURE_SENTINEL: `npm run fixtures:check` (part of
-// `npm run check`) fails if this string shows up in the browser bundle.
-export const FIXTURE_SENTINEL = "CENSE_FIXTURE_SENTINEL";
+// the real thing. The import from pending.ts is type-only, so it adds no code.
+import type { Plan, Reminder } from "./pending";
 
-type Reminder = { id: string; applicationId: string; remindOn: string; createdAt: string };
-type Plan = {
-  applicationId: string;
-  actions: { autopay: boolean; plannedPurchase: boolean; paymentReminder: boolean };
-  updatedAt: string;
-};
+// CENSE_FIXTURE_SENTINEL: `npm run fixtures:check` (part of `npm run check`)
+// fails if this string shows up in the browser bundle.
+const FIXTURE_SENTINEL = "CENSE_FIXTURE_SENTINEL";
 
 export class MockApiError extends Error {
   constructor(
