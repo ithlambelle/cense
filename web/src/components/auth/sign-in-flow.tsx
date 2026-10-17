@@ -1,16 +1,19 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
+import { AuthLayout, BackButton, BackLinkHome } from "@/components/auth/auth-layout";
 import { GoogleButton } from "@/components/auth/google-button";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { CODE_LENGTH, CodeInput } from "@/components/ui/code-input";
 import { ErrorMessage } from "@/components/ui/error-message";
+import { PasswordField } from "@/components/ui/password-field";
 import { TextField } from "@/components/ui/text-field";
 import { apiRequest, failureMessage } from "@/lib/api-client/client";
+import { pendingRequest } from "@/lib/api-client/pending";
+import { looksLikeEmail, passwordProblem } from "@/lib/auth/password";
 import { googleSignInPath, ROUTES, signInPath, signUpPath } from "@/lib/routes";
 
 // Seconds before a new code can be sent. Supabase allows one code request per
@@ -50,7 +53,7 @@ function useCooldown(): [number, () => void] {
 // never in the address bar.
 export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
   const router = useRouter();
-  const [step, setStep] = useState<"email" | "code">("email");
+  const [step, setStep] = useState<"email" | "code" | "password" | "confirm-email">("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [pending, setPending] = useState(false);
@@ -105,6 +108,38 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
     // Stays pending while the next screen loads.
     router.replace(next ?? ROUTES.start);
     router.refresh();
+  }
+
+  if (step === "password") {
+    return (
+      <PasswordStep
+        mode={mode}
+        title={copy.title}
+        initialEmail={email}
+        onDone={() => {
+          router.replace(next ?? ROUTES.start);
+          router.refresh();
+        }}
+        onConfirmEmail={(address) => {
+          setEmail(address);
+          setStep("confirm-email");
+        }}
+        onUseCode={() => setStep("email")}
+      />
+    );
+  }
+
+  if (step === "confirm-email") {
+    return (
+      <AuthLayout title="Check your email" back={<BackButton disabled={false} onClick={() => setStep("password")} />}>
+        <p className="text-body-m text-indigo-black">
+          We sent a link to {email.trim()}. Open it to confirm your account, then log in.
+        </p>
+        <Link href={signInPath(next)} className={buttonVariants()}>
+          Go to log in
+        </Link>
+      </AuthLayout>
+    );
   }
 
   if (step === "code") {
@@ -162,6 +197,9 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
           {cooldown > 0 ? `Email me a code in ${cooldown}s` : "Email me a code"}
         </Button>
       </form>
+      <Button variant="link" className="self-center text-violet" onClick={() => setStep("password")}>
+        Use a password instead
+      </Button>
       <p className="flex min-h-11 items-center justify-center gap-1 text-body-s text-indigo-black">
         {copy.switchText}
         <Link
@@ -179,40 +217,117 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
   );
 }
 
-const backControl =
-  "flex h-12 w-[88px] items-center rounded-pill outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress";
+type PasswordStepProps = {
+  mode: AuthMode;
+  title: string;
+  initialEmail: string;
+  onDone: () => void;
+  onConfirmEmail: (email: string) => void;
+  onUseCode: () => void;
+};
 
-function BackLinkHome() {
-  return (
-    <Link href={ROUTES.welcome} aria-label="Back" className={backControl}>
-      <Image src="/icons/back-arrow.svg" alt="" width={33} height={33} />
-    </Link>
-  );
-}
+// Password sign-up and log-in (the auth frames' password fields and error
+// states), calling Mabelle's PR #24 routes. Until #24 is merged the routes do
+// not exist, and the screen says so instead of failing silently.
+function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUseCode }: PasswordStepProps) {
+  const [email, setEmail] = useState(initialEmail);
+  const [password, setPassword] = useState("");
+  const [repeat, setRepeat] = useState("");
+  const [errors, setErrors] = useState<{ email?: string; password?: string; repeat?: string; form?: string }>({});
+  const [pending, setPending] = useState(false);
+  const signUp = mode === "sign-up";
 
-function BackButton({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
-  return (
-    <button type="button" onClick={onClick} disabled={disabled} aria-label="Back" className={backControl}>
-      <Image src="/icons/back-arrow.svg" alt="" width={33} height={33} />
-    </button>
-  );
-}
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    const next: typeof errors = {};
+    if (!looksLikeEmail(email)) next.email = "That email doesn’t look quite right.";
+    if (signUp) {
+      const problem = passwordProblem(password);
+      if (problem) next.password = problem;
+      else if (repeat !== password) next.repeat = "Let’s make those passwords match.";
+    } else if (password === "") {
+      next.password = "Enter your password.";
+    }
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
 
-// The page frame shared by the auth screens: back control, then a Sora title
-// with the amber star beside it, as drawn.
-function AuthLayout({ title, back, children }: { title: string; back: ReactNode; children: ReactNode }) {
+    setPending(true);
+    const body = { email: email.trim(), password };
+    const result = signUp
+      ? await pendingRequest("POST /auth/password/signup", body)
+      : await pendingRequest("POST /auth/password/signin", body);
+    if (result.kind === "ok") {
+      if (result.data.status === "check_email") {
+        setPending(false);
+        onConfirmEmail(email);
+        return;
+      }
+      onDone();
+      return;
+    }
+    setPending(false);
+    if (result.kind === "unavailable") {
+      setErrors({ form: "Password sign-in isn’t available yet. Use Google or an email code." });
+    } else if (result.kind === "failed" && result.code === "invalid_credentials") {
+      setErrors({ password: "Not quite. Give your password another try." });
+    } else {
+      setErrors({ form: result.kind === "failed" ? result.message : "Something went wrong. Please try again." });
+    }
+  }
+
   return (
-    <div className="flex min-h-dvh justify-center bg-background">
-      <main className="flex w-full max-w-phone flex-col px-6 pt-8 pb-6">
-        {back}
-        <div className="flex flex-col gap-4 pt-3">
-          <div className="flex items-center gap-1">
-            <h1 className="font-heading text-h2 font-medium text-navy">{title}</h1>
-            <Image src="/decor/star-large.svg" alt="" width={23} height={22} className="rotate-[17.75deg]" />
-          </div>
-          {children}
-        </div>
-      </main>
-    </div>
+    <AuthLayout title={title} back={<BackButton disabled={pending} onClick={onUseCode} />}>
+      <form method="post" onSubmit={submit} className="flex flex-col gap-3" noValidate>
+        <TextField
+          label="Email"
+          type="email"
+          name="email"
+          autoComplete="email"
+          inputMode="email"
+          placeholder="Your email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          error={errors.email}
+          disabled={pending}
+        />
+        <PasswordField
+          label="Password"
+          name="password"
+          autoComplete={signUp ? "new-password" : "current-password"}
+          placeholder="Your password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          error={errors.password}
+          disabled={pending}
+        />
+        {signUp ? (
+          <PasswordField
+            label="Repeat password"
+            name="repeat-password"
+            autoComplete="new-password"
+            placeholder="Your password again"
+            value={repeat}
+            onChange={(event) => setRepeat(event.target.value)}
+            error={errors.repeat}
+            disabled={pending}
+          />
+        ) : null}
+        <Button type="submit" className="mt-1" pending={pending}>
+          {signUp ? "Sign up" : "Log in"}
+        </Button>
+      </form>
+      {signUp ? null : (
+        <Link
+          href="/forgot-password"
+          className="min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 outline-none focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          Forgot password?
+        </Link>
+      )}
+      {errors.form ? <ErrorMessage>{errors.form}</ErrorMessage> : null}
+      <Button variant="link" className="self-center text-violet" disabled={pending} onClick={onUseCode}>
+        Email me a code instead
+      </Button>
+    </AuthLayout>
   );
 }
