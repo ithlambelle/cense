@@ -51,8 +51,11 @@
   --color-light-blue: #bae4ff;
   --color-hairline: #dcd7eb;
 
-  /* States the Figma file does not draw, derived from the tokens above. */
-  --color-violet-hover: color-mix(in oklab, var(--color-violet), var(--color-white) 12%);
+  /* States the Figma file does not draw, derived from the tokens above. Hover
+     darkens rather than lightens: white text on violet is 5.45:1, and a 12%
+     white mix fell to 4.28:1, under WCAG 1.4.3's 4.5:1 (caught by the e2e
+     axe check). */
+  --color-violet-hover: color-mix(in oklab, var(--color-violet), var(--color-indigo-black) 8%);
   --color-violet-pressed: color-mix(in oklab, var(--color-violet), var(--color-indigo-black) 18%);
   /* Plain rgb() rather than color-mix(): same color, wider support. */
   --color-violet-disabled: rgb(151 64 197 / 0.3);
