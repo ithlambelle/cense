@@ -147,7 +147,8 @@ export const issuerClickSchema = z.strictObject({
 
 export const recommendationSchema = z.strictObject({
   id: z.uuid(),
-  cardId: z.string(),
+  // Null when no card fits. The tier is then not_yet.
+  cardId: z.string().nullable(),
   fitTier: z.enum(["likely_fit", "stretch", "not_yet"]),
   reason: z.string().nullable(),
   createdAt: z.iso.datetime({ offset: true }),
