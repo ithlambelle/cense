@@ -20,14 +20,17 @@ describe("quiz questions", () => {
     ]);
   });
 
-  it.each(ALL_CHOICES.filter(({ choice }) => !choice.exit))("$field / $id stores an answer the API accepts", ({ field, choice }) => {
+  it.each(ALL_CHOICES)("$field / $id stores an answer the API accepts", ({ field, choice }) => {
     expect(Object.keys(choice.stores)).toEqual([field]);
     expect(quizAnswersSchema.safeParse(choice.stores).success).toBe(true);
   });
 
-  it("ends the quiz on Under 18 and stores nothing", () => {
-    const under18 = QUESTIONS[0].choices.find((choice) => choice.exit);
-    expect(under18).toMatchObject({ id: "under-18", label: "Under 18", exit: "under_18", stores: {} });
+  it("offers the two age choices from the hi-fi, with no Under 18 choice", () => {
+    expect(QUESTIONS[0].choices.map((choice) => choice.label)).toEqual(["18 to 20", "21 or over"]);
+  });
+
+  it("gives every question the subtitle line drawn under its title", () => {
+    for (const question of QUESTIONS) expect(question.subtitle.length).toBeGreaterThan(0);
   });
 
   it("gives every choice in a question its own id", () => {
@@ -75,7 +78,7 @@ describe("answers", () => {
   });
 
   it("replaces an earlier answer to the same question", () => {
-    expect(withChoice({ under21: true }, QUESTIONS[0].choices[2])).toEqual({ under21: false });
+    expect(withChoice({ under21: true }, QUESTIONS[0].choices[1])).toEqual({ under21: false });
   });
 
   it("finds the saved choice, including a saved false", () => {

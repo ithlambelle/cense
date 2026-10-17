@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { QuizFlow } from "./quiz-flow";
+import { ADVANCE_HINT } from "./quiz-screen";
 
 const push = vi.fn();
 const replace = vi.fn();
@@ -36,69 +37,77 @@ afterEach(() => {
   replace.mockClear();
 });
 
+const answer = (name: string) => screen.getByRole("button", { name });
+
 describe("QuizFlow", () => {
-  it("starts at question 1 when nothing is saved, with Continue off until a choice is made", async () => {
+  it("starts at question 1 when nothing is saved and says that a tap moves on", async () => {
     server([NO_DRAFT]);
     render(<QuizFlow />);
     expect(await screen.findByRole("heading", { name: "How old are you?" })).toBeTruthy();
     expect(screen.getByText("Question 1 of 6")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Continue" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText(ADVANCE_HINT)).toBeTruthy();
+    expect(screen.getByRole("group", { name: "How old are you?" }).getAttribute("aria-describedby")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Under 18" })).toBeNull();
   });
 
-  it("resumes at the first unanswered question", async () => {
+  it("resumes at the first unanswered question, without the hint after question 1", async () => {
     server([saved({ under21: true, incomeBand: "under_5k" })]);
     render(<QuizFlow />);
     expect(await screen.findByText("Question 3 of 6")).toBeTruthy();
+    expect(screen.queryByText(ADVANCE_HINT)).toBeNull();
   });
 
-  it("saves the whole draft on Continue, with no empty or unknown keys, then moves on", async () => {
+  it("saves the whole draft when an answer is tapped, then moves on with focus on the new question", async () => {
     const fetchFn = server([saved({ under21: true }), saved({ under21: true, incomeBand: "none" })]);
     render(<QuizFlow />);
-    fireEvent.click(await screen.findByLabelText("None"));
-    const proceed = screen.getByRole("button", { name: "Continue" });
-    // Put focus where a real press leaves it, so the check below means something.
-    proceed.focus();
-    expect(document.activeElement).toBe(proceed);
-    fireEvent.click(proceed);
+    await screen.findByText("Question 2 of 6");
+    fireEvent.click(answer("None"));
+    expect(answer("None").getAttribute("aria-pressed")).toBe("true");
     expect(await screen.findByText("Question 3 of 6")).toBeTruthy();
-    // Focus moves to the new question, so a keyboard or screen reader user follows.
     expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1 }));
     expect(fetchFn.mock.calls[1][1]?.method).toBe("PUT");
     expect(sentAnswers(fetchFn, 1)).toEqual({ under21: true, incomeBand: "none" });
   });
 
-  it("shows the income help text that matches the saved age", async () => {
+  it("shows the hi-fi subtitle with the income line that matches the saved age", async () => {
     server([saved({ under21: false })]);
     render(<QuizFlow />);
-    expect(await screen.findByText("Count income you can reasonably access.")).toBeTruthy();
+    expect(await screen.findByText("A rough guess is fine. Count income you can reasonably access.")).toBeTruthy();
   });
 
-  it("locks the choices and Back while a save is in flight, so an answer cannot be lost", async () => {
+  it("locks the answers, Back and Close while a save is in flight, so an answer cannot be lost", async () => {
     let release: (reply: Reply) => void = () => undefined;
     const held = new Promise<Reply>((resolve) => {
       release = resolve;
     });
-    server([NO_DRAFT, held]);
+    const fetchFn = server([NO_DRAFT, held]);
     render(<QuizFlow />);
-    fireEvent.click(await screen.findByLabelText("18 to 20"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByText("Question 1 of 6");
+    fireEvent.click(answer("18 to 20"));
+    fireEvent.click(answer("21 or over"));
 
-    const radios = screen.getAllByRole("radio") as HTMLInputElement[];
-    expect(radios.every((radio) => radio.disabled)).toBe(true);
+    expect(answer("18 to 20").hasAttribute("disabled")).toBe(true);
+    expect(answer("21 or over").hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("button", { name: "Back" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Close quiz" }).hasAttribute("disabled")).toBe(true);
 
     release(saved({ under21: true }));
     expect(await screen.findByText("Question 2 of 6")).toBeTruthy();
+    // The second tap, made while saving, sent nothing.
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(sentAnswers(fetchFn, 1)).toEqual({ under21: true });
   });
 
-  it("stays on the question and shows the reason when a save fails", async () => {
+  it("stays on the question with the choice shown and the reason given when a save fails", async () => {
     server([NO_DRAFT, { status: 500, body: "crash" }]);
     render(<QuizFlow />);
-    fireEvent.click(await screen.findByLabelText("18 to 20"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByText("Question 1 of 6");
+    fireEvent.click(answer("18 to 20"));
     expect((await screen.findByRole("alert")).textContent).not.toContain("crash");
     expect(screen.getByText("Question 1 of 6")).toBeTruthy();
-    expect((screen.getByLabelText("18 to 20") as HTMLInputElement).checked).toBe(true);
+    expect(answer("18 to 20").getAttribute("aria-pressed")).toBe("true");
+    expect(answer("18 to 20").hasAttribute("disabled")).toBe(false);
   });
 
   it("goes to results after the last question", async () => {
@@ -106,10 +115,20 @@ describe("QuizFlow", () => {
     const fetchFn = server([saved(five), saved({ ...five, canDeposit: true })]);
     render(<QuizFlow />);
     expect(await screen.findByText("Question 6 of 6")).toBeTruthy();
-    fireEvent.click(screen.getByLabelText("Yes"));
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(answer("Yes"));
     await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/results"));
     expect(sentAnswers(fetchFn, 1)).toEqual({ ...five, canDeposit: true });
+  });
+
+  it("goes back a question keeping the answer, and closes to Home", async () => {
+    server([saved({ under21: true })]);
+    render(<QuizFlow />);
+    await screen.findByText("Question 2 of 6");
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(await screen.findByText("Question 1 of 6")).toBeTruthy();
+    expect(answer("18 to 20").getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Close quiz" }));
+    expect(push).toHaveBeenCalledWith("/home");
   });
 
   it("sends a signed-out student to sign in, with a way back to the quiz", async () => {

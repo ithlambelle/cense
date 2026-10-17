@@ -10,25 +10,26 @@ export type Choice = {
   label: string;
   // What choosing this stores. Field names and values come from the schema.
   stores: Partial<QuizAnswers>;
-  // Ends the quiz instead of continuing. Nothing is saved (rules v1.2, section 2, Q1).
-  exit?: "under_18";
 };
 
 export type Question = {
   // The answer field this question fills.
   field: keyof QuizAnswers;
   title: string;
+  // The line under the title, from the hi-fi frames.
+  subtitle: string;
   choices: Choice[];
 };
 
-// Wording follows the light-mode hi-fi screens exactly. "Under 18" is not drawn
-// yet; rules v1.2 section 2 requires it and it has been asked of design.
+// Wording follows the newest hi-fi quiz frames (Wireframes Prototyping, 397:1208
+// to 397:906). There is no "Under 18" choice: Ben decided on 2026-10-16 that the
+// two age choices make the minimum clear; the rules' under-18 exit comes later.
 export const QUESTIONS: Question[] = [
   {
     field: "under21",
     title: "How old are you?",
+    subtitle: "Some cards have age requirements.",
     choices: [
-      { id: "under-18", label: "Under 18", stores: {}, exit: "under_18" },
       { id: "18-to-20", label: "18 to 20", stores: { under21: true } },
       { id: "21-or-over", label: "21 or over", stores: { under21: false } },
     ],
@@ -36,6 +37,10 @@ export const QUESTIONS: Question[] = [
   {
     field: "incomeBand",
     title: "About how much income do you have in a year?",
+    // The frame continues "Part-time jobs, stipends, and allowances all count."
+    // That is replaced by the age-specific line from helpText (rules v1.2, Q2),
+    // because issuers may only count an under-21 student's own income.
+    subtitle: "A rough guess is fine.",
     choices: [
       { id: "none", label: "None", stores: { incomeBand: "none" } },
       { id: "savings-only", label: "No income but savings in my name", stores: { incomeBand: "savings_only" } },
@@ -47,6 +52,7 @@ export const QUESTIONS: Question[] = [
   {
     field: "student",
     title: "Are you enrolled at a US college, or admitted and starting within 3 months?",
+    subtitle: "Student cards are made for people just starting out.",
     choices: [
       { id: "yes", label: "Yes", stores: { student: true } },
       { id: "no", label: "No", stores: { student: false } },
@@ -54,7 +60,8 @@ export const QUESTIONS: Question[] = [
   },
   {
     field: "standing",
-    title: "Credit in your own name?",
+    title: "Do you have credit in your own name?",
+    subtitle: "No credit yet? Totally normal for students.",
     choices: [
       { id: "none", label: "None", stores: { standing: "none" } },
       { id: "authorized-user", label: "Authorized user on someone else’s card", stores: { standing: "limited" } },
@@ -72,6 +79,7 @@ export const QUESTIONS: Question[] = [
   {
     field: "recentDenial",
     title: "Turned down for a credit card in the last 6 months?",
+    subtitle: "No judgment. It just helps us skip cards that would say no.",
     choices: [
       { id: "yes", label: "Yes", stores: { recentDenial: true } },
       { id: "no", label: "No", stores: { recentDenial: false } },
@@ -80,6 +88,7 @@ export const QUESTIONS: Question[] = [
   {
     field: "canDeposit",
     title: "Could you put down a refundable deposit of up to $200?",
+    subtitle: "You get it back. It’s what secured cards use to get you started.",
     choices: [
       { id: "yes", label: "Yes", stores: { canDeposit: true } },
       { id: "no", label: "No", stores: { canDeposit: false } },
@@ -106,7 +115,7 @@ export function withChoice(answers: QuizAnswers, choice: Choice): QuizAnswers {
 export function savedChoiceId(question: Question, answers: QuizAnswers): string | null {
   const saved = answers[question.field];
   if (saved === undefined) return null;
-  return question.choices.find((choice) => !choice.exit && choice.stores[question.field] === saved)?.id ?? null;
+  return question.choices.find((choice) => choice.stores[question.field] === saved)?.id ?? null;
 }
 
 // Index of the first question with no answer, or null when all are answered.

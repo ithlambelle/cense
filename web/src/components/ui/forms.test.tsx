@@ -3,7 +3,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { CodeInput, digitsOnly } from "./code-input";
-import { OptionGroup } from "./option-group";
 import { TextField } from "./text-field";
 
 describe("TextField", () => {
@@ -43,43 +42,5 @@ describe("CodeInput", () => {
     expect(onChange).toHaveBeenCalledWith("482916");
     expect(input.getAttribute("autocomplete")).toBe("one-time-code");
     expect(input.getAttribute("inputmode")).toBe("numeric");
-  });
-});
-
-describe("OptionGroup", () => {
-  const options = [
-    { value: "yes", label: "Yes" },
-    { value: "no", label: "No" },
-  ];
-
-  function renderGroup(value: string | null, onChange = vi.fn()) {
-    render(
-      <>
-        <h1 id="question">Could you put down a deposit?</h1>
-        <OptionGroup labelledBy="question" options={options} value={value} onChange={onChange} />
-      </>,
-    );
-    return onChange;
-  }
-
-  it("is a radio group named by the question", () => {
-    renderGroup(null);
-    expect(screen.getByRole("radiogroup", { name: "Could you put down a deposit?" })).toBeTruthy();
-    expect(screen.getAllByRole("radio")).toHaveLength(2);
-  });
-
-  it("starts with nothing selected and reports a choice", () => {
-    const onChange = renderGroup(null);
-    expect(screen.getAllByRole("radio").every((radio) => !(radio as HTMLInputElement).checked)).toBe(true);
-    fireEvent.click(screen.getByLabelText("No"));
-    expect(onChange).toHaveBeenCalledWith("no");
-  });
-
-  it("shows the selected choice and keeps the radios in one group", () => {
-    renderGroup("yes");
-    const [yes, no] = screen.getAllByRole("radio") as HTMLInputElement[];
-    expect(yes.checked).toBe(true);
-    expect(no.checked).toBe(false);
-    expect(yes.name).toBe(no.name);
   });
 });
