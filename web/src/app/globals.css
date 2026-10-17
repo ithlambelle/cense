@@ -54,8 +54,9 @@
   /* States the Figma file does not draw, derived from the tokens above. */
   --color-violet-hover: color-mix(in oklab, var(--color-violet), var(--color-white) 12%);
   --color-violet-pressed: color-mix(in oklab, var(--color-violet), var(--color-indigo-black) 18%);
-  --color-violet-disabled: color-mix(in srgb, var(--color-violet) 30%, transparent);
-  --color-glow: color-mix(in srgb, var(--color-off-white) 70%, transparent);
+  /* Plain rgb() rather than color-mix(): same color, wider support. */
+  --color-violet-disabled: rgb(151 64 197 / 0.3);
+  --color-glow: rgb(236 234 246 / 0.7);
 
   --radius-pill: 62px;
   --radius-card: 22px;
