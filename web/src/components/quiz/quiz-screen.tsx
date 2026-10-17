@@ -5,6 +5,7 @@ import { useEffect, useId, useRef } from "react";
 
 import { ErrorMessage } from "@/components/ui/error-message";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { SelectedMark } from "@/components/ui/selected-mark";
 import type { Question } from "@/lib/quiz/questions";
 import { cn } from "@/lib/utils";
 
@@ -113,13 +114,14 @@ export function QuizScreen({
                 disabled={pending}
                 onClick={() => onChoose(choice.id)}
                 className={cn(
-                  "flex w-full items-center gap-4 border-[1.5px] border-violet bg-white px-5 py-3 text-left text-body-m text-navy outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress",
+                  "flex w-full items-center gap-4 border-[1.5px] border-violet bg-white px-[18px] py-3 text-left text-body-m text-navy outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress",
                   compact ? "min-h-14 rounded-[18px]" : "min-h-20 rounded-card",
+                  selected && "bg-off-white",
                 )}
               >
                 <span className="flex-1">{choice.label}</span>
                 {selected ? (
-                  <Image src="/icons/selected-check.svg" alt="" width={24} height={24} className="shrink-0" />
+                  <SelectedMark />
                 ) : null}
               </button>
             );

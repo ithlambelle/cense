@@ -17,7 +17,11 @@ type TextFieldProps = Omit<ComponentProps<"input">, "id" | "aria-invalid" | "ari
 // fill, 20px corners, violet edge when focused, coral edge when invalid. The
 // error text itself is indigo-black with a coral marker (coral text on white
 // fails WCAG AA contrast).
-function TextField({ label, hint, error, trailing, className, inputClassName, ...props }: TextFieldProps) {
+//
+// `disabled` makes the field read-only rather than natively disabled: a
+// disabled input drops keyboard focus to the page while a form is sending
+// (WCAG 2.4.3), and a read-only one keeps it.
+function TextField({ label, hint, error, trailing, className, inputClassName, disabled, readOnly, ...props }: TextFieldProps) {
   const id = useId()
   const hintId = `${id}-hint`
   const errorId = `${id}-error`
@@ -30,7 +34,7 @@ function TextField({ label, hint, error, trailing, className, inputClassName, ..
       </label>
       <div
         className={cn(
-          "flex h-12 items-center rounded-input border-[1.5px] border-off-white bg-off-white pr-2 pl-3.5 focus-within:border-violet has-aria-invalid:border-coral has-disabled:opacity-60",
+          "flex h-12 items-center rounded-input border-[1.5px] border-off-white bg-off-white pr-2 pl-3.5 focus-within:border-violet has-aria-invalid:border-coral has-aria-disabled:opacity-60",
           className
         )}
       >
@@ -38,6 +42,8 @@ function TextField({ label, hint, error, trailing, className, inputClassName, ..
           id={id}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy || undefined}
+          aria-disabled={disabled || undefined}
+          readOnly={disabled || readOnly}
           className={cn(
             "h-full min-w-0 flex-1 bg-transparent text-body-m text-indigo-black caret-violet outline-none placeholder:text-indigo-black/60",
             inputClassName

@@ -51,6 +51,7 @@ export function WelcomeScreen() {
               height={star.size}
               className="absolute"
               style={{
+                height: "auto",
                 left: `${(star.x / 390) * 100}%`,
                 top: `${(star.y / 844) * 100}%`,
                 transform: star.rotate ? `rotate(${star.rotate}deg)` : undefined,
@@ -59,7 +60,8 @@ export function WelcomeScreen() {
           ))}
         </div>
 
-        <div className="relative flex flex-1 flex-col items-center justify-center gap-5 pt-16">
+        {/* The frame places the mascot 247px down an 844px screen (29.3%). */}
+        <div className="relative flex flex-1 flex-col items-center gap-5 pt-[29.3dvh]">
           <Image src="/mascot/penny.png" alt="" width={157} height={157} priority className="rotate-[0.84deg]" />
           <h1 className="px-[61px] text-center font-heading text-h3 font-medium text-navy">
             Let’s make
@@ -68,7 +70,7 @@ export function WelcomeScreen() {
           </h1>
         </div>
 
-        <div className="relative flex flex-col gap-2.5 pt-10">
+        <div className="relative flex flex-col gap-2.5 pt-6">
           <Link href={ROUTES.signUp} className={buttonVariants()}>
             Get started
           </Link>
@@ -78,7 +80,7 @@ export function WelcomeScreen() {
           {/* Not in the frame: Ben's MVP1 flow starts with browsing cards. Proposed to design. */}
           <Link
             href={ROUTES.cards}
-            className="mt-1 min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="min-h-6 content-center self-center text-body-s text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             Browse student cards
           </Link>

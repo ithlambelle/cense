@@ -27,7 +27,7 @@ export function DeniedOptionsView({ applicationId }: { applicationId: string | n
           </p>
         </div>
       </section>
-      <div className="mt-auto flex flex-col gap-2 pt-6">
+      <div className="flex flex-col gap-2 pt-2">
         <Link href={withApplication(`${ROUTES.denied}/plan`, applicationId)} className={buttonVariants()}>
           Show my 5 next steps
         </Link>

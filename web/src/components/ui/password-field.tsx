@@ -18,7 +18,8 @@ function PasswordField(props: PasswordFieldProps) {
       trailing={
         <button
           type="button"
-          aria-label="Show password"
+          // Named after its field, so two eyes on one form are told apart (WCAG 2.4.6).
+          aria-label={`Show ${props.label.toLowerCase()}`}
           aria-pressed={visible}
           onClick={() => setVisible(!visible)}
           disabled={props.disabled}

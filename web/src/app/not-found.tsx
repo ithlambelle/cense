@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { MessageScreen } from "@/components/shell/message-screen";
 import { buttonVariants } from "@/components/ui/button";
 import { ROUTES } from "@/lib/routes";
+
+export const metadata: Metadata = { title: "Page not found | CENSE" };
 
 export default function NotFound() {
   return (
