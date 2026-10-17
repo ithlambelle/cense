@@ -45,6 +45,12 @@ const GROUPS: { title: string; entries: Entry[] }[] = [
       { label: "S18 Mark your result", href: "/dev/preview?screen=mark-result" },
       { label: "S21 Denial Options", href: "/dev/preview?screen=denied" },
       { label: "S22 Five-step plan", href: "/dev/preview?screen=denied-plan" },
+      { label: "S23 Choose when to check in", href: "/dev/preview?screen=reminder" },
+      { label: "S24 Reminder saved", href: "/dev/preview?screen=reminder-saved" },
+      { label: "S25 Contact the issuer", href: "/dev/preview?screen=fixable" },
+      { label: "S26 Second look: ask", href: "/dev/preview?screen=second-look" },
+      { label: "S26 Second look: approved", href: "/dev/preview?screen=second-look-approved" },
+      { label: "S27 Second look: not approved", href: "/dev/preview?screen=second-look-not-approved" },
     ],
   },
 ];
