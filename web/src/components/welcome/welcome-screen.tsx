@@ -1,8 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { CSSProperties } from "react";
 
 import { buttonVariants } from "@/components/ui/button";
 import { ROUTES } from "@/lib/routes";
+
+import styles from "./welcome-screen.module.css";
 
 type Star = { kind: "star" | "sparkle"; x: number; y: number; size: number; rotate?: number };
 
@@ -42,27 +45,37 @@ export function WelcomeScreen() {
     <div className="flex min-h-dvh justify-center bg-background">
       <main className="relative flex w-full max-w-phone flex-col overflow-hidden px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-          {STARS.map((star) => (
-            <Image
+          {STARS.map((star, index) => (
+            <span
               key={`${star.x}-${star.y}`}
-              src={star.kind === "star" ? "/decor/star-large.svg" : "/decor/sparkle.svg"}
-              alt=""
-              width={star.size}
-              height={star.size}
-              className="absolute"
+              className={styles.starFloat}
               style={{
-                height: "auto",
                 left: `${(star.x / 390) * 100}%`,
                 top: `${(star.y / 844) * 100}%`,
-                transform: star.rotate ? `rotate(${star.rotate}deg)` : undefined,
+                animationDelay: `-${(index % 7) * 0.8}s`,
+                animationDuration: `${5 + (index % 4)}s`,
               }}
-            />
+            >
+              <Image
+                src={star.kind === "star" ? "/decor/star-large.svg" : "/decor/sparkle.svg"}
+                alt=""
+                width={star.size}
+                height={star.size}
+                className={star.kind === "star" ? styles.goldStar : styles.sparkle}
+                style={{
+                  height: "auto",
+                  "--star-rotation": `${star.rotate ?? 0}deg`,
+                  animationDelay: `-${(index % 9) * 0.55}s`,
+                  animationDuration: `${3.2 + (index % 5) * 0.55}s`,
+                } as CSSProperties}
+              />
+            </span>
           ))}
         </div>
 
         {/* The frame places the mascot 247px down an 844px screen (29.3%). */}
         <div className="relative flex flex-1 flex-col items-center gap-5 pt-[29.3dvh]">
-          <Image src="/mascot/penny.png" alt="" width={157} height={157} priority className="rotate-[0.84deg]" />
+          <Image src="/mascot/penny.png" alt="" width={157} height={157} priority className={styles.pigFloat} />
           <h1 className="px-[61px] text-center font-heading text-h3 font-medium text-navy">
             Let’s make
             <br />
