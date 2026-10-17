@@ -62,7 +62,9 @@ export function WelcomeScreen() {
         <div className="relative flex flex-1 flex-col items-center justify-center gap-5 pt-16">
           <Image src="/mascot/penny.png" alt="" width={157} height={157} priority className="rotate-[0.84deg]" />
           <h1 className="px-[61px] text-center font-heading text-h3 font-medium text-navy">
-            Let’s make Cense of money.
+            Let’s make
+            <br />
+            Cense of money.
           </h1>
         </div>
 

@@ -10,7 +10,7 @@ import { Greeting } from "@/components/home/greeting";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { findCard } from "@/lib/cards/catalog";
-import { cardTypeLabel, moneyAmount } from "@/lib/copy/results";
+import { cardDisplayName, cardTypeLabel, moneyAmount } from "@/lib/copy/results";
 import type { Application, HomeState } from "@/lib/home/state";
 import { applicationPath, cardPath, ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -75,10 +75,10 @@ function HomeContent({ state }: { state: HomeState }) {
       <>
         <Greeting subtitle="Your card match is ready." />
         <StatusCard
-          title={card.name}
+          title={cardDisplayName(card)}
           subtitle={cardTypeLabel(card)}
           pill="YOUR MATCH"
-          preview={{ name: card.name, kind: previewKind(card) }}
+          preview={{ name: cardDisplayName(card), kind: previewKind(card) }}
           rows={[{ label: "Annual fee", value: moneyAmount(card.annualFeeCents) }]}
         />
         <NextStep
