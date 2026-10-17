@@ -1,0 +1,77 @@
+.starFloat {
+  position: absolute;
+  display: block;
+  animation: star-float 6s ease-in-out infinite;
+}
+
+.goldStar,
+.sparkle {
+  display: block;
+  transform: rotate(var(--star-rotation, 0deg));
+  transform-origin: center;
+  animation: star-twinkle 4s ease-in-out infinite;
+}
+
+.sparkle {
+  animation-name: sparkle-twinkle;
+}
+
+.pigFloat {
+  transform: rotate(0.84deg);
+  animation: pig-float 5s ease-in-out infinite;
+}
+
+@keyframes star-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(2px, -6px, 0);
+  }
+}
+
+@keyframes star-twinkle {
+  0%,
+  100% {
+    opacity: 0.82;
+    transform: rotate(var(--star-rotation, 0deg)) scale(0.9);
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  50% {
+    opacity: 1;
+    transform: rotate(var(--star-rotation, 0deg)) scale(1.12);
+    filter: drop-shadow(0 0 5px rgb(253 192 61 / 55%));
+  }
+}
+
+@keyframes sparkle-twinkle {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.78);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes pig-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0.84deg);
+  }
+  50% {
+    transform: translate3d(0, -9px, 0) rotate(-1.2deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .starFloat,
+  .goldStar,
+  .sparkle,
+  .pigFloat {
+    animation: none;
+  }
+}
