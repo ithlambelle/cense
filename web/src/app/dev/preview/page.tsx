@@ -14,7 +14,7 @@ import { SecondLook } from "@/components/denied/second-look";
 import { AddCardScreen } from "@/components/home/add-card-form";
 import { FirstMonthPlan } from "@/components/plan/first-month-plan";
 import { findCard } from "@/lib/cards/catalog";
-import { devPagesEnabled } from "@/lib/dev-only";
+import { localDevOnly } from "@/lib/dev-only";
 import type { Application } from "@/lib/home/state";
 
 export const metadata: Metadata = { title: "Screen preview", robots: { index: false } };
@@ -30,8 +30,9 @@ const SAMPLE_APPLICATION: Application = {
   statusUpdatedAt: "2026-10-16T12:00:00Z",
 };
 
-// Signed-in screens on sample data, without signing in. Saving from here
-// fails (no session), which is expected.
+// Signed-in screens on sample data, without signing in. Local development
+// only: with a real session (as on a Vercel preview) some of these screens
+// would save for the visitor, so the page is off outside local development.
 const SCREENS = {
   "mark-result": () => <MarkResult application={SAMPLE_APPLICATION} />,
   waiting: () => <WaitingView application={SAMPLE_APPLICATION} />,
@@ -53,7 +54,7 @@ const SCREENS = {
 } as const;
 
 export default async function PreviewPage({ searchParams }: { searchParams: Promise<{ screen?: string }> }) {
-  if (!devPagesEnabled()) notFound();
+  if (!localDevOnly()) notFound();
   const { screen = "" } = await searchParams;
   const render = SCREENS[screen as keyof typeof SCREENS];
   if (!render) notFound();

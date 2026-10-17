@@ -35,6 +35,8 @@ export function FirstMonthPlan({ application }: { application: Application }) {
   const [actions, setActions] = useState<Actions>(NONE_DONE);
   const [state, setState] = useState<SaveState>("loading");
   const [error, setError] = useState<string | null>(null);
+  // Actions whose save is still in flight; each is locked until its answer arrives.
+  const [saving, setSaving] = useState<Set<ActionKey>>(new Set());
 
   useEffect(() => {
     let current = true;
@@ -42,6 +44,9 @@ export function FirstMonthPlan({ application }: { application: Application }) {
       if (!current) return;
       if (result.kind === "ok") {
         setActions(result.data.actions);
+        setState("saved");
+      } else if (result.kind === "failed" && result.code === "not_found") {
+        // No plan saved yet: start empty, with saving on.
         setState("saved");
       } else {
         setState(result.kind === "unavailable" ? "unavailable" : "failed");
@@ -53,13 +58,24 @@ export function FirstMonthPlan({ application }: { application: Application }) {
   }, []);
 
   async function toggle(key: ActionKey) {
-    const next = { ...actions, [key]: !actions[key] };
-    setActions(next);
+    const value = !actions[key];
+    setActions((current) => ({ ...current, [key]: value }));
     setError(null);
     if (state !== "saved") return;
-    const result = await pendingRequest("PATCH /plan", { actions: { [key]: next[key] } });
-    if (result.kind === "ok") return;
-    setActions(actions);
+    setSaving((current) => new Set(current).add(key));
+    const result = await pendingRequest("PATCH /plan", { actions: { [key]: value } });
+    setSaving((current) => {
+      const next = new Set(current);
+      next.delete(key);
+      return next;
+    });
+    if (result.kind === "ok") {
+      // Only this action is taken from the answer, so other saves in flight are not overwritten.
+      setActions((current) => ({ ...current, [key]: result.data.actions[key] }));
+      return;
+    }
+    // Undo only this action.
+    setActions((current) => ({ ...current, [key]: !value }));
     if (result.kind === "unavailable") setState("unavailable");
     else setError(result.kind === "failed" ? result.message : "Sign in again to save your plan.");
   }
@@ -98,7 +114,7 @@ export function FirstMonthPlan({ application }: { application: Application }) {
                     type="button"
                     role="checkbox"
                     aria-checked={actions[action.key]}
-                    disabled={state === "loading"}
+                    disabled={state === "loading" || saving.has(action.key)}
                     onClick={() => toggle(action.key)}
                     className="flex w-full items-start gap-3 rounded-input border-[1.5px] border-violet bg-white p-4 text-left outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress"
                   >

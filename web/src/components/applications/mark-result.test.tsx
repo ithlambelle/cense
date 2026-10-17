@@ -37,15 +37,19 @@ afterEach(() => {
 });
 
 describe("limitToCents", () => {
-  it("reads whole dollars with or without $ and commas", () => {
+  it("reads dollars with or without $, commas and cents", () => {
     expect(limitToCents("")).toBeNull();
     expect(limitToCents("500")).toBe(50000);
     expect(limitToCents("$1,500")).toBe(150000);
+    expect(limitToCents("500.00")).toBe(50000);
+    expect(limitToCents("$ 750.5")).toBe(75050);
   });
 
-  it("refuses cents, words and impossible amounts", () => {
-    expect(limitToCents("500.50")).toBeUndefined();
+  it("refuses words, bad comma grouping, a zero limit and impossible amounts", () => {
     expect(limitToCents("five hundred")).toBeUndefined();
+    expect(limitToCents("$1,5,0,0")).toBeUndefined();
+    expect(limitToCents("0")).toBeUndefined();
+    expect(limitToCents("500.255")).toBeUndefined();
     expect(limitToCents("1000001")).toBeUndefined();
   });
 });
@@ -55,6 +59,8 @@ describe("MarkResult", () => {
     const fetchFn = server(200, { ...saved, status: "rejected" });
     render(<MarkResult application={application} />);
     fireEvent.click(screen.getByRole("button", { name: "I was denied" }));
+    expect(fetchFn).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Yes, mark as denied" }));
     await waitFor(() => expect(push).toHaveBeenCalledWith(`/denied?application=${ID}`));
     expect(fetchFn.mock.calls[0][0]).toBe(`/api/v1/applications/${ID}`);
     expect(sent(fetchFn)).toEqual({ status: "rejected", creditLimitCents: null });
@@ -70,13 +76,23 @@ describe("MarkResult", () => {
     expect(sent(fetchFn)).toEqual({ status: "approved", creditLimitCents: 50000 });
   });
 
-  it("asks for whole dollars instead of saving a limit it cannot read", () => {
+  it("keeps the saved limit when an approved card is marked again", async () => {
+    const fetchFn = server(200, { ...saved, status: "approved", creditLimitCents: 50000 });
+    render(<MarkResult application={{ ...application, status: "approved", creditLimitCents: 50000 }} />);
+    fireEvent.click(screen.getByRole("button", { name: "I was approved" }));
+    expect((screen.getByLabelText("Credit limit (optional)") as HTMLInputElement).value).toBe("500");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/home"));
+    expect(sent(fetchFn)).toEqual({ status: "approved", creditLimitCents: 50000 });
+  });
+
+  it("asks for dollars instead of saving a limit it cannot read", () => {
     const fetchFn = server(200, saved);
     render(<MarkResult application={application} />);
     fireEvent.click(screen.getByRole("button", { name: "I was approved" }));
-    fireEvent.change(screen.getByLabelText("Credit limit (optional)"), { target: { value: "500.25" } });
+    fireEvent.change(screen.getByLabelText("Credit limit (optional)"), { target: { value: "five hundred" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(screen.getByRole("alert").textContent).toContain("whole dollars");
+    expect(screen.getByRole("alert").textContent).toContain("like 500");
     expect(fetchFn).not.toHaveBeenCalled();
   });
 
@@ -92,6 +108,7 @@ describe("MarkResult", () => {
     server(409, { error: { code: "already_exists", message: "An active record for this card already exists." } });
     render(<MarkResult application={application} />);
     fireEvent.click(screen.getByRole("button", { name: "I was denied" }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, mark as denied" }));
     expect((await screen.findByRole("alert")).textContent).toContain("already exists");
     expect(push).not.toHaveBeenCalled();
   });

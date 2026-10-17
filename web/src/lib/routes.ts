@@ -31,11 +31,15 @@ const NEXT_ALLOW_LIST: readonly string[] = [ROUTES.quiz, ROUTES.results, ROUTES.
 // A card page, for a visitor who pressed an issuer button while signed out.
 const CARD_PATH = /^\/cards\/[a-z0-9-]{1,100}$/;
 
+// A tracked card's update screen (opened from Home), so a signed-out visitor
+// returns to it after signing in.
+const APPLICATION_PATH = /^\/applications\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\/waiting)?$/;
+
 // Returns the path only when it is one this app chose. A `next` value read
 // from the address bar is attacker-controlled, so anything else is dropped.
 export function allowedNext(value: string | null | undefined): string | null {
   if (!value) return null;
-  if (NEXT_ALLOW_LIST.includes(value) || CARD_PATH.test(value)) return value;
+  if (NEXT_ALLOW_LIST.includes(value) || CARD_PATH.test(value) || APPLICATION_PATH.test(value)) return value;
   return null;
 }
 

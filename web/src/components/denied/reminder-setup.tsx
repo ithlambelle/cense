@@ -5,7 +5,7 @@ import Calendar from "@gravity-ui/icons/Calendar";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 
 import { DeniedLayout, withApplication } from "@/components/denied/denied-layout";
 import { Notice } from "@/components/denied/parts";
@@ -14,17 +14,7 @@ import { ErrorMessage } from "@/components/ui/error-message";
 import { pendingRequest } from "@/lib/api-client/pending";
 import { addMonths, formatIsoDate, toIsoDate } from "@/lib/dates";
 import { ROUTES, signInPath } from "@/lib/routes";
-
-function noSubscription() {
-  return () => undefined;
-}
-
-// Today in the student's own time zone, read once in the browser.
-let loadedToday: string | null = null;
-function clientToday(): string {
-  loadedToday ??= toIsoDate(new Date());
-  return loadedToday;
-}
+import { useNow } from "@/lib/use-now";
 
 type Choice = "six-months" | "custom";
 
@@ -33,7 +23,8 @@ type Choice = "six-months" | "custom";
 // the date to note down; it never claims a reminder was saved.
 export function ReminderSetup({ applicationId }: { applicationId: string | null }) {
   const router = useRouter();
-  const today = useSyncExternalStore(noSubscription, clientToday, () => null);
+  const now = useNow();
+  const today = now ? toIsoDate(now) : null;
   const [choice, setChoice] = useState<Choice>("six-months");
   const [customDate, setCustomDate] = useState("");
   const [pending, setPending] = useState(false);
