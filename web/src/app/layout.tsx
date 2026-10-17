@@ -12,9 +12,9 @@ const bodyFont = Inter({
 const headingFont = Sora({
   variable: "--font-sora",
   subsets: ["latin"],
-  // 500 is the heading weight in the typography frame. 600 and 700 stay until
-  // every screen has moved to it.
-  weight: ["500", "600", "700"],
+  // Sora Medium is the heading weight in the typography frame ("Sora headings
+  // use Medium as the maximum weight").
+  weight: ["500"],
 });
 
 // Only for the "Continue with Google" button: Google's sign-in branding
