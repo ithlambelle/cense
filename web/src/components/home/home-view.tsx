@@ -52,6 +52,12 @@ function HomeContent({ state }: { state: HomeState }) {
       <>
         <Greeting subtitle="Let’s find your first card." />
         <QuizPrompt started={state.started} />
+        <Link
+          href={`${ROUTES.home}/add-card`}
+          className="min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          I already have a card
+        </Link>
       </>
     );
   }

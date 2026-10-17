@@ -40,9 +40,18 @@ const GROUPS: { title: string; entries: Entry[] }[] = [
     })),
   },
   {
+    title: "Account and other",
+    entries: [
+      { label: "S28 Account", href: "/dev/preview?screen=account" },
+      { label: "Add a card I already have", href: "/dev/preview?screen=add-card" },
+      { label: "S30 Not found", href: "/this-page-does-not-exist" },
+    ],
+  },
+  {
     title: "After applying",
     entries: [
       { label: "S18 Mark your result", href: "/dev/preview?screen=mark-result" },
+      { label: "S20 First-month plan", href: "/dev/preview?screen=plan" },
       { label: "S21 Denial Options", href: "/dev/preview?screen=denied" },
       { label: "S22 Five-step plan", href: "/dev/preview?screen=denied-plan" },
       { label: "S23 Choose when to check in", href: "/dev/preview?screen=reminder" },
