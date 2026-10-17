@@ -6,6 +6,27 @@ import type { Application } from "@/lib/home/state";
 
 import { FirstMonthPlan } from "./first-month-plan";
 
+// Lets a test make the next request throw, as a bug in this app would.
+const loadBug = vi.hoisted(() => ({ throwOnce: false }));
+vi.mock("@/lib/api-client/pending", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api-client/pending")>();
+  return {
+    ...actual,
+    pendingRequest: ((...args: Parameters<typeof actual.pendingRequest>) => {
+      if (loadBug.throwOnce) {
+        loadBug.throwOnce = false;
+        return Promise.reject(new Error("bug"));
+      }
+      return actual.pendingRequest(...args);
+    }) as typeof actual.pendingRequest,
+  };
+});
+
+const replace = vi.fn();
+// One router for every render, as in the app (useLoaded reloads when it changes).
+const router = { push: vi.fn(), replace, refresh: vi.fn() };
+vi.mock("next/navigation", () => ({ usePathname: () => "/plan", useRouter: () => router }));
+
 const application: Application = {
   id: "00000000-0000-4000-8000-000000000001",
   cardId: null,
@@ -32,7 +53,11 @@ function server(replies: { status: number; body: unknown }[]) {
   return fetchFn;
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  replace.mockClear();
+});
 
 describe("FirstMonthPlan", () => {
   it("says checks are not kept while saving the plan is not built yet", async () => {
@@ -93,5 +118,21 @@ describe("FirstMonthPlan", () => {
     expect(autopay.getAttribute("aria-checked")).toBe("false");
     expect(purchase.getAttribute("aria-checked")).toBe("true");
   });
-});
 
+  it("never stays on loading when the load itself throws, and offers to try again", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    loadBug.throwOnce = true;
+    server([{ status: 200, body: plan({ autopay: true }) }]);
+    render(<FirstMonthPlan application={application} />);
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(screen.getByText("We couldn’t load your saved plan. Your checks won’t be kept.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("1 of 3 done")).toBeTruthy();
+  });
+
+  it("sends a student whose session ended to sign in", async () => {
+    server([{ status: 401, body: { error: { code: "unauthorized", message: "Sign in to continue." } } }]);
+    render(<FirstMonthPlan application={application} />);
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/sign-in?next=%2Fhome"));
+  });
+});

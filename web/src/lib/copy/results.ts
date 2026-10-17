@@ -1,4 +1,5 @@
 import type { ApiData } from "../api-client/client";
+import { moneyAmount } from "../money";
 
 export type FitTier = ApiData<"/recommendations/latest", "get">["fitTier"];
 
@@ -28,12 +29,6 @@ export const RESULT_HEADLINES: Record<FitTier, string> = {
   stretch: "A card that could work",
   not_yet: "Not quite yet",
 };
-
-// Whole cents to a short amount: 0 -> "$0", 4900 -> "$49", 9950 -> "$99.50".
-export function moneyAmount(cents: number): string {
-  const dollars = cents / 100;
-  return `$${Number.isInteger(dollars) ? dollars.toString() : dollars.toFixed(2)}`;
-}
 
 // Whole cents to a short fee line. Never implies a card is free of other costs.
 export function annualFeeLine(annualFeeCents: number): string {

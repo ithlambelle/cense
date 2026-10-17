@@ -4,19 +4,23 @@ import { redirect } from "next/navigation";
 
 import { FirstMonthPlan } from "@/components/plan/first-month-plan";
 import { AppHeader } from "@/components/ui/app-header";
+import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { authenticatedStudent } from "@/lib/api/auth";
+import { applicationParam } from "@/lib/denied";
+import { planApplication } from "@/lib/home/state";
 import { ROUTES, signInPath } from "@/lib/routes";
 import { loadStudentSnapshot } from "@/lib/student-data";
 
 export const metadata: Metadata = { title: "Your first-month plan | CENSE" };
 
-// The plan is for the most recently approved card.
-export default async function PlanPage() {
+// The plan is for the approved card in ?application= (Home links each one),
+// or else the most recently approved card.
+export default async function PlanPage({ searchParams }: PageProps<"/plan">) {
   const student = await authenticatedStudent();
   if (!student) redirect(signInPath(ROUTES.home));
   const { applications } = await loadStudentSnapshot(student);
-  const approved = applications.find((application) => application.status === "approved");
+  const approved = planApplication(applications, applicationParam((await searchParams).application));
   if (approved) return <FirstMonthPlan application={approved} />;
 
   return (
@@ -30,6 +34,9 @@ export default async function PlanPage() {
             Go to Home
           </Link>
         </main>
+        <div className="sticky bottom-0">
+          <BottomNav />
+        </div>
       </div>
     </div>
   );

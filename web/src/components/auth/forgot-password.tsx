@@ -7,6 +7,7 @@ import { AuthLayout, BackLinkTo } from "@/components/auth/auth-layout";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { TextField } from "@/components/ui/text-field";
+import { FALLBACK_MESSAGE } from "@/lib/api-client/client";
 import { pendingRequest } from "@/lib/api-client/pending";
 import { looksLikeEmail } from "@/lib/auth/password";
 import { ROUTES } from "@/lib/routes";
@@ -47,7 +48,7 @@ export function ForgotPassword() {
         ? "Password reset isn’t available yet. You can sign in with Google or an email code."
         : result.kind === "failed"
           ? result.message
-          : "Something went wrong. Please try again.",
+          : FALLBACK_MESSAGE,
     );
   }
 

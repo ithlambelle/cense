@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { listCards } from "../cards/catalog";
 import { computeResult } from "../results/compute";
-import { homeState, type Application } from "./state";
+import { homeState, planApplication, type Application } from "./state";
 
 const ALL_SIX = { under21: true, incomeBand: "under_5k", student: true, standing: "none", recentDenial: false, canDeposit: true };
 const cards = listCards();
@@ -47,5 +47,26 @@ describe("homeState", () => {
     const added = { ...app("3", "approved", "2026-10-05T00:00:00Z"), creditLimitCents: 50000 };
     const state = homeState([added], computeResult(undefined, cards), false);
     expect(state).toEqual({ kind: "tracking", primary: added, others: [] });
+  });
+});
+
+describe("planApplication", () => {
+  const older = app("1", "approved", "2026-10-01T00:00:00Z");
+  const newer = app("2", "approved", "2026-10-10T00:00:00Z");
+  const denied = app("3", "rejected", "2026-10-12T00:00:00Z");
+
+  it("opens the approved card that was asked for, even when it is not the newest", () => {
+    expect(planApplication([newer, older, denied], older.id)).toBe(older);
+  });
+
+  it("falls back to the most recently approved card when none, or no valid one, is asked for", () => {
+    expect(planApplication([older, denied, newer], null)).toBe(newer);
+    expect(planApplication([older, newer], "00000000-0000-4000-8000-000000000999")).toBe(newer);
+  });
+
+  it("never opens a plan for a card that is not approved", () => {
+    expect(planApplication([older, denied], denied.id)).toBe(older);
+    expect(planApplication([denied], denied.id)).toBeNull();
+    expect(planApplication([], null)).toBeNull();
   });
 });

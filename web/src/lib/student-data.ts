@@ -1,7 +1,7 @@
 import "server-only";
 
 import { applicationFromRow, type ApplicationRow } from "@/lib/api/application";
-import { quizAnswersSchema } from "@/lib/api/schemas";
+import { validAnswers } from "@/lib/api/quiz-answers";
 import type { authenticatedStudent } from "@/lib/api/auth";
 import { listCards } from "@/lib/cards/catalog";
 import type { Application } from "@/lib/home/state";
@@ -34,12 +34,15 @@ export async function loadStudentSnapshot(student: Student): Promise<StudentSnap
   if (applications.error) throw new Error("Could not read the student's cards.");
   if (draft.error) throw new Error("Could not read the student's quiz.");
 
-  const answers: unknown = draft.data?.answers ?? {};
-  const parsed = quizAnswersSchema.safeParse(answers);
+  // Read the same way as GET /quiz: a draft the schema now rejects (an old
+  // field, a retired choice) keeps its valid answers, so Home matches what
+  // the quiz resumes from instead of treating the student as not started.
+  const answers = validAnswers(draft.data?.answers ?? {});
+  if (answers.dropped) console.warn(JSON.stringify({ event: "quiz_draft_invalid", operation: "snapshot_read" }));
   return {
     applications: (applications.data as ApplicationRow[]).map(applicationFromRow),
-    quiz: computeResult(answers, listCards()),
-    quizStarted: parsed.success && firstUnanswered(parsed.data) !== 0,
+    quiz: computeResult(answers.kept, listCards()),
+    quizStarted: firstUnanswered(answers.kept) !== 0,
   };
 }
 

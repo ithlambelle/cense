@@ -13,9 +13,10 @@ import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import { findCard } from "@/lib/cards/catalog";
-import { cardDisplayName, cardTypeLabel, moneyAmount, RESULT_HEADLINES, TIER_LABELS } from "@/lib/copy/results";
+import { cardDisplayName, cardTypeLabel, RESULT_HEADLINES, TIER_LABELS } from "@/lib/copy/results";
 import type { Application, HomeState } from "@/lib/home/state";
-import { applicationPath, cardPath, ROUTES } from "@/lib/routes";
+import { moneyAmount } from "@/lib/money";
+import { applicationPath, cardPath, planPath, ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
@@ -191,7 +192,7 @@ function TrackedNextStep({ application }: { application: Application }) {
         icon={CircleCheck}
         title="Plan your first month"
         body="Three small steps help you start your card on the right foot."
-        action={{ href: ROUTES.plan, label: "See my first-month plan" }}
+        action={{ href: planPath(application.id), label: "See my first-month plan" }}
       />
     );
   }
@@ -327,7 +328,7 @@ function OtherCards({ applications }: { applications: Application[] }) {
                   ? applicationPath(application.id)
                   : application.status === "rejected"
                     ? `${ROUTES.denied}?application=${encodeURIComponent(application.id)}`
-                    : ROUTES.plan
+                    : planPath(application.id)
               }
               className="flex items-center justify-between gap-3 rounded-card border border-hairline bg-white px-5 py-4 outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
