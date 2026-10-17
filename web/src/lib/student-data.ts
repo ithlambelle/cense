@@ -42,3 +42,15 @@ export async function loadStudentSnapshot(student: Student): Promise<StudentSnap
     quizStarted: parsed.success && firstUnanswered(parsed.data) !== 0,
   };
 }
+
+// One tracked card, if it belongs to this student (RLS returns nothing otherwise).
+export async function loadApplication(student: Student, applicationId: string): Promise<Application | null> {
+  const { data, error } = await student.supabase
+    .from("card_applications")
+    .select(APPLICATION_FIELDS)
+    .eq("id", applicationId)
+    .eq("student_id", student.studentId)
+    .maybeSingle();
+  if (error) throw new Error("Could not read the student's card.");
+  return data ? applicationFromRow(data as ApplicationRow) : null;
+}
