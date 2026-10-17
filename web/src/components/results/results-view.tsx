@@ -1,3 +1,4 @@
+import CircleInfo from "@gravity-ui/icons/CircleInfo";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -5,7 +6,14 @@ import type { ReactNode } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { FactChip } from "@/components/ui/fact-chip";
 import { NoteLine } from "@/components/ui/note";
-import { cardDisplayName, cardTypeLabel, moneyAmount, RESULT_DISCLAIMER, RESULT_HEADLINES } from "@/lib/copy/results";
+import {
+  cardDisplayName,
+  cardTypeLabel,
+  moneyAmount,
+  RESULT_DISCLAIMER,
+  RESULT_HEADLINES,
+  TIER_LABELS,
+} from "@/lib/copy/results";
 import type { ResultView } from "@/lib/results/compute";
 import { cardPath, ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -62,7 +70,12 @@ export function ResultsView({ view }: { view: ResultView }) {
             <ul className="flex flex-col gap-2">
               {fit.reasons.map((reason) => (
                 <li key={reason} className="flex items-start gap-3 text-body-m text-navy">
-                  <Image src="/icons/fit-check.svg" alt="" width={14} height={11} className="mt-1.5 shrink-0" />
+                  {/* A green check only for a likely fit. A stretch's reasons are cautions. */}
+                  {fit.tier === "likely_fit" ? (
+                    <Image src="/icons/fit-check.svg" alt="" width={14} height={11} className="mt-1.5 shrink-0" />
+                  ) : (
+                    <CircleInfo aria-hidden="true" width={14} height={14} className="mt-[5px] shrink-0 text-indigo-black" />
+                  )}
                   <span>{reason}</span>
                 </li>
               ))}
@@ -90,12 +103,21 @@ export function ResultsView({ view }: { view: ResultView }) {
           <h2 id="another-option" className="font-heading text-h6 font-medium text-indigo-black">
             Another option
           </h2>
+          {/* Its own tier and first reason, so a stretch never reads as an equal pick. */}
           <Link
-            href={cardPath(alternative.id)}
+            href={cardPath(alternative.card.id)}
             className="flex flex-col gap-1 rounded-card border-[1.5px] border-violet bg-white p-5 outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            <span className="font-heading text-h6 font-medium text-navy">{cardDisplayName(alternative)}</span>
-            <span className="text-body-s text-indigo-black">{cardTypeLabel(alternative)}</span>
+            <span className="flex items-start justify-between gap-3">
+              <span className="font-heading text-h6 font-medium text-navy">{cardDisplayName(alternative.card)}</span>
+              <span className="shrink-0 text-body-s font-semibold text-indigo-black">
+                {TIER_LABELS[alternative.fit.tier]}
+              </span>
+            </span>
+            <span className="text-body-s text-indigo-black">{cardTypeLabel(alternative.card)}</span>
+            {alternative.fit.reasons[0] ? (
+              <span className="text-body-s text-navy">{alternative.fit.reasons[0]}</span>
+            ) : null}
           </Link>
         </section>
       ) : null}

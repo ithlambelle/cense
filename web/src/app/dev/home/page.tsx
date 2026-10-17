@@ -25,7 +25,7 @@ function app(status: Application["status"], extra: Partial<Application> = {}): A
 }
 
 // Every Home state on sample data, without signing in.
-// ?state=no_quiz (default), started, matched, no_card, applied, rejected, approved, several
+// ?state=no_quiz (default), started, matched, stretch, no_card, applied, rejected, approved, several
 export default async function HomePreviewPage({ searchParams }: { searchParams: Promise<{ state?: string }> }) {
   if (!devPagesEnabled()) notFound();
   const { state = "no_quiz" } = await searchParams;
@@ -35,6 +35,7 @@ export default async function HomePreviewPage({ searchParams }: { searchParams: 
     no_quiz: homeState([], none, false),
     started: homeState([], computeResult({ under21: true }, cards), true),
     matched: homeState([], computeResult(ALL_SIX, cards), true),
+    stretch: homeState([], computeResult({ ...ALL_SIX, recentDenial: true }, cards), true),
     no_card: homeState([], computeResult({ ...ALL_SIX, incomeBand: "none" }, cards), true),
     applied: homeState([app("applied")], none, true),
     rejected: homeState([app("rejected")], none, true),

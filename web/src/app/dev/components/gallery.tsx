@@ -55,7 +55,7 @@ export function Gallery() {
             <p className="text-body-l text-indigo-black">Body L, Inter Regular 18/28</p>
             <p className="text-body-m text-indigo-black">Body M, Inter Regular 16/24</p>
             <p className="text-body-s text-indigo-black">Body S, Inter Regular 14/20</p>
-            <p className="font-number text-number-xl font-semibold text-indigo-black">$2,184</p>
+            <p className="font-number text-number-xl font-medium text-indigo-black">$2,184</p>
             <p className="font-number text-number-m font-medium text-indigo-black">$24.89</p>
           </Section>
 

@@ -15,19 +15,29 @@ import { LOAD_FAILED_MESSAGE } from "@/lib/use-loaded";
 type Draft =
   | { status: "loading" }
   | { status: "failed"; message: string }
-  | { status: "ready"; answers: QuizAnswers; index: number; choiceIds: Record<string, string> };
+  | {
+      status: "ready";
+      answers: QuizAnswers;
+      index: number;
+      choiceIds: Record<string, string>;
+      // True when the quiz was already complete when opened. A retake holds its
+      // edits here and saves them once, at the last question, so closing
+      // midway never leaves a result built from old and new answers mixed.
+      retake: boolean;
+    };
 
 // Reads the saved draft. Returns "signed-out" when the session has ended.
 async function fetchDraft(): Promise<Draft | "signed-out"> {
   const result = await apiRequest("get", "/quiz");
   if (result.ok) {
     const answers = result.data.answers;
-    return { status: "ready", answers, index: firstUnanswered(answers) ?? 0, choiceIds: {} };
+    const next = firstUnanswered(answers);
+    return { status: "ready", answers, index: next ?? 0, choiceIds: {}, retake: next === null };
   }
   if (isUnauthorized(result)) return "signed-out";
   // 404 means no saved quiz yet: start at the first question.
   if (result.kind === "api" && result.status === 404) {
-    return { status: "ready", answers: {}, index: 0, choiceIds: {} };
+    return { status: "ready", answers: {}, index: 0, choiceIds: {}, retake: false };
   }
   return { status: "failed", message: failureMessage(result) };
 }
@@ -41,8 +51,8 @@ function wait(ms: number): Promise<void> {
 }
 
 // The quiz against the API. Tapping an answer saves the whole draft and moves
-// on. Answers are kept in memory only: never in the address bar, a cookie or
-// browser storage.
+// on. A retake saves only at the last question (see Draft). Answers are kept
+// in memory only: never in the address bar, a cookie or browser storage.
 export function QuizFlow() {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft>({ status: "loading" });
@@ -85,7 +95,7 @@ export function QuizFlow() {
     );
   }
 
-  const { answers, index, choiceIds } = draft;
+  const { answers, index, choiceIds, retake } = draft;
   const question = QUESTIONS[index];
   const isLast = index === QUESTIONS.length - 1;
 
@@ -96,7 +106,14 @@ export function QuizFlow() {
     const nextChoiceIds = { ...choiceIds, [question.field]: choiceId };
     setSaveError(null);
     setSaving(true);
-    setDraft({ status: "ready", index, answers: nextAnswers, choiceIds: nextChoiceIds });
+    setDraft({ status: "ready", index, answers: nextAnswers, choiceIds: nextChoiceIds, retake });
+    if (retake && !isLast) {
+      // Nothing is saved yet: the edits stay here until the last question.
+      await wait(CHOICE_FEEDBACK_MS);
+      setSaving(false);
+      setDraft({ status: "ready", answers: nextAnswers, choiceIds: nextChoiceIds, retake, index: index + 1 });
+      return;
+    }
     // The API replaces the whole answers object, so the full draft is sent.
     const [result] = await Promise.all([
       apiRequest("put", "/quiz", { body: { answers: nextAnswers } }),
@@ -117,7 +134,7 @@ export function QuizFlow() {
       return;
     }
     setSaving(false);
-    setDraft({ status: "ready", answers: nextAnswers, choiceIds: nextChoiceIds, index: index + 1 });
+    setDraft({ status: "ready", answers: nextAnswers, choiceIds: nextChoiceIds, retake, index: index + 1 });
   }
 
   function back() {
@@ -126,7 +143,7 @@ export function QuizFlow() {
       router.push(ROUTES.home);
       return;
     }
-    setDraft({ status: "ready", answers, choiceIds, index: index - 1 });
+    setDraft({ status: "ready", answers, choiceIds, retake, index: index - 1 });
   }
 
   return (

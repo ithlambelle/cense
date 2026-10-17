@@ -79,7 +79,7 @@ export const QUESTIONS: Question[] = [
   {
     field: "recentDenial",
     title: "Turned down for a credit card in the last 6 months?",
-    subtitle: "No judgment. It just helps us skip cards that would say no.",
+    subtitle: "No judgment. It helps us flag cards to be careful with.",
     choices: [
       { id: "yes", label: "Yes", stores: { recentDenial: true } },
       { id: "no", label: "No", stores: { recentDenial: false } },
@@ -88,7 +88,7 @@ export const QUESTIONS: Question[] = [
   {
     field: "canDeposit",
     title: "Could you put down a refundable deposit of up to $200?",
-    subtitle: "You get it back. It’s what secured cards use to get you started.",
+    subtitle: "It’s refundable: you get it back when you close the card with the balance paid, or when the issuer upgrades you.",
     choices: [
       { id: "yes", label: "Yes", stores: { canDeposit: true } },
       { id: "no", label: "No", stores: { canDeposit: false } },

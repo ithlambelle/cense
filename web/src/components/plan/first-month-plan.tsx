@@ -18,7 +18,7 @@ type Actions = { autopay: boolean; plannedPurchase: boolean; paymentReminder: bo
 type ActionKey = keyof Actions;
 
 const ACTIONS: { key: ActionKey; title: string; detail: string }[] = [
-  { key: "autopay", title: "Turn on autopay", detail: "Set autopay to pay the statement balance in full." },
+  { key: "autopay", title: "Turn on autopay", detail: "Set autopay for at least the minimum payment, or the full statement balance if your bank account can always cover it." },
   { key: "plannedPurchase", title: "Choose one planned purchase", detail: "Pick a small expense you already budget for and can pay off in full." },
   { key: "paymentReminder", title: "Set a payment reminder", detail: "Use the due date on your card statement." },
 ];
@@ -151,7 +151,7 @@ export function FirstMonthPlan({ application }: { application: Application }) {
           ) : null}
 
           <Link href={ROUTES.home} className={cn(buttonVariants({ variant: "secondary" }), "mt-auto")}>
-            Back to my card
+            Go to Home
           </Link>
           <p className="text-center text-body-s text-indigo-black/70">
             Based on what you told us, not your transactions. No bank account linking.

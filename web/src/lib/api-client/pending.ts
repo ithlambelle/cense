@@ -75,7 +75,7 @@ export type PendingResult<Data> =
   | { kind: "failed"; message: string; code?: string };
 
 const FAILED_MESSAGE = "Something went wrong. Please try again.";
-const OFFLINE_MESSAGE = "We couldn’t reach Cense. Check your connection and try again.";
+const OFFLINE_MESSAGE = "We couldn’t reach Cense. Check your connection, then try again.";
 
 function readError(payload: unknown): { code: string; message: string } | null {
   const parsed = z.object({ error: z.object({ code: z.string(), message: z.string() }) }).safeParse(payload);

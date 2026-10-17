@@ -1,4 +1,5 @@
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
+import CircleInfo from "@gravity-ui/icons/CircleInfo";
 import Comment from "@gravity-ui/icons/Comment";
 import CreditCard from "@gravity-ui/icons/CreditCard";
 import Hourglass from "@gravity-ui/icons/Hourglass";
@@ -12,7 +13,7 @@ import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import { findCard } from "@/lib/cards/catalog";
-import { cardDisplayName, cardTypeLabel, moneyAmount } from "@/lib/copy/results";
+import { cardDisplayName, cardTypeLabel, moneyAmount, RESULT_HEADLINES, TIER_LABELS } from "@/lib/copy/results";
 import type { Application, HomeState } from "@/lib/home/state";
 import { applicationPath, cardPath, ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -78,27 +79,40 @@ function HomeContent({ state }: { state: HomeState }) {
   }
 
   if (state.kind === "matched") {
-    const { card } = state.result;
+    const { card, fit } = state.result;
+    // The words follow the rules' tier (copy/results.ts), so a stretch is never
+    // introduced as a sure match. A not yet card is never the pick. A stretch
+    // always has at least one caution: the first is shown, the rest are on the result.
+    const likely = fit.tier === "likely_fit";
     return (
       <>
-        <Greeting subtitle="Your card match is ready." />
+        <Greeting subtitle={`${RESULT_HEADLINES[fit.tier]}.`} />
         <StatusCard
           title={cardDisplayName(card)}
           subtitle={cardTypeLabel(card)}
-          pill="YOUR MATCH"
+          pill={TIER_LABELS[fit.tier].toUpperCase()}
           preview={{ name: cardDisplayName(card), kind: previewKind(card) }}
           rows={[{ label: "Annual fee", value: moneyAmount(card.annualFeeCents) }]}
         />
-        <NextStep
-          icon={CircleCheck}
-          title={card.preapprovalUrl ? "Check before you apply" : "Ready when you are"}
-          body={
-            card.preapprovalUrl
-              ? "See if the issuer preapproves you first. The issuer says checking does not affect your credit score."
-              : "Read the card’s details, then apply on the issuer’s site when you’re ready."
-          }
-          action={{ href: cardPath(card.id), label: "View card" }}
-        />
+        {likely ? (
+          <NextStep
+            icon={CircleCheck}
+            title={card.preapprovalUrl ? "Check before you apply" : "Ready when you are"}
+            body={
+              card.preapprovalUrl
+                ? "See if the issuer preapproves you first. The issuer says checking does not affect your credit score."
+                : "Read the card’s details, then apply on the issuer’s site when you’re ready."
+            }
+            action={{ href: cardPath(card.id), label: "View card" }}
+          />
+        ) : (
+          <NextStep
+            icon={CircleInfo}
+            title="What to know"
+            body={fit.reasons[0] ?? RESULT_HEADLINES[fit.tier]}
+            action={{ href: ROUTES.results, label: "See why" }}
+          />
+        )}
       </>
     );
   }

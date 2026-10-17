@@ -241,7 +241,9 @@ function cautions(answers: CompleteAnswers, card: RuleCard): CautionId[] {
   return found;
 }
 
-function notes(card: RuleCard): CardNote[] {
+// Notes N1 and N2 depend only on the card, never on the answers, so the card
+// page shows the same notes as the result. This is their one source.
+export function cardNotes(card: Pick<RuleCard, "runsCreditCheck" | "preapprovalUrl">): CardNote[] {
   const found: CardNote[] = [];
   if (card.runsCreditCheck && card.preapprovalUrl === null) found.push({ id: "N1", text: NO_PREAPPROVAL_NOTE });
   if (!card.runsCreditCheck) found.push({ id: "N2", text: NO_CREDIT_CHECK_NOTE });
@@ -255,7 +257,7 @@ function likelyFitReasons(card: RuleCard): string[] {
 }
 
 function fitForCard(answers: CompleteAnswers, card: RuleCard): CardFit {
-  const base = { cardId: card.id, notes: notes(card) };
+  const base = { cardId: card.id, notes: cardNotes(card) };
   const gate = failedGate(answers, card);
   if (gate) {
     return { ...base, tier: "not_yet", ruleIds: [gate.id], reasons: [gate.reason] };

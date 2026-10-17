@@ -24,7 +24,7 @@ export function CardListView({ cards, signedIn }: { cards: Card[]; signedIn: boo
         {signedIn ? null : <AppHeader backHref={ROUTES.welcome} title="Cards" />}
         <main className={signedIn ? "flex flex-1 flex-col gap-6 px-6 pt-8 pb-6" : "flex flex-1 flex-col gap-6 px-6 pt-4 pb-6"}>
           <div className="flex flex-col gap-2">
-            <h1 className="font-heading text-h2 font-medium text-navy">Student cards</h1>
+            <h1 className="font-heading text-h2 font-medium text-navy">Cards</h1>
             <p className="text-body-m text-indigo-black">
               Cards picked for students. Take the quiz to see which one fits you, and why.
             </p>

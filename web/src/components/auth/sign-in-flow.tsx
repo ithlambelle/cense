@@ -233,8 +233,8 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
         </Link>
       </p>
       <p className="text-center text-body-s text-indigo-black/70">
-        Cense saves your email, your quiz answers and your card match. We never ask for your Social Security number
-        or date of birth.
+        Cense saves your email, your quiz answers, the cards you track and which issuer links you open. We never ask for
+        your Social Security number or date of birth.
       </p>
     </AuthLayout>
   );
