@@ -3,6 +3,7 @@
 import BellSlash from "@gravity-ui/icons/BellSlash";
 import Check from "@gravity-ui/icons/Check";
 import Hourglass from "@gravity-ui/icons/Hourglass";
+import ToggleOff from "@gravity-ui/icons/ToggleOff";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -72,7 +73,7 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
             <dd className="font-semibold text-navy">Approved</dd>
           </div>
         </dl>
-        <Notice icon={BellSlash} title="Nothing starts automatically">
+        <Notice icon={ToggleOff} title="Nothing starts automatically">
           The rejected-card plan and card reminders remain off. Confirm that the card arrived before starting a card plan.
         </Notice>
         <Link href={ROUTES.home} className={buttonVariants()}>

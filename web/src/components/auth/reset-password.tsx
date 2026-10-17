@@ -25,6 +25,7 @@ export function ResetPassword() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (pending) return;
     const problem = passwordProblem(password);
     if (problem) return setErrors({ password: problem });
     if (repeat !== password) return setErrors({ repeat: "Let’s make those passwords match." });

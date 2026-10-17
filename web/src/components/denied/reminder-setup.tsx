@@ -2,7 +2,6 @@
 
 import BellSlash from "@gravity-ui/icons/BellSlash";
 import Calendar from "@gravity-ui/icons/Calendar";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -11,6 +10,7 @@ import { DeniedLayout, withApplication } from "@/components/denied/denied-layout
 import { Notice } from "@/components/denied/parts";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
+import { SelectedMark } from "@/components/ui/selected-mark";
 import { pendingRequest } from "@/lib/api-client/pending";
 import { addMonths, formatIsoDate, toIsoDate } from "@/lib/dates";
 import { ROUTES, signInPath } from "@/lib/routes";
@@ -105,10 +105,13 @@ export function ReminderSetup({ applicationId }: { applicationId: string | null 
           <Calendar aria-hidden="true" width={22} height={22} className="text-violet" />
           <h2 className="font-heading text-h6 font-medium text-indigo-black">Before you reapply</h2>
         </div>
-        <ul className="flex list-disc flex-col pl-5 text-body-s text-indigo-black marker:text-violet">
-          <li>Check your credit reports again</li>
-          <li>Look for on-time history</li>
-          <li>Use preapproval before a full application</li>
+        <ul className="flex flex-col text-body-s text-indigo-black">
+          {["Check your credit reports again", "Look for on-time history", "Use preapproval before a full application"].map((item) => (
+            <li key={item}>
+              <span aria-hidden="true">• </span>
+              {item}
+            </li>
+          ))}
         </ul>
       </section>
 
@@ -164,7 +167,7 @@ function TimingOption({
         <span className="font-heading text-h6 font-medium">{title}</span>
         <span className="min-h-5 text-body-s">{detail}</span>
       </span>
-      {selected ? <Image src="/icons/selected-check.svg" alt="" width={24} height={24} className="shrink-0" /> : null}
+      {selected ? <SelectedMark /> : null}
     </button>
   );
 }

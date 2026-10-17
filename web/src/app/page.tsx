@@ -5,7 +5,7 @@ import { WelcomeScreen } from "@/components/welcome/welcome-screen";
 import { authenticatedStudent } from "@/lib/api/auth";
 import { ROUTES } from "@/lib/routes";
 
-export const metadata: Metadata = { title: "CENSE" };
+export const metadata: Metadata = { title: "Find your first credit card | CENSE" };
 
 // Welcome is for new visitors. A signed-in student goes to /start, which picks
 // the right screen for them.
