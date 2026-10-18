@@ -13,10 +13,12 @@ import {
   cardSchema,
   createApplicationSchema,
   issuerClickSchema,
+  meSchema,
   quizDraftSchema,
   recommendationSchema,
   saveQuizSchema,
   updateApplicationSchema,
+  updateMeSchema,
 } from "../src/lib/api/schemas";
 
 const registry = new OpenAPIRegistry();
@@ -74,7 +76,13 @@ registry.registerPath({
 registry.registerPath({
   method: "get", path: "/me", operationId: "getMe", summary: "Get the signed-in student",
   security: [{ studentSession: [] }],
-  responses: { 200: ok(z.strictObject({ id: z.uuid(), email: z.email().nullable() })), 401: failure("Sign-in required") },
+  responses: { 200: ok(meSchema), 401: failure("Sign-in required") },
+});
+registry.registerPath({
+  method: "patch", path: "/me", operationId: "updateMe", summary: "Update the signed-in student's name",
+  security: [{ studentSession: [] }],
+  request: { body: body(updateMeSchema) },
+  responses: { 200: ok(meSchema), 400: failure("Invalid name"), ...protectedResponses },
 });
 registry.registerPath({
   method: "get", path: "/cards", operationId: "listCards", summary: "List curated student cards",

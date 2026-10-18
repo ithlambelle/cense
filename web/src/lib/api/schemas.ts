@@ -140,6 +140,20 @@ export const updateApplicationSchema = z.strictObject({
   { message: "Only approved cards can have a credit limit." },
 );
 
+// What the student wants to be called. Up to 60 characters after trimming;
+// an empty name clears it, as null does.
+const displayNameSchema = z.string().trim().max(60);
+
+export const meSchema = z.strictObject({
+  id: z.uuid(),
+  email: z.email().nullable(),
+  name: z.string().nullable(),
+});
+
+export const updateMeSchema = z.strictObject({
+  name: displayNameSchema.nullable(),
+});
+
 export const issuerClickSchema = z.strictObject({
   cardId: z.string().min(1).max(100),
   kind: z.enum(["preapproval", "apply"]),

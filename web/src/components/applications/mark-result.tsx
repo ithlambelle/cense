@@ -12,6 +12,7 @@ import { SelectedMark } from "@/components/ui/selected-mark";
 import { TextField } from "@/components/ui/text-field";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import type { Application } from "@/lib/api/application";
+import { centsToField, LIMIT_ERROR, limitToCents } from "@/lib/credit-limit";
 import { applicationPath, deniedPath, ROUTES, signInPath, waitingPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
 import { cn } from "@/lib/utils";
@@ -24,33 +25,14 @@ const CHOICES: { id: Choice; label: string }[] = [
   { id: "waiting", label: "I haven’t heard yet" },
 ];
 
-// The largest limit accepted, in whole dollars. Well above student card limits;
-// it only catches typing mistakes such as an extra zero run.
-const MAX_LIMIT_DOLLARS = 100_000;
-
-// Parses "$1,500", "1500" or "500.00" to cents. Null for empty; undefined when
-// it is not a limit (bad comma grouping, more than 2 decimals, under $1, too large).
-export function limitToCents(value: string): number | null | undefined {
-  const cleaned = value.trim().replace(/^\$\s*/, "");
-  if (cleaned === "") return null;
-  if (!/^(\d{1,3}(,\d{3})*|\d+)(\.\d{1,2})?$/.test(cleaned)) return undefined;
-  const cents = Math.round(Number(cleaned.replace(/,/g, "")) * 100);
-  if (cents < 100 || cents > MAX_LIMIT_DOLLARS * 100) return undefined;
-  return cents;
-}
-
-function centsToField(cents: number | null): string {
-  if (cents === null) return "";
-  return Number.isInteger(cents / 100) ? String(cents / 100) : (cents / 100).toFixed(2);
-}
-
 // Mark what the issuer decided for one tracked card (S18), from the Updates
 // card's Approved / Denied choice (Figma 416:409) and Home's "I was denied".
 // "I haven't heard yet" saves nothing: there is no such status (plan P-3).
 export function MarkResult({ application }: { application: Application }) {
   const router = useRouter();
   const isMounted = useIsMounted();
-  const [choice, setChoice] = useState<Choice | null>(null);
+  // An approved card opens on its limit, which is how Home's "Credit limit" link edits it.
+  const [choice, setChoice] = useState<Choice | null>(application.status === "approved" ? "approved" : null);
   // Starts from the saved limit, so marking an approved card again never erases it.
   const [limit, setLimit] = useState(centsToField(application.creditLimitCents));
   const [limitError, setLimitError] = useState<string | null>(null);
@@ -94,7 +76,7 @@ export function MarkResult({ application }: { application: Application }) {
     if (pending) return;
     const cents = limitToCents(limit);
     if (cents === undefined) {
-      setLimitError("Enter the limit in dollars, like 500 or 1,500.");
+      setLimitError(LIMIT_ERROR);
       return;
     }
     setLimitError(null);

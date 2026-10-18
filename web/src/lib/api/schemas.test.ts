@@ -7,6 +7,7 @@ import {
   recommendationSchema,
   saveQuizSchema,
   updateApplicationSchema,
+  updateMeSchema,
 } from "./schemas";
 
 describe("student API validation", () => {
@@ -129,5 +130,18 @@ describe("student API validation", () => {
     it("no longer accepts a tax ID note", () => {
       expect(cardSchema.safeParse({ ...valid, taxIdNote: null }).success).toBe(false);
     });
+  });
+});
+
+describe("updateMeSchema", () => {
+  it("trims the name and accepts null or empty to clear it", () => {
+    expect(updateMeSchema.parse({ name: "  Maya " })).toEqual({ name: "Maya" });
+    expect(updateMeSchema.parse({ name: "   " })).toEqual({ name: "" });
+    expect(updateMeSchema.parse({ name: null })).toEqual({ name: null });
+  });
+
+  it("rejects a name over 60 characters and unknown fields", () => {
+    expect(updateMeSchema.safeParse({ name: "a".repeat(61) }).success).toBe(false);
+    expect(updateMeSchema.safeParse({ name: "Maya", avatar: "x" }).success).toBe(false);
   });
 });
