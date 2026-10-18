@@ -9,6 +9,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { NoteLine } from "@/components/ui/note";
 import { Sheet } from "@/components/ui/sheet";
+import { track } from "@/lib/analytics";
 import { apiRequest, failureMessage, isUnauthorized, type ApiData } from "@/lib/api-client/client";
 import {
   applyLabel,
@@ -122,6 +123,8 @@ export function IssuerActions({ card, notes, signedIn }: IssuerActionsProps) {
       setError(failureMessage(result));
       return;
     }
+    // Counted once the click is saved, the same moment the API records it.
+    track("issuer_clicked", { kind, card_id: card.id });
     const url = safeIssuerUrl(result.data.url);
     if (!url) {
       tab?.close();
@@ -142,6 +145,7 @@ export function IssuerActions({ card, notes, signedIn }: IssuerActionsProps) {
   async function recordApplication() {
     setError(null);
     setStage({ name: "saving" });
+    track("did_finish_applying", { answer: "yes" });
     const result = await apiRequest("post", "/applications", {
       body: { cardId: card.id, cardName: cardDisplayName(card), status: "applied", creditLimitCents: null },
     });
@@ -182,6 +186,7 @@ export function IssuerActions({ card, notes, signedIn }: IssuerActionsProps) {
           variant="secondary"
           disabled={stage.name === "saving"}
           onClick={() => {
+            track("did_finish_applying", { answer: "not_yet" });
             rememberWaiting(card.id, false);
             setError(null);
             setStage({ name: "idle" });

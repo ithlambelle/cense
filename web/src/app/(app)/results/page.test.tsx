@@ -1,4 +1,4 @@
-import { isValidElement } from "react";
+import { Children, isValidElement, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ResultView } from "@/lib/results/compute";
@@ -22,7 +22,10 @@ vi.mock("@/lib/api/auth", () => ({
 
 async function viewFor(answers: unknown): Promise<ResultView> {
   storedAnswers = answers;
-  const element = await ResultsPage();
+  const page = await ResultsPage();
+  // The page renders the analytics identify step beside the result view.
+  const children = isValidElement<{ children?: ReactNode }>(page) ? Children.toArray(page.props.children) : [];
+  const element = children.find((child) => isValidElement<{ view?: ResultView }>(child) && child.props.view);
   if (!isValidElement<{ view: ResultView }>(element)) throw new Error("expected the result view");
   return element.props.view;
 }

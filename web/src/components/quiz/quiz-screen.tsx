@@ -7,6 +7,7 @@ import { BottomNav } from "@/components/ui/bottom-nav";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { SelectedMark } from "@/components/ui/selected-mark";
+import { SENSITIVE } from "@/lib/analytics";
 import type { Question } from "@/lib/quiz/questions";
 import { cn } from "@/lib/utils";
 
@@ -90,7 +91,8 @@ export function QuizScreen({
             >
               {question.title}
             </h1>
-            <p className="text-body-s text-indigo-black/70">
+            {/* The income help line depends on the age answer. */}
+            <p className={cn("text-body-s text-indigo-black/70", help && SENSITIVE)}>
               {help ? `${question.subtitle} ${help}` : question.subtitle}
             </p>
             {step === 1 ? (
@@ -100,11 +102,12 @@ export function QuizScreen({
             ) : null}
           </div>
 
+          {/* Answer labels are the student's answers (income, recent denial). */}
           <div
             role="group"
             aria-labelledby={titleId}
             aria-describedby={step === 1 ? hintId : undefined}
-            className={cn("flex flex-col pt-2", question.choices.length >= 6 ? "gap-5" : "gap-6")}
+            className={cn(SENSITIVE, "flex flex-col pt-2", question.choices.length >= 6 ? "gap-5" : "gap-6")}
           >
             {question.choices.map((choice) => {
               const selected = choice.id === selectedChoiceId;

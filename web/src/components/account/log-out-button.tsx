@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { ErrorMessage } from "@/components/ui/error-message";
+import { resetAnalytics } from "@/lib/analytics";
 import { apiRequest, failureMessage } from "@/lib/api-client/client";
 import { ROUTES } from "@/lib/routes";
 
@@ -35,6 +36,7 @@ export function LogOutButton() {
       return;
     }
     forgetTabState();
+    resetAnalytics();
     router.replace(ROUTES.welcome);
     router.refresh();
   }

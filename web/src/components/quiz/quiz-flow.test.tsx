@@ -9,6 +9,11 @@ const push = vi.fn();
 const replace = vi.fn();
 const router = { push, replace, refresh: vi.fn() };
 vi.mock("next/navigation", () => ({ usePathname: () => "/home", useRouter: () => router }));
+const track = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/analytics", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/analytics")>()),
+  track,
+}));
 
 type Reply = { status: number; body: unknown };
 
@@ -43,6 +48,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   push.mockClear();
   replace.mockClear();
+  track.mockClear();
 });
 
 const answer = (name: string) => screen.getByRole("button", { name });
@@ -134,6 +140,18 @@ describe("QuizFlow", () => {
     await tap("Yes");
     await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/results"));
     expect(sentAnswers(fetchFn, 1)).toEqual({ ...five, canDeposit: true });
+    expect(track).toHaveBeenCalledWith("quiz_completed", { retake: false });
+    expect(track).not.toHaveBeenCalledWith("quiz_started");
+  });
+
+  it("counts a quiz as started on the first saved answer of a fresh quiz, with no answer in the event", async () => {
+    server([NO_DRAFT, saved({ under21: true })]);
+    render(<QuizFlow />);
+    await screen.findByText("Question 1 of 6");
+    await tap("18 to 20");
+    expect(await screen.findByText("Question 2 of 6")).toBeTruthy();
+    expect(track).toHaveBeenCalledTimes(1);
+    expect(track).toHaveBeenCalledWith("quiz_started");
   });
 
   it("does not open results when the student left while the last answer was saving", async () => {
@@ -185,6 +203,7 @@ describe("QuizFlow", () => {
     expect(fetchFn).toHaveBeenCalledTimes(2);
     expect(fetchFn.mock.calls[1][1]?.method).toBe("PUT");
     expect(sentAnswers(fetchFn, 1)).toEqual({ ...all, under21: false, canDeposit: false });
+    expect(track).toHaveBeenCalledWith("quiz_completed", { retake: true });
   });
 
   it("on a retake, closing midway saves nothing, so the saved answers stay whole", async () => {

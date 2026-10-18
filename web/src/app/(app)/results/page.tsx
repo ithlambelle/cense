@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { IdentifyStudent } from "@/components/analytics/identify-student";
 import { ResultsView } from "@/components/results/results-view";
 import { validAnswers } from "@/lib/api/quiz-answers";
 import { listCards } from "@/lib/cards/catalog";
@@ -26,5 +27,10 @@ export default async function ResultsPage() {
   // rejects asks for that answer again instead of discarding all of them.
   const answers = validAnswers(data?.answers ?? {});
   if (answers.dropped) console.warn(JSON.stringify({ event: "quiz_draft_invalid", operation: "results_read" }));
-  return <ResultsView view={computeResult(answers.kept, listCards())} />;
+  return (
+    <>
+      <IdentifyStudent studentId={student.studentId} />
+      <ResultsView view={computeResult(answers.kept, listCards())} />
+    </>
+  );
 }
