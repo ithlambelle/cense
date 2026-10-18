@@ -5,6 +5,7 @@ import { LogOutButton } from "@/components/account/log-out-button";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { STATUS_LABELS } from "@/lib/copy/applications";
+import { SENSITIVE } from "@/lib/analytics";
 import type { Application } from "@/lib/api/application";
 import { moneyAmount } from "@/lib/money";
 import { ROUTES } from "@/lib/routes";
@@ -22,13 +23,13 @@ export function AccountView({ email, card }: { email: string | null; card: Appli
           <div className="flex items-center gap-4">
             <div
               aria-hidden="true"
-              className="flex size-[68px] shrink-0 items-center justify-center rounded-full border-2 border-violet bg-off-white font-heading text-h3 font-medium text-navy"
+              className={`${SENSITIVE} flex size-[68px] shrink-0 items-center justify-center rounded-full border-2 border-violet bg-off-white font-heading text-h3 font-medium text-navy`}
             >
               {initial}
             </div>
             <div className="flex min-w-0 flex-col gap-[3px]">
               <h1 className="font-heading text-h3 font-medium text-navy">Your account</h1>
-              {email ? <p className="truncate text-body-s text-indigo-black">{email}</p> : null}
+              {email ? <p className={`truncate text-body-s text-indigo-black ${SENSITIVE}`}>{email}</p> : null}
             </div>
           </div>
 
@@ -46,7 +47,7 @@ export function AccountView({ email, card }: { email: string | null; card: Appli
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="text-body-s font-semibold text-navy">{card.cardName}</span>
-                  <span className="text-caption text-indigo-black">
+                  <span className={`text-caption text-indigo-black ${SENSITIVE}`}>
                     {STATUS_LABELS[card.status]}
                     {card.status === "approved" && card.creditLimitCents !== null ? `, ${moneyAmount(card.creditLimitCents)} limit` : ""}
                   </span>

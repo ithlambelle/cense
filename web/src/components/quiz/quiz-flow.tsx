@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { QuizScreen } from "@/components/quiz/quiz-screen";
 import { FailedScreen, LoadingScreen } from "@/components/shell/status-screens";
+import { track } from "@/lib/analytics";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import { firstUnanswered, helpText, QUESTIONS, savedChoiceId, withChoice } from "@/lib/quiz/questions";
 import type { QuizAnswers } from "@/lib/quiz/questions";
@@ -101,7 +102,10 @@ function QuizSteps({ saved }: { saved: Draft }) {
       setSaveError(failureMessage(result));
       return;
     }
+    // A fresh quiz: nothing was saved before this answer.
+    if (!retake && Object.keys(answers).length === 0) track("quiz_started");
     if (isLast) {
+      track("quiz_completed", { retake });
       // Stays locked while the result screen loads.
       router.push(ROUTES.results);
       return;

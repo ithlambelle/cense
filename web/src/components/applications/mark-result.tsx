@@ -10,6 +10,7 @@ import { choiceRowClass } from "@/components/ui/choice-row";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { SelectedMark } from "@/components/ui/selected-mark";
 import { TextField } from "@/components/ui/text-field";
+import { SENSITIVE, track } from "@/lib/analytics";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import type { Application } from "@/lib/api/application";
 import { applicationPath, deniedPath, ROUTES, signInPath, waitingPath } from "@/lib/routes";
@@ -75,6 +76,8 @@ export function MarkResult({ application }: { application: Application }) {
       setError(failureMessage(result));
       return;
     }
+    // The status only, never the credit limit.
+    track("application_status_marked", { status });
     // Stays pending while the next screen loads.
     router.push(status === "rejected" ? deniedPath("options", application.id) : ROUTES.home);
     router.refresh();
@@ -83,6 +86,7 @@ export function MarkResult({ application }: { application: Application }) {
   function choose(next: Choice) {
     setError(null);
     if (next === "waiting") {
+      track("application_status_marked", { status: "waiting" });
       router.push(waitingPath(application.id));
       return;
     }
@@ -132,7 +136,7 @@ export function MarkResult({ application }: { application: Application }) {
           </div>
 
           {choice === "approved" ? (
-            <form method="post" onSubmit={submitApproved} className="flex flex-col gap-4" noValidate>
+            <form method="post" onSubmit={submitApproved} className={cn(SENSITIVE, "flex flex-col gap-4")} noValidate>
               <TextField
                 label="Credit limit (optional)"
                 hint="You can find it in the approval email or the issuer’s app. Leave it blank if you don’t know yet."
