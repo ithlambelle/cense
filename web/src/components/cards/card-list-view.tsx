@@ -1,10 +1,12 @@
 import ChevronRight from "@gravity-ui/icons/ChevronRight";
 import Link from "next/link";
 
+import { IssuerBadge } from "@/components/cards/issuer-badge";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
 import type { Card } from "@/lib/cards/catalog";
+import { groupByIssuer } from "@/lib/cards/issuers";
 import { cardDisplayName, cardTypeLabel } from "@/lib/copy/results";
 import { moneyAmount } from "@/lib/money";
 import { cardPath, ROUTES, signInPath } from "@/lib/routes";
@@ -12,10 +14,9 @@ import { cn } from "@/lib/utils";
 
 // The card list (S13). No hi-fi frame yet: outlined cards in the style of the
 // resource list (Figma 459:643) and the result's "Another option", proposed to
-// design. Cards the rules can recommend come first.
+// design. Grouped by issuer; in each, cards the rules can recommend come first
+// and are marked as a good place to start.
 export function CardListView({ cards, signedIn }: { cards: Card[]; signedIn: boolean }) {
-  const recommend = cards.filter((card) => card.catalogRole === "recommend");
-  const explore = cards.filter((card) => card.catalogRole === "explore");
 
   return (
     <div className="flex min-h-dvh justify-center bg-background">
@@ -49,10 +50,7 @@ export function CardListView({ cards, signedIn }: { cards: Card[]; signedIn: boo
               </p>
             </section>
           ) : (
-            <>
-              <CardGroup title="Made for where most students start" cards={recommend} />
-              <CardGroup title="More cards to explore" cards={explore} />
-            </>
+            groupByIssuer(cards).map((group) => <IssuerGroup key={group.brand} brand={group.brand} cards={group.cards} />)
           )}
         </main>
         {signedIn ? (
@@ -65,22 +63,32 @@ export function CardListView({ cards, signedIn }: { cards: Card[]; signedIn: boo
   );
 }
 
-function CardGroup({ title, cards }: { title: string; cards: Card[] }) {
-  if (cards.length === 0) return null;
-  const id = title.toLowerCase().replace(/[^a-z]+/g, "-");
+function IssuerGroup({ brand, cards }: { brand: string; cards: Card[] }) {
+  const id = `issuer-${brand.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   return (
     <section aria-labelledby={id} className="flex flex-col gap-3">
-      <h2 id={id} className="font-heading text-h6 font-medium text-indigo-black">
-        {title}
-      </h2>
+      <div className="flex items-center gap-3">
+        <IssuerBadge brand={brand} />
+        <h2 id={id} className="flex-1 font-heading text-h5 font-medium text-navy">
+          {brand}
+        </h2>
+        <span className="text-body-s text-indigo-black/70">
+          {cards.length} {cards.length === 1 ? "card" : "cards"}
+        </span>
+      </div>
       <ul className="flex flex-col gap-3">
         {cards.map((card) => (
           <li key={card.id}>
             <Link
               href={cardPath(card.id)}
-              className="flex items-center gap-3 rounded-card border-[1.5px] border-violet bg-white p-5 outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="flex items-center gap-3 rounded-card border-[1.5px] border-violet bg-white p-5 outline-none transition-[background-color,scale] duration-200 hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-safe:active:scale-[0.98]"
             >
               <span className="flex min-w-0 flex-1 flex-col gap-1">
+                {card.catalogRole === "recommend" ? (
+                  <span className="self-start rounded-pill bg-off-white px-2.5 py-0.5 text-caption font-semibold text-violet-deep">
+                    Good place to start
+                  </span>
+                ) : null}
                 <span className="font-heading text-h6 font-medium text-navy">{cardDisplayName(card)}</span>
                 <span className="text-body-s text-indigo-black">
                   {cardTypeLabel(card)}, {moneyAmount(card.annualFeeCents)} annual fee

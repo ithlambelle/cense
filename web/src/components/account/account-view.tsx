@@ -2,6 +2,7 @@ import ChevronRight from "@gravity-ui/icons/ChevronRight";
 import Link from "next/link";
 
 import { LogOutButton } from "@/components/account/log-out-button";
+import { NameForm } from "@/components/account/name-form";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { STATUS_LABELS } from "@/lib/copy/applications";
@@ -13,8 +14,16 @@ import { ROUTES } from "@/lib/routes";
 // Your account (S28): the MVP1 subset of the Profile frame (416:342), in the
 // system's colors (the frame is an earlier draft in other hexes). Updates,
 // notification settings and security screens are not in MVP1.
-export function AccountView({ email, card }: { email: string | null; card: Application | null }) {
-  const initial = email?.trim()[0]?.toUpperCase() ?? "?";
+export function AccountView({
+  email,
+  name = null,
+  card,
+}: {
+  email: string | null;
+  name?: string | null;
+  card: Application | null;
+}) {
+  const initial = (name ?? email)?.trim()[0]?.toUpperCase() ?? "?";
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
@@ -28,10 +37,12 @@ export function AccountView({ email, card }: { email: string | null; card: Appli
               {initial}
             </div>
             <div className="flex min-w-0 flex-col gap-[3px]">
-              <h1 className="font-heading text-h3 font-medium text-navy">Your account</h1>
+              <h1 className="truncate font-heading text-h3 font-medium text-navy">{name ?? "Your account"}</h1>
               {email ? <p className={`truncate text-body-s text-indigo-black ${SENSITIVE}`}>{email}</p> : null}
             </div>
           </div>
+
+          <NameForm name={name} />
 
           <section aria-labelledby="your-card" className="flex flex-col gap-2.5">
             <h2 id="your-card" className="font-heading text-h6 font-medium text-indigo-black">

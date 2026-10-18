@@ -3,8 +3,9 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Application } from "@/lib/api/application";
+import { limitToCents } from "@/lib/credit-limit";
 
-import { limitToCents, MarkResult } from "./mark-result";
+import { MarkResult } from "./mark-result";
 
 const push = vi.fn();
 const replace = vi.fn();
