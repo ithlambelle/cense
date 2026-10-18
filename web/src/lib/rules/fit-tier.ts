@@ -1,6 +1,7 @@
 import type { z } from "zod";
 
 import type { cardSchema, quizAnswersSchema, recommendationSchema } from "../api/schemas";
+import { moneyAmount } from "../money";
 
 // Fit Tier Rules. Every rule ID, reason and note below is quoted from the
 // team's Notion page "Fit Tier Rules v1.2 (Credit Card Recommender)". Change
@@ -157,22 +158,14 @@ function needsDeposit(card: RuleCard): boolean {
   return card.depositMinCents > 0;
 }
 
-function dollars(cents: number): string {
-  const wholeDollars = cents % 100 === 0;
-  return `$${(cents / 100).toLocaleString("en-US", {
-    minimumFractionDigits: wholeDollars ? 0 : 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
 // G6 reason, built from the card's deposit (rules, section 5).
 function depositReason(card: RuleCard): string {
   const min = card.depositMinCents;
   const max = card.depositMaxCents;
   let amount: string;
-  if (max === null) amount = `at least ${dollars(min)}`;
-  else if (max === min) amount = dollars(min);
-  else amount = `${dollars(min)} to ${dollars(max)}`;
+  if (max === null) amount = `at least ${moneyAmount(min)}`;
+  else if (max === min) amount = moneyAmount(min);
+  else amount = `${moneyAmount(min)} to ${moneyAmount(max)}`;
   return `This card needs a refundable deposit of ${amount} to open.`;
 }
 
@@ -241,7 +234,9 @@ function cautions(answers: CompleteAnswers, card: RuleCard): CautionId[] {
   return found;
 }
 
-function notes(card: RuleCard): CardNote[] {
+// Notes N1 and N2 depend only on the card, never on the answers, so the card
+// page shows the same notes as the result. This is their one source.
+export function cardNotes(card: Pick<RuleCard, "runsCreditCheck" | "preapprovalUrl">): CardNote[] {
   const found: CardNote[] = [];
   if (card.runsCreditCheck && card.preapprovalUrl === null) found.push({ id: "N1", text: NO_PREAPPROVAL_NOTE });
   if (!card.runsCreditCheck) found.push({ id: "N2", text: NO_CREDIT_CHECK_NOTE });
@@ -255,7 +250,7 @@ function likelyFitReasons(card: RuleCard): string[] {
 }
 
 function fitForCard(answers: CompleteAnswers, card: RuleCard): CardFit {
-  const base = { cardId: card.id, notes: notes(card) };
+  const base = { cardId: card.id, notes: cardNotes(card) };
   const gate = failedGate(answers, card);
   if (gate) {
     return { ...base, tier: "not_yet", ruleIds: [gate.id], reasons: [gate.reason] };

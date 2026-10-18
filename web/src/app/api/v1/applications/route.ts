@@ -1,10 +1,8 @@
-import { applicationFromRow, type ApplicationRow } from "@/lib/api/application";
+import { APPLICATION_FIELDS, applicationFromRow, type ApplicationRow } from "@/lib/api/application";
 import { authenticatedStudent } from "@/lib/api/auth";
 import { databaseError } from "@/lib/api/database";
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { createApplicationSchema } from "@/lib/api/schemas";
-
-const fields = "id, card_id, card_name, status, credit_limit_cents, applied_at, updated_at";
 
 export async function GET(): Promise<Response> {
   const student = await authenticatedStudent();
@@ -12,7 +10,7 @@ export async function GET(): Promise<Response> {
 
   const { data, error } = await student.supabase
     .from("card_applications")
-    .select(fields)
+    .select(APPLICATION_FIELDS)
     .eq("student_id", student.studentId)
     .order("updated_at", { ascending: false });
   if (error) return databaseError("applications_list", error);
@@ -43,7 +41,7 @@ export async function POST(request: Request): Promise<Response> {
       credit_limit_cents: creditLimitCents,
       applied_at: status === "applied" ? now : null,
     })
-    .select(fields)
+    .select(APPLICATION_FIELDS)
     .single();
 
   if (error?.code === "23505") {

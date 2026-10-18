@@ -10,3 +10,6 @@ export async function authenticatedStudent() {
 
   return { supabase, studentId: data.user.id, email: data.user.email ?? null };
 }
+
+// A signed-in student, as returned by authenticatedStudent.
+export type Student = NonNullable<Awaited<ReturnType<typeof authenticatedStudent>>>;

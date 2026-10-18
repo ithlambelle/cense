@@ -1,3 +1,5 @@
+import type { CookieOptions } from "@supabase/ssr";
+
 export function supabaseConfig(): { url: string; publishableKey: string } {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const publishableKey =
@@ -10,3 +12,14 @@ export function supabaseConfig(): { url: string; publishableKey: string } {
 
   return { url, publishableKey };
 }
+
+// The session cookies are only ever read on the server (there is no browser
+// Supabase client), so page scripts never need them: httpOnly keeps them out of
+// reach of any injected script, and secure keeps them off plain http in
+// production. Lax still sends them on a normal link into the app.
+export const SESSION_COOKIE_OPTIONS: CookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax",
+  path: "/",
+};

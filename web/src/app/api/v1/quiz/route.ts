@@ -1,6 +1,7 @@
 import { authenticatedStudent } from "@/lib/api/auth";
 import { databaseError } from "@/lib/api/database";
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
+import { validAnswers } from "@/lib/api/quiz-answers";
 import { saveQuizSchema } from "@/lib/api/schemas";
 
 export async function GET(): Promise<Response> {
@@ -15,8 +16,15 @@ export async function GET(): Promise<Response> {
   if (error) return databaseError("quiz_read", error);
   if (!data) return apiError(404, "not_found", "No saved quiz yet.");
 
+  // A stored draft the schema now rejects (an old field, a retired choice)
+  // keeps only its valid answers, so the student answers just the rest and the
+  // next save replaces the row. Sending it back as it is would make every save
+  // fail validation; dropping it all would lose the good answers.
+  const answers = validAnswers(data.answers);
+  if (answers.dropped) console.warn(JSON.stringify({ event: "quiz_draft_invalid", operation: "quiz_read" }));
+
   return Response.json(
-    { answers: data.answers, updatedAt: data.updated_at },
+    { answers: answers.kept, updatedAt: data.updated_at },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

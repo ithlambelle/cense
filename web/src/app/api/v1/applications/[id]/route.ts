@@ -1,4 +1,4 @@
-import { applicationFromRow, type ApplicationRow } from "@/lib/api/application";
+import { APPLICATION_FIELDS, applicationFromRow, type ApplicationRow } from "@/lib/api/application";
 import { authenticatedStudent } from "@/lib/api/auth";
 import { databaseError } from "@/lib/api/database";
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
@@ -27,7 +27,7 @@ export async function PATCH(
     })
     .eq("id", id)
     .eq("student_id", student.studentId)
-    .select("id, card_id, card_name, status, credit_limit_cents, applied_at, updated_at")
+    .select(APPLICATION_FIELDS)
     .maybeSingle();
   if (error?.code === "23505") {
     return apiError(409, "already_exists", "An active record for this card already exists.");

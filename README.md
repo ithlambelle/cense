@@ -22,7 +22,7 @@ CENSE helps students choose a first credit card with clear, personalized guidanc
 | Hosting | Vercel. Every pull request gets a preview deployment; `main` is production. |
 | Email | Resend, for sign-in codes and reminders. |
 | Analytics and errors | PostHog, with pseudonymous IDs. |
-| Testing and CI | Vitest for unit and integration tests, Playwright for end-to-end tests (planned), GitHub Actions on every pull request. |
+| Testing and CI | Vitest for unit and integration tests, Playwright for end-to-end journey tests run locally, GitHub Actions on every pull request. |
 
 ### Diagram
 
@@ -149,6 +149,23 @@ The starter intentionally runs without credentials. Add the Supabase values when
 
 Setup verified from a fresh clone by a second teammate: verified by Yunho on 2026-10-04 (macOS, Node v25.1.0).
 
+### Run the app and journey tests locally
+
+The journey tests (Playwright) and the seed script run against a local Supabase stack, never a hosted project. They need Docker.
+
+This repo has the migrations but no Supabase CLI config yet, so set the stack up once in a separate folder: run `npx supabase init` there, copy `supabase/migrations` into it, and in its `supabase/config.toml` set `site_url = "http://localhost:3300"` and point the `magic_link` and `confirmation` email templates at an HTML file that shows `{{ .Token }}` (the tests read the 6-digit code from the email). Then:
+
+```bash
+npx supabase start        # in that folder; Mailpit catches the emails at http://127.0.0.1:54324
+npx supabase status       # copy the API URL and publishable key into web/.env.local
+cd <this repo>/web
+npm run dev:local         # the app on http://localhost:3300
+npm run seed:local        # optional: six test students, one per Home state
+npm run e2e               # in a second terminal, with the app still running
+```
+
+`.env.local` needs `NEXT_PUBLIC_SUPABASE_URL` (the API URL, `http://127.0.0.1:54321`) and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. The optional variables the tests and seed script read are listed in `.env.example`.
+
 ## Quality checks
 
 ```bash
@@ -163,12 +180,14 @@ CI runs linting, type checking, tests, a production build, secret scanning, Open
 | Area | Package | Purpose |
 | --- | --- | --- |
 | Framework | `next`, `react`, `react-dom` | Web application and server route handlers |
-| Styling | `tailwindcss`, `shadcn`, `@base-ui/react`, `class-variance-authority`, `clsx`, `tailwind-merge`, `tw-animate-css`, `lucide-react` | Accessible UI components, icons, and styling |
-| Data | `@supabase/supabase-js` | Authentication and database client |
+| Styling | `tailwindcss`, `shadcn`, `@base-ui/react`, `class-variance-authority`, `clsx`, `tailwind-merge`, `tw-animate-css`, `@gravity-ui/icons` | Accessible UI components, icons, and styling |
+| Data | `@supabase/supabase-js`, `@supabase/ssr` | Authentication and database client, and the session cookies |
 | Validation/API | `zod`, `@asteasolutions/zod-to-openapi`, `openapi-typescript` | Runtime schemas and generated API contracts |
-| Quality | `eslint`, `typescript`, `vitest` | Linting, type checking, and tests |
+| Quality | `eslint`, `typescript`, `vitest`, `@playwright/test`, `@axe-core/playwright` | Linting, type checking, tests, and journey tests with accessibility checks |
 
 See `web/package.json` and `web/package-lock.json` for exact versions.
+
+Icons come from `@gravity-ui/icons`. `web/components.json` still says `"iconLibrary": "lucide"` because shadcn only accepts the libraries it supports and falls back to lucide when the field is missing. A component added with `npx shadcn add` may import `lucide-react` and add it to `package.json`: swap its icons for Gravity UI ones and remove the package.
 
 ## Accounts and keys
 
