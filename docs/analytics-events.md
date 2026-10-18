@@ -4,7 +4,7 @@
 
 Tracking plan version 1. Every event Cense sends to PostHog, the question it answers and the only properties it may carry. `track()` in `web/src/lib/analytics.ts` rejects anything not listed here, and a lint rule stops code from calling PostHog any other way.
 
-Sent with every event: `plan_version`, `platform`, `app_version`, `environment`, `is_internal`. PostHog adds its own (`$current_url` and the like), with everything after "?" or "#" removed before sending. Events marked with a ledger copy a Postgres row; the falsifiers and the D24 numbers are counted from Postgres, and PostHog is checked against it.
+Sent with every event: `plan_version`, `platform`, `app_version`, `environment`, `is_internal`, `$geoip_disable`. PostHog adds its own (`$current_url` and the like), with everything after "?" or "#" removed before sending. Events marked with a ledger copy a Postgres row; the falsifiers and the D24 numbers are counted from Postgres, and PostHog is checked against it.
 
 | Event | Question it answers | Properties | Ledger | Owner | Added in plan |
 |---|---|---|---|---|---|

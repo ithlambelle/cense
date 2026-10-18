@@ -1,7 +1,7 @@
 import type { CaptureResult } from "posthog-js";
 import { describe, expect, it } from "vitest";
 
-import { analyticsEnvironment, posthogConfig, stripQuery, stripQueryStrings } from "./analytics-config";
+import { analyticsEnvironment, baseProperties, posthogConfig, stripQuery, stripQueryStrings } from "./analytics-config";
 
 const event = (overrides: Partial<CaptureResult>): CaptureResult => ({ uuid: "u", event: "$pageview", properties: {}, ...overrides });
 
@@ -70,6 +70,12 @@ describe("stripQueryStrings (before_send)", () => {
     );
     expect(result?.properties.$elements_chain).toBe('a.row:attr__href="/denied/plan"href="/denied/plan"nth-child="1"');
     expect(result?.properties.$elements).toEqual([{ tag_name: "a", attr__href: "/denied/plan", $el_text: "Yes" }]);
+  });
+});
+
+describe("baseProperties", () => {
+  it("asks PostHog to skip the location lookup on every event", () => {
+    expect(baseProperties()).toMatchObject({ $geoip_disable: true, plan_version: 1, is_internal: false });
   });
 });
 

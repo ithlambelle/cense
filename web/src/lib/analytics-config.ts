@@ -16,6 +16,8 @@ export function analyticsEnvironment(vercelEnv = process.env.NEXT_PUBLIC_VERCEL_
 }
 
 // Sent with every event (S47). is_internal is set again at identify.
+// $geoip_disable tells PostHog's GeoIP step to skip the event, so no city or
+// country is stored (D5, S48); the SDKs for servers send the same property.
 export function baseProperties(): Properties {
   const standalone =
     typeof window !== "undefined" &&
@@ -26,6 +28,7 @@ export function baseProperties(): Properties {
     app_version: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local",
     environment: analyticsEnvironment(),
     is_internal: false,
+    $geoip_disable: true,
   };
 }
 
