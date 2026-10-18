@@ -1,0 +1,10 @@
+#!/bin/sh
+# Scans the staged changes for keys, tokens and passwords before a commit is
+# made, so a secret never reaches GitHub (CONTRIBUTING.md, "Secrets").
+# Turned on by `npm install` in web/, which sets core.hooksPath to .githooks.
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks is not installed, so the secret scan cannot run." >&2
+  echo "Install it (macOS: brew install gitleaks), then commit again." >&2
+  exit 1
+fi
+exec gitleaks git --pre-commit --staged --redact --no-banner
