@@ -20,6 +20,10 @@ vi.mock("@/lib/api/auth", () => ({
   }),
 }));
 
+// Saving is tested in save.test.ts; here it only has to be called with the kept answers.
+const saveRecommendation = vi.fn(async () => "saved");
+vi.mock("@/lib/results/save", () => ({ saveRecommendation: (...args: unknown[]) => saveRecommendation(...(args as [])) }));
+
 async function viewFor(answers: unknown): Promise<ResultView> {
   storedAnswers = answers;
   const element = await ResultsPage();
@@ -47,5 +51,13 @@ describe("ResultsPage", () => {
     const warn = vi.spyOn(console, "warn");
     expect((await viewFor(ALL_SIX)).kind).toBe("match");
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("saves the result from the kept answers", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    saveRecommendation.mockClear();
+    await viewFor({ ...ALL_SIX, retiredField: "x" });
+    expect(saveRecommendation).toHaveBeenCalledOnce();
+    expect((saveRecommendation.mock.calls[0] as unknown[])[1]).toEqual(ALL_SIX);
   });
 });

@@ -4,14 +4,15 @@ import { ResultsView } from "@/components/results/results-view";
 import { validAnswers } from "@/lib/api/quiz-answers";
 import { listCards } from "@/lib/cards/catalog";
 import { computeResult } from "@/lib/results/compute";
+import { saveRecommendation } from "@/lib/results/save";
 import { ROUTES } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Your card match | CENSE" };
 
-// Works the result out on the server from the saved quiz. Nothing is saved
-// yet: once the recommendation save route lands, read the saved result here
-// and keep computeResult's shape.
+// Works the result out on the server from the saved quiz, then saves it with
+// the rules and card data versions (save_recommendation). A reload with the
+// same answers saves nothing new, and a failed save never blocks the screen.
 export default async function ResultsPage() {
   const student = await requireStudent(ROUTES.results);
 
@@ -26,5 +27,7 @@ export default async function ResultsPage() {
   // rejects asks for that answer again instead of discarding all of them.
   const answers = validAnswers(data?.answers ?? {});
   if (answers.dropped) console.warn(JSON.stringify({ event: "quiz_draft_invalid", operation: "results_read" }));
-  return <ResultsView view={computeResult(answers.kept, listCards())} />;
+  const cards = listCards();
+  await saveRecommendation(student, answers.kept, cards);
+  return <ResultsView view={computeResult(answers.kept, cards)} />;
 }
