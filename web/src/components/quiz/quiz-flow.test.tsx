@@ -150,8 +150,10 @@ describe("QuizFlow", () => {
     await screen.findByText("Question 1 of 6");
     await tap("18 to 20");
     expect(await screen.findByText("Question 2 of 6")).toBeTruthy();
-    expect(track).toHaveBeenCalledTimes(1);
-    expect(track).toHaveBeenCalledWith("quiz_started");
+    expect(track.mock.calls).toEqual([
+      ["quiz_started"],
+      ["quiz_step_completed", { step: 1, field: "under21", retake: false }],
+    ]);
   });
 
   it("does not open results when the student left while the last answer was saving", async () => {

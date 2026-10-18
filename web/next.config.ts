@@ -25,7 +25,7 @@ const nextConfig: NextConfig = {
   // api_host "/rx"), so ad blockers keep the funnel intact. Static assets
   // first, then everything else to the ingestion host. The path is not
   // "posthog" or "analytics" on purpose, as blockers match those. A rewrite
-  // forwards every request header, so src/proxy.ts strips cookies on /rx first.
+  // forwards every request header, so src/proxy.ts passes on only an allowlist.
   // The CSP above only sets frame-ancestors, so nothing blocks these
   // same-origin requests or PostHog's lazily loaded replay script.
   // https://posthog.com/docs/advanced/proxy/nextjs

@@ -12,10 +12,10 @@ import { deniedPath, ROUTES, type DeniedStep } from "@/lib/routes";
 // student, and the issuer's letter can take up to 30 days (Regulation B, 12 CFR
 // 1002.9(a)(1)), so many students can't judge the reason yet. Only "something
 // looks wrong" leads to asking the issuer for a second look.
-const LETTER_CHOICES: { label: string; step: DeniedStep; choice: "looks_right" | "no_letter" | "looks_wrong" }[] = [
-  { label: "Yes, it looks right", step: "plan", choice: "looks_right" },
-  { label: "I don’t have the letter yet", step: "plan", choice: "no_letter" },
-  { label: "Something looks wrong", step: "fixable", choice: "looks_wrong" },
+const LETTER_CHOICES: { label: string; step: DeniedStep; answer: "looks_right" | "no_letter" | "looks_wrong" }[] = [
+  { label: "Yes, it looks right", step: "plan", answer: "looks_right" },
+  { label: "I don’t have the letter yet", step: "plan", answer: "no_letter" },
+  { label: "Something looks wrong", step: "fixable", answer: "looks_wrong" },
 ];
 
 // Denial Options (Figma 458:129), the start of the rejection guide (S21).
@@ -43,7 +43,7 @@ export function DeniedOptionsView({ applicationId }: { applicationId: string | n
               <TrackedLink
                 href={deniedPath(choice.step, applicationId)}
                 className={choiceRowClass}
-                track={{ event: "denial_letter_choice", props: { choice: choice.choice } }}
+                track={{ event: "denial_letter_answered", props: { answer: choice.answer } }}
               >
                 {choice.label}
               </TrackedLink>

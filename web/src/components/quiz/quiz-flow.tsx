@@ -6,6 +6,7 @@ import { useState } from "react";
 import { QuizScreen } from "@/components/quiz/quiz-screen";
 import { FailedScreen, LoadingScreen } from "@/components/shell/status-screens";
 import { track } from "@/lib/analytics";
+import type { QuizField } from "@/lib/analytics-catalog";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import { firstUnanswered, helpText, QUESTIONS, savedChoiceId, withChoice } from "@/lib/quiz/questions";
 import type { QuizAnswers } from "@/lib/quiz/questions";
@@ -81,6 +82,7 @@ function QuizSteps({ saved }: { saved: Draft }) {
     setDraft({ index, answers: nextAnswers, choiceIds: nextChoiceIds, retake });
     if (retake && !isLast) {
       // Nothing is saved yet: the edits stay here until the last question.
+      track("quiz_step_completed", { step: index + 1, field: question.field as QuizField, retake });
       await wait(CHOICE_FEEDBACK_MS);
       setSaving(false);
       setDraft({ answers: nextAnswers, choiceIds: nextChoiceIds, retake, index: index + 1 });
@@ -104,6 +106,8 @@ function QuizSteps({ saved }: { saved: Draft }) {
     }
     // A fresh quiz: nothing was saved before this answer.
     if (!retake && Object.keys(answers).length === 0) track("quiz_started");
+    // The answer itself is never sent, only which question was answered.
+    track("quiz_step_completed", { step: index + 1, field: question.field as QuizField, retake });
     if (isLast) {
       track("quiz_completed", { retake });
       // Stays locked while the result screen loads.

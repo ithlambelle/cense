@@ -81,7 +81,7 @@ describe("MarkResult", () => {
     await waitFor(() => expect(push).toHaveBeenCalledWith("/home"));
     expect(sent(fetchFn)).toEqual({ status: "approved", creditLimitCents: 50000 });
     // The status only: the credit limit never reaches analytics.
-    expect(track).toHaveBeenCalledExactlyOnceWith("application_status_marked", { status: "approved" });
+    expect(track).toHaveBeenCalledExactlyOnceWith("outcome_reported", { outcome: "approved", source: "mark_result" });
   });
 
   it("keeps the saved limit when an approved card is marked again", async () => {

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { IdentifyStudent } from "@/components/analytics/identify-student";
 import { HomeView } from "@/components/home/home-view";
 import { homeState } from "@/lib/home/state";
 import { ROUTES } from "@/lib/routes";
@@ -13,10 +12,5 @@ export const metadata: Metadata = { title: "Home | CENSE" };
 export default async function HomePage() {
   const student = await requireStudent(ROUTES.home);
   const { applications, quiz, quizStarted } = await loadStudentSnapshot(student);
-  return (
-    <>
-      <IdentifyStudent studentId={student.studentId} />
-      <HomeView state={homeState(applications, quiz, quizStarted)} />
-    </>
-  );
+  return <HomeView state={homeState(applications, quiz, quizStarted)} />;
 }

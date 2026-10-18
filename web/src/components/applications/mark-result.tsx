@@ -76,8 +76,8 @@ export function MarkResult({ application }: { application: Application }) {
       setError(failureMessage(result));
       return;
     }
-    // The status only, never the credit limit.
-    track("application_status_marked", { status });
+    // The outcome only, never the credit limit.
+    track("outcome_reported", { outcome: status === "approved" ? "approved" : "denied", source: "mark_result" });
     // Stays pending while the next screen loads.
     router.push(status === "rejected" ? deniedPath("options", application.id) : ROUTES.home);
     router.refresh();
@@ -86,7 +86,7 @@ export function MarkResult({ application }: { application: Application }) {
   function choose(next: Choice) {
     setError(null);
     if (next === "waiting") {
-      track("application_status_marked", { status: "waiting" });
+      track("outcome_reported", { outcome: "pending", source: "mark_result" });
       router.push(waitingPath(application.id));
       return;
     }

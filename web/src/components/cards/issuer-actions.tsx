@@ -123,8 +123,13 @@ export function IssuerActions({ card, notes, signedIn }: IssuerActionsProps) {
       setError(failureMessage(result));
       return;
     }
-    // Counted once the click is saved, the same moment the API records it.
-    track("issuer_clicked", { kind, card_id: card.id });
+    // A copy of the issuer_clicks row the API just saved (S46): its id is the
+    // event id, so PostHog can be checked against Postgres.
+    track(
+      "issuer_link_clicked",
+      { click_id: result.data.id, card_id: card.id, link_type: kind },
+      { uuid: result.data.id, timestamp: new Date(result.data.clickedAt) },
+    );
     const url = safeIssuerUrl(result.data.url);
     if (!url) {
       tab?.close();
@@ -145,11 +150,13 @@ export function IssuerActions({ card, notes, signedIn }: IssuerActionsProps) {
   async function recordApplication() {
     setError(null);
     setStage({ name: "saving" });
-    track("did_finish_applying", { answer: "yes" });
     const result = await apiRequest("post", "/applications", {
       body: { cardId: card.id, cardName: cardDisplayName(card), status: "applied", creditLimitCents: null },
     });
     if (result.ok) {
+      // Only once the application is saved: a retry after a failed save, or a
+      // card that was already tracked (409 below), is not a second report.
+      track("outcome_reported", { outcome: "applied", source: "did_you_apply" });
       rememberWaiting(card.id, false);
       setStage({ name: "saved" });
       router.refresh();
@@ -186,7 +193,7 @@ export function IssuerActions({ card, notes, signedIn }: IssuerActionsProps) {
           variant="secondary"
           disabled={stage.name === "saving"}
           onClick={() => {
-            track("did_finish_applying", { answer: "not_yet" });
+            track("outcome_reported", { outcome: "didnt_apply", source: "did_you_apply" });
             rememberWaiting(card.id, false);
             setError(null);
             setStage({ name: "idle" });

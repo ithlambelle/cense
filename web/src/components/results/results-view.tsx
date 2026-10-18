@@ -42,7 +42,7 @@ export function ResultsView({ view }: { view: ResultView }) {
   if (view.kind === "no_card") {
     return (
       <ResultLayout title={RESULT_HEADLINES.not_yet} subtitle="Based on your answers" footer>
-        <TrackOnMount event="result_viewed" props={{ tier: "none", has_alternative: false }} />
+        <TrackOnMount event="recommendation_viewed" props={{ tier: "not_yet", card_id: null, has_alternative: false }} />
         <div className="rounded-card bg-off-white p-5">
           <p className={cn(SENSITIVE, "text-body-m text-navy")}>{view.reason ?? NO_CARD_FALLBACK}</p>
         </div>
@@ -54,7 +54,10 @@ export function ResultsView({ view }: { view: ResultView }) {
 
   return (
     <ResultLayout title={RESULT_HEADLINES[fit.tier]} subtitle="Based on your answers" footer>
-      <TrackOnMount event="result_viewed" props={{ tier: fit.tier, has_alternative: alternative !== null }} />
+      <TrackOnMount
+        event="recommendation_viewed"
+        props={{ tier: fit.tier, card_id: card.id, has_alternative: alternative !== null }}
+      />
       <section aria-labelledby="top-match" className="flex flex-col gap-4">
         <h2 id="top-match" className="font-heading text-h6 font-medium text-indigo-black">
           Top match

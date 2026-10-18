@@ -41,7 +41,7 @@ function AddCardForm({ onAdded, onCancel, onSignedOut }: AddCardFormProps) {
     if (!isMounted()) return;
     if (result.ok) {
       // Never the card name the student typed.
-      track("card_added_manually");
+      track("card_added", { method: "manual" });
       onAdded();
       return;
     }

@@ -3,7 +3,8 @@
 import Link from "next/link";
 import type { ComponentProps } from "react";
 
-import { capture, type AnalyticsEvent, type EventProps } from "@/lib/analytics";
+import { sendEvent } from "@/components/analytics/track-on-mount";
+import type { AnalyticsEvent, EventProps } from "@/lib/analytics";
 
 type TrackedLinkProps<E extends AnalyticsEvent> = ComponentProps<typeof Link> & { track: EventProps<E> };
 
@@ -13,7 +14,7 @@ export function TrackedLink<E extends AnalyticsEvent>({ track, onClick, ...props
     <Link
       {...props}
       onClick={(event) => {
-        capture(track.event, track.props);
+        sendEvent(track);
         onClick?.(event);
       }}
     />

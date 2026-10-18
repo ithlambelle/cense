@@ -1,74 +1,85 @@
 import posthog from "posthog-js";
 
-// Add to an element's className when its text says something about the
-// student: their answers, a card's status, a credit limit. It does two things:
-// - `ph-sensitive` is read by PostHog autocapture, which then keeps the click
-//   but drops the element's text and that of everything inside it.
-// - session replay masks the same elements' text (maskTextSelector in
-//   instrumentation-client.ts), so recordings show asterisks instead.
-export const SENSITIVE = "ph-sensitive";
-export const SENSITIVE_SELECTOR = `.${SENSITIVE}`;
+import { EVENTS, type AnalyticsEvent, type EventProperties, type HasNoProperties } from "@/lib/analytics-catalog";
+import { analyticsEnvironment, baseProperties } from "@/lib/analytics-config";
 
-export type FitTierProp = "likely_fit" | "stretch" | "not_yet" | "none";
+// The only door to PostHog (a lint rule bans importing posthog-js elsewhere).
+// Every event is checked against the catalog in analytics-catalog.ts.
+//
+// Add SENSITIVE to an element's className when its text says something about
+// the student: their answers, a card's status, a credit limit. Autocapture then
+// keeps the click but drops the text, and session replay shows asterisks.
+export { SENSITIVE, SENSITIVE_SELECTOR } from "@/lib/analytics-config";
+export type { AnalyticsEvent, EventProperties } from "@/lib/analytics-catalog";
 
-// Every funnel event and the only properties each may carry. Nothing personal:
-// no email, password, codes, income band, recent denial or credit limit. Card
-// ids are catalog ids, the same for every student.
-export type AnalyticsEvents = {
-  quiz_started: undefined;
-  quiz_completed: { retake: boolean };
-  result_viewed: { tier: FitTierProp; has_alternative: boolean };
-  issuer_clicked: { kind: "preapproval" | "apply"; card_id: string };
-  did_finish_applying: { answer: "yes" | "not_yet" };
-  application_status_marked: { status: "approved" | "rejected" | "waiting" };
-  denial_letter_choice: { choice: "looks_right" | "no_letter" | "looks_wrong" };
-  denial_plan_viewed: undefined;
-  card_added_manually: undefined;
-};
+// For an event copied from a Postgres row (S46): the row id as the event id
+// and the row's database time as the event time.
+export type TrackOptions = { uuid?: string; timestamp?: Date };
 
-export type AnalyticsEvent = keyof AnalyticsEvents;
-
-// The props argument, required exactly when the event has properties.
-type PropsArg<E extends AnalyticsEvent> = AnalyticsEvents[E] extends undefined ? [] : [props: AnalyticsEvents[E]];
+// Events with no properties can leave them out.
+type TrackArgs<E extends AnalyticsEvent> = HasNoProperties<E> extends true
+  ? [props?: EventProperties<E>, options?: TrackOptions]
+  : [props: EventProperties<E>, options?: TrackOptions];
 
 // For components that take an event as props: `props` only when it has any.
-export type EventProps<E extends AnalyticsEvent> = { event: E } & (AnalyticsEvents[E] extends undefined
-  ? { props?: undefined }
-  : { props: AnalyticsEvents[E] });
+export type EventProps<E extends AnalyticsEvent> = { event: E } & (HasNoProperties<E> extends true
+  ? { props?: EventProperties<E> }
+  : { props: EventProperties<E> });
 
-// No-op until PostHog has loaded, which only happens when the token is set.
-// Never throws: a failed capture must not interrupt the student.
-export function track<E extends AnalyticsEvent>(event: E, ...rest: PropsArg<E>): void {
-  capture(event, rest[0]);
-}
-
-// Untyped core of track, for the EventProps components below.
-export function capture(event: AnalyticsEvent, props?: Record<string, unknown>): void {
+// A bad event is a bug: it throws in development and tests, so the test that
+// sends it fails. In a deployed build it is dropped and reported instead,
+// because analytics must never interrupt a student.
+export function track<E extends AnalyticsEvent>(event: E, ...[props, options]: TrackArgs<E>): void {
+  const parsed = EVENTS[event].properties.safeParse(props ?? {});
+  if (!parsed.success) {
+    const message = `analytics: "${event}" does not match the catalog: ${parsed.error.message}`;
+    if (process.env.NODE_ENV !== "production") throw new Error(message);
+    report("analytics_event_invalid", event);
+    return;
+  }
+  // S48: locally and on previews the event is printed, so it can be checked.
+  if (process.env.NODE_ENV === "development" || analyticsEnvironment() === "preview") {
+    console.info("[analytics]", event, parsed.data);
+  }
   try {
+    // Not loaded when the project token is not set (local runs, tests, CI).
     if (!posthog.__loaded) return;
-    posthog.capture(event, props);
+    posthog.capture(event, parsed.data, options);
   } catch {
-    // Ignored on purpose.
+    report("analytics_capture_failed", event);
   }
 }
 
-// The signed-in student, by Supabase user id only.
-export function identify(studentId: string): void {
+// The signed-in student, by Supabase user id only (S36), on every signed-in
+// page load in every context (S48). A different student on the same browser
+// starts from a reset, because PostHog cannot move an identified browser to a
+// new id.
+export function identify(studentId: string, isInternal: boolean): void {
   try {
     if (!posthog.__loaded) return;
-    if (posthog.get_distinct_id() === studentId) return;
-    posthog.identify(studentId);
+    if (posthog.get_distinct_id() !== studentId) {
+      if (posthog._isIdentified()) resetAnalytics();
+      posthog.identify(studentId);
+    }
+    posthog.register({ is_internal: isInternal });
   } catch {
-    // Ignored on purpose.
+    report("analytics_identify_failed", null);
   }
 }
 
 // On log out, so the next person on this browser is not linked to the student.
+// reset() also clears the properties sent with every event, so they are set again.
 export function resetAnalytics(): void {
   try {
     if (!posthog.__loaded) return;
     posthog.reset();
+    posthog.register(baseProperties());
   } catch {
-    // Ignored on purpose.
+    report("analytics_reset_failed", null);
   }
+}
+
+// Structured, and never the event's properties.
+function report(problem: string, event: AnalyticsEvent | null): void {
+  console.warn(JSON.stringify({ event: problem, analyticsEvent: event }));
 }
