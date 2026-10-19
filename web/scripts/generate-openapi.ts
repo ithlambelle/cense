@@ -66,7 +66,7 @@ registry.registerPath({
 registry.registerPath({
   method: "post", path: "/auth/password/signup", operationId: "signUpWithPassword", summary: "Create an optional password account",
   request: { body: body(passwordCredentialsSchema) },
-  responses: { 200: ok(z.strictObject({ status: z.enum(["signed_in", "check_email"]) })), 400: failure("Invalid request"), 429: failure("Rate limited"), 502: failure("Sign-up unavailable") },
+  responses: { 200: ok(z.strictObject({ status: z.enum(["signed_in", "check_email"]) })), 400: failure("Invalid request"), 409: failure("Account already exists"), 429: failure("Rate limited"), 502: failure("Sign-up unavailable") },
 });
 registry.registerPath({
   method: "post", path: "/auth/password/signin", operationId: "signInWithPassword", summary: "Sign in with an existing password",

@@ -64,11 +64,40 @@ describe("optional password auth", () => {
     expect(auth.signUp).not.toHaveBeenCalled();
   });
 
-  it("does not reveal an existing account during signup", async () => {
-    auth.signUp.mockResolvedValue({ error: new AuthApiError("User already registered", 422, "user_already_exists") });
-    const response = await signUp(request("/api/v1/auth/password/signup", {
-      email: "student@example.com", password: "long-enough-password",
-    }));
+  // Telling a student their email already has an account is Ben's call
+  // (2026-10-19): otherwise they wait for a code Supabase never sends.
+  const SIGN_UP_BODY = { email: "student@example.com", password: "long-enough-password" };
+
+  it("says an account already uses the email when Supabase reports it as an error", async () => {
+    auth.signUp.mockResolvedValue({ data: { user: null, session: null }, error: new AuthApiError("User already registered", 422, "user_already_exists") });
+    const response = await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY));
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: { code: "account_exists", message: "An account already uses this email." } });
+  });
+
+  it("says an account already uses the email when Supabase answers with a placeholder user", async () => {
+    auth.signUp.mockResolvedValue({ data: { user: { id: "fake", identities: [] }, session: null }, error: null });
+    const response = await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY));
+    expect(response.status).toBe(409);
+    expect((await response.json()).error.code).toBe("account_exists");
+  });
+
+  it("asks a new student to confirm their email", async () => {
+    auth.signUp.mockResolvedValue({ data: { user: { id: "new", identities: [{ provider: "email" }] }, session: null }, error: null });
+    const response = await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: "check_email" });
+  });
+
+  it("signs the student in when Supabase returns a session", async () => {
+    auth.signUp.mockResolvedValue({ data: { user: { id: "new", identities: [{ provider: "email" }] }, session: {} }, error: null });
+    const response = await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY));
+    expect(await response.json()).toEqual({ status: "signed_in" });
+  });
+
+  it("keeps the normal answer when the user has no identities field", async () => {
+    auth.signUp.mockResolvedValue({ data: { user: { id: "new" }, session: null }, error: null });
+    const response = await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ status: "check_email" });
   });

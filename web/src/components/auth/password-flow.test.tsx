@@ -90,6 +90,39 @@ describe("password sign-up and log-in", () => {
     expect(screen.getByLabelText("Repeat password")).toBeTruthy();
   });
 
+  it("says an account already uses the email, with no code screen, and offers to log in with it", async () => {
+    const fetchFn = server(409, { error: { code: "account_exists", message: "An account already uses this email." } });
+    openPassword(SIGN_UP);
+    fill("Email", "alex@email.com");
+    fill("Password", "correcthorse");
+    fill("Repeat password", "correcthorse");
+    fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
+    expect(await screen.findByText("An account already uses this email.")).toBeTruthy();
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Email")));
+    expect(screen.queryByText(/Check your email/)).toBeNull();
+    // Only the sign-up call: no code email was asked for.
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Log in instead" }));
+    expect(screen.getByRole("heading", { name: "Welcome back" })).toBeTruthy();
+    expect((screen.getByLabelText("Email") as HTMLInputElement).value).toBe("alex@email.com");
+    // The page is still /sign-up, so "Sign up" switches the form back in place.
+    fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
+    expect(screen.getByRole("heading", { name: "Let’s get started" })).toBeTruthy();
+  });
+
+  it("drops the log-in offer once the email is changed", async () => {
+    server(409, { error: { code: "account_exists", message: "An account already uses this email." } });
+    openPassword(SIGN_UP);
+    fill("Email", "alex@email.com");
+    fill("Password", "correcthorse");
+    fill("Repeat password", "correcthorse");
+    fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
+    await screen.findByRole("button", { name: "Log in instead" });
+    fill("Email", "sam@email.com");
+    expect(screen.queryByRole("button", { name: "Log in instead" })).toBeNull();
+  });
+
   it("says a wrong password plainly on log-in, on the password field", async () => {
     server(401, { error: { code: "invalid_credentials", message: "The email or password is incorrect." } });
     openPassword(SIGN_IN);
