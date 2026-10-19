@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 
 import { buttonVariants } from "@/components/ui/button";
+import { Mascot } from "@/components/mascot/mascot";
 import { ROUTES } from "@/lib/routes";
 
 import styles from "./welcome-screen.module.css";
@@ -75,7 +76,7 @@ export function WelcomeScreen() {
 
         {/* The frame places the mascot 247px down an 844px screen (29.3%). */}
         <div className="relative flex flex-1 flex-col items-center gap-5 pt-[29.3dvh]">
-          <Image src="/mascot/penny.png" alt="" width={157} height={157} priority className={styles.pigFloat} />
+          <Mascot pose="happy" size={157} priority />
           <h1 className="px-[61px] text-center font-heading text-h3 font-medium text-navy">
             Let’s make
             <br />

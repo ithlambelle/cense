@@ -37,7 +37,7 @@ export function HomeView({ state }: { state: HomeState }) {
             aria-label="Your account"
             className="rounded-input outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            <Image src="/mascot/penny-avatar.png" alt="" width={40} height={40} className="rounded-input" />
+            <Image src="/mascot/astro-pig/avatar.png" alt="" width={40} height={40} className="rounded-input" />
           </Link>
           <p className="flex-1 text-right text-body-s text-indigo-black">Home</p>
         </header>
