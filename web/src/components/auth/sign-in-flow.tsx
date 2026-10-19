@@ -32,6 +32,9 @@ type SignInFlowProps = {
   initialError: string | null;
 };
 
+const SWITCH_LINK =
+  "text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+
 const COPY: Record<AuthMode, { title: string; switchText: string; switchLink: string }> = {
   "sign-up": { title: "Let’s get started", switchText: "Already have an account?", switchLink: "Log in" },
   "sign-in": { title: "Welcome back", switchText: "Don’t have an account?", switchLink: "Sign up" },
@@ -54,9 +57,12 @@ function useCooldown(): [number, () => void] {
 // sign-up route; log-in calls the sign-in route and links to Forgot password.
 // The email and code live in this component's memory only and never in the
 // address bar.
-export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
+export function SignInFlow({ mode: pageMode, next, initialError }: SignInFlowProps) {
   const router = useRouter();
   const isMounted = useIsMounted();
+  // Starts as the page's mode. "Log in instead" (an email that already has an
+  // account) switches it here, keeping the email, without changing the page.
+  const [mode, setMode] = useState<AuthMode>(pageMode);
   const [step, setStep] = useState<"email" | "code" | "password">("email");
   // True when the code confirms a password sign-up, not a code sign-in.
   const [confirming, setConfirming] = useState(false);
@@ -170,6 +176,14 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
           goTo("code");
         }}
         onUseCode={() => goTo("email")}
+        onLogIn={(address) => {
+          // The log-in screen offers Google, an email code and a password, so
+          // it works however the existing account was made.
+          setEmail(address.trim());
+          setError(null);
+          setMode("sign-in");
+          goTo("email");
+        }}
       />
     );
   }
@@ -215,7 +229,9 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
   }
 
   return (
-    <AuthLayout key="email" title={copy.title} focusTitle={moved} back={<BackLinkHome />}>
+    // Keyed by mode too, so switching between log-in and sign-up here remounts
+    // the layout and its new title takes focus.
+    <AuthLayout key={`email-${mode}`} title={copy.title} focusTitle={moved} back={<BackLinkHome />}>
       {initialError ? <ErrorMessage>{initialError}</ErrorMessage> : null}
       <GoogleButton href={googleSignInPath(next)} />
       <p className="text-center text-body-s text-navy">or</p>
@@ -241,12 +257,17 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
       </Button>
       <p className="flex min-h-11 items-center justify-center gap-1 text-body-s text-indigo-black">
         {copy.switchText}
-        <Link
-          href={mode === "sign-up" ? signInPath(next) : signUpPath(next)}
-          className="text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        >
-          {copy.switchLink}
-        </Link>
+        {mode === pageMode ? (
+          <Link href={mode === "sign-up" ? signInPath(next) : signUpPath(next)} className={SWITCH_LINK}>
+            {copy.switchLink}
+          </Link>
+        ) : (
+          // Switched here by "Log in instead": the link would point at this same
+          // page, so the form switches back instead.
+          <button type="button" className={SWITCH_LINK} onClick={() => setMode(pageMode)}>
+            {copy.switchLink}
+          </button>
+        )}
       </p>
       <p className="text-center text-body-s text-indigo-black/70">
         Cense saves your email, your quiz answers, the cards you track and which issuer links you open. We never ask for
@@ -265,17 +286,23 @@ type PasswordStepProps = {
   // Log-in with the right password on an account that was never confirmed.
   onUnconfirmed: (email: string) => Promise<void>;
   onUseCode: () => void;
+  // Sign-up with an email that already has an account.
+  onLogIn: (email: string) => void;
 };
 
 // Password sign-up and log-in (the auth frames' password fields and error
 // states), calling Mabelle's PR #24 routes. Until #24 is merged the routes do
 // not exist, and the screen says so instead of failing silently.
-function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnconfirmed, onUseCode }: PasswordStepProps) {
+function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnconfirmed, onUseCode, onLogIn }: PasswordStepProps) {
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [repeat, setRepeat] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string; repeat?: string; form?: string }>({});
   const [pending, setPending] = useState(false);
+  // The email already has an account: offer to log in instead. The counter
+  // moves focus to the email field after every such answer, repeats included.
+  const [accountExists, setAccountExists] = useState(false);
+  const [accountExistsAnswers, setAccountExistsAnswers] = useState(0);
   const signUp = mode === "sign-up";
   const isMounted = useIsMounted();
   const emailRef = useRef<HTMLInputElement>(null);
@@ -287,6 +314,11 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnc
   useEffect(() => {
     emailRef.current?.focus();
   }, []);
+
+  // After the answer, once the field is enabled again, so the message is announced.
+  useEffect(() => {
+    if (accountExistsAnswers > 0) emailRef.current?.focus();
+  }, [accountExistsAnswers]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -331,6 +363,10 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnc
     setPending(false);
     if (result.kind === "unavailable") {
       setErrors({ form: "Password sign-in isn’t available yet. Use Google or an email code." });
+    } else if (result.kind === "failed" && result.code === "account_exists") {
+      setErrors({ email: "An account already uses this email." });
+      setAccountExists(true);
+      setAccountExistsAnswers((count) => count + 1);
     } else if (result.kind === "failed" && result.code === "invalid_credentials") {
       setErrors({ password: "Not quite. Give your password another try." });
     } else {
@@ -350,10 +386,22 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnc
           placeholder="Your email"
           ref={emailRef}
           value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            // A different email may be new: the message and the offer go together.
+            if (accountExists) {
+              setAccountExists(false);
+              setErrors((current) => ({ ...current, email: undefined }));
+            }
+          }}
           error={errors.email}
           disabled={pending}
         />
+        {accountExists ? (
+          <Button variant="link" className="self-start text-violet" onClick={() => onLogIn(email)}>
+            Log in instead
+          </Button>
+        ) : null}
         <PasswordField
           label="Password"
           name="password"

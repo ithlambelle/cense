@@ -60,6 +60,10 @@ export async function mockPending(endpoint: string, body: unknown): Promise<unkn
       return next;
     }
     case "POST /auth/password/signup":
+      // Mocks only: this email shows the account-already-exists state.
+      if ((body as { email: string }).email === "taken@example.com") {
+        throw new MockApiError(409, "account_exists", "An account already uses this email.");
+      }
       return { status: "signed_in" };
     case "POST /auth/password/signin":
       // Mocks only: the password "wrong-password" shows the incorrect-details state.
