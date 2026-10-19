@@ -60,14 +60,34 @@ describe("password sign-up and log-in", () => {
     expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toEqual({ email: "alex@email.com", password: "correcthorse" });
   });
 
-  it("asks the student to confirm their email when sign-up needs it", async () => {
+  it("asks for the confirmation code, then signs the student in, when sign-up needs it", async () => {
+    const fetchFn = server(200, { status: "check_email" });
+    openPassword(SIGN_UP);
+    fill("Email", "alex@email.com");
+    fill("Password", "correcthorse");
+    fill("Repeat password", "correcthorse");
+    fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
+    // The confirmation email carries a 6-digit code, so the code step opens.
+    expect(await screen.findByText("We sent a 6-digit code to alex@email.com to confirm your account.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Resend email in \d+s/ })).toBeTruthy();
+    fetchFn.mockImplementation(async () => Response.json({ status: "signed_in" }, { status: 200 }));
+    fill("Verification code", "123456");
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/start"));
+    expect(fetchFn.mock.calls.at(-1)?.[0]).toBe("/api/v1/auth/email/verify");
+    expect(JSON.parse(String(fetchFn.mock.calls.at(-1)?.[1]?.body))).toEqual({ email: "alex@email.com", code: "123456" });
+  });
+
+  it("goes back to the password step from the confirmation code", async () => {
     server(200, { status: "check_email" });
     openPassword(SIGN_UP);
     fill("Email", "alex@email.com");
     fill("Password", "correcthorse");
     fill("Repeat password", "correcthorse");
     fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
-    expect(await screen.findByText(/Open it to confirm your account/)).toBeTruthy();
+    await screen.findByText(/to confirm your account/);
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByLabelText("Repeat password")).toBeTruthy();
   });
 
   it("says a wrong password plainly on log-in, on the password field", async () => {
@@ -78,6 +98,48 @@ describe("password sign-up and log-in", () => {
     fireEvent.click(screen.getByRole("button", { name: "Log in" }));
     expect(await screen.findByText("Not quite. Give your password another try.")).toBeTruthy();
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("sends a confirmation code when an unconfirmed account logs in with its password", async () => {
+    const fetchFn = server(403, { error: { code: "email_not_confirmed", message: "Confirm your email before signing in." } });
+    openPassword(SIGN_IN);
+    fill("Email", "alex@email.com");
+    fill("Password", "correcthorse");
+    // The code email is held until the test releases it, to check the wait.
+    let sendCode: (value: Response) => void = () => undefined;
+    fetchFn.mockImplementationOnce(async () => Response.json({ error: { code: "email_not_confirmed", message: "x" } }, { status: 403 }));
+    fetchFn.mockImplementationOnce(() => new Promise<Response>((resolve) => (sendCode = resolve)));
+    fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+    await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(2));
+    // While the code is sent, nothing on the form can fire again.
+    expect(screen.getByRole("button", { name: /Log in/ }).getAttribute("aria-busy")).toBe("true");
+    expect((screen.getByRole("button", { name: "Back" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: /Log in/ }));
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    sendCode(Response.json({ status: "code_sent" }, { status: 200 }));
+    expect(await screen.findByText("We sent a 6-digit code to alex@email.com to confirm your account.")).toBeTruthy();
+    expect(fetchFn.mock.calls[1][0]).toBe("/api/v1/auth/email");
+    expect(JSON.parse(String(fetchFn.mock.calls[1][1]?.body))).toEqual({ email: "alex@email.com" });
+    // The code confirms the account and signs the student in.
+    fetchFn.mockImplementationOnce(async () => Response.json({ status: "signed_in" }, { status: 200 }));
+    fill("Verification code", "123456");
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/start"));
+  });
+
+  it("keeps where the student was going after confirming a new account", async () => {
+    const fetchFn = server(200, { status: "check_email" });
+    render(<SignInFlow mode="sign-up" next="/results" initialError={null} />);
+    fireEvent.click(screen.getByRole("button", { name: "Use a password instead" }));
+    fill("Email", "alex@email.com");
+    fill("Password", "correcthorse");
+    fill("Repeat password", "correcthorse");
+    fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
+    await screen.findByText(/to confirm your account/);
+    fetchFn.mockImplementationOnce(async () => Response.json({ status: "signed_in" }, { status: 200 }));
+    fill("Verification code", "123456");
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/results"));
   });
 
   it("says password sign-in isn't available yet while the route is missing", async () => {

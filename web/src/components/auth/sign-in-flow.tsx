@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { AuthLayout, BackButton, BackLinkHome } from "@/components/auth/auth-layout";
 import { GoogleButton } from "@/components/auth/google-button";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { CODE_LENGTH, CodeInput } from "@/components/ui/code-input";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { PasswordField } from "@/components/ui/password-field";
@@ -57,7 +57,9 @@ function useCooldown(): [number, () => void] {
 export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
   const router = useRouter();
   const isMounted = useIsMounted();
-  const [step, setStep] = useState<"email" | "code" | "password" | "confirm-email">("email");
+  const [step, setStep] = useState<"email" | "code" | "password">("email");
+  // True when the code confirms a password sign-up, not a code sign-in.
+  const [confirming, setConfirming] = useState(false);
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [pending, setPending] = useState(false);
@@ -73,11 +75,12 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
     setStep(next);
   }
 
-  async function sendCode(): Promise<boolean> {
+  // `address` is passed when the email state may not have updated yet.
+  async function sendCode(address: string = email): Promise<boolean> {
     setPending(true);
     setError(null);
     setNotice(null);
-    const result = await apiRequest("post", "/auth/email", { body: { email: email.trim() } });
+    const result = await apiRequest("post", "/auth/email", { body: { email: address.trim() } });
     setPending(false);
     if (!result.ok) {
       // With no answer, the code may still have been sent, so the wait starts.
@@ -145,30 +148,29 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
           router.refresh();
         }}
         onConfirmEmail={(address) => {
+          // Supabase emails a 6-digit code to confirm the new account (the same
+          // template as code sign-in), and the code step verifies it, which
+          // confirms the account and signs the student in. The email was just
+          // sent, so the resend wait starts now.
           setEmail(address);
-          goTo("confirm-email");
+          setCode("");
+          setConfirming(true);
+          startCooldown();
+          goTo("code");
+        }}
+        onUnconfirmed={async (address) => {
+          // A password account that was never confirmed: a fresh code confirms
+          // it and signs the student in. A failed send shows on the code step,
+          // with Resend.
+          setEmail(address);
+          setCode("");
+          setConfirming(true);
+          await sendCode(address);
+          if (!isMounted()) return;
+          goTo("code");
         }}
         onUseCode={() => goTo("email")}
       />
-    );
-  }
-
-  if (step === "confirm-email") {
-    return (
-      // A key per step, so each step mounts its own layout and takes focus.
-      <AuthLayout
-        key="confirm-email"
-        title="Check your email"
-        focusTitle
-        back={<BackButton disabled={false} onClick={() => goTo("password")} />}
-      >
-        <p className="text-body-m text-indigo-black">
-          We sent a link to {email.trim()}. Open it to confirm your account, then log in.
-        </p>
-        <Link href={signInPath(next)} className={buttonVariants()}>
-          Go to log in
-        </Link>
-      </AuthLayout>
     );
   }
 
@@ -182,7 +184,8 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
           <BackButton
             disabled={pending}
             onClick={() => {
-              goTo("email");
+              goTo(confirming ? "password" : "email");
+              setConfirming(false);
               setCode("");
               setError(null);
               setNotice(null);
@@ -190,7 +193,11 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
           />
         }
       >
-        <p className="text-body-s text-indigo-black/70">We sent a {CODE_LENGTH}-digit code to {email.trim()}.</p>
+        <p className="text-body-s text-indigo-black/70">
+          {confirming
+            ? `We sent a ${CODE_LENGTH}-digit code to ${email.trim()} to confirm your account.`
+            : `We sent a ${CODE_LENGTH}-digit code to ${email.trim()}.`}
+        </p>
         <form method="post" onSubmit={submitCode} className="flex flex-col gap-4 py-5" noValidate>
           <CodeInput value={code} onChange={setCode} error={error ?? undefined} disabled={pending} />
           <Button type="submit" pending={pending}>
@@ -255,13 +262,15 @@ type PasswordStepProps = {
   initialEmail: string;
   onDone: () => void;
   onConfirmEmail: (email: string) => void;
+  // Log-in with the right password on an account that was never confirmed.
+  onUnconfirmed: (email: string) => Promise<void>;
   onUseCode: () => void;
 };
 
 // Password sign-up and log-in (the auth frames' password fields and error
 // states), calling Mabelle's PR #24 routes. Until #24 is merged the routes do
 // not exist, and the screen says so instead of failing silently.
-function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUseCode }: PasswordStepProps) {
+function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnconfirmed, onUseCode }: PasswordStepProps) {
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [repeat, setRepeat] = useState("");
@@ -311,6 +320,12 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUse
         return;
       }
       onDone();
+      return;
+    }
+    if (result.kind === "failed" && result.code === "email_not_confirmed") {
+      // Stays pending (Log in, Back and the code link disabled) until the code
+      // step replaces this one, so a second tap cannot send a second code.
+      await onUnconfirmed(email);
       return;
     }
     setPending(false);
