@@ -229,7 +229,9 @@ export function SignInFlow({ mode: pageMode, next, initialError }: SignInFlowPro
   }
 
   return (
-    <AuthLayout key="email" title={copy.title} focusTitle={moved} back={<BackLinkHome />}>
+    // Keyed by mode too, so switching between log-in and sign-up here remounts
+    // the layout and its new title takes focus.
+    <AuthLayout key={`email-${mode}`} title={copy.title} focusTitle={moved} back={<BackLinkHome />}>
       {initialError ? <ErrorMessage>{initialError}</ErrorMessage> : null}
       <GoogleButton href={googleSignInPath(next)} />
       <p className="text-center text-body-s text-navy">or</p>
@@ -297,8 +299,10 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnc
   const [repeat, setRepeat] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string; repeat?: string; form?: string }>({});
   const [pending, setPending] = useState(false);
-  // The email already has an account: offer to log in instead.
+  // The email already has an account: offer to log in instead. The counter
+  // moves focus to the email field after every such answer, repeats included.
   const [accountExists, setAccountExists] = useState(false);
+  const [accountExistsAnswers, setAccountExistsAnswers] = useState(0);
   const signUp = mode === "sign-up";
   const isMounted = useIsMounted();
   const emailRef = useRef<HTMLInputElement>(null);
@@ -313,8 +317,8 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnc
 
   // After the answer, once the field is enabled again, so the message is announced.
   useEffect(() => {
-    if (accountExists) emailRef.current?.focus();
-  }, [accountExists]);
+    if (accountExistsAnswers > 0) emailRef.current?.focus();
+  }, [accountExistsAnswers]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -362,6 +366,7 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnc
     } else if (result.kind === "failed" && result.code === "account_exists") {
       setErrors({ email: "An account already uses this email." });
       setAccountExists(true);
+      setAccountExistsAnswers((count) => count + 1);
     } else if (result.kind === "failed" && result.code === "invalid_credentials") {
       setErrors({ password: "Not quite. Give your password another try." });
     } else {
@@ -383,7 +388,11 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnc
           value={email}
           onChange={(event) => {
             setEmail(event.target.value);
-            setAccountExists(false);
+            // A different email may be new: the message and the offer go together.
+            if (accountExists) {
+              setAccountExists(false);
+              setErrors((current) => ({ ...current, email: undefined }));
+            }
           }}
           error={errors.email}
           disabled={pending}
