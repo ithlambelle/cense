@@ -75,11 +75,12 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
     setStep(next);
   }
 
-  async function sendCode(): Promise<boolean> {
+  // `address` is passed when the email state may not have updated yet.
+  async function sendCode(address: string = email): Promise<boolean> {
     setPending(true);
     setError(null);
     setNotice(null);
-    const result = await apiRequest("post", "/auth/email", { body: { email: email.trim() } });
+    const result = await apiRequest("post", "/auth/email", { body: { email: address.trim() } });
     setPending(false);
     if (!result.ok) {
       // With no answer, the code may still have been sent, so the wait starts.
@@ -155,6 +156,17 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
           setCode("");
           setConfirming(true);
           startCooldown();
+          goTo("code");
+        }}
+        onUnconfirmed={async (address) => {
+          // A password account that was never confirmed: a fresh code confirms
+          // it and signs the student in. A failed send shows on the code step,
+          // with Resend.
+          setEmail(address);
+          setCode("");
+          setConfirming(true);
+          await sendCode(address);
+          if (!isMounted()) return;
           goTo("code");
         }}
         onUseCode={() => goTo("email")}
@@ -250,13 +262,15 @@ type PasswordStepProps = {
   initialEmail: string;
   onDone: () => void;
   onConfirmEmail: (email: string) => void;
+  // Log-in with the right password on an account that was never confirmed.
+  onUnconfirmed: (email: string) => Promise<void>;
   onUseCode: () => void;
 };
 
 // Password sign-up and log-in (the auth frames' password fields and error
 // states), calling Mabelle's PR #24 routes. Until #24 is merged the routes do
 // not exist, and the screen says so instead of failing silently.
-function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUseCode }: PasswordStepProps) {
+function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnconfirmed, onUseCode }: PasswordStepProps) {
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [repeat, setRepeat] = useState("");
@@ -306,6 +320,12 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUse
         return;
       }
       onDone();
+      return;
+    }
+    if (result.kind === "failed" && result.code === "email_not_confirmed") {
+      // Stays pending (Log in, Back and the code link disabled) until the code
+      // step replaces this one, so a second tap cannot send a second code.
+      await onUnconfirmed(email);
       return;
     }
     setPending(false);
