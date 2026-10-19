@@ -8,6 +8,7 @@ import type { Card } from "@/lib/cards/catalog";
 import { cardDisplayName, cardTypeLabel } from "@/lib/copy/results";
 import { moneyAmount } from "@/lib/money";
 import { cardPath, ROUTES, signInPath } from "@/lib/routes";
+import { cn } from "@/lib/utils";
 
 // The card list (S13). No hi-fi frame yet: outlined cards in the style of the
 // resource list (Figma 459:643) and the result's "Another option", proposed to
@@ -20,7 +21,7 @@ export function CardListView({ cards, signedIn }: { cards: Card[]; signedIn: boo
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
         {signedIn ? null : <AppHeader backHref={ROUTES.welcome} title="Cards" />}
-        <main className={signedIn ? "flex flex-1 flex-col gap-6 px-6 pt-8 pb-6" : "flex flex-1 flex-col gap-6 px-6 pt-4 pb-6"}>
+        <main className={cn("stagger flex flex-1 flex-col gap-6 px-6 pb-6", signedIn ? "pt-8" : "pt-4")}>
           <div className="flex flex-col gap-2">
             <h1 className="font-heading text-h2 font-medium text-navy">Cards</h1>
             <p className="text-body-m text-indigo-black">

@@ -11,7 +11,7 @@ export function DeniedLayout({ backHref, children }: { backHref: string; childre
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
         <AppHeader backHref={backHref} title="Denial Overview" />
-        <main className="flex flex-1 flex-col gap-[18px] px-6 pt-4 pb-6">{children}</main>
+        <main className="stagger flex flex-1 flex-col gap-[18px] px-6 pt-4 pb-6">{children}</main>
         <div className="sticky bottom-0">
           <BottomNav />
         </div>

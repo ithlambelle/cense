@@ -20,7 +20,7 @@ export function CardDetailView({ card, signedIn }: { card: Card; signedIn: boole
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
         <AppHeader backHref={ROUTES.cards} backLabel="Back to cards" title="Card details" />
-        <main className="flex flex-1 flex-col gap-6 px-6 pt-4 pb-6">
+        <main className="stagger flex flex-1 flex-col gap-6 px-6 pt-4 pb-6">
           <div className="flex flex-col gap-[9px]">
             <div className="flex items-center justify-between gap-3">
               <p className="text-body-s text-indigo-black">{cardTypeLabel(card)}</p>
