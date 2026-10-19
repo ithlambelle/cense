@@ -21,6 +21,24 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },
+  // PostHog through this app's own origin (src/instrumentation-client.ts sets
+  // api_host "/rx"), so ad blockers keep the funnel intact. Static assets
+  // first, then everything else to the ingestion host. The path is not
+  // "posthog" or "analytics" on purpose, as blockers match those. A rewrite
+  // forwards every request header, so src/proxy.ts passes on only an allowlist.
+  // The CSP above only sets frame-ancestors, so nothing blocks these
+  // same-origin requests or PostHog's lazily loaded replay script.
+  // https://posthog.com/docs/advanced/proxy/nextjs
+  async rewrites() {
+    return [
+      { source: "/rx/static/:path*", destination: "https://us-assets.i.posthog.com/static/:path*" },
+      { source: "/rx/array/:path*", destination: "https://us-assets.i.posthog.com/array/:path*" },
+      { source: "/rx/:path*", destination: "https://us.i.posthog.com/:path*" },
+    ];
+  },
+  // PostHog's API paths end in a slash (/e/, /flags/); without this Next
+  // redirects them and the browser drops the request body.
+  skipTrailingSlashRedirect: true,
 };
 
 export default nextConfig;

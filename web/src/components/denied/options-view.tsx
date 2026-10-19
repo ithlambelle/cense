@@ -1,7 +1,7 @@
 import FileText from "@gravity-ui/icons/FileText";
 import Image from "next/image";
-import Link from "next/link";
 
+import { TrackedLink } from "@/components/analytics/tracked-link";
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { Notice } from "@/components/denied/parts";
 import { choiceRowClass } from "@/components/ui/choice-row";
@@ -12,10 +12,10 @@ import { deniedPath, ROUTES, type DeniedStep } from "@/lib/routes";
 // student, and the issuer's letter can take up to 30 days (Regulation B, 12 CFR
 // 1002.9(a)(1)), so many students can't judge the reason yet. Only "something
 // looks wrong" leads to asking the issuer for a second look.
-const LETTER_CHOICES: { label: string; step: DeniedStep }[] = [
-  { label: "Yes, it looks right", step: "plan" },
-  { label: "I don’t have the letter yet", step: "plan" },
-  { label: "Something looks wrong", step: "fixable" },
+const LETTER_CHOICES: { label: string; step: DeniedStep; answer: "looks_right" | "no_letter" | "looks_wrong" }[] = [
+  { label: "Yes, it looks right", step: "plan", answer: "looks_right" },
+  { label: "I don’t have the letter yet", step: "plan", answer: "no_letter" },
+  { label: "Something looks wrong", step: "fixable", answer: "looks_wrong" },
 ];
 
 // Denial Options (Figma 458:129), the start of the rejection guide (S21).
@@ -40,9 +40,13 @@ export function DeniedOptionsView({ applicationId }: { applicationId: string | n
         <ul className="flex flex-col gap-3">
           {LETTER_CHOICES.map((choice) => (
             <li key={choice.label}>
-              <Link href={deniedPath(choice.step, applicationId)} className={choiceRowClass}>
+              <TrackedLink
+                href={deniedPath(choice.step, applicationId)}
+                className={choiceRowClass}
+                track={{ event: "denial_letter_answered", props: { answer: choice.answer } }}
+              >
                 {choice.label}
-              </Link>
+              </TrackedLink>
             </li>
           ))}
         </ul>

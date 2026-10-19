@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { TrackOnMount } from "@/components/analytics/track-on-mount";
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { deniedPath } from "@/lib/routes";
@@ -41,6 +42,7 @@ const STEPS: Step[] = [
 export function DeniedPlanView({ applicationId }: { applicationId: string | null }) {
   return (
     <DeniedLayout backHref={deniedPath("options", applicationId)}>
+      <TrackOnMount event="denial_plan_viewed" />
       <div className="flex flex-col gap-2">
         <h1 className="font-heading text-h1 font-medium text-navy">A steady five-step plan</h1>
         <p className="text-body-m text-indigo-black">Take these in order. You do not need to solve everything today.</p>

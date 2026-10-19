@@ -7,6 +7,7 @@ import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
+import { track } from "@/lib/analytics";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import { ROUTES, signInPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
@@ -39,6 +40,8 @@ function AddCardForm({ onAdded, onCancel, onSignedOut }: AddCardFormProps) {
     // The student left while it saved: the answer must not move them again.
     if (!isMounted()) return;
     if (result.ok) {
+      // Never the card name the student typed.
+      track("card_added", { method: "manual" });
       onAdded();
       return;
     }

@@ -7,6 +7,20 @@ import { IssuerActions } from "./issuer-actions";
 const push = vi.fn();
 const router = { push, replace: vi.fn(), refresh: vi.fn() };
 vi.mock("next/navigation", () => ({ usePathname: () => "/home", useRouter: () => router }));
+// Records each event, and still runs the real track(), which throws on an
+// event that does not match the catalog.
+const track = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/analytics")>();
+  return {
+    ...actual,
+    track: (...args: Parameters<typeof actual.track>) => {
+      track(...args);
+      actual.track(...args);
+    },
+  };
+});
+const CLICK_ID = "00000000-0000-4000-8000-0000000000c1";
 
 const APPLY = "Apply on Sample Bank’s site: Sample Bank Card";
 const PREAPPROVAL = "Check if you’re preapproved: Sample Bank Card";
@@ -61,7 +75,7 @@ function answer(status: number, body: unknown) {
 }
 
 function click(url: string) {
-  return { id: "1", cardId: card.id, kind: "apply", url, clickedAt: "2026-10-11T00:00:00Z" };
+  return { id: CLICK_ID, cardId: card.id, kind: "apply", url, clickedAt: "2026-10-11T00:00:00Z" };
 }
 
 let tab: FakeTab;
@@ -70,6 +84,7 @@ let open: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   sessionStorage.clear();
   push.mockClear();
+  track.mockClear();
   tab = fakeTab();
   open = vi.fn(() => tab);
   vi.stubGlobal("open", open);
@@ -113,6 +128,12 @@ describe("IssuerActions", () => {
     await waitFor(() => expect(tab.location.replace).toHaveBeenCalledWith("https://issuer.example/apply"));
     expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toEqual({ cardId: "sample-card", kind: "apply" });
     expect(await screen.findByText("Did you finish applying?")).toBeTruthy();
+    // A copy of the saved issuer_clicks row: its id and database time.
+    expect(track).toHaveBeenCalledExactlyOnceWith(
+      "issuer_link_clicked",
+      { click_id: CLICK_ID, card_id: "sample-card", link_type: "apply" },
+      { uuid: CLICK_ID, timestamp: new Date("2026-10-11T00:00:00Z") },
+    );
   });
 
   it("does not ask about applying after a preapproval check", async () => {
@@ -209,6 +230,22 @@ describe("IssuerActions", () => {
       status: "applied",
       creditLimitCents: null,
     });
+    expect(track).toHaveBeenLastCalledWith("outcome_reported", { outcome: "applied", source: "did_you_apply" });
+  });
+
+  it("counts Yes once, only after the application is saved, when a first save fails", async () => {
+    const fetchFn = answer(201, click("https://issuer.example/apply"));
+    await reachQuestion(fetchFn);
+    fetchFn.mockImplementationOnce(async () => Response.json({ error: { code: "server_error", message: "Try again." } }, { status: 500 }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, I finished" }));
+    expect(await screen.findByText("Try again.")).toBeTruthy();
+    expect(track).not.toHaveBeenCalledWith("outcome_reported", expect.anything());
+    fetchFn.mockImplementationOnce(async () => Response.json({}, { status: 201 }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, I finished" }));
+    expect((await screen.findByRole("status")).textContent).toContain("Saved as applied.");
+    expect(track.mock.calls.filter(([event]) => event === "outcome_reported")).toEqual([
+      ["outcome_reported", { outcome: "applied", source: "did_you_apply" }],
+    ]);
   });
 
   it("says a card that is already tracked is on Home, without claiming a new save", async () => {
@@ -219,6 +256,8 @@ describe("IssuerActions", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Yes, I finished" }));
     expect((await screen.findByRole("status")).textContent).toContain("already on Home");
+    // Nothing new was saved, so it is not a new report.
+    expect(track).not.toHaveBeenCalledWith("outcome_reported", expect.anything());
   });
 
   it("saves nothing and brings the buttons back on Not yet", async () => {
@@ -226,6 +265,7 @@ describe("IssuerActions", () => {
     await reachQuestion(fetchFn);
     fireEvent.click(screen.getByRole("button", { name: "Not yet" }));
     expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(track).toHaveBeenLastCalledWith("outcome_reported", { outcome: "didnt_apply", source: "did_you_apply" });
     expect(screen.getByRole("button", { name: "Apply on Sample Bank’s site: Sample Bank Card" })).toBeTruthy();
   });
 

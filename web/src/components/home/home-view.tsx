@@ -14,6 +14,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import { findCard } from "@/lib/cards/catalog";
 import { cardDisplayName, cardTypeLabel, NO_CARD_FALLBACK, RESULT_HEADLINES, TIER_LABELS } from "@/lib/copy/results";
+import { SENSITIVE } from "@/lib/analytics";
 import type { Application } from "@/lib/api/application";
 import type { HomeState } from "@/lib/home/state";
 import { moneyAmount } from "@/lib/money";
@@ -231,7 +232,7 @@ function StatusCard({
           <h2 className="font-heading text-h6 font-medium">{title}</h2>
           <p className="text-body-s">{subtitle}</p>
         </div>
-        <StatusPill>{pill}</StatusPill>
+        <StatusPill className={SENSITIVE}>{pill}</StatusPill>
       </div>
       <div aria-hidden="true" className="flex h-28 flex-col justify-between rounded-input bg-off-white p-4">
         <div className="flex items-start justify-between gap-3">
@@ -248,7 +249,7 @@ function StatusCard({
         {rows.map((row) => (
           <div key={row.label} className="flex items-start justify-between gap-3 text-body-s">
             <dt className="text-indigo-black">{row.label}</dt>
-            <dd className="font-semibold text-navy">{row.value}</dd>
+            <dd className={cn(SENSITIVE, "font-semibold text-navy")}>{row.value}</dd>
           </div>
         ))}
       </dl>
@@ -274,7 +275,8 @@ function NextStep({
         <IconComponent aria-hidden="true" width={22} height={22} className="shrink-0 text-violet" />
         <div className="flex min-w-0 flex-1 flex-col gap-1 text-indigo-black">
           <h2 className="font-heading text-h6 font-medium">{title}</h2>
-          <p className="text-body-s">{body}</p>
+          {/* Can be a fit reason, which restates the student's answers. */}
+          <p className={cn(SENSITIVE, "text-body-s")}>{body}</p>
         </div>
       </div>
       <Link href={action.href} className={buttonVariants()}>
@@ -335,7 +337,7 @@ function OtherCards({ applications }: { applications: Application[] }) {
               className="flex items-center justify-between gap-3 rounded-card border border-hairline bg-white px-5 py-4 outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               <span className="min-w-0 truncate font-heading text-h6 font-medium text-navy">{application.cardName}</span>
-              <StatusPill>{PILLS[application.status]}</StatusPill>
+              <StatusPill className={SENSITIVE}>{PILLS[application.status]}</StatusPill>
             </Link>
           </li>
         ))}

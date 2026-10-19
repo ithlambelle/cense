@@ -9,6 +9,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { NoteLine } from "@/components/ui/note";
 import { Sheet } from "@/components/ui/sheet";
+import { track } from "@/lib/analytics";
 import { apiRequest, failureMessage, isUnauthorized, type ApiData } from "@/lib/api-client/client";
 import {
   applyLabel,
@@ -122,6 +123,13 @@ export function IssuerActions({ card, notes, signedIn }: IssuerActionsProps) {
       setError(failureMessage(result));
       return;
     }
+    // A copy of the issuer_clicks row the API just saved (S46): its id is the
+    // event id, so PostHog can be checked against Postgres.
+    track(
+      "issuer_link_clicked",
+      { click_id: result.data.id, card_id: card.id, link_type: kind },
+      { uuid: result.data.id, timestamp: new Date(result.data.clickedAt) },
+    );
     const url = safeIssuerUrl(result.data.url);
     if (!url) {
       tab?.close();
@@ -146,6 +154,9 @@ export function IssuerActions({ card, notes, signedIn }: IssuerActionsProps) {
       body: { cardId: card.id, cardName: cardDisplayName(card), status: "applied", creditLimitCents: null },
     });
     if (result.ok) {
+      // Only once the application is saved: a retry after a failed save, or a
+      // card that was already tracked (409 below), is not a second report.
+      track("outcome_reported", { outcome: "applied", source: "did_you_apply" });
       rememberWaiting(card.id, false);
       setStage({ name: "saved" });
       router.refresh();
@@ -182,6 +193,7 @@ export function IssuerActions({ card, notes, signedIn }: IssuerActionsProps) {
           variant="secondary"
           disabled={stage.name === "saving"}
           onClick={() => {
+            track("outcome_reported", { outcome: "didnt_apply", source: "did_you_apply" });
             rememberWaiting(card.id, false);
             setError(null);
             setStage({ name: "idle" });

@@ -7,6 +7,7 @@ import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { FactChip } from "@/components/ui/fact-chip";
 import { NoteLine } from "@/components/ui/note";
+import { TrackOnMount } from "@/components/analytics/track-on-mount";
 import {
   cardDisplayName,
   cardTypeLabel,
@@ -15,6 +16,7 @@ import {
   RESULT_HEADLINES,
   TIER_LABELS,
 } from "@/lib/copy/results";
+import { SENSITIVE } from "@/lib/analytics";
 import { moneyAmount } from "@/lib/money";
 import { QUESTIONS } from "@/lib/quiz/questions";
 import type { ResultView } from "@/lib/results/compute";
@@ -40,8 +42,9 @@ export function ResultsView({ view }: { view: ResultView }) {
   if (view.kind === "no_card") {
     return (
       <ResultLayout title={RESULT_HEADLINES.not_yet} subtitle="Based on your answers" footer>
+        <TrackOnMount event="recommendation_viewed" props={{ tier: "not_yet", card_id: null, has_alternative: false }} />
         <div className="rounded-card bg-off-white p-5">
-          <p className="text-body-m text-navy">{view.reason ?? NO_CARD_FALLBACK}</p>
+          <p className={cn(SENSITIVE, "text-body-m text-navy")}>{view.reason ?? NO_CARD_FALLBACK}</p>
         </div>
       </ResultLayout>
     );
@@ -51,6 +54,10 @@ export function ResultsView({ view }: { view: ResultView }) {
 
   return (
     <ResultLayout title={RESULT_HEADLINES[fit.tier]} subtitle="Based on your answers" footer>
+      <TrackOnMount
+        event="recommendation_viewed"
+        props={{ tier: fit.tier, card_id: card.id, has_alternative: alternative !== null }}
+      />
       <section aria-labelledby="top-match" className="flex flex-col gap-4">
         <h2 id="top-match" className="font-heading text-h6 font-medium text-indigo-black">
           Top match
@@ -68,7 +75,8 @@ export function ResultsView({ view }: { view: ResultView }) {
             <h4 className="font-heading text-h6 font-medium text-navy">
               {fit.tier === "likely_fit" ? "Why it fits you" : "What to know"}
             </h4>
-            <ul className="flex flex-col gap-2">
+            {/* The reasons restate the student's answers. */}
+            <ul className={cn(SENSITIVE, "flex flex-col gap-2")}>
               {fit.reasons.map((reason) => (
                 <li key={reason} className="flex items-start gap-3 text-body-m text-navy">
                   {/* A green check only for a likely fit. A stretch's reasons are cautions. */}
@@ -117,7 +125,7 @@ export function ResultsView({ view }: { view: ResultView }) {
             </span>
             <span className="text-body-s text-indigo-black">{cardTypeLabel(alternative.card)}</span>
             {alternative.fit.reasons[0] ? (
-              <span className="text-body-s text-navy">{alternative.fit.reasons[0]}</span>
+              <span className={cn(SENSITIVE, "text-body-s text-navy")}>{alternative.fit.reasons[0]}</span>
             ) : null}
           </Link>
         </section>

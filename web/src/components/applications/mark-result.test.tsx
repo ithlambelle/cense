@@ -9,6 +9,11 @@ import { limitToCents, MarkResult } from "./mark-result";
 const push = vi.fn();
 const replace = vi.fn();
 vi.mock("next/navigation", () => ({ usePathname: () => "/home", useRouter: () => ({ push, replace, refresh: vi.fn() }) }));
+const track = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/analytics", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/analytics")>()),
+  track,
+}));
 
 const ID = "00000000-0000-4000-8000-000000000001";
 const application: Application = {
@@ -34,6 +39,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   push.mockClear();
   replace.mockClear();
+  track.mockClear();
 });
 
 describe("limitToCents", () => {
@@ -74,6 +80,8 @@ describe("MarkResult", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(push).toHaveBeenCalledWith("/home"));
     expect(sent(fetchFn)).toEqual({ status: "approved", creditLimitCents: 50000 });
+    // The status only: the credit limit never reaches analytics.
+    expect(track).toHaveBeenCalledExactlyOnceWith("outcome_reported", { outcome: "approved", source: "mark_result" });
   });
 
   it("keeps the saved limit when an approved card is marked again", async () => {
