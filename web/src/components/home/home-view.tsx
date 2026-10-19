@@ -27,7 +27,7 @@ type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 // Home for MVP1 (Ben, 2026-10-16): card status and the next step, built from
 // "Home · rejected card" (Figma 224:2675). Only the rejected state is drawn;
 // the others reuse its parts and are proposed to design.
-export function HomeView({ state }: { state: HomeState }) {
+export function HomeView({ state, name = null }: { state: HomeState; name?: string | null }) {
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
@@ -42,7 +42,7 @@ export function HomeView({ state }: { state: HomeState }) {
           <p className="flex-1 text-right text-body-s text-indigo-black">Home</p>
         </header>
         <main className="stagger flex flex-1 flex-col gap-[18px] px-6 pt-4 pb-6">
-          <HomeContent state={state} />
+          <HomeContent state={state} name={name} />
         </main>
         <div className="sticky bottom-0">
           <BottomNav />
@@ -52,11 +52,11 @@ export function HomeView({ state }: { state: HomeState }) {
   );
 }
 
-function HomeContent({ state }: { state: HomeState }) {
+function HomeContent({ state, name }: { state: HomeState; name: string | null }) {
   if (state.kind === "no_quiz") {
     return (
       <>
-        <Greeting subtitle="Let’s find your first card." />
+        <Greeting name={name} subtitle="Let’s find your first card." />
         <QuizPrompt started={state.started} />
         <Link
           href={ROUTES.addCard}
@@ -71,7 +71,7 @@ function HomeContent({ state }: { state: HomeState }) {
   if (state.kind === "no_card") {
     return (
       <>
-        <Greeting subtitle="Here’s where your card search stands." />
+        <Greeting name={name} subtitle="Here’s where your card search stands." />
         <NextStep
           icon={Comment}
           title="No card fits yet"
@@ -90,7 +90,7 @@ function HomeContent({ state }: { state: HomeState }) {
     const likely = fit.tier === "likely_fit";
     return (
       <>
-        <Greeting subtitle={`${RESULT_HEADLINES[fit.tier]}.`} />
+        <Greeting name={name} subtitle={`${RESULT_HEADLINES[fit.tier]}.`} />
         <StatusCard
           title={cardDisplayName(card)}
           subtitle={cardTypeLabel(card)}
@@ -124,7 +124,7 @@ function HomeContent({ state }: { state: HomeState }) {
   const { primary, others } = state;
   return (
     <>
-      <Greeting subtitle={subtitleFor(primary)} />
+      <Greeting name={name} subtitle={subtitleFor(primary)} />
       <TrackedCard application={primary} />
       <TrackedNextStep application={primary} />
       {others.length > 0 ? <OtherCards applications={others} /> : null}
@@ -156,7 +156,14 @@ function TrackedCard({ application }: { application: Application }) {
       ? [
           {
             label: "Credit limit",
-            value: application.creditLimitCents === null ? "Not added" : moneyAmount(application.creditLimitCents),
+            value: application.creditLimitCents === null ? "Add" : moneyAmount(application.creditLimitCents),
+            // Opens the result screen with "I was approved" chosen and the limit field ready.
+            href: applicationPath(application.id),
+            // Starts with the visible text, so voice control users can say what they see (WCAG 2.5.3).
+            linkLabel:
+              application.creditLimitCents === null
+                ? "Add your credit limit"
+                : `${moneyAmount(application.creditLimitCents)}, change your credit limit`,
           },
           { label: "First-month card plan", value: "Not started" },
         ]
@@ -209,7 +216,7 @@ function TrackedNextStep({ application }: { application: Application }) {
   );
 }
 
-type Row = { label: string; value: string };
+type Row = { label: string; value: string; href?: string; linkLabel?: string };
 
 // The glowing card on Home: name, status pill, card preview and detail rows.
 function StatusCard({
@@ -249,7 +256,19 @@ function StatusCard({
         {rows.map((row) => (
           <div key={row.label} className="flex items-start justify-between gap-3 text-body-s">
             <dt className="text-indigo-black">{row.label}</dt>
-            <dd className={cn(SENSITIVE, "font-semibold text-navy")}>{row.value}</dd>
+            <dd className={cn(SENSITIVE, "font-semibold text-navy")}>
+              {row.href ? (
+                <Link
+                  href={row.href}
+                  aria-label={row.linkLabel}
+                  className="inline-flex min-h-6 items-center text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                >
+                  {row.value}
+                </Link>
+              ) : (
+                row.value
+              )}
+            </dd>
           </div>
         ))}
       </dl>

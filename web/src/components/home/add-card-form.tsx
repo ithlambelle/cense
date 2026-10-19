@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { track } from "@/lib/analytics";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
+import { LIMIT_ERROR, limitToCents } from "@/lib/credit-limit";
 import { ROUTES, signInPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
 
@@ -18,24 +19,25 @@ type AddCardFormProps = {
   onSignedOut: () => void;
 };
 
-// For a student who already has a card. Only its name is asked for.
+// For a student who already has a card: its name, and its limit if they know it.
 function AddCardForm({ onAdded, onCancel, onSignedOut }: AddCardFormProps) {
   const isMounted = useIsMounted();
   const [cardName, setCardName] = useState("");
+  const [limit, setLimit] = useState("");
+  const [limitError, setLimitError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (pending) return;
-    if (cardName.trim() === "") {
-      setError("Enter the card’s name.");
-      return;
-    }
+    const creditLimitCents = limitToCents(limit);
+    setError(cardName.trim() === "" ? "Enter the card’s name." : null);
+    setLimitError(creditLimitCents === undefined ? LIMIT_ERROR : null);
+    if (cardName.trim() === "" || creditLimitCents === undefined) return;
     setPending(true);
-    setError(null);
     const result = await apiRequest("post", "/applications", {
-      body: { cardId: null, cardName: cardName.trim(), status: "approved", creditLimitCents: null },
+      body: { cardId: null, cardName: cardName.trim(), status: "approved", creditLimitCents },
     });
     // The student left while it saved: the answer must not move them again.
     if (!isMounted()) return;
@@ -69,6 +71,18 @@ function AddCardForm({ onAdded, onCancel, onSignedOut }: AddCardFormProps) {
         value={cardName}
         onChange={(event) => setCardName(event.target.value)}
         error={error ?? undefined}
+        disabled={pending}
+      />
+      <TextField
+        label="Credit limit (optional)"
+        hint="You can find it in the issuer’s app or on your statement. Leave it blank if you don’t know."
+        name="creditLimit"
+        inputMode="decimal"
+        autoComplete="off"
+        placeholder="$500"
+        value={limit}
+        onChange={(event) => setLimit(event.target.value)}
+        error={limitError ?? undefined}
         disabled={pending}
       />
       <Button type="submit" pending={pending}>

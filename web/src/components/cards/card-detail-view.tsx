@@ -2,6 +2,7 @@ import CircleInfo from "@gravity-ui/icons/CircleInfo";
 import Image from "next/image";
 
 import { IssuerActions } from "@/components/cards/issuer-actions";
+import { IssuerBadge } from "@/components/cards/issuer-badge";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { FactChip } from "@/components/ui/fact-chip";
@@ -27,7 +28,10 @@ export function CardDetailView({ card, signedIn }: { card: Card; signedIn: boole
               <Image src="/icons/card-symbol.svg" alt="" width={24} height={18} />
             </div>
             <h1 className="font-heading text-h3 font-medium text-navy">{cardDisplayName(card)}</h1>
-            <p className="text-body-s text-indigo-black/70">{card.brand}</p>
+            <div className="flex items-center gap-2">
+              <IssuerBadge brand={card.brand} className="size-7 rounded-[8px]" />
+              <p className="text-body-s text-indigo-black/70">{card.brand}</p>
+            </div>
           </div>
 
           <dl className="flex flex-wrap gap-3">

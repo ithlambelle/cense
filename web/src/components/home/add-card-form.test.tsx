@@ -42,4 +42,24 @@ describe("AddCardScreen", () => {
     expect(push).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Add card" }).hasAttribute("disabled")).toBe(false);
   });
+
+  it("sends the credit limit in cents when one is given", async () => {
+    const fetchFn = vi.fn<typeof fetch>(async () => Response.json({}, { status: 201 }));
+    vi.stubGlobal("fetch", fetchFn);
+    render(<AddCardScreen />);
+    fireEvent.change(screen.getByLabelText("Credit limit (optional)"), { target: { value: "$1,500" } });
+    addCard("Student Cash Card");
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/home"));
+    expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body)).creditLimitCents).toBe(150000);
+  });
+
+  it("asks again for a limit it cannot read, and saves nothing", () => {
+    const fetchFn = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchFn);
+    render(<AddCardScreen />);
+    fireEvent.change(screen.getByLabelText("Credit limit (optional)"), { target: { value: "five hundred" } });
+    addCard("Student Cash Card");
+    expect(screen.getByText("Enter the limit in dollars, like 500 or 1,500.")).toBeTruthy();
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
 });

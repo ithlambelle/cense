@@ -9,7 +9,8 @@ function greetingFor(hour: number): string {
   return "Good evening";
 }
 
-export function Greeting({ subtitle }: { subtitle: string }) {
+// With the student's name when they have added one: "Good morning, Maya".
+export function Greeting({ name = null, subtitle }: { name?: string | null; subtitle: string }) {
   const date = useNow();
 
   return (
@@ -18,7 +19,10 @@ export function Greeting({ subtitle }: { subtitle: string }) {
         {date ? date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }) : ""}
       </p>
       <div className="flex flex-col gap-2">
-        <h1 className="font-heading text-h1 font-medium text-navy">{date ? greetingFor(date.getHours()) : "Hello"}</h1>
+        <h1 className="font-heading text-h1 font-medium text-navy">
+          {date ? greetingFor(date.getHours()) : "Hello"}
+          {name ? `, ${name}` : ""}
+        </h1>
         <p className="text-body-m text-indigo-black">{subtitle}</p>
       </div>
     </div>
