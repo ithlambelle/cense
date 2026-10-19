@@ -492,7 +492,7 @@ paths:
                 password:
                   type: string
                   minLength: 8
-                  maxLength: 128
+                  maxLength: 72
               required:
                 - email
                 - password
@@ -515,6 +515,12 @@ paths:
                 additionalProperties: false
         "400":
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Rate limited
           content:
             application/json:
               schema:
@@ -573,6 +579,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Email not confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /auth/password/reset:
     post:
       operationId: requestPasswordReset
@@ -617,6 +635,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /auth/password/reset/verify:
+    get:
+      operationId: verifyPasswordReset
+      summary: Verify a password reset link
+      parameters:
+        - schema:
+            type: string
+          required: false
+          name: token_hash
+          in: query
+        - schema:
+            type: string
+          required: false
+          name: code
+          in: query
+      responses:
+        "303":
+          description: Redirect to reset form or request a new link
   /auth/password/reset/confirm:
     post:
       operationId: confirmPasswordReset
@@ -632,7 +668,7 @@ paths:
                 password:
                   type: string
                   minLength: 8
-                  maxLength: 128
+                  maxLength: 72
               required:
                 - password
               additionalProperties: false
@@ -659,6 +695,12 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "401":
           description: Reset session required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Recovery session required
           content:
             application/json:
               schema:

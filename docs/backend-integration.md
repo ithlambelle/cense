@@ -25,11 +25,12 @@ Sign-up returns `signed_in` when confirmation is disabled, or `check_email`
 when the student must confirm their address. Sign-in returns `401`
 `invalid_credentials` for an incorrect email or password. To reset a password,
 send `{ "email": "..." }` to `POST /api/v1/auth/password/reset`. The emailed
-link returns through the existing auth callback and then opens
+link returns through `/api/v1/auth/password/reset/verify` and then opens
 `/reset-password`. That screen sends `{ "password": "..." }` to
 `POST /api/v1/auth/password/reset/confirm` with the recovery session cookie.
-The password fields require 8 to 128 characters for sign-up and reset.
-The reset screen is owned by the frontend team.
+The password fields require at least 8 characters and at most 72 UTF-8 bytes
+for sign-up and reset. Only a session with a `recovery` authentication method
+can confirm a reset.
 
 The Supabase project needs Google OAuth enabled, the app origin and callback
 URL allowed in Auth redirect settings, and an email template using
@@ -37,8 +38,12 @@ URL allowed in Auth redirect settings, and an email template using
 `NEXT_PUBLIC_SUPABASE_URL` and either `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 or the existing `NEXT_PUBLIC_SUPABASE_ANON_KEY` in local and Vercel settings.
 Only the dev project should be used by local and preview environments.
-Password confirmation and reset email delivery also require the callback URL
-in Supabase Auth redirect settings and a working SMTP configuration.
+Password confirmation and reset email delivery also require the reset verify URL
+in Supabase Auth redirect settings and a working SMTP configuration. For links
+that open in another browser, set the hosted Supabase **Reset password** email
+template link to `{{ .RedirectTo }}?token_hash={{ .TokenHash }}`. This lets the
+verify route establish the recovery session without a PKCE cookie. The default
+Supabase link still works in the requesting browser via its `code` parameter.
 
 ## Current API readiness
 
