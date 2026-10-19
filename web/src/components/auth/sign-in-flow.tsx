@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { AuthLayout, BackButton, BackLinkHome } from "@/components/auth/auth-layout";
 import { GoogleButton } from "@/components/auth/google-button";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { CODE_LENGTH, CodeInput } from "@/components/ui/code-input";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { PasswordField } from "@/components/ui/password-field";
@@ -57,7 +57,9 @@ function useCooldown(): [number, () => void] {
 export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
   const router = useRouter();
   const isMounted = useIsMounted();
-  const [step, setStep] = useState<"email" | "code" | "password" | "confirm-email">("email");
+  const [step, setStep] = useState<"email" | "code" | "password">("email");
+  // True when the code confirms a password sign-up, not a code sign-in.
+  const [confirming, setConfirming] = useState(false);
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [pending, setPending] = useState(false);
@@ -145,30 +147,18 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
           router.refresh();
         }}
         onConfirmEmail={(address) => {
+          // Supabase emails a 6-digit code to confirm the new account (the same
+          // template as code sign-in), and the code step verifies it, which
+          // confirms the account and signs the student in. The email was just
+          // sent, so the resend wait starts now.
           setEmail(address);
-          goTo("confirm-email");
+          setCode("");
+          setConfirming(true);
+          startCooldown();
+          goTo("code");
         }}
         onUseCode={() => goTo("email")}
       />
-    );
-  }
-
-  if (step === "confirm-email") {
-    return (
-      // A key per step, so each step mounts its own layout and takes focus.
-      <AuthLayout
-        key="confirm-email"
-        title="Check your email"
-        focusTitle
-        back={<BackButton disabled={false} onClick={() => goTo("password")} />}
-      >
-        <p className="text-body-m text-indigo-black">
-          We sent a link to {email.trim()}. Open it to confirm your account, then log in.
-        </p>
-        <Link href={signInPath(next)} className={buttonVariants()}>
-          Go to log in
-        </Link>
-      </AuthLayout>
     );
   }
 
@@ -182,7 +172,8 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
           <BackButton
             disabled={pending}
             onClick={() => {
-              goTo("email");
+              goTo(confirming ? "password" : "email");
+              setConfirming(false);
               setCode("");
               setError(null);
               setNotice(null);
@@ -190,7 +181,11 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
           />
         }
       >
-        <p className="text-body-s text-indigo-black/70">We sent a {CODE_LENGTH}-digit code to {email.trim()}.</p>
+        <p className="text-body-s text-indigo-black/70">
+          {confirming
+            ? `We sent a ${CODE_LENGTH}-digit code to ${email.trim()} to confirm your account.`
+            : `We sent a ${CODE_LENGTH}-digit code to ${email.trim()}.`}
+        </p>
         <form method="post" onSubmit={submitCode} className="flex flex-col gap-4 py-5" noValidate>
           <CodeInput value={code} onChange={setCode} error={error ?? undefined} disabled={pending} />
           <Button type="submit" pending={pending}>
