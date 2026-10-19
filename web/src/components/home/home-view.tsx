@@ -9,6 +9,7 @@ import type { ComponentType, ReactNode, SVGProps } from "react";
 
 import { Greeting } from "@/components/home/greeting";
 import { UpdatedLine } from "@/components/home/updated-line";
+import { MascotStill } from "@/components/mascot/mascot";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -37,7 +38,7 @@ export function HomeView({ state }: { state: HomeState }) {
             aria-label="Your account"
             className="rounded-input outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            <Image src="/mascot/penny-avatar.png" alt="" width={40} height={40} className="rounded-input" />
+            <Image src="/mascot/astro-pig/avatar.png" alt="" width={40} height={40} className="rounded-input" />
           </Link>
           <p className="flex-1 text-right text-body-s text-indigo-black">Home</p>
         </header>
@@ -56,7 +57,10 @@ function HomeContent({ state }: { state: HomeState }) {
   if (state.kind === "no_quiz") {
     return (
       <>
-        <Greeting subtitle="Let’s find your first card." />
+        <div className="flex items-end justify-between gap-3">
+          <Greeting subtitle="Let’s find your first card." />
+          <MascotStill pose="idle" size={72} className="shrink-0" />
+        </div>
         <QuizPrompt started={state.started} />
         <Link
           href={ROUTES.addCard}

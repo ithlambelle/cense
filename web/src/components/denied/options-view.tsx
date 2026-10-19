@@ -1,9 +1,9 @@
 import FileText from "@gravity-ui/icons/FileText";
-import Image from "next/image";
 
 import { TrackedLink } from "@/components/analytics/tracked-link";
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { Notice } from "@/components/denied/parts";
+import { Mascot } from "@/components/mascot/mascot";
 import { choiceRowClass } from "@/components/ui/choice-row";
 import { deniedPath, ROUTES, type DeniedStep } from "@/lib/routes";
 
@@ -24,7 +24,7 @@ export function DeniedOptionsView({ applicationId }: { applicationId: string | n
     <DeniedLayout backHref={ROUTES.home}>
       <h1 className="text-center font-heading text-h1 font-medium text-navy">Denial Options</h1>
       <div className="flex justify-center p-2.5">
-        <Image src="/mascot/penny.png" alt="" width={214} height={214} className="rotate-[0.84deg]" priority />
+        <Mascot pose="sad" size={214} priority />
       </div>
       <p className="text-body-m text-indigo-black">
         A common reason first applications are denied is that lenders can’t see enough history yet. We’ll help you check the
