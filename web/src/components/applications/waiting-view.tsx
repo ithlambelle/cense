@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
+import { MascotStill } from "@/components/mascot/mascot";
 import type { Application } from "@/lib/api/application";
 import { applicationPath, ROUTES } from "@/lib/routes";
 
@@ -18,7 +19,10 @@ export function WaitingView({ application }: { application: Application }) {
         <AppHeader backHref={applicationPath(id)} title="Your application" />
         <main className="stagger flex flex-1 flex-col gap-6 px-6 pt-4 pb-6">
           <div className="flex flex-col gap-2">
-            <h1 className="font-heading text-h2 font-medium text-navy">Still waiting is normal</h1>
+            <div className="flex items-center justify-between gap-3">
+              <h1 className="font-heading text-h2 font-medium text-navy">Still waiting is normal</h1>
+              <MascotStill pose="idle" size={80} className="shrink-0" float />
+            </div>
             <p className="text-body-m text-indigo-black">
               Not every application gets an answer right away. Here’s what to expect for {application.cardName}.
             </p>

@@ -9,6 +9,7 @@ import type { ComponentType, ReactNode, SVGProps } from "react";
 
 import { Greeting } from "@/components/home/greeting";
 import { UpdatedLine } from "@/components/home/updated-line";
+import { MascotStill } from "@/components/mascot/mascot";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -56,7 +57,10 @@ function HomeContent({ state }: { state: HomeState }) {
   if (state.kind === "no_quiz") {
     return (
       <>
-        <Greeting subtitle="Let’s find your first card." />
+        <div className="flex items-end justify-between gap-3">
+          <Greeting subtitle="Let’s find your first card." />
+          <MascotStill pose="idle" size={72} className="shrink-0" />
+        </div>
         <QuizPrompt started={state.started} />
         <Link
           href={ROUTES.addCard}
