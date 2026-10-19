@@ -1,3 +1,9 @@
+import Image from "next/image";
+
+import { cn } from "@/lib/utils";
+
+import styles from "./mascot.module.css";
+
 type MascotPose = "happy" | "idle" | "sad" | "swim";
 
 type MascotProps = {
@@ -27,5 +33,24 @@ export function Mascot({ pose, size, className, priority = false }: MascotProps)
         decoding="async"
       />
     </picture>
+  );
+}
+
+// Reading screens use a still frame so the mascot adds personality without
+// decoding a looping WebP beside the page's main content.
+export function MascotStill({
+  pose,
+  size,
+  className,
+  float = false,
+}: Omit<MascotProps, "priority"> & { float?: boolean }) {
+  return (
+    <Image
+      src={`/mascot/astro-pig/${pose}-still.png`}
+      alt=""
+      width={size}
+      height={size}
+      className={cn(className, float && styles.float)}
+    />
   );
 }

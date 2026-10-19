@@ -5,6 +5,7 @@ import Link from "next/link";
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { OutcomeMark } from "@/components/denied/parts";
 import { ButtonChevron, buttonVariants } from "@/components/ui/button";
+import { MascotStill } from "@/components/mascot/mascot";
 import { ROUTES } from "@/lib/routes";
 
 // Your reminder is saved (Figma 144:2196, was 397:2323, S24). Rendered by
@@ -14,7 +15,10 @@ export function ReminderSavedView({ dateLabel }: { dateLabel: string }) {
   return (
     <DeniedLayout backHref={ROUTES.home} backLabel="Home">
       <div className="flex flex-col items-center gap-[18px] pt-5 text-center">
-        <OutcomeMark icon={Check} tone="success" />
+        <div className="flex items-center gap-3">
+          <OutcomeMark icon={Check} tone="success" />
+          <MascotStill pose="happy" size={80} className="animate-pop" />
+        </div>
         <div className="flex flex-col gap-2">
           <h1 className="font-heading text-h1 font-medium text-navy">Your reminder is saved</h1>
           <p className="text-body-m text-indigo-black">

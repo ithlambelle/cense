@@ -12,6 +12,7 @@ import { ApprovalHeading, ApprovedCard, StarConfetti } from "@/components/home/a
 import { DeniedCard } from "@/components/home/denied-card";
 import { Greeting } from "@/components/home/greeting";
 import { UpdatedLine } from "@/components/home/updated-line";
+import { MascotStill } from "@/components/mascot/mascot";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { FitSignal } from "@/components/ui/fit-signal";
@@ -91,7 +92,10 @@ function HomeContent({
   if (state.kind === "no_quiz") {
     return (
       <>
-        <Greeting subtitle="Let’s find your first card." />
+        <div className="flex items-end justify-between gap-3">
+          <Greeting subtitle="Let’s find your first card." />
+          <MascotStill pose="idle" size={72} className="shrink-0" />
+        </div>
         <QuizPrompt started={state.started} />
         <Link
           href={ROUTES.addCard}
