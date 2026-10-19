@@ -8,15 +8,15 @@ const ANALYTICS_PREFIX = "/rx/";
 // The only request headers forwarded to PostHog. A rewrite forwards every
 // header by default, which would send the Supabase session cookies (access and
 // refresh tokens), any Authorization header and the full Referer, query string
-// included. PostHog needs the body's type and encoding, the user agent, and
-// the visitor's address (discarded in project settings).
-const ANALYTICS_HEADERS = ["accept", "accept-encoding", "content-encoding", "content-length", "content-type", "user-agent", "x-forwarded-for"];
+// included. PostHog receives the body's type and encoding and the user agent.
+// The visitor IP is never forwarded.
+const ANALYTICS_HEADERS = ["accept", "accept-encoding", "content-encoding", "content-length", "content-type", "user-agent"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   // Analytics requests also skip the Supabase session refresh: they carry no
   // student session work, and refreshing there would add a round trip per event.
-  if (pathname.startsWith(ANALYTICS_PREFIX)) {
+  if (pathname === "/rx" || pathname.startsWith(ANALYTICS_PREFIX)) {
     const headers = new Headers();
     for (const name of ANALYTICS_HEADERS) {
       const value = request.headers.get(name);
@@ -39,5 +39,5 @@ export async function proxy(request: NextRequest) {
 export const config = {
   // Every page and API route, but not static files and images. /rx is listed
   // first so a PostHog path ending in .png or .svg still has its headers cut.
-  matcher: ["/rx/:path*", "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico)$).*)"],
+  matcher: ["/rx", "/rx/:path*", "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico)$).*)"],
 };

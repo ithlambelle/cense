@@ -22,12 +22,19 @@ describe("proxy", () => {
     expect(updateSession).not.toHaveBeenCalled();
     // Next lists the request headers it will forward in x-middleware-override-headers.
     const forwarded = (response.headers.get("x-middleware-override-headers") ?? "").split(",").sort();
-    expect(forwarded).toEqual(["content-type", "user-agent", "x-forwarded-for"]);
+    expect(forwarded).toEqual(["content-type", "user-agent"]);
     expect(response.headers.get("x-middleware-request-user-agent")).toBe("test-agent");
+    expect(response.headers.get("x-middleware-request-x-forwarded-for")).toBeNull();
   });
 
   it("matches analytics paths that end in an image extension", () => {
-    expect(config.matcher[0]).toBe("/rx/:path*");
+    expect(config.matcher.slice(0, 2)).toEqual(["/rx", "/rx/:path*"]);
+  });
+
+  it("filters headers on the exact analytics root too", async () => {
+    const response = await proxy(new NextRequest("https://censefinance.com/rx", { headers: SECRET_HEADERS }));
+    expect(response.headers.get("x-middleware-override-headers")).toBe("");
+    expect(updateSession).not.toHaveBeenCalled();
   });
 
   it("redirects a trailing slash on app pages, keeping the query", async () => {
