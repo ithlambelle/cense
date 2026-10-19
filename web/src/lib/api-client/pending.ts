@@ -43,7 +43,7 @@ export type Plan = z.infer<typeof planSchema>;
 // Mabelle's draft PR #24 (password sign-in). Same shapes as its contract;
 // removed from here once #24 merges and the routes are in the real contract.
 const email = z.email().max(254);
-const newPassword = z.string().min(PASSWORD_MIN).max(PASSWORD_MAX);
+const newPassword = z.string().min(PASSWORD_MIN).max(PASSWORD_MAX).refine((value) => new TextEncoder().encode(value).length <= PASSWORD_MAX);
 
 const ENDPOINTS = {
   "POST /auth/password/signup": {
