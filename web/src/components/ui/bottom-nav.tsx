@@ -5,7 +5,6 @@ import House from "@gravity-ui/icons/House"
 import SealCheck from "@gravity-ui/icons/SealCheck"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useEffect, useState } from "react"
 
 import { ROUTES } from "@/lib/routes"
 import { cn } from "@/lib/utils"
@@ -28,51 +27,6 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`)
 }
 
-// Scroll distance, in px, that counts as a change of direction, so a jittery
-// thumb or iOS rubber-banding does not flicker the bar.
-const SCROLL_SLACK = 6
-
-// True while the student is scrolling down through a page, so the bar gets out
-// of the way of the content under it (answers in the quiz, the last card in a
-// list). It comes back on any scroll up, near the top, and at the end of the
-// page, where the content above it is already fully in view.
-function useHiddenOnScrollDown(): boolean {
-  const [hidden, setHidden] = useState(false)
-
-  useEffect(() => {
-    let lastY = window.scrollY
-    let frame = 0
-
-    function update() {
-      frame = 0
-      const y = window.scrollY
-      const atEnd = y + window.innerHeight >= document.documentElement.scrollHeight - SCROLL_SLACK
-      if (y < 24 || atEnd) {
-        setHidden(false)
-        lastY = y
-      } else if (y > lastY + SCROLL_SLACK) {
-        setHidden(true)
-        lastY = y
-      } else if (y < lastY - SCROLL_SLACK) {
-        setHidden(false)
-        lastY = y
-      }
-    }
-
-    function onScroll() {
-      if (!frame) frame = requestAnimationFrame(update)
-    }
-
-    window.addEventListener("scroll", onScroll, { passive: true })
-    return () => {
-      window.removeEventListener("scroll", onScroll)
-      if (frame) cancelAnimationFrame(frame)
-    }
-  }, [])
-
-  return hidden
-}
-
 // The navy bar from the frames (395:755), without the stars: in interviews
 // students did not read the starry bar as navigation (2026-10-21). It follows
 // the pattern of Robinhood, Duolingo and the platform guidelines instead: a
@@ -81,19 +35,13 @@ function useHiddenOnScrollDown(): boolean {
 function BottomNav() {
   // usePathname can return null outside the App Router (Next docs), so no tab is active then.
   const pathname = usePathname() ?? ""
-  const hidden = useHiddenOnScrollDown()
 
-  // The clip box keeps the bar, when slid away, from adding to the page's
-  // scroll height. Its top 24px is the bar's soft edge over the content, and
-  // lets taps through to whatever is under it.
+  // Always on screen (Ben, 2026-10-21): like Robinhood and Fidelity, the bar
+  // stays put while scrolling. The only screen that may hide it is a future
+  // search view. The soft edge above it fades the content passing under it.
   return (
-    <div className="pointer-events-none -mt-6 overflow-hidden pt-6">
-      <div
-        className={cn(
-          "transition-transform duration-300 ease-out-soft focus-within:translate-y-0 motion-reduce:transition-none",
-          hidden && "translate-y-full"
-        )}
-      >
+    <div className="pointer-events-none -mt-6">
+      <div>
         <div aria-hidden="true" className="h-6 bg-linear-to-t from-navy/35 to-transparent" />
         <nav
           aria-label="Main"
