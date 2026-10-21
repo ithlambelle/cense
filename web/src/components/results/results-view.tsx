@@ -101,7 +101,7 @@ export function ResultsView({ view }: { view: ResultView }) {
             ) : null}
           </dl>
 
-          <Link href={cardPath(card.id)} className={buttonVariants()}>
+          <Link href={cardPath(card.id, "results")} className={buttonVariants()}>
             View card
           </Link>
         </div>
@@ -114,7 +114,7 @@ export function ResultsView({ view }: { view: ResultView }) {
           </h2>
           {/* Its own tier and first reason, so a stretch never reads as an equal pick. */}
           <Link
-            href={cardPath(alternative.card.id)}
+            href={cardPath(alternative.card.id, "results")}
             className="flex flex-col gap-1 rounded-card border-[1.5px] border-violet bg-white p-5 outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             <span className="flex items-start justify-between gap-3">
@@ -151,12 +151,13 @@ function ResultLayout({ title, subtitle, footer = false, children }: ResultLayou
       <div className="flex w-full max-w-phone flex-col">
         <header className="relative z-0 bg-navy px-6 pt-8 pb-11 shadow-[0_4px_8px_11px_var(--color-navy)]">
           <HeaderStars />
-          <nav aria-label="Result" className="relative flex items-center justify-between">
-            <Link href={ROUTES.quiz} aria-label="Back to the questions" className={headerControl}>
+          {/* Back goes Home. It used to open the quiz, which restarts from the
+              first question once every answer is in, so students who tapped it
+              lost their match (solution interviews, 2026-10-17). Changing an
+              answer is "Retake quiz" at the end of the page. */}
+          <nav aria-label="Result" className="relative flex items-center">
+            <Link href={ROUTES.home} aria-label="Back to Home" className={headerControl}>
               <Image src="/icons/arrow-left.svg" alt="" width={48} height={48} />
-            </Link>
-            <Link href={ROUTES.home} aria-label="Close" className={headerControl}>
-              <Image src="/icons/xmark.svg" alt="" width={48} height={48} />
             </Link>
           </nav>
           <div className="relative flex flex-col gap-[5px]">

@@ -40,7 +40,7 @@ describe("HomeView", () => {
     render(<HomeView state={state} />);
     expect(screen.getByText("LIKELY FIT")).toBeTruthy();
     expect(screen.getByText(`${RESULT_HEADLINES.likely_fit}.`)).toBeTruthy();
-    expect(link("View card")).toBe(`/cards/${state.result.card.id}`);
+    expect(link("View card")).toBe(`/cards/${state.result.card.id}?from=home`);
   });
 
   it("never calls a stretch a sure match: tier label, its first caution and a link to the reasons", () => {
@@ -100,9 +100,9 @@ describe("HomeView", () => {
     );
   });
 
-  it("links the avatar to the account screen and marks Home in the bottom bar", () => {
+  it("links the labeled Profile button to the account screen and marks Home in the bottom bar", () => {
     render(<HomeView state={homeState([], NONE, false)} />);
-    expect(link("Your account")).toBe("/settings");
+    expect(link("Profile")).toBe("/settings");
     expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
   });
 });

@@ -60,8 +60,22 @@ export function deniedPath(step: DeniedStep, applicationId: string | null): stri
   return withApplication(DENIED_STEPS[step], applicationId);
 }
 
-export function cardPath(cardId: string): string {
-  return `/cards/${encodeURIComponent(cardId)}`;
+// Where a card page was opened from. Its back arrow returns there instead of
+// always to the card list: in solution interviews (2026-10-17, 2026-10-18)
+// students who opened their match could not get back to it.
+export type CardOrigin = "results" | "home";
+
+export function cardPath(cardId: string, from?: CardOrigin): string {
+  const path = `/cards/${encodeURIComponent(cardId)}`;
+  return from ? `${path}?from=${from}` : path;
+}
+
+// The card page's back arrow for each origin. Anything else, including a
+// hand-typed value, falls back to the card list.
+export function cardBackLink(from: string | string[] | undefined): { href: string; label: string } {
+  if (from === "results") return { href: ROUTES.results, label: "Back to your match" };
+  if (from === "home") return { href: ROUTES.home, label: "Back to Home" };
+  return { href: ROUTES.cards, label: "Back to cards" };
 }
 
 const NEXT_ALLOW_LIST: readonly string[] = [ROUTES.quiz, ROUTES.results, ROUTES.home];

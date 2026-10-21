@@ -2,7 +2,7 @@
 
 import CreditCard from "@gravity-ui/icons/CreditCard"
 import House from "@gravity-ui/icons/House"
-import Image from "next/image"
+import SealCheck from "@gravity-ui/icons/SealCheck"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -14,10 +14,13 @@ import { cn } from "@/lib/utils"
 // denial guide (Ben, 2026-10-17), and on the card pages when signed in. The
 // sign-in screens, password reset, and the not-found and error pages leave it
 // out. A future search view may hide it.
-// MVP1 has two tabs (Ben, 2026-10-16). The frames draw four (Today, Learn,
-// Goals, Invest) for a later product; Learn, Goals and Invest have no MVP1 screens.
+// Three tabs (Ben, 2026-10-21): solution interviews showed students could not
+// get back to their match once they left it, so it gets its own tab. The
+// frames draw four (Today, Learn, Goals, Invest) for a later product; Learn
+// joins when its screens exist.
 const TABS = [
   { href: ROUTES.home, label: "Home", Icon: House },
+  { href: ROUTES.results, label: "My match", Icon: SealCheck },
   { href: ROUTES.cards, label: "Cards", Icon: CreditCard },
 ] as const
 
@@ -70,8 +73,11 @@ function useHiddenOnScrollDown(): boolean {
   return hidden
 }
 
-// The navy bar with stars from the frames (395:755): the active tab is light
-// blue and semibold, the others off-white.
+// The navy bar from the frames (395:755), without the stars: in interviews
+// students did not read the starry bar as navigation (2026-10-21). It follows
+// the pattern of Robinhood, Duolingo and the platform guidelines instead: a
+// plain bar on the bottom edge, every tab an icon with a visible label, and the
+// active tab marked by a filled indicator behind its icon as well as color.
 function BottomNav() {
   // usePathname can return null outside the App Router (Next docs), so no tab is active then.
   const pathname = usePathname() ?? ""
@@ -91,17 +97,8 @@ function BottomNav() {
         <div aria-hidden="true" className="h-6 bg-linear-to-t from-navy/35 to-transparent" />
         <nav
           aria-label="Main"
-          className="pointer-events-auto relative flex justify-center overflow-x-clip bg-navy px-3 pt-3 pb-[max(1.8rem,env(safe-area-inset-bottom))]"
+          className="pointer-events-auto relative flex justify-center border-t border-white/10 bg-navy px-3 pt-2 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
         >
-          {/* Drawn for the four-tab bar; shifted so no star sits on the two MVP1 tabs. */}
-          <Image
-            src="/decor/nav-stars.svg"
-            alt=""
-            aria-hidden="true"
-            width={353}
-            height={90}
-            className="pointer-events-none absolute top-0 left-[calc(50%+40px)] -translate-x-1/2"
-          />
           <ul className="relative flex w-full max-w-phone">
             {TABS.map(({ href, label, Icon }) => {
               const active = isActive(pathname, href)
@@ -111,11 +108,21 @@ function BottomNav() {
                     href={href}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex min-h-11 flex-col items-center gap-[7px] rounded-input text-body-s outline-none transition-[color,scale] duration-200 motion-safe:active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-light-blue",
-                      active ? "font-semibold text-light-blue" : "text-off-white"
+                      "group flex min-h-12 flex-col items-center gap-1 rounded-input text-body-s outline-none transition-[color,scale] duration-200 motion-safe:active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-light-blue",
+                      active ? "font-semibold text-light-blue" : "text-off-white/80 hover:text-off-white"
                     )}
                   >
-                    <Icon aria-hidden="true" width={22} height={22} />
+                    {/* The indicator: a pill behind the active icon, so the current tab
+                        does not rely on color alone. */}
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "flex h-8 w-16 items-center justify-center rounded-pill transition-colors duration-200",
+                        active ? "bg-light-blue/20" : "group-hover:bg-white/5"
+                      )}
+                    >
+                      <Icon width={22} height={22} />
+                    </span>
                     {label}
                   </Link>
                 </li>

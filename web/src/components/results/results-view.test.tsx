@@ -19,10 +19,10 @@ describe("ResultsView", () => {
     expect(screen.getByRole("link", { name: "Take the quiz" }).getAttribute("href")).toBe(ROUTES.quiz);
   });
 
-  it("goes back to the questions and closes to home", () => {
+  it("goes back Home, never into the finished quiz", () => {
     render(<ResultsView view={{ kind: "no_card", ruleId: null, reason: null }} />);
-    expect(screen.getByRole("link", { name: "Back to the questions" }).getAttribute("href")).toBe(ROUTES.quiz);
-    expect(screen.getByRole("link", { name: "Close" }).getAttribute("href")).toBe(ROUTES.home);
+    expect(screen.getByRole("link", { name: "Back to Home" }).getAttribute("href")).toBe(ROUTES.home);
+    expect(screen.queryByRole("link", { name: "Back to the questions" })).toBeNull();
   });
 
   it("shows the deposit only for a secured card that asks for one", () => {
@@ -54,10 +54,10 @@ describe("ResultsView", () => {
     expect(screen.getByRole("heading", { name: view.card.name })).toBeTruthy();
     const top = within(screen.getByRole("region", { name: "Top match" }));
     for (const reason of view.fit.reasons) expect(top.getByText(reason)).toBeTruthy();
-    expect(screen.getByRole("link", { name: "View card" }).getAttribute("href")).toBe(cardPath(view.card.id));
+    expect(screen.getByRole("link", { name: "View card" }).getAttribute("href")).toBe(cardPath(view.card.id, "results"));
     expect(screen.getByText("Another option")).toBeTruthy();
     expect(screen.getByRole("link", { name: new RegExp(view.alternative.card.name) }).getAttribute("href")).toBe(
-      cardPath(view.alternative.card.id),
+      cardPath(view.alternative.card.id, "results"),
     );
     expect(screen.getByRole("link", { name: "Retake quiz" }).getAttribute("href")).toBe(ROUTES.quiz);
     expect(screen.getByText(RESULT_DISCLAIMER)).toBeTruthy();
