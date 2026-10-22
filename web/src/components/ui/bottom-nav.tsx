@@ -23,6 +23,12 @@ const TABS = [
   { href: ROUTES.learn, label: "Learn", Icon: BookOpen },
 ] as const
 
+const STARS = [
+  { size: 9, className: "top-2 left-[33%]" },
+  { size: 7, className: "bottom-3 left-[67%]" },
+  { size: 6, className: "top-3 right-[6%]" },
+] as const
+
 function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`)
 }
@@ -44,14 +50,18 @@ function BottomNav() {
           aria-label="Main"
           className="relative flex justify-center overflow-hidden border-t border-white/10 bg-navy px-3 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
         >
-          <Image
-            src="/decor/nav-stars.svg"
-            alt=""
-            aria-hidden="true"
-            width={353}
-            height={90}
-            className="pointer-events-none absolute top-0 left-1/2 h-full w-auto max-w-none -translate-x-1/2 opacity-40"
-          />
+          {/* A few small stars in the gaps between tabs, never on a label. */}
+          {STARS.map((star) => (
+            <Image
+              key={star.className}
+              src="/decor/star-small.svg"
+              alt=""
+              aria-hidden="true"
+              width={star.size}
+              height={star.size}
+              className={cn("pointer-events-none absolute opacity-70", star.className)}
+            />
+          ))}
           <ul className="relative flex w-full max-w-phone">
             {TABS.map(({ href, label, Icon }) => {
               const active = isActive(pathname, href)
