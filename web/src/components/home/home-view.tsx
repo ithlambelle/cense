@@ -102,6 +102,7 @@ function HomeContent({ state }: { state: HomeState }) {
           pill={TIER_LABELS[fit.tier].toUpperCase()}
           preview={{ name: cardDisplayName(card), kind: previewKind(card) }}
           rows={[{ label: "Annual fee", value: moneyAmount(card.annualFeeCents) }]}
+          link={{ href: ROUTES.results, label: "See your match" }}
         />
         {likely ? (
           <NextStep
@@ -223,15 +224,25 @@ function StatusCard({
   pill,
   preview,
   rows,
+  link,
 }: {
   title: string;
   subtitle: ReactNode;
   pill: string;
   preview: { name: string; kind: string };
   rows: Row[];
+  // Makes the whole card a link: in interviews students tapped the match card
+  // on Home and nothing happened (2026-10-21).
+  link?: { href: string; label: string };
 }) {
   return (
-    <section aria-label={title} className="flex flex-col gap-3 rounded-card bg-white p-5 shadow-glow-form">
+    <section
+      aria-label={title}
+      className={cn(
+        "flex flex-col gap-3 rounded-card bg-white p-5 shadow-glow-form",
+        link && "relative transition-transform duration-200 has-[a:hover]:bg-off-white/40 motion-safe:has-[a:active]:scale-[0.99]",
+      )}
+    >
       <div className="flex items-center gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-[3px] text-indigo-black">
           <h2 className="font-heading text-h6 font-medium">{title}</h2>
@@ -258,6 +269,16 @@ function StatusCard({
           </div>
         ))}
       </dl>
+      {link ? (
+        // The link's box covers the whole card (after:inset-0), so a tap anywhere opens it.
+        <Link
+          href={link.href}
+          className="flex min-h-11 items-center justify-between rounded-input text-body-s font-semibold text-violet outline-none after:absolute after:inset-0 after:rounded-card focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-ring"
+        >
+          {link.label}
+          <ChevronRight aria-hidden="true" width={16} height={16} />
+        </Link>
+      ) : null}
     </section>
   );
 }

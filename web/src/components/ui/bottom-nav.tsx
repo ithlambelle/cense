@@ -2,7 +2,8 @@
 
 import CreditCard from "@gravity-ui/icons/CreditCard"
 import House from "@gravity-ui/icons/House"
-import SealCheck from "@gravity-ui/icons/SealCheck"
+import BookOpen from "@gravity-ui/icons/BookOpen"
+import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -13,40 +14,44 @@ import { cn } from "@/lib/utils"
 // denial guide (Ben, 2026-10-17), and on the card pages when signed in. The
 // sign-in screens, password reset, and the not-found and error pages leave it
 // out. A future search view may hide it.
-// Three tabs (Ben, 2026-10-21): solution interviews showed students could not
-// get back to their match once they left it, so it gets its own tab. The
-// frames draw four (Today, Learn, Goals, Invest) for a later product; Learn
-// joins when its screens exist.
+// Home, Cards and Learn (Ben, 2026-10-21). The frames draw four (Today,
+// Learn, Goals, Invest) for a later product; Goals and Invest have no screens
+// yet, and an empty tab is worse than none.
 const TABS = [
   { href: ROUTES.home, label: "Home", Icon: House },
-  { href: ROUTES.results, label: "My match", Icon: SealCheck },
   { href: ROUTES.cards, label: "Cards", Icon: CreditCard },
+  { href: ROUTES.learn, label: "Learn", Icon: BookOpen },
 ] as const
 
 function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`)
 }
 
-// The navy bar from the frames (395:755), without the stars: in interviews
-// students did not read the starry bar as navigation (2026-10-21). It follows
-// the pattern of Robinhood, Duolingo and the platform guidelines instead: a
-// plain bar on the bottom edge, every tab an icon with a visible label, and the
-// active tab marked by a filled indicator behind its icon as well as color.
+// The navy bar with stars from the frames (395:755), made compact (Ben,
+// 2026-10-21): students did not read the old, tall bar as navigation. It now
+// follows Robinhood, Duolingo and Headspace: a slim bar always docked to the
+// bottom edge, every tab an icon with a label, and the active tab marked by a
+// filled indicator behind its icon as well as color. The stars stay, quieter.
 function BottomNav() {
   // usePathname can return null outside the App Router (Next docs), so no tab is active then.
   const pathname = usePathname() ?? ""
 
-  // Always on screen (Ben, 2026-10-21): like Robinhood and Fidelity, the bar
-  // stays put while scrolling. The only screen that may hide it is a future
-  // search view. The soft edge above it fades the content passing under it.
+  // Always on screen, like Robinhood and Fidelity: the only screen that may
+  // hide it is a future search view.
   return (
-    <div className="pointer-events-none -mt-6">
-      <div>
-        <div aria-hidden="true" className="h-6 bg-linear-to-t from-navy/35 to-transparent" />
+    <div>
         <nav
           aria-label="Main"
-          className="pointer-events-auto relative flex justify-center border-t border-white/10 bg-navy px-3 pt-2 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+          className="relative flex justify-center overflow-hidden border-t border-white/10 bg-navy px-3 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
         >
+          <Image
+            src="/decor/nav-stars.svg"
+            alt=""
+            aria-hidden="true"
+            width={353}
+            height={90}
+            className="pointer-events-none absolute top-0 left-1/2 h-full w-auto max-w-none -translate-x-1/2 opacity-40"
+          />
           <ul className="relative flex w-full max-w-phone">
             {TABS.map(({ href, label, Icon }) => {
               const active = isActive(pathname, href)
@@ -56,7 +61,7 @@ function BottomNav() {
                     href={href}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "group flex min-h-12 flex-col items-center gap-1 rounded-input text-body-s outline-none transition-[color,scale] duration-200 motion-safe:active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-light-blue",
+                      "group flex min-h-12 flex-col items-center gap-0.5 rounded-input text-body-s outline-none transition-[color,scale] duration-200 motion-safe:active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-light-blue",
                       active ? "font-semibold text-light-blue" : "text-off-white/80 hover:text-off-white"
                     )}
                   >
@@ -65,7 +70,7 @@ function BottomNav() {
                     <span
                       aria-hidden="true"
                       className={cn(
-                        "flex h-8 w-16 items-center justify-center rounded-pill transition-colors duration-200",
+                        "flex h-7 w-14 items-center justify-center rounded-pill transition-colors duration-200",
                         active ? "bg-light-blue/20" : "group-hover:bg-white/5"
                       )}
                     >
@@ -78,7 +83,6 @@ function BottomNav() {
             })}
           </ul>
         </nav>
-      </div>
     </div>
   )
 }

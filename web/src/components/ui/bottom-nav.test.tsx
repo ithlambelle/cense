@@ -4,23 +4,23 @@ import { describe, expect, it, vi } from "vitest";
 
 import { BottomNav } from "./bottom-nav";
 
-let pathname = "/results";
+let pathname = "/home";
 vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
 
 describe("BottomNav", () => {
-  it("shows three labeled tabs, including the student's match", () => {
+  it("shows three labeled tabs: Home, Cards and Learn", () => {
     render(<BottomNav />);
-    const nav = screen.getByRole("navigation", { name: "Main" });
-    expect(nav).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: "Main" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Home" }).getAttribute("href")).toBe("/home");
-    expect(screen.getByRole("link", { name: "My match" }).getAttribute("href")).toBe("/results");
     expect(screen.getByRole("link", { name: "Cards" }).getAttribute("href")).toBe("/cards");
+    expect(screen.getByRole("link", { name: "Learn" }).getAttribute("href")).toBe("/learn");
+    expect(screen.queryByRole("link", { name: "My match" })).toBeNull();
   });
 
   it("marks only the current tab", () => {
-    pathname = "/results";
+    pathname = "/learn";
     render(<BottomNav />);
-    expect(screen.getByRole("link", { name: "My match" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: "Learn" }).getAttribute("aria-current")).toBe("page");
     expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBeNull();
   });
 

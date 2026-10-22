@@ -33,6 +33,10 @@ const GROUPS: { title: string; entries: Entry[] }[] = [
     ],
   },
   {
+    title: "Learn",
+    entries: [{ label: "Learn tab (Figma 294:3966)", href: "/learn", note: "Signed in" }],
+  },
+  {
     title: "Home",
     entries: ["no_quiz", "started", "matched", "no_card", "applied", "rejected", "approved", "several"].map((state) => ({
       label: `Home: ${state.replace("_", " ")}`,

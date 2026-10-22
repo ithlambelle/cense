@@ -7,6 +7,8 @@ export const ROUTES = {
   signUp: "/sign-up",
   quiz: "/quiz",
   results: "/results",
+  // The Learn tab (Figma 294:3966). Lessons and Ask Penny come later.
+  learn: "/learn",
   home: "/home",
   settings: "/settings",
   // Decides where a student lands after signing in.
@@ -78,7 +80,7 @@ export function cardBackLink(from: string | string[] | undefined): { href: strin
   return { href: ROUTES.cards, label: "Back to cards" };
 }
 
-const NEXT_ALLOW_LIST: readonly string[] = [ROUTES.quiz, ROUTES.results, ROUTES.home];
+const NEXT_ALLOW_LIST: readonly string[] = [ROUTES.quiz, ROUTES.results, ROUTES.home, ROUTES.learn];
 
 // A card page, for a visitor who pressed an issuer button while signed out.
 const CARD_PATH = /^\/cards\/[a-z0-9-]{1,100}$/;

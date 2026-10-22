@@ -41,6 +41,8 @@ describe("HomeView", () => {
     expect(screen.getByText("LIKELY FIT")).toBeTruthy();
     expect(screen.getByText(`${RESULT_HEADLINES.likely_fit}.`)).toBeTruthy();
     expect(link("View card")).toBe(`/cards/${state.result.card.id}?from=home`);
+    // The whole match card opens the result (students tapped it in interviews).
+    expect(link("See your match")).toBe("/results");
   });
 
   it("never calls a stretch a sure match: tier label, its first caution and a link to the reasons", () => {
