@@ -34,7 +34,7 @@ const GROUPS: { title: string; entries: Entry[] }[] = [
   },
   {
     title: "Learn",
-    entries: [{ label: "Learn tab (Figma 294:3966)", href: "/learn", note: "Signed in" }],
+    entries: [{ label: "Learn tab (Figma 294:3966)", href: "/dev/learn", note: "The real page is /learn, signed in" }],
   },
   {
     title: "Home",
