@@ -38,7 +38,9 @@ export function CardListView({
           <div className="flex flex-col gap-2">
             <h1 className="font-heading text-h2 font-medium text-navy">Cards</h1>
             <p className="text-body-m text-indigo-black">
-              Cards picked for students. Take the quiz to see which one fits you, and why.
+              {yourMatch
+                ? "Cards picked for students. Your match is on top."
+                : "Cards picked for students. Take the quiz to see which one fits you, and why."}
             </p>
           </div>
           {yourMatch ? (
