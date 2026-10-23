@@ -7,6 +7,7 @@ import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { FactChip } from "@/components/ui/fact-chip";
 import { NoteLine } from "@/components/ui/note";
+import { StatusPill } from "@/components/ui/status-pill";
 import { TrackOnMount } from "@/components/analytics/track-on-mount";
 import {
   cardDisplayName,
@@ -62,11 +63,17 @@ export function ResultsView({ view }: { view: ResultView }) {
         <h2 id="top-match" className="font-heading text-h6 font-medium text-indigo-black">
           Top match
         </h2>
-        <div className="flex flex-col gap-4 rounded-card bg-off-white p-5">
+        {/* The whole card opens the card page: in interviews a student waited
+            instead of tapping View card (2026-10-18). View card's box is
+            stretched over the card (after:inset-0), the block-link pattern, so
+            the link keeps a short name. */}
+        <div className="relative flex flex-col gap-4 rounded-card bg-off-white p-5 transition-transform duration-200 motion-safe:has-[a:active]:scale-[0.99]">
           <div className="flex flex-col gap-[9px]">
             <div className="flex items-center justify-between gap-3">
               <p className="text-body-s text-indigo-black">{cardTypeLabel(card)}</p>
-              <Image src="/icons/card-symbol.svg" alt="" width={24} height={18} />
+              {/* The fit tier, in the designers' status pill (white on this
+                  off-white card). Nobody noticed the tier in interviews. */}
+              <StatusPill className={cn(SENSITIVE, "bg-white")}>{TIER_LABELS[fit.tier].toUpperCase()}</StatusPill>
             </div>
             <h3 className="font-heading text-h5 font-medium text-navy">{cardDisplayName(card)}</h3>
           </div>
@@ -101,7 +108,11 @@ export function ResultsView({ view }: { view: ResultView }) {
             ) : null}
           </dl>
 
-          <Link href={cardPath(card.id, "results")} className={buttonVariants()}>
+          <Link
+            href={cardPath(card.id, "results")}
+            aria-label={`View ${cardDisplayName(card)}`}
+            className={cn(buttonVariants(), "after:absolute after:inset-0 after:rounded-card")}
+          >
             View card
           </Link>
         </div>
@@ -119,9 +130,7 @@ export function ResultsView({ view }: { view: ResultView }) {
           >
             <span className="flex items-start justify-between gap-3">
               <span className="font-heading text-h6 font-medium text-navy">{cardDisplayName(alternative.card)}</span>
-              <span className="shrink-0 text-body-s font-semibold text-indigo-black">
-                {TIER_LABELS[alternative.fit.tier]}
-              </span>
+              <StatusPill className={SENSITIVE}>{TIER_LABELS[alternative.fit.tier].toUpperCase()}</StatusPill>
             </span>
             <span className="text-body-s text-indigo-black">{cardTypeLabel(alternative.card)}</span>
             {alternative.fit.reasons[0] ? (

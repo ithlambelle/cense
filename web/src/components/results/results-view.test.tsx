@@ -54,7 +54,11 @@ describe("ResultsView", () => {
     expect(screen.getByRole("heading", { name: view.card.name })).toBeTruthy();
     const top = within(screen.getByRole("region", { name: "Top match" }));
     for (const reason of view.fit.reasons) expect(top.getByText(reason)).toBeTruthy();
-    expect(screen.getByRole("link", { name: "View card" }).getAttribute("href")).toBe(cardPath(view.card.id, "results"));
+    // The whole top card is one link, named for the card.
+    expect(screen.getByRole("link", { name: new RegExp(`^View ${view.card.name}`) }).getAttribute("href")).toBe(
+      cardPath(view.card.id, "results"),
+    );
+    expect(top.getByText(TIER_LABELS[view.fit.tier].toUpperCase())).toBeTruthy();
     expect(screen.getByText("Another option")).toBeTruthy();
     expect(screen.getByRole("link", { name: new RegExp(view.alternative.card.name) }).getAttribute("href")).toBe(
       cardPath(view.alternative.card.id, "results"),
@@ -70,7 +74,7 @@ describe("ResultsView", () => {
     const alternative = { ...view.alternative, fit: { ...view.alternative.fit, tier: "stretch" as const, reasons: [reason] } };
     render(<ResultsView view={{ ...view, alternative }} />);
     const option = screen.getByRole("link", { name: new RegExp(view.alternative.card.name) });
-    expect(option.textContent).toContain(TIER_LABELS.stretch);
+    expect(option.textContent).toContain(TIER_LABELS.stretch.toUpperCase());
     expect(option.textContent).toContain(reason);
   });
 
