@@ -10,7 +10,7 @@ import { DeniedLayout } from "@/components/denied/denied-layout";
 import { Notice } from "@/components/denied/parts";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
-import { SelectedMark } from "@/components/ui/selected-mark";
+import { SelectionMark } from "@/components/ui/selected-mark";
 import { pendingRequest } from "@/lib/api-client/pending";
 import { addMonths, formatIsoDate, toIsoDate } from "@/lib/dates";
 import { deniedPath, ROUTES, signInPath } from "@/lib/routes";
@@ -179,7 +179,7 @@ function TimingOption({
         <span className="font-heading text-h6 font-medium">{title}</span>
         <span className="min-h-5 text-body-s">{detail}</span>
       </span>
-      {selected ? <SelectedMark /> : null}
+      <SelectionMark selected={selected} />
     </button>
   );
 }

@@ -8,7 +8,7 @@ import { BottomNav } from "@/components/ui/bottom-nav";
 import { Button } from "@/components/ui/button";
 import { choiceRowClass } from "@/components/ui/choice-row";
 import { ErrorMessage } from "@/components/ui/error-message";
-import { SelectedMark } from "@/components/ui/selected-mark";
+import { SelectionMark } from "@/components/ui/selected-mark";
 import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE, track } from "@/lib/analytics";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
@@ -126,11 +126,10 @@ export function MarkResult({ application }: { application: Application }) {
                 className={cn(
                   choiceRowClass,
                   "gap-4 text-left disabled:cursor-progress",
-                  choice === option.id && "bg-off-white",
                 )}
               >
                 <span className="flex-1">{option.label}</span>
-                {choice === option.id ? <SelectedMark /> : null}
+                <SelectionMark selected={choice === option.id} />
               </button>
             ))}
           </div>
