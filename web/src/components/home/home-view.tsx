@@ -44,7 +44,6 @@ export function HomeView({ state }: { state: HomeState }) {
             Profile
             <ChevronRight aria-hidden="true" width={14} height={14} className="text-indigo-black/60" />
           </Link>
-          <p className="flex-1 text-right text-body-s text-indigo-black">Home</p>
         </header>
         <main className="stagger flex flex-1 flex-col gap-[18px] px-6 pt-4 pb-6">
           <HomeContent state={state} />
