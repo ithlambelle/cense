@@ -17,7 +17,7 @@ import { deniedPath } from "@/lib/routes";
 // (https://www.consumerfinance.gov/ask-cfpb/how-do-i-dispute-an-error-on-my-credit-report-en-314/).
 export function FixableView({ applicationId }: { applicationId: string | null }) {
   return (
-    <DeniedLayout backHref={deniedPath("options", applicationId)}>
+    <DeniedLayout backHref={deniedPath("options", applicationId)} backLabel="Denial options">
       <div className="flex flex-col gap-2">
         <h1 className="font-heading text-h1 font-medium text-navy">Contact the issuer directly</h1>
         <p className="text-body-m text-indigo-black">

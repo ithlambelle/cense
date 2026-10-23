@@ -8,18 +8,19 @@ import { FactChip } from "@/components/ui/fact-chip";
 import type { Card } from "@/lib/cards/catalog";
 import { cardDisplayName, cardTypeLabel } from "@/lib/copy/results";
 import { moneyAmount } from "@/lib/money";
-import { ROUTES } from "@/lib/routes";
+import { cardBackLink } from "@/lib/routes";
 import { cardNotes } from "@/lib/rules/fit-tier";
 
 // A card's page (S14). There is no hi-fi frame yet: built from the result
 // card's parts (type line, card symbol, fact chips) and the lo-fi hand-off
 // board (219:909), and proposed to design.
-export function CardDetailView({ card, signedIn }: { card: Card; signedIn: boolean }) {
+export function CardDetailView({ card, signedIn, from }: { card: Card; signedIn: boolean; from?: string | string[] }) {
+  const back = cardBackLink(from);
   const approval = card.conditions.filter((condition) => condition.affects === "approval");
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
-        <AppHeader backHref={ROUTES.cards} backLabel="Back to cards" title="Card details" />
+        <AppHeader backHref={back.href} backLabel={back.label} />
         <main className="stagger flex flex-1 flex-col gap-6 px-6 pt-4 pb-6">
           <div className="flex flex-col gap-[9px]">
             <div className="flex items-center justify-between gap-3">

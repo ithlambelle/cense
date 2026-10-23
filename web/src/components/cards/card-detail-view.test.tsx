@@ -42,4 +42,14 @@ describe("CardDetailView", () => {
     expect(screen.queryByText(N1)).toBeNull();
     expect(screen.queryByText(N2)).toBeNull();
   });
+
+  it("goes back to the student's match when opened from the result screen", () => {
+    render(<CardDetailView card={catalogCard("discover-it-student-cash-back")} signedIn from="results" />);
+    expect(screen.getByRole("link", { name: "Back to Your match" }).getAttribute("href")).toBe("/results");
+  });
+
+  it("goes back to the card list by default", () => {
+    render(<CardDetailView card={catalogCard("discover-it-student-cash-back")} signedIn />);
+    expect(screen.getByRole("link", { name: "Back to Cards" }).getAttribute("href")).toBe("/cards");
+  });
 });

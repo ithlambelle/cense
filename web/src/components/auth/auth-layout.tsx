@@ -7,7 +7,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { ROUTES } from "@/lib/routes";
 
 const backControl =
-  "flex h-12 w-[88px] items-center rounded-pill outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress";
+  "flex h-12 w-12 items-center rounded-pill outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress";
 
 export function BackLinkHome() {
   return <BackLinkTo href={ROUTES.welcome} />;
@@ -16,7 +16,7 @@ export function BackLinkHome() {
 export function BackLinkTo({ href, label = "Back" }: { href: string; label?: string }) {
   return (
     <Link href={href} aria-label={label} className={backControl}>
-      <Image src="/icons/back-arrow.svg" alt="" width={33} height={33} />
+      <Image src="/icons/arrow-left-dark.svg" alt="" width={48} height={48} />
     </Link>
   );
 }
@@ -24,7 +24,7 @@ export function BackLinkTo({ href, label = "Back" }: { href: string; label?: str
 export function BackButton({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} aria-label="Back" className={backControl}>
-      <Image src="/icons/back-arrow.svg" alt="" width={33} height={33} />
+      <Image src="/icons/arrow-left-dark.svg" alt="" width={48} height={48} />
     </button>
   );
 }

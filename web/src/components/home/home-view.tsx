@@ -1,3 +1,4 @@
+import ChevronRight from "@gravity-ui/icons/ChevronRight";
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
 import CircleInfo from "@gravity-ui/icons/CircleInfo";
 import Comment from "@gravity-ui/icons/Comment";
@@ -32,14 +33,17 @@ export function HomeView({ state }: { state: HomeState }) {
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
         <header className="flex h-14 items-center gap-3 px-6 pt-8 pb-0 box-content">
+          {/* A labeled button, not a bare avatar: students read the lone pig as
+              a logo and never found their profile (solution interviews,
+              2026-10-17). */}
           <Link
             href={ROUTES.settings}
-            aria-label="Your account"
-            className="rounded-input outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="flex min-h-11 items-center gap-2 rounded-pill border border-indigo-black/15 bg-white py-1 pr-3 pl-1 text-body-s font-semibold text-navy outline-none transition-colors hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            <Image src="/mascot/penny-avatar.png" alt="" width={40} height={40} className="rounded-input" />
+            <Image src="/mascot/penny-avatar.png" alt="" width={32} height={32} className="rounded-pill" />
+            Profile
+            <ChevronRight aria-hidden="true" width={14} height={14} className="text-indigo-black/60" />
           </Link>
-          <p className="flex-1 text-right text-body-s text-indigo-black">Home</p>
         </header>
         <main className="stagger flex flex-1 flex-col gap-[18px] px-6 pt-4 pb-6">
           <HomeContent state={state} />
@@ -97,6 +101,7 @@ function HomeContent({ state }: { state: HomeState }) {
           pill={TIER_LABELS[fit.tier].toUpperCase()}
           preview={{ name: cardDisplayName(card), kind: previewKind(card) }}
           rows={[{ label: "Annual fee", value: moneyAmount(card.annualFeeCents) }]}
+          link={{ href: ROUTES.results, label: "See your match" }}
         />
         {likely ? (
           <NextStep
@@ -107,7 +112,7 @@ function HomeContent({ state }: { state: HomeState }) {
                 ? "See if the issuer preapproves you first. The issuer says checking does not affect your credit score."
                 : "Read the card’s details, then apply on the issuer’s site when you’re ready."
             }
-            action={{ href: cardPath(card.id), label: "View card" }}
+            action={{ href: cardPath(card.id, "home"), label: "View card" }}
           />
         ) : (
           <NextStep
@@ -174,6 +179,10 @@ function TrackedCard({ application }: { application: Application }) {
       pill={PILLS[application.status]}
       preview={{ name: application.cardName, kind: card ? previewKind(card) : "CREDIT" }}
       rows={rows}
+      // A tracked card opens its card page (back returns Home). A card added
+      // by hand that is not in the catalog has no page; its next step below
+      // is the one action.
+      link={card ? { href: cardPath(card.id, "home"), label: "View card details" } : undefined}
     />
   );
 }
@@ -218,15 +227,25 @@ function StatusCard({
   pill,
   preview,
   rows,
+  link,
 }: {
   title: string;
   subtitle: ReactNode;
   pill: string;
   preview: { name: string; kind: string };
   rows: Row[];
+  // Makes the whole card a link: in interviews students tapped the match card
+  // on Home and nothing happened (2026-10-21).
+  link?: { href: string; label: string };
 }) {
   return (
-    <section aria-label={title} className="flex flex-col gap-3 rounded-card bg-white p-5 shadow-glow-form">
+    <section
+      aria-label={title}
+      className={cn(
+        "flex flex-col gap-3 rounded-card bg-white p-5 shadow-glow-form",
+        link && "relative transition-transform duration-200 has-[a:hover]:bg-off-white/40 motion-safe:has-[a:active]:scale-[0.99]",
+      )}
+    >
       <div className="flex items-center gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-[3px] text-indigo-black">
           <h2 className="font-heading text-h6 font-medium">{title}</h2>
@@ -253,6 +272,16 @@ function StatusCard({
           </div>
         ))}
       </dl>
+      {link ? (
+        // The link's box covers the whole card (after:inset-0), so a tap anywhere opens it.
+        <Link
+          href={link.href}
+          className="flex min-h-11 items-center justify-between rounded-input text-body-s font-semibold text-violet outline-none after:absolute after:inset-0 after:rounded-card focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-ring"
+        >
+          {link.label}
+          <ChevronRight aria-hidden="true" width={16} height={16} />
+        </Link>
+      ) : null}
     </section>
   );
 }

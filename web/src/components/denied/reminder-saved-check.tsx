@@ -40,7 +40,7 @@ export function ReminderSavedCheck({ applicationId }: { applicationId: string })
   if (dateLabel) return <ReminderSavedView dateLabel={dateLabel} />;
 
   return (
-    <DeniedLayout backHref={ROUTES.home}>
+    <DeniedLayout backHref={ROUTES.home} backLabel="Home">
       {loaded.status === "loading" ? (
         <p role="status" className="pt-5 text-center text-body-m text-indigo-black">
           Checking your reminder…

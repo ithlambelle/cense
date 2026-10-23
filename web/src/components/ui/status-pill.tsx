@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 // REVIEW), from the Home and second-look frames.
 function StatusPill({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <p className={cn("shrink-0 rounded-pill bg-off-white px-2.5 py-[5px] text-body-s font-semibold text-violet", className)}>{children}</p>
+    <span className={cn("inline-block shrink-0 rounded-pill bg-off-white px-2.5 py-[5px] text-body-s font-semibold text-violet", className)}>{children}</span>
   )
 }
 

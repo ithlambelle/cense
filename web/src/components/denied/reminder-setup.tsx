@@ -10,7 +10,7 @@ import { DeniedLayout } from "@/components/denied/denied-layout";
 import { Notice } from "@/components/denied/parts";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
-import { SelectedMark } from "@/components/ui/selected-mark";
+import { SelectionMark } from "@/components/ui/selection-mark";
 import { pendingRequest } from "@/lib/api-client/pending";
 import { addMonths, formatIsoDate, toIsoDate } from "@/lib/dates";
 import { deniedPath, ROUTES, signInPath } from "@/lib/routes";
@@ -75,7 +75,7 @@ export function ReminderSetup({ applicationId }: { applicationId: string | null 
   }
 
   return (
-    <DeniedLayout backHref={deniedPath("plan", applicationId)}>
+    <DeniedLayout backHref={deniedPath("plan", applicationId)} backLabel="Plan">
       <div className="flex flex-col gap-2">
         <h1 className="font-heading text-h1 font-medium text-navy">Choose when to check in</h1>
         <p className="text-body-m text-indigo-black">
@@ -179,7 +179,7 @@ function TimingOption({
         <span className="font-heading text-h6 font-medium">{title}</span>
         <span className="min-h-5 text-body-s">{detail}</span>
       </span>
-      {selected ? <SelectedMark /> : null}
+      <SelectionMark selected={selected} />
     </button>
   );
 }
