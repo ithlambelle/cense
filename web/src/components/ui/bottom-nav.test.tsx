@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
 import { act, cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BottomNav } from "./bottom-nav";
 
 let pathname = "/home";
 vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
+
+beforeEach(() => {
+  pathname = "/home";
+});
 
 afterEach(() => {
   cleanup();
@@ -36,7 +40,6 @@ describe("BottomNav", () => {
   });
 
   it("marks only the current tab", () => {
-    pathname = "/home";
     render(<BottomNav />);
     expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
     expect(screen.getByRole("link", { name: "Cards" }).getAttribute("aria-current")).toBeNull();
@@ -48,21 +51,41 @@ describe("BottomNav", () => {
     expect(screen.getByRole("link", { name: "Cards" }).getAttribute("aria-current")).toBe("page");
   });
 
-  it("hides while a text field has focus and comes back when it loses focus", () => {
+  it("hides while a text field has focus and comes back when it loses focus", async () => {
     render(<BottomNav />);
     const field = addField('<input type="text" />');
     act(() => field.focus());
     expect(nav().hidden).toBe(true);
-    act(() => field.blur());
+    await act(async () => {
+      field.blur();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
     expect(nav().hidden).toBe(false);
   });
 
-  it("stays hidden when focus moves from one field to the next", () => {
+  it("starts hidden when a field already has focus", () => {
+    const field = addField('<input type="email" />');
+    field.focus();
+    render(<BottomNav />);
+    expect(nav().hidden).toBe(true);
+  });
+
+  it("stays visible for a read-only field, which opens no keyboard", () => {
+    render(<BottomNav />);
+    const field = addField('<input type="text" readonly />');
+    act(() => field.focus());
+    expect(nav().hidden).toBe(false);
+  });
+
+  it("stays hidden when focus moves from one field to the next", async () => {
     render(<BottomNav />);
     const first = addField('<input type="email" />');
     const second = addField("<textarea></textarea>");
     act(() => first.focus());
-    act(() => second.focus());
+    await act(async () => {
+      second.focus();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
     expect(nav().hidden).toBe(true);
   });
 

@@ -16,7 +16,7 @@ describe("CardListView", () => {
     expect(match.getAttribute("href")).toBe(ROUTES.results);
     expect(match.textContent).toContain("Discover it Student Cash Back");
     expect(match.textContent).toContain("LIKELY FIT");
-    expect(screen.getByRole("link", { name: "Retake the quiz" }).getAttribute("href")).toBe(ROUTES.quiz);
+    expect(screen.getByRole("link", { name: "Retake quiz" }).getAttribute("href")).toBe(ROUTES.quiz);
     expect(screen.queryByRole("link", { name: "Take the quiz" })).toBeNull();
   });
 

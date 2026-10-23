@@ -29,13 +29,17 @@ const STARS = [
   { size: 6, className: "top-3 right-[6%]" },
 ] as const
 
-// Fields that bring up the on-screen keyboard (or the date picker).
-const TEXT_INPUT_TYPES = new Set(["text", "email", "number", "tel", "search", "password", "url", "date"])
+// Fields that bring up the on-screen keyboard (or a date or time picker).
+const TEXT_INPUT_TYPES = new Set([
+  "text", "email", "number", "tel", "search", "password", "url",
+  "date", "time", "datetime-local", "month",
+])
 
-function isTextField(element: EventTarget | null): boolean {
+function isTextField(element: Element | EventTarget | null): boolean {
   if (!(element instanceof HTMLElement)) return false
-  if (element.isContentEditable || element instanceof HTMLTextAreaElement) return true
-  return element instanceof HTMLInputElement && TEXT_INPUT_TYPES.has(element.type)
+  if (element.isContentEditable) return true
+  if (element instanceof HTMLTextAreaElement) return !element.readOnly
+  return element instanceof HTMLInputElement && TEXT_INPUT_TYPES.has(element.type) && !element.readOnly
 }
 
 // True while a text field has focus. Focus, not keyboard size: iOS Safari has
@@ -44,12 +48,22 @@ function isTextField(element: EventTarget | null): boolean {
 function useTyping(): boolean {
   const [typing, setTyping] = useState(false)
   useEffect(() => {
+    // Whatever has focus now, in case a field was focused before this mounted.
+    const check = () => setTyping(isTextField(document.activeElement))
+    check()
+    let timer: ReturnType<typeof setTimeout> | undefined
     const onFocusIn = (event: FocusEvent) => setTyping(isTextField(event.target))
-    // relatedTarget is where focus is going; null when it leaves the page.
-    const onFocusOut = (event: FocusEvent) => setTyping(isTextField(event.relatedTarget))
+    // Re-read once the move has settled (after the next focusin), so moving
+    // from one field to the next never flashes the bar, and focus leaving the
+    // window is read from what actually holds focus.
+    const onFocusOut = () => {
+      clearTimeout(timer)
+      timer = setTimeout(check, 0)
+    }
     document.addEventListener("focusin", onFocusIn)
     document.addEventListener("focusout", onFocusOut)
     return () => {
+      clearTimeout(timer)
       document.removeEventListener("focusin", onFocusIn)
       document.removeEventListener("focusout", onFocusOut)
     }
@@ -65,7 +79,7 @@ function isActive(pathname: string, href: string): boolean {
 // 2026-10-21): students did not read the old, tall bar as navigation. It now
 // follows Robinhood, Duolingo and Headspace: a slim bar always docked to the
 // bottom edge, every tab an icon with a label, and the active tab marked by a
-// filled indicator behind its icon as well as weight. The stars stay, quieter.
+// heavier white label and a pill behind its icon. The stars stay, quieter.
 function BottomNav() {
   // usePathname can return null outside the App Router (Next docs), so no tab is active then.
   const pathname = usePathname() ?? ""
@@ -104,14 +118,15 @@ function BottomNav() {
                   active ? "font-semibold text-white" : "text-off-white/80 hover:text-off-white"
                 )}
               >
-                {/* The indicator: a pill behind the active icon, so the current tab
-                    does not rely on color alone. White, as in the Figma bar
-                    component; light blue is not a palette color. */}
+                {/* The pill behind the active icon, white at 16% as in the Figma bar
+                    component (light blue is not a palette color). It is
+                    decoration: the current tab is carried by the white,
+                    heavier label and aria-current. */}
                 <span
                   aria-hidden="true"
                   className={cn(
                     "flex h-7 w-14 items-center justify-center rounded-pill transition-colors duration-200",
-                    active ? "bg-white/15" : "group-hover:bg-white/5"
+                    active ? "bg-white/16" : "group-hover:bg-white/5"
                   )}
                 >
                   <Icon width={22} height={22} />

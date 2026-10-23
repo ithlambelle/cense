@@ -1,17 +1,15 @@
 import Image from "next/image"
 import Link from "next/link"
-import type { ReactNode } from "react"
 
 // The one back control for inner screens (Figma G6, 2026-10-23): the
 // designers' quiz arrow, flush with the content edge, then the word for where
 // it goes ("Home", "Plan", "Your match"). No page title in the header: every
 // screen names itself in its own heading (G2). "I always go to the top left
 // to go back" (solution interview, 2026-10-17).
-function AppHeader({ backHref, backLabel, action }: { backHref: string; backLabel: string; action?: ReactNode }) {
+function AppHeader({ backHref, backLabel }: { backHref: string; backLabel: string }) {
   return (
-    <header className="box-content flex h-14 items-center justify-between gap-3 px-6 pt-8">
+    <header className="box-content flex h-14 items-center px-6 pt-8">
       <BackLink href={backHref} label={backLabel} />
-      {action ? <div className="flex justify-end">{action}</div> : null}
     </header>
   )
 }

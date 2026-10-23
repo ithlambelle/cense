@@ -179,13 +179,10 @@ function TrackedCard({ application }: { application: Application }) {
       pill={PILLS[application.status]}
       preview={{ name: application.cardName, kind: card ? previewKind(card) : "CREDIT" }}
       rows={rows}
-      // A tracked card opens its card page (back returns Home); a card added by
-      // hand that is not in the catalog opens its status screen instead.
-      link={
-        card
-          ? { href: cardPath(card.id, "home"), label: "View card details" }
-          : { href: applicationPath(application.id), label: "View status" }
-      }
+      // A tracked card opens its card page (back returns Home). A card added
+      // by hand that is not in the catalog has no page; its next step below
+      // is the one action.
+      link={card ? { href: cardPath(card.id, "home"), label: "View card details" } : undefined}
     />
   );
 }

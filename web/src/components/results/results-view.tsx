@@ -67,7 +67,7 @@ export function ResultsView({ view }: { view: ResultView }) {
         {/* The whole card opens the card page: in interviews a student waited
             instead of tapping View card (2026-10-18). View card's box is
             stretched over the card (after:inset-0), the block-link pattern, so
-            the link keeps a short name. */}
+            the card holds one link rather than a link wrapping all its text. */}
         <div className="relative flex flex-col gap-4 rounded-card bg-off-white p-5 transition-transform duration-200 motion-safe:has-[a:active]:scale-[0.99]">
           <div className="flex flex-col gap-[9px]">
             <div className="flex items-center justify-between gap-3">
@@ -109,10 +109,17 @@ export function ResultsView({ view }: { view: ResultView }) {
             ) : null}
           </dl>
 
+          {/* translate-none: the button's pressed nudge would make it the box
+              its ::after is sized to, shrinking the card-wide tap area to the
+              button mid-tap so the tap never reaches the link. */}
           <Link
             href={cardPath(card.id, "results")}
-            aria-label={`View ${cardDisplayName(card)}`}
-            className={cn(buttonVariants(), "after:absolute after:inset-0 after:rounded-card")}
+            aria-label={`View card: ${cardDisplayName(card)}`}
+            className={cn(
+              buttonVariants(),
+              SENSITIVE,
+              "after:absolute after:inset-0 after:rounded-card motion-safe:active:translate-none",
+            )}
           >
             View card
           </Link>
@@ -162,9 +169,9 @@ function ResultLayout({ title, subtitle, footer = false, children }: ResultLayou
               first question once every answer is in, so students who tapped it
               lost their match (solution interviews, 2026-10-17). Changing an
               answer is "Retake quiz" at the end of the page. */}
-          <nav aria-label="Result" className="relative flex items-center">
+          <div className="relative flex items-center">
             <BackLink href={ROUTES.home} label="Home" tone="light" />
-          </nav>
+          </div>
           <div className="relative flex flex-col gap-[5px]">
             <h1 className="font-heading text-h3 font-medium text-white">{title}</h1>
             <p className="text-body-s text-off-white/70">{subtitle}</p>

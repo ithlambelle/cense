@@ -136,7 +136,7 @@ function YourMatchRow({ match }: { match: YourMatch }) {
         <ChevronRight aria-hidden="true" width={20} height={20} className="shrink-0 text-violet" />
       </Link>
       <Link href={ROUTES.quiz} className={buttonVariants({ variant: "secondary" })}>
-        Retake the quiz
+        Retake quiz
       </Link>
     </div>
   );

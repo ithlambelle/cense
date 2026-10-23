@@ -6,7 +6,7 @@ import { useEffect, useId, useRef } from "react";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { ProgressBar } from "@/components/ui/progress-bar";
-import { SelectionMark } from "@/components/ui/selected-mark";
+import { SelectionMark } from "@/components/ui/selection-mark";
 import { SENSITIVE } from "@/lib/analytics";
 import type { Question } from "@/lib/quiz/questions";
 import { cn } from "@/lib/utils";

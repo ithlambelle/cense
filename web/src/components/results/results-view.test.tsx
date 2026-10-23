@@ -55,7 +55,7 @@ describe("ResultsView", () => {
     const top = within(screen.getByRole("region", { name: "Top match" }));
     for (const reason of view.fit.reasons) expect(top.getByText(reason)).toBeTruthy();
     // The whole top card is one link, named for the card.
-    expect(screen.getByRole("link", { name: new RegExp(`^View ${view.card.name}`) }).getAttribute("href")).toBe(
+    expect(screen.getByRole("link", { name: `View card: ${view.card.name}` }).getAttribute("href")).toBe(
       cardPath(view.card.id, "results"),
     );
     expect(top.getByText(TIER_LABELS[view.fit.tier].toUpperCase())).toBeTruthy();

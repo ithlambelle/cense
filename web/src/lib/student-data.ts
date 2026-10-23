@@ -18,37 +18,37 @@ export type StudentSnapshot = {
 // with the student's own session (RLS limits every read to their rows). Both
 // tables are readable by students; nothing here writes.
 export async function loadStudentSnapshot(student: Student): Promise<StudentSnapshot> {
-  const [applications, draft] = await Promise.all([
+  const [applications, answers] = await Promise.all([
     student.supabase
       .from("card_applications")
       .select(APPLICATION_FIELDS)
       .eq("student_id", student.studentId)
       .order("updated_at", { ascending: false }),
-    student.supabase.from("quiz_drafts").select("answers").eq("student_id", student.studentId).maybeSingle(),
+    readQuizAnswers(student, "snapshot_read"),
   ]);
   if (applications.error) throw new Error("Could not read the student's cards.");
-  if (draft.error) throw new Error("Could not read the student's quiz.");
-
-  // Read the same way as GET /quiz: a draft the schema now rejects (an old
-  // field, a retired choice) keeps its valid answers, so Home matches what
-  // the quiz resumes from instead of treating the student as not started.
-  const answers = validAnswers(draft.data?.answers ?? {});
-  if (answers.dropped) console.warn(JSON.stringify({ event: "quiz_draft_invalid", operation: "snapshot_read" }));
   return {
     applications: (applications.data as ApplicationRow[]).map(applicationFromRow),
-    quiz: computeResult(answers.kept, listCards()),
-    quizStarted: firstUnanswered(answers.kept) !== 0,
+    quiz: computeResult(answers, listCards()),
+    quizStarted: firstUnanswered(answers) !== 0,
   };
 }
 
 // Only the quiz result, for screens that show the match but not the tracked
-// cards (the Cards tab). Read the same way as the snapshot above.
+// cards (the Cards tab).
 export async function loadQuizResult(student: Student): Promise<ResultView> {
+  return computeResult(await readQuizAnswers(student, "result_read"), listCards());
+}
+
+// Read the same way as GET /quiz: a draft the schema now rejects (an old
+// field, a retired choice) keeps its valid answers, so Home matches what the
+// quiz resumes from instead of treating the student as not started.
+async function readQuizAnswers(student: Student, operation: string) {
   const draft = await student.supabase.from("quiz_drafts").select("answers").eq("student_id", student.studentId).maybeSingle();
   if (draft.error) throw new Error("Could not read the student's quiz.");
   const answers = validAnswers(draft.data?.answers ?? {});
-  if (answers.dropped) console.warn(JSON.stringify({ event: "quiz_draft_invalid", operation: "result_read" }));
-  return computeResult(answers.kept, listCards());
+  if (answers.dropped) console.warn(JSON.stringify({ event: "quiz_draft_invalid", operation }));
+  return answers.kept;
 }
 
 // One tracked card, if it belongs to this student (RLS returns nothing otherwise).

@@ -71,12 +71,12 @@ describe("HomeView", () => {
     expect(link("Update my status")).toBe(`/applications/${ID}`);
   });
 
-  it("makes a tracked card one link: its card page, or its status when it is not in the catalog", () => {
+  it("makes a catalog card on Home one link to its card page, and leaves a hand-added card to its next step", () => {
     const { unmount } = render(<HomeView state={homeState([app("applied", { cardId: "discover-it-student-cash-back" })], NONE, true)} />);
     expect(link("View card details")).toBe("/cards/discover-it-student-cash-back?from=home");
     unmount();
     render(<HomeView state={homeState([app("approved")], NONE, true)} />);
-    expect(link("View status")).toBe(`/applications/${ID}`);
+    expect(screen.queryByRole("link", { name: "View card details" })).toBeNull();
   });
 
   it("shows a rejected card as drawn, with the denial guide as the next step", () => {
