@@ -2,11 +2,11 @@
 // "Selection indicator" layer (Figma 85:17397, hi-fi quiz). Chosen: a Light
 // Green circle with a Deep Navy check, the check well over 3:1 on the green, so
 // the state is a shape cue, not colour alone (WCAG 1.4.1, 1.4.11). Not chosen:
-// an empty ring. The card stays white either way; only this mark changes.
+// nothing. Every answer today is pick-one (tapping moves on or picks the one),
+// so an empty ring reads as a stray circle; a multi-select question would show
+// one. The card stays white either way; only this mark changes.
 function SelectionMark({ selected }: { selected: boolean }) {
-  if (!selected) {
-    return <span aria-hidden="true" className="size-6 shrink-0 rounded-full border-[1.5px] border-off-white bg-white" />
-  }
+  if (!selected) return null
   return (
     <svg aria-hidden="true" width={24} height={24} viewBox="0 0 24 24" className="shrink-0 animate-pop">
       <circle cx="12" cy="12" r="12" className="fill-green" />
