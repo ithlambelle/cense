@@ -68,10 +68,10 @@ describe("card pages remember where they were opened from", () => {
   });
 
   it("sends the back arrow to that origin, and anything else to the card list", () => {
-    expect(cardBackLink("results")).toEqual({ href: "/results", label: "Back to your match" });
-    expect(cardBackLink("home")).toEqual({ href: "/home", label: "Back to Home" });
-    expect(cardBackLink(undefined)).toEqual({ href: "/cards", label: "Back to cards" });
-    expect(cardBackLink("https://evil.example")).toEqual({ href: "/cards", label: "Back to cards" });
-    expect(cardBackLink(["results", "home"])).toEqual({ href: "/cards", label: "Back to cards" });
+    expect(cardBackLink("results")).toEqual({ href: "/results", label: "Your match" });
+    expect(cardBackLink("home")).toEqual({ href: "/home", label: "Home" });
+    expect(cardBackLink(undefined)).toEqual({ href: "/cards", label: "Cards" });
+    expect(cardBackLink("https://evil.example")).toEqual({ href: "/cards", label: "Cards" });
+    expect(cardBackLink(["results", "home"])).toEqual({ href: "/cards", label: "Cards" });
   });
 });

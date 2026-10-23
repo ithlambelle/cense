@@ -20,7 +20,7 @@ export function CardListView({ cards, signedIn }: { cards: Card[]; signedIn: boo
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
-        {signedIn ? null : <AppHeader backHref={ROUTES.welcome} title="Cards" />}
+        {signedIn ? null : <AppHeader backHref={ROUTES.welcome} backLabel="Welcome" />}
         <main className={cn("stagger flex flex-1 flex-col gap-6 px-6 pb-6", signedIn ? "pt-8" : "pt-4")}>
           <div className="flex flex-col gap-2">
             <h1 className="font-heading text-h2 font-medium text-navy">Cards</h1>

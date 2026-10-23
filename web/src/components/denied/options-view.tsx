@@ -21,7 +21,7 @@ const LETTER_CHOICES: { label: string; step: DeniedStep; answer: "looks_right" |
 // Denial Options (Figma 458:129), the start of the rejection guide (S21).
 export function DeniedOptionsView({ applicationId }: { applicationId: string | null }) {
   return (
-    <DeniedLayout backHref={ROUTES.home}>
+    <DeniedLayout backHref={ROUTES.home} backLabel="Home">
       <h1 className="text-center font-heading text-h1 font-medium text-navy">Denial Options</h1>
       <div className="flex justify-center p-2.5">
         <Image src="/mascot/penny.png" alt="" width={214} height={214} className="rotate-[0.84deg]" priority />

@@ -73,9 +73,9 @@ export function cardPath(cardId: string, from?: CardOrigin): string {
 // The card page's back arrow for each origin. Anything else, including a
 // hand-typed value, falls back to the card list.
 export function cardBackLink(from: string | string[] | undefined): { href: string; label: string } {
-  if (from === "results") return { href: ROUTES.results, label: "Back to your match" };
-  if (from === "home") return { href: ROUTES.home, label: "Back to Home" };
-  return { href: ROUTES.cards, label: "Back to cards" };
+  if (from === "results") return { href: ROUTES.results, label: "Your match" };
+  if (from === "home") return { href: ROUTES.home, label: "Home" };
+  return { href: ROUTES.cards, label: "Cards" };
 }
 
 const NEXT_ALLOW_LIST: readonly string[] = [ROUTES.quiz, ROUTES.results, ROUTES.home];

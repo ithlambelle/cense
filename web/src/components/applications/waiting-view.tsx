@@ -15,7 +15,7 @@ export function WaitingView({ application }: { application: Application }) {
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
-        <AppHeader backHref={applicationPath(id)} title="Your application" />
+        <AppHeader backHref={applicationPath(id)} backLabel="Your application" />
         <main className="stagger flex flex-1 flex-col gap-6 px-6 pt-4 pb-6">
           <div className="flex flex-col gap-2">
             <h1 className="font-heading text-h2 font-medium text-navy">Still waiting is normal</h1>

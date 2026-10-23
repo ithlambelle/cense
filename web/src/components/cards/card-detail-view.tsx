@@ -20,7 +20,7 @@ export function CardDetailView({ card, signedIn, from }: { card: Card; signedIn:
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
-        <AppHeader backHref={back.href} backLabel={back.label} title="Card details" />
+        <AppHeader backHref={back.href} backLabel={back.label} />
         <main className="stagger flex flex-1 flex-col gap-6 px-6 pt-4 pb-6">
           <div className="flex flex-col gap-[9px]">
             <div className="flex items-center justify-between gap-3">

@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { BackLink } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { FactChip } from "@/components/ui/fact-chip";
@@ -151,9 +152,6 @@ type ResultLayoutProps = {
   children: ReactNode;
 };
 
-const headerControl =
-  "flex size-12 items-center justify-center rounded-pill outline-none hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-off-white";
-
 function ResultLayout({ title, subtitle, footer = false, children }: ResultLayoutProps) {
   return (
     <div className="flex min-h-dvh justify-center bg-background">
@@ -165,9 +163,7 @@ function ResultLayout({ title, subtitle, footer = false, children }: ResultLayou
               lost their match (solution interviews, 2026-10-17). Changing an
               answer is "Retake quiz" at the end of the page. */}
           <nav aria-label="Result" className="relative flex items-center">
-            <Link href={ROUTES.home} aria-label="Back to Home" className={headerControl}>
-              <Image src="/icons/arrow-left.svg" alt="" width={48} height={48} />
-            </Link>
+            <BackLink href={ROUTES.home} label="Home" tone="light" />
           </nav>
           <div className="relative flex flex-col gap-[5px]">
             <h1 className="font-heading text-h3 font-medium text-white">{title}</h1>
