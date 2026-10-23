@@ -41,6 +41,16 @@ export async function loadStudentSnapshot(student: Student): Promise<StudentSnap
   };
 }
 
+// Only the quiz result, for screens that show the match but not the tracked
+// cards (the Cards tab). Read the same way as the snapshot above.
+export async function loadQuizResult(student: Student): Promise<ResultView> {
+  const draft = await student.supabase.from("quiz_drafts").select("answers").eq("student_id", student.studentId).maybeSingle();
+  if (draft.error) throw new Error("Could not read the student's quiz.");
+  const answers = validAnswers(draft.data?.answers ?? {});
+  if (answers.dropped) console.warn(JSON.stringify({ event: "quiz_draft_invalid", operation: "result_read" }));
+  return computeResult(answers.kept, listCards());
+}
+
 // One tracked card, if it belongs to this student (RLS returns nothing otherwise).
 export async function loadApplication(student: Student, applicationId: string): Promise<Application | null> {
   const { data, error } = await student.supabase

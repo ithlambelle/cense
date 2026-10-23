@@ -4,8 +4,10 @@ import Link from "next/link";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
+import { StatusPill } from "@/components/ui/status-pill";
+import { SENSITIVE } from "@/lib/analytics";
 import type { Card } from "@/lib/cards/catalog";
-import { cardDisplayName, cardTypeLabel } from "@/lib/copy/results";
+import { cardDisplayName, cardTypeLabel, TIER_LABELS, type FitTier } from "@/lib/copy/results";
 import { moneyAmount } from "@/lib/money";
 import { cardPath, ROUTES, signInPath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -13,7 +15,18 @@ import { cn } from "@/lib/utils";
 // The card list (S13). No hi-fi frame yet: outlined cards in the style of the
 // resource list (Figma 459:643) and the result's "Another option", proposed to
 // design. Cards the rules can recommend come first.
-export function CardListView({ cards, signedIn }: { cards: Card[]; signedIn: boolean }) {
+// A finished quiz: the match card's name and tier, or no name when no card fits.
+export type YourMatch = { name: string | null; tier: FitTier };
+
+export function CardListView({
+  cards,
+  signedIn,
+  yourMatch = null,
+}: {
+  cards: Card[];
+  signedIn: boolean;
+  yourMatch?: YourMatch | null;
+}) {
   const recommend = cards.filter((card) => card.catalogRole === "recommend");
   const explore = cards.filter((card) => card.catalogRole === "explore");
 
@@ -28,9 +41,13 @@ export function CardListView({ cards, signedIn }: { cards: Card[]; signedIn: boo
               Cards picked for students. Take the quiz to see which one fits you, and why.
             </p>
           </div>
-          <Link href={ROUTES.quiz} className={buttonVariants()}>
-            Take the quiz
-          </Link>
+          {yourMatch ? (
+            <YourMatchRow match={yourMatch} />
+          ) : (
+            <Link href={ROUTES.quiz} className={buttonVariants()}>
+              Take the quiz
+            </Link>
+          )}
           {signedIn ? null : (
             <Link
               href={signInPath(null)}
@@ -92,5 +109,33 @@ function CardGroup({ title, cards }: { title: string; cards: Card[] }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+// On top once the quiz is done, so the match is one tap away from the card
+// list too. In interviews a student lost her result after leaving it, and was
+// unsure whether the list or the quiz came first (2026-10-17).
+function YourMatchRow({ match }: { match: YourMatch }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <Link
+        href={ROUTES.results}
+        className="flex items-center gap-3 rounded-card bg-off-white p-5 outline-none transition-transform duration-200 motion-safe:active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      >
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="text-body-s font-semibold text-violet">Your match</span>
+          <span className={cn(SENSITIVE, "font-heading text-h6 font-medium text-navy")}>
+            {match.name ?? "No card fits yet. See why"}
+          </span>
+        </span>
+        {match.name ? (
+          <StatusPill className={cn(SENSITIVE, "bg-white")}>{TIER_LABELS[match.tier].toUpperCase()}</StatusPill>
+        ) : null}
+        <ChevronRight aria-hidden="true" width={20} height={20} className="shrink-0 text-violet" />
+      </Link>
+      <Link href={ROUTES.quiz} className={buttonVariants({ variant: "secondary" })}>
+        Retake the quiz
+      </Link>
+    </div>
   );
 }
