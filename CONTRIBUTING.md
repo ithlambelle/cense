@@ -34,7 +34,7 @@ How a piece of work goes from the Notion board to merged code.
 - The author merges after approval and watches that `main` stays green.
 - Use "Squash and merge", so each pull request lands on `main` as a single commit.
 
-`main` will be protected so GitHub enforces these rules (a pull request, one approval, passing checks). That needs GitHub Pro on the owner's account. Until it is switched on, follow the rules anyway: no direct pushes to `main`.
+`main` will be protected so GitHub enforces these rules (a pull request, one approval, passing checks). That is free on a public repository like this one; only a private repository would need GitHub Pro, which the GitHub Student Developer Pack includes. Until it is switched on, follow the rules anyway: no direct pushes to `main`.
 
 ## AI use
 
