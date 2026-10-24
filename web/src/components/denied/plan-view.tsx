@@ -184,8 +184,9 @@ export function DeniedPlanScreen({
               style={{ width: `${(done.size / STEPS.length) * 100}%` }}
             />
           </div>
-          {/* Figma strokes sit inside the box: padding is 20 by 6 less the 1.5 border, and
-              row dividers are inset shadows, so rows keep the frame's 54px. */}
+          {/* List row, Divider (Figma 273:2196). Strokes sit inside the box: padding is 20 by 6
+              less the 1.5 border, and row dividers are inset shadows, so rows keep the frame's
+              height. */}
           <ul className="flex flex-col rounded-card border-[1.5px] border-violet bg-white px-[18.5px] py-[4.5px]">
             {STEPS.map((step) => {
               const lit = done.has(step.id);
@@ -195,16 +196,17 @@ export function DeniedPlanScreen({
                   {lit ? <span className="sr-only">, done</span> : null}
                 </>
               );
-              const titleClass = cn("font-heading text-h6 font-medium", lit ? "text-indigo-black/70" : "text-indigo-black");
+              // A done step's title goes quiet: regular weight at 70%.
+              const titleClass = cn("text-body-m leading-[normal]", lit ? "text-indigo-black/70" : "font-medium text-indigo-black");
               return (
                 <li key={step.id} className="not-last:shadow-[inset_0_-1px_0_var(--color-off-white)]">
                   {open === step.id ? (
-                    <div className="flex items-start gap-2.5 py-3.5">
+                    <div className="flex items-start gap-3 py-3.5">
                       <StarSlot lit={lit} />
                       <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5 text-indigo-black">
                         {step.id === upNext ? <p className="text-[11px] leading-[13px] font-semibold text-violet">UP NEXT</p> : null}
                         <p className={titleClass}>{title}</p>
-                        <p className="text-body-s">{step.body}</p>
+                        <p className="text-body-s leading-[normal] text-indigo-black/70">{step.body}</p>
                         {step.link ? (
                           <a
                             href={step.link.href}
@@ -233,7 +235,7 @@ export function DeniedPlanScreen({
                       type="button"
                       aria-expanded={false}
                       onClick={() => setOpen(step.id)}
-                      className="flex w-full items-center gap-2.5 py-3.5 text-left outline-none focus-visible:outline-2 focus-visible:outline-ring"
+                      className="flex w-full items-center gap-3 py-3.5 text-left outline-none focus-visible:outline-2 focus-visible:outline-ring"
                     >
                       <StarSlot lit={lit} />
                       <span className={cn("min-w-0 flex-1", titleClass)}>{title}</span>
@@ -273,7 +275,9 @@ export function DeniedPlanScreen({
 }
 
 // The reason line for each saved answer. "Not yet" has no reason to show.
-function reasonLine({ reason, note }: SavedDenialReason): string | null {
+// "Something else" reads "other": the student's own note is not shown as the
+// reason (Ben, 2026-10-24).
+function reasonLine({ reason }: SavedDenialReason): string | null {
   switch (reason) {
     case "no_credit_history":
       return "Reason: no credit history yet";
@@ -284,7 +288,7 @@ function reasonLine({ reason, note }: SavedDenialReason): string | null {
     case "report_frozen":
       return "Reason: credit report frozen";
     case "something_else":
-      return note ? `Reason: ${note}` : "Reason: something else";
+      return "Reason: other";
     case "no_letter_yet":
       return null;
   }
@@ -331,13 +335,13 @@ function ReasonNote({ reason }: { reason: SavedDenialReason }) {
   );
 }
 
-// Figma "Star slot / lit" (144:2082) and "Star slot / empty" (144:2097).
+// List row "Lead / done" and "Lead / slot" (273:2161, 273:2145): 24px.
 function StarSlot({ lit }: { lit: boolean }) {
   return lit ? (
-    <span aria-hidden="true" className="flex size-[26px] shrink-0 items-center justify-center rounded-pill bg-amber">
+    <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-pill bg-amber">
       <StarFill width={12} height={12} className="animate-pop text-white" />
     </span>
   ) : (
-    <span aria-hidden="true" className="size-[26px] shrink-0 rounded-pill border-[1.5px] border-indigo-black/70" />
+    <span aria-hidden="true" className="size-6 shrink-0 rounded-pill border-[1.5px] border-indigo-black" />
   );
 }

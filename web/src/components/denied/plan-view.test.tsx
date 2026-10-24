@@ -146,10 +146,11 @@ describe("DeniedPlanView", () => {
     expect(screen.getByText(/the credit bureau doesn’t have a record for you yet/)).toBeTruthy();
   });
 
-  it("shows the letter's words for Something else, without a Why?", async () => {
+  it("says other for Something else, not the letter's words, without a Why?", async () => {
     server([{ status: 200, body: plan() }], application("something_else", "Too many recent applications"));
     render(<DeniedPlanView applicationId={ID} />);
-    expect(await screen.findByText("Reason: Too many recent applications")).toBeTruthy();
+    expect(await screen.findByText("Reason: other")).toBeTruthy();
+    expect(screen.queryByText(/Too many recent applications/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Why?" })).toBeNull();
   });
 
