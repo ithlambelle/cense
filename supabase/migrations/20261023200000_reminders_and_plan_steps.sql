@@ -12,8 +12,11 @@
 --
 -- Reminder rules: statement closing 3 days before the close, payment due 3
 -- days before the due date, check autopay the day after the first statement
--- closes. When the 3-day mark has passed but the date has not, it goes out
--- today. Emails go at 9:00 on the student's calendar.
+-- closes. No payment-due reminder comes before the card's first statement has
+-- closed (a card set up Nov 1 with close day 12 and due day 9 gets its first
+-- one for Dec 9). When the 3-day mark has passed but the date has not, it goes
+-- out today. Emails go at 9:00 on the student's calendar; an unknown time zone
+-- name falls back to America/New_York.
 --
 -- plan_steps: one row per finished plan step (a lit star). Undo deletes the
 -- row. Autopay is not a step: the plan reads card_applications.autopay_status.
@@ -27,10 +30,39 @@ alter table public.card_applications
   add constraint card_applications_id_student_key unique (id, student_id);
 
 -- new columns
--- the student's own words about a denial: at most 200 characters, never sent to analytics
+-- the student's own words about a denial: at most 200 characters, never sent
+-- to analytics. card_set_up_at: when the card's closing day was first saved,
+-- set by the server, so the first statement can be worked out.
 alter table public.card_applications
   add column denial_reason_note text
-    check (char_length(denial_reason_note) <= 200);
+    check (char_length(denial_reason_note) <= 200),
+  add column card_set_up_at timestamptz;
+
+-- existing cards with a closing day count as set up now
+update public.card_applications
+set card_set_up_at = now()
+where statement_closing_day is not null;
+
+-- the server keeps the first time; whatever the client sends is ignored
+create or replace function public.set_card_set_up_at()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'INSERT' then
+    new.card_set_up_at := case when new.statement_closing_day is not null then now() end;
+  else
+    new.card_set_up_at := coalesce(old.card_set_up_at,
+      case when new.statement_closing_day is not null then now() end);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger card_applications_set_card_set_up_at
+  before insert or update on public.card_applications
+  for each row execute function public.set_card_set_up_at();
 
 -- when the student last opened their updates; reminder settings. Unsubscribing
 -- (from the link in every email) stops all reminder emails; each kind can
@@ -97,6 +129,12 @@ create table public.plan_steps (
 
 create index plan_steps_student_idx on public.plan_steps (student_id);
 
+-- Supabase's default privileges give anon and authenticated every privilege on
+-- new tables in public. Take them all back so the grants at the end are the
+-- only ones students have (otherwise the update policy would let a student
+-- change any column of their reminders, not only acted_at).
+revoke all on table public.reminders, public.plan_steps from anon, authenticated;
+
 -- a first-month step needs an approved card, a denial step a rejected one
 create or replace function public.check_plan_step_status()
 returns trigger
@@ -153,6 +191,20 @@ as $$
   end;
 $$;
 
+-- the student's time zone, or America/New_York when it is empty or not a
+-- real time zone name, so one bad profile can never stop reminders
+create or replace function public.reminder_safe_tz(p_time_zone text)
+returns text
+language sql
+stable
+set search_path = ''
+as $$
+  select case
+    when exists (select 1 from pg_catalog.pg_timezone_names where name = p_time_zone) then p_time_zone
+    else 'America/New_York'
+  end;
+$$;
+
 -- 9:00 on the student's calendar, as an instant
 create or replace function public.reminder_due_at(p_day date, p_time_zone text)
 returns timestamptz
@@ -160,13 +212,14 @@ language sql
 stable
 set search_path = ''
 as $$
-  select (p_day + time '09:00') at time zone coalesce(nullif(p_time_zone, ''), 'America/New_York');
+  select (p_day + time '09:00') at time zone public.reminder_safe_tz(p_time_zone);
 $$;
 
 -- Make one application's reminders match its card and the student's settings:
 -- drop unsent reminders that no longer apply, add the next one of each kind.
 -- Sent and claimed rows are never touched.
-create or replace function public.refresh_reminders(p_application_id uuid)
+-- p_today is for tests; everything else leaves it null for the student's today.
+create or replace function public.refresh_reminders(p_application_id uuid, p_today date default null)
 returns void
 language plpgsql
 security definer
@@ -177,6 +230,8 @@ declare
   v_profile public.profiles;
   v_tz text;
   v_today date;
+  v_set_up date;
+  v_first_close date;
   v_close date;
   v_due date;
   v_subscribed boolean;
@@ -186,8 +241,8 @@ begin
     return;
   end if;
   select * into v_profile from public.profiles where student_id = v_app.student_id;
-  v_tz := coalesce(nullif(v_profile.time_zone, ''), 'America/New_York');
-  v_today := (now() at time zone v_tz)::date;
+  v_tz := public.reminder_safe_tz(v_profile.time_zone);
+  v_today := coalesce(p_today, (now() at time zone v_tz)::date);
   v_subscribed := v_profile.reminders_unsubscribed_at is null;
 
   -- unsent card reminders are rebuilt from the current days and settings
@@ -207,26 +262,36 @@ begin
     return;
   end if;
 
-  if v_app.statement_closing_day is not null then
-    v_close := public.reminder_next_on_day(v_app.statement_closing_day, v_today);
-    if coalesce(v_profile.remind_statement_closing, true) then
-      insert into public.reminders (student_id, card_application_id, kind, occurrence, due_at)
-      values (v_app.student_id, v_app.id, 'statement_closing', v_close,
-              public.reminder_due_at(greatest(v_close - 3, v_today), v_tz))
-      on conflict (card_application_id, kind, occurrence) do nothing;
-    end if;
-    -- once per card, and only while autopay is not known to be on
-    if coalesce(v_profile.remind_check_autopay, true) and v_app.autopay_status <> 'on'
-       and not exists (select 1 from public.reminders
-                       where card_application_id = v_app.id and kind = 'check_autopay') then
-      insert into public.reminders (student_id, card_application_id, kind, occurrence, due_at)
-      values (v_app.student_id, v_app.id, 'check_autopay', v_close,
-              public.reminder_due_at(v_close + 1, v_tz));
-    end if;
+  if v_app.statement_closing_day is null then
+    return;
   end if;
 
+  -- the first statement: the first closing day on or after the card was set up.
+  -- It is fixed by the set-up day, not by today, so re-planning never moves it.
+  v_set_up := coalesce((v_app.card_set_up_at at time zone v_tz)::date, v_today);
+  v_first_close := public.reminder_next_on_day(v_app.statement_closing_day, v_set_up);
+
+  v_close := public.reminder_next_on_day(v_app.statement_closing_day, v_today);
+  if coalesce(v_profile.remind_statement_closing, true) then
+    insert into public.reminders (student_id, card_application_id, kind, occurrence, due_at)
+    values (v_app.student_id, v_app.id, 'statement_closing', v_close,
+            public.reminder_due_at(greatest(v_close - 3, v_today), v_tz))
+    on conflict (card_application_id, kind, occurrence) do nothing;
+  end if;
+
+  -- once per card, the day after the first statement closes, and only while
+  -- autopay is not known to be on. If that day has passed unsent, it goes today.
+  if coalesce(v_profile.remind_check_autopay, true) and v_app.autopay_status <> 'on'
+     and not exists (select 1 from public.reminders
+                     where card_application_id = v_app.id and kind = 'check_autopay') then
+    insert into public.reminders (student_id, card_application_id, kind, occurrence, due_at)
+    values (v_app.student_id, v_app.id, 'check_autopay', v_first_close,
+            public.reminder_due_at(greatest(v_first_close + 1, v_today), v_tz));
+  end if;
+
+  -- the first payment due is the one after the first statement closes
   if v_app.payment_due_day is not null and coalesce(v_profile.remind_payment_due, true) then
-    v_due := public.reminder_next_on_day(v_app.payment_due_day, v_today);
+    v_due := public.reminder_next_on_day(v_app.payment_due_day, greatest(v_today, v_first_close + 1));
     insert into public.reminders (student_id, card_application_id, kind, occurrence, due_at)
     values (v_app.student_id, v_app.id, 'payment_due', v_due,
             public.reminder_due_at(greatest(v_due - 3, v_today), v_tz))
@@ -247,7 +312,12 @@ declare
   v_id uuid;
 begin
   for v_id in select id from public.card_applications where status in ('approved', 'rejected') loop
-    perform public.refresh_reminders(v_id);
+    begin
+      perform public.refresh_reminders(v_id);
+    exception when others then
+      -- one bad card must not stop everyone else's reminders
+      raise warning 'refresh_reminders failed for application %: %', v_id, sqlstate;
+    end;
   end loop;
 end;
 $$;
@@ -278,9 +348,9 @@ begin
   if v_app.status <> 'rejected' then
     raise exception 'a reapply reminder needs a rejected application' using errcode = '22023';
   end if;
-  select coalesce(nullif(time_zone, ''), 'America/New_York') into v_tz
+  select public.reminder_safe_tz(time_zone) into v_tz
   from public.profiles where student_id = v_student_id;
-  v_tz := coalesce(v_tz, 'America/New_York');
+  v_tz := public.reminder_safe_tz(v_tz);
   v_today := (now() at time zone v_tz)::date;
   if p_remind_on is null or p_remind_on <= v_today or p_remind_on > v_today + 366 then
     raise exception 'pick a day from tomorrow to a year from now' using errcode = '22023';
@@ -366,12 +436,13 @@ $$;
 
 -- who can run what: the scheduling functions are for the cron job and the
 -- triggers only; students get create_reapply_reminder
-revoke execute on function public.refresh_reminders(uuid) from public, anon, authenticated;
+revoke execute on function public.refresh_reminders(uuid, date) from public, anon, authenticated;
 revoke execute on function public.refresh_all_reminders() from public, anon, authenticated;
 revoke execute on function public.create_reapply_reminder(uuid, date) from public, anon;
 grant execute on function public.create_reapply_reminder(uuid, date) to authenticated;
 revoke execute on function public.card_applications_refresh_reminders() from public, anon, authenticated;
 revoke execute on function public.profiles_refresh_reminders() from public, anon, authenticated;
+revoke execute on function public.set_card_set_up_at() from public, anon, authenticated;
 
 -- grants: students read their reminders and mark one acted on; plan steps
 -- are added and undone
