@@ -9,6 +9,7 @@ import { stringify } from "yaml";
 import { z } from "zod";
 
 import {
+  applicationDetailSchema,
   applicationSchema,
   cardSchema,
   createApplicationSchema,
@@ -37,6 +38,7 @@ const errorSchema = registry.register("ApiError", z.strictObject({
 const cardContract = registry.register("Card", cardSchema);
 const quizDraftContract = registry.register("QuizDraft", quizDraftSchema);
 const applicationContract = registry.register("Application", applicationSchema);
+const applicationDetailContract = registry.register("ApplicationDetail", applicationDetailSchema);
 const recommendationContract = registry.register("Recommendation", recommendationSchema);
 
 const json = (schema: z.ZodType) => ({
@@ -141,10 +143,18 @@ registry.registerPath({
   responses: { 201: ok(applicationContract), 400: failure("Invalid application"), 409: failure("Already exists"), ...protectedResponses },
 });
 registry.registerPath({
-  method: "patch", path: "/applications/{id}", operationId: "updateApplication", summary: "Update application status",
+  method: "patch", path: "/applications/{id}", operationId: "updateApplication",
+  summary: "Update a tracked card: status, credit limit, denial reason and note, autopay, closing and due days",
+  description: "Any of the fields, at least one. A credit limit and the closing and due days need an approved card, a denial reason and note a rejected one. Saving the days, status or autopay re-plans the card's reminders.",
   security: [{ studentSession: [] }],
   request: { params: z.object({ id: z.uuid() }), body: body(updateApplicationSchema) },
-  responses: { 200: ok(applicationContract), 400: failure("Invalid update"), 404: failure("Application not found"), 409: failure("Already exists"), ...protectedResponses },
+  responses: { 200: ok(applicationDetailContract), 400: failure("Invalid update"), 404: failure("Application not found"), 409: failure("Already exists"), ...protectedResponses },
+});
+registry.registerPath({
+  method: "get", path: "/applications/{id}", operationId: "getApplication", summary: "Read one tracked card with its denial reason, autopay and closing and due days",
+  security: [{ studentSession: [] }],
+  request: { params: z.object({ id: z.uuid() }) },
+  responses: { 200: ok(applicationDetailContract), 400: failure("Invalid application ID"), 404: failure("Application not found"), ...protectedResponses },
 });
 const planStepContract = registry.register("PlanStep", planStepSchema);
 const planParams = z.object({ id: z.uuid(), plan: planNameSchema });

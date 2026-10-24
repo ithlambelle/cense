@@ -285,13 +285,17 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Read one tracked card with its denial reason, autopay and closing and due days */
+        get: operations["getApplication"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /** Update application status */
+        /**
+         * Update a tracked card: status, credit limit, denial reason and note, autopay, closing and due days
+         * @description Any of the fields, at least one. A credit limit and the closing and due days need an approved card, a denial reason and note a rejected one. Saving the days, status or autopay re-plans the card's reminders.
+         */
         patch: operations["updateApplication"];
         trace?: never;
     };
@@ -464,6 +468,26 @@ export interface components {
             appliedAt: string | null;
             /** Format: date-time */
             statusUpdatedAt: string;
+        };
+        ApplicationDetail: {
+            /** Format: uuid */
+            id: string;
+            cardId: string | null;
+            cardName: string;
+            /** @enum {string} */
+            status: "applied" | "approved" | "rejected";
+            creditLimitCents: number | null;
+            /** Format: date-time */
+            appliedAt: string | null;
+            /** Format: date-time */
+            statusUpdatedAt: string;
+            /** @enum {string|null} */
+            denialReason: "no_credit_history" | "could_not_verify" | "report_frozen" | "income" | "something_else" | "no_letter_yet" | null;
+            denialReasonNote: string | null;
+            /** @enum {string} */
+            autopayStatus: "on" | "off" | "unknown";
+            statementClosingDay: number | null;
+            paymentDueDay: number | null;
         };
         Recommendation: {
             /** Format: uuid */
@@ -1292,6 +1316,64 @@ export interface operations {
             };
         };
     };
+    getApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDetail"];
+                };
+            };
+            /** @description Invalid application ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Application not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     updateApplication: {
         parameters: {
             query?: never;
@@ -1305,8 +1387,15 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    status: "applied" | "approved" | "rejected";
-                    creditLimitCents: number | null;
+                    status?: "applied" | "approved" | "rejected";
+                    creditLimitCents?: number | null;
+                    /** @enum {string|null} */
+                    denialReason?: "no_credit_history" | "could_not_verify" | "report_frozen" | "income" | "something_else" | "no_letter_yet" | null;
+                    denialReasonNote?: string | null;
+                    /** @enum {string} */
+                    autopayStatus?: "on" | "off" | "unknown";
+                    statementClosingDay?: number | null;
+                    paymentDueDay?: number | null;
                 };
             };
         };
@@ -1317,7 +1406,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Application"];
+                    "application/json": components["schemas"]["ApplicationDetail"];
                 };
             };
             /** @description Invalid update */
