@@ -116,13 +116,14 @@ export function ReminderSetup({ applicationId }: { applicationId: string | null 
           <h2 className="font-heading text-h6 font-medium">Before you reapply</h2>
         </div>
         <p className="text-body-s">Your 5-step plan covers what to do until then.</p>
-        {/* The link's box covers the whole card (after:inset-0), so a tap anywhere opens the plan. */}
+        {/* The link's box covers the whole card (after:inset-0), so a tap anywhere opens the plan
+            and the row can keep the frame's 20px height (275:2144). */}
         <Link
           href={deniedPath("plan", applicationId)}
-          className="flex min-h-11 items-center justify-between text-body-s font-semibold text-violet outline-none after:absolute after:inset-0 after:rounded-card hover:text-violet-hover focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-ring"
+          className="flex items-center justify-between text-body-s font-semibold text-violet outline-none after:absolute after:inset-0 after:rounded-card hover:text-violet-hover focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-ring"
         >
           See the 5-step plan
-          <ChevronRight aria-hidden="true" width={16} height={16} />
+          <ChevronRight aria-hidden="true" width={14} height={14} />
         </Link>
       </section>
 
