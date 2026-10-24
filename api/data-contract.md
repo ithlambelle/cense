@@ -65,6 +65,9 @@ review sites for estimates, on 2026-10-15; 13 are `recommend`.
 | `GET /api/v1/applications`, `POST /api/v1/applications` | List and add tracked cards (the short `Application` shape). |
 | `GET /api/v1/applications/{id}`, `PATCH /api/v1/applications/{id}` | One card with its denial reason and note, autopay and closing and due days (`ApplicationDetail`). PATCH takes any of those fields plus status and credit limit; a limit and the days need an approved card, a reason and note a rejected one. |
 | `GET /api/v1/applications/{id}/plans/{plan}`, `PUT` and `DELETE /api/v1/applications/{id}/plans/{plan}/steps/{step}` | Read, mark done and undo first-month and denial plan steps. |
+| `GET /api/v1/reminders`, `POST /api/v1/reminders` | List the student's reminders (sent and upcoming, with `remindOn` on their calendar), and set the reapply reminder for a denied application, tomorrow to a year out, through `create_reapply_reminder`. |
+| `POST /api/v1/reminders/{id}/acted` | Mark a sent reminder acted on ("I paid it down"). The first time is kept. |
+| `GET /api/v1/me/reminder-settings`, `PATCH /api/v1/me/reminder-settings` | Read and change `emailsOn` and the three per-kind toggles. |
 
 The API route owner will implement a route only when its underlying dataset or
 table is available. No route will claim a successful recommendation based on an
