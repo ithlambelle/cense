@@ -70,6 +70,8 @@ describe("password sign-up and log-in", () => {
     // The confirmation email carries a 6-digit code, so the code step opens.
     expect(await screen.findByText("We sent a 6-digit code to alex@email.com to confirm your account.")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Resend email in \d+s/ })).toBeTruthy();
+    // An email that already has an account gets the same answer and a sign-in code.
+    expect(screen.getByText("Already have an account? This code signs you in.")).toBeTruthy();
     fetchFn.mockImplementation(async () => Response.json({ status: "signed_in" }, { status: 200 }));
     fill("Verification code", "123456");
     fireEvent.click(screen.getByRole("button", { name: "Verify" }));

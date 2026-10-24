@@ -138,7 +138,7 @@ describe("QuizFlow", () => {
     render(<QuizFlow />);
     expect(await screen.findByText("Question 6 of 6")).toBeTruthy();
     await tap("Yes");
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/results"));
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith("/results"));
     expect(sentAnswers(fetchFn, 1)).toEqual({ ...five, canDeposit: true });
     expect(track).toHaveBeenCalledWith("quiz_completed", { retake: false });
     expect(track).not.toHaveBeenCalledWith("quiz_started");
@@ -201,7 +201,7 @@ describe("QuizFlow", () => {
     // Only the first read so far: no answer was saved on the way.
     expect(fetchFn).toHaveBeenCalledTimes(1);
     await tap("No");
-    await vi.waitFor(() => expect(push).toHaveBeenCalledWith("/results"));
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith("/results"));
     expect(fetchFn).toHaveBeenCalledTimes(2);
     expect(fetchFn.mock.calls[1][1]?.method).toBe("PUT");
     expect(sentAnswers(fetchFn, 1)).toEqual({ ...all, under21: false, canDeposit: false });

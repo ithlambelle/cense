@@ -56,6 +56,7 @@ describe("SignInFlow", () => {
     expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toEqual({ email: "student@example.edu" });
     expect(window.location.href).not.toContain("student");
     expect(screen.getByText("We sent a 6-digit code to student@example.edu.")).toBeTruthy();
+    expect(screen.queryByText(/This code signs you in/)).toBeNull();
   });
 
   it("verifies the code and goes to the allowed next place", async () => {

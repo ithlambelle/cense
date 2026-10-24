@@ -17,8 +17,9 @@ export async function generateMetadata({ params }: PageProps<"/cards/[id]">): Pr
 
 // Open to everyone. Signed-out visitors are sent to sign-in when they tap an
 // issuer button, and come back to this card.
-export default async function CardDetailPage({ params }: PageProps<"/cards/[id]">) {
+export default async function CardDetailPage({ params, searchParams }: PageProps<"/cards/[id]">) {
   const { id } = await params;
+  const { from } = await searchParams;
   const card = findCard(id);
   if (!card) notFound();
   const student = await currentStudent();
@@ -29,7 +30,7 @@ export default async function CardDetailPage({ params }: PageProps<"/cards/[id]"
         <IdentifyStudent studentId={student.studentId} isInternal={isInternalStudent(student.studentId)} />
       ) : null}
       <TrackOnMount event="card_details_viewed" props={{ card_id: card.id, signed_in: student !== null }} />
-      <CardDetailView card={card} signedIn={student !== null} />
+      <CardDetailView card={card} signedIn={student !== null} from={from} />
     </>
   );
 }

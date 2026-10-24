@@ -24,7 +24,7 @@ export default async function PlanPage({ searchParams }: PageProps<"/plan">) {
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
-        <AppHeader backHref={ROUTES.home} title="My card, month 1" />
+        <AppHeader backHref={ROUTES.home} backLabel="Home" />
         <main className="stagger flex flex-1 flex-col gap-4 px-6 pt-4 pb-6">
           <h1 className="font-heading text-h2 font-medium text-navy">No approved card yet</h1>
           <p className="text-body-m text-indigo-black">Your first-month plan starts when a card is approved. Update a card on Home when you hear back.</p>

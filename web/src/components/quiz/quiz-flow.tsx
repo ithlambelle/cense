@@ -110,8 +110,10 @@ function QuizSteps({ saved }: { saved: Draft }) {
     track("quiz_step_completed", { step: index + 1, field: question.field as QuizField, retake });
     if (isLast) {
       track("quiz_completed", { retake });
-      // Stays locked while the result screen loads.
-      router.push(ROUTES.results);
+      // Stays locked while the result screen loads. Replace, not push: the
+      // browser's back button must not land on the finished quiz, which
+      // restarts from the first question (solution interviews, 2026-10-17).
+      router.replace(ROUTES.results);
       return;
     }
     setSaving(false);

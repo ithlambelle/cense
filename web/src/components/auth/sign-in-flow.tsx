@@ -236,6 +236,11 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
             ? `We sent a ${CODE_LENGTH}-digit code to ${email.trim()} to confirm your account.`
             : `We sent a ${CODE_LENGTH}-digit code to ${email.trim()}.`}
         </p>
+        {confirming ? (
+          // Sign-up with an email that already has an account sends a sign-in
+          // code instead, with the same answer, so this screen covers both.
+          <p className="text-body-s text-indigo-black/70">Already have an account? This code signs you in.</p>
+        ) : null}
         <form method="post" onSubmit={submitCode} className="flex flex-col gap-4 py-5" noValidate>
           <CodeInput value={code} onChange={setCode} error={error ?? undefined} disabled={pending} />
           <Button type="submit" pending={pending}>

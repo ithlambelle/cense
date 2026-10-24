@@ -88,7 +88,7 @@ export function AddCardScreen() {
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
-        <AppHeader backHref={ROUTES.home} title="Add a card" />
+        <AppHeader backHref={ROUTES.home} backLabel="Home" />
         <main className="stagger flex flex-1 flex-col gap-6 px-6 pt-4 pb-6">
           <div className="flex flex-col gap-2">
             <h1 className="font-heading text-h2 font-medium text-navy">Add a card you already have</h1>
