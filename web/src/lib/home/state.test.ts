@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Application } from "../api/application";
 import { listCards } from "../cards/catalog";
 import { computeResult } from "../results/compute";
-import { celebrating, homeState, planApplication, profileInitial } from "./state";
+import { celebrating, homeState, needsDetail, planApplication, profileInitial } from "./state";
 
 const ALL_SIX = { under21: true, incomeBand: "under_5k", student: true, standing: "none", recentDenial: false, canDeposit: true };
 const cards = listCards();
@@ -88,5 +88,15 @@ describe("profileInitial", () => {
   it("uses the email's first letter, uppercase, until a name is saved", () => {
     expect(profileInitial("maya@bu.edu")).toBe("M");
     expect(profileInitial(null)).toBe("");
+  });
+});
+
+describe("needsDetail", () => {
+  it("reads the denial reason and autopay only for an approved or denied leading card", () => {
+    const none = computeResult(undefined, cards);
+    expect(needsDetail(homeState([app("1", "approved", "2026-10-01T00:00:00Z")], none, true))).toBe(true);
+    expect(needsDetail(homeState([app("2", "rejected", "2026-10-01T00:00:00Z")], none, true))).toBe(true);
+    expect(needsDetail(homeState([app("3", "applied", "2026-10-01T00:00:00Z")], none, true))).toBe(false);
+    expect(needsDetail(homeState([], none, false))).toBe(false);
   });
 });

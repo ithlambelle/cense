@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 
+import { Constellation, STAR } from "@/components/home/constellation";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { SENSITIVE } from "@/lib/analytics";
@@ -33,14 +34,6 @@ const STEPS: { key: StepKey; step: PlanStepName | null; title: string; detail: s
 ];
 
 const NONE_LIT: Lit = { autopay: false, plannedPurchase: false, paymentReminder: false };
-
-// The burst star (public/decor/burst-star.svg, the frames' star shape) as a
-// mask, so one file draws every color.
-const STAR = "mask-[url(/decor/burst-star.svg)] mask-contain mask-center mask-no-repeat";
-
-// Positions as a share of the box they sit in: the 299-wide constellation
-// panel for the stars.
-const at = (x: number, y: number, width: number): CSSProperties => ({ left: `${(x / width) * 100}%`, top: y });
 
 function loadLit(applicationId: string) {
   return async (): Promise<LoadOutcome<Lit>> => {
@@ -190,7 +183,7 @@ function CardModule({
 
       <div className="h-[1.5px] bg-off-white" />
       <h2 className="font-heading text-h6 font-medium text-navy">Your first month</h2>
-      <Constellation count={count} />
+      <Constellation count={count} layout="three" />
 
       <ul className="flex flex-col gap-3.5">
         {STEPS.map((step) => (
@@ -235,83 +228,6 @@ function CardModule({
       ) : null}
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
     </section>
-  );
-}
-
-// The three stars by their centers in the 299 by 92 panel (212:1777).
-const STAR_AT = [
-  [40, 60],
-  [154.5, 34],
-  [269, 52],
-] as const;
-
-const SKY_DOTS = [
-  [18, 72],
-  [120, 16],
-  [200, 80],
-  [276, 22],
-  [60, 40],
-  [236, 58],
-] as const;
-
-// Lit stars are amber with a warm glow, the next one is white with a halo,
-// the rest wait dim. A line turns solid amber once both its stars are lit
-// (144:1733). The frames' light blue (lines, halo, count) is lavender here.
-function Constellation({ count }: { count: number }) {
-  return (
-    <div className="relative h-[92px] overflow-hidden rounded-[16px] bg-navy">
-      <svg aria-hidden="true" className="absolute inset-0 size-full" viewBox="0 0 299 92" preserveAspectRatio="none">
-        {STAR_AT.slice(1).map(([x, y], index) => {
-          const [fromX, fromY] = STAR_AT[index];
-          const solid = index + 1 < count;
-          return (
-            <line
-              key={x}
-              x1={fromX}
-              y1={fromY}
-              x2={x}
-              y2={y}
-              className={solid ? "stroke-amber" : "stroke-off-white"}
-              strokeOpacity={solid ? 1 : 0.35}
-              strokeWidth={solid ? 2 : 1.25}
-              strokeDasharray={solid ? undefined : "2.9 4.9"}
-              strokeLinecap="round"
-              vectorEffect="non-scaling-stroke"
-            />
-          );
-        })}
-      </svg>
-      {SKY_DOTS.map(([x, y]) => (
-        <span key={`${x}-${y}`} aria-hidden="true" className="absolute size-[2.5px] rounded-pill bg-white/35" style={at(x, y, 299)} />
-      ))}
-      {STAR_AT.map(([x, y], index) => {
-        if (index < count) {
-          return (
-            <span key={x} aria-hidden="true" className="absolute -translate-1/2 drop-shadow-[0_0_6px_rgb(253_192_61/0.9)]" style={at(x, y, 299)}>
-              <span className={cn(STAR, "block size-[22px] animate-pop bg-amber")} />
-            </span>
-          );
-        }
-        if (index === count) {
-          return (
-            <span key={x} aria-hidden="true" className="absolute -translate-1/2" style={at(x, y, 299)}>
-              <span className="absolute top-1/2 left-1/2 size-[34px] -translate-1/2 rounded-pill bg-off-white/35" />
-              <span className="block drop-shadow-[0_0_4px_rgb(255_255_255/0.7)]">
-                <span className={cn(STAR, "block size-[19px] bg-white")} />
-              </span>
-            </span>
-          );
-        }
-        return (
-          <span key={x} aria-hidden="true" className="absolute -translate-1/2 drop-shadow-[0_0_2.5px_rgb(236_234_246/0.45)]" style={at(x, y, 299)}>
-            <span className={cn(STAR, "block size-2.5 bg-off-white/70")} />
-          </span>
-        );
-      })}
-      <p aria-live="polite" className="absolute top-2.5 left-3.5 text-caption leading-normal font-semibold text-off-white">
-        {count === STAR_AT.length ? "All stars lit" : `${count} of ${STAR_AT.length} lit`}
-      </p>
-    </div>
   );
 }
 

@@ -9,6 +9,7 @@ import Link from "next/link";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 
 import { ApprovalHeading, ApprovedCard, StarConfetti } from "@/components/home/approved-card";
+import { DeniedCard } from "@/components/home/denied-card";
 import { Greeting } from "@/components/home/greeting";
 import { UpdatedLine } from "@/components/home/updated-line";
 import { BottomNav } from "@/components/ui/bottom-nav";
@@ -18,7 +19,7 @@ import { findCard } from "@/lib/cards/catalog";
 import { cardDisplayName, cardTypeLabel, NO_CARD_FALLBACK, RESULT_HEADLINES, TIER_LABELS } from "@/lib/copy/results";
 import { SENSITIVE } from "@/lib/analytics";
 import type { Application } from "@/lib/api/application";
-import { celebrating, type HomeState } from "@/lib/home/state";
+import { celebrating, type CardDetail, type HomeState } from "@/lib/home/state";
 import { moneyAmount } from "@/lib/money";
 import { QUESTIONS } from "@/lib/quiz/questions";
 import { applicationPath, cardPath, deniedPath, planPath, ROUTES } from "@/lib/routes";
@@ -26,21 +27,26 @@ import { cn } from "@/lib/utils";
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 
-// Home for MVP1 (Ben, 2026-10-16): card status and the next step, built from
-// "Home · rejected card" (Figma 224:2675). Only the rejected state is drawn;
-// the others reuse its parts and are proposed to design.
-// `initial` is the student's initial for the profile circle. `celebrateId` is
-// the card Mark result just approved (?celebrate=), celebrated once.
-// `sampleStars` is for the dev gallery only: the approved card shows these
-// stars and never calls the API (its sample card does not exist there).
+// Home for MVP1 (Ben, 2026-10-16): card status and the next step. The approved
+// card follows Flow 1 (approved-card.tsx) and the denied card Flow 2
+// (denied-card.tsx); the other states reuse the parts of "Home · rejected
+// card" (Figma 224:2675) and are proposed to design.
+// `initial` is the student's initial for the profile circle. `detail` is the
+// leading card's denial reason and autopay, read on the server with it.
+// `celebrateId` is the card Mark result just approved (?celebrate=),
+// celebrated once. `sampleStars` is for the dev gallery only: the approved or
+// denied card shows these stars and never calls the API (its sample card does
+// not exist there).
 export function HomeView({
   state,
   initial,
+  detail = null,
   celebrateId = null,
   sampleStars,
 }: {
   state: HomeState;
   initial: string;
+  detail?: CardDetail | null;
   celebrateId?: string | null;
   sampleStars?: number;
 }) {
@@ -59,7 +65,7 @@ export function HomeView({
           </Link>
         </header>
         <main className="stagger flex flex-1 flex-col gap-[18px] px-6 pt-4 pb-6">
-          <HomeContent state={state} celebrate={celebrate} sampleStars={sampleStars} />
+          <HomeContent state={state} detail={detail} celebrate={celebrate} sampleStars={sampleStars} />
         </main>
         {celebrate ? <StarConfetti /> : null}
         <div className="sticky bottom-0">
@@ -70,7 +76,17 @@ export function HomeView({
   );
 }
 
-function HomeContent({ state, celebrate, sampleStars }: { state: HomeState; celebrate: boolean; sampleStars?: number }) {
+function HomeContent({
+  state,
+  detail,
+  celebrate,
+  sampleStars,
+}: {
+  state: HomeState;
+  detail: CardDetail | null;
+  celebrate: boolean;
+  sampleStars?: number;
+}) {
   if (state.kind === "no_quiz") {
     return (
       <>
@@ -145,7 +161,25 @@ function HomeContent({ state, celebrate, sampleStars }: { state: HomeState; cele
     return (
       <>
         {celebrate ? <ApprovalHeading /> : <Greeting />}
-        <ApprovedCard application={primary} celebrate={celebrate} sampleStars={sampleStars} />
+        <ApprovedCard
+          application={primary}
+          celebrate={celebrate}
+          sampleStars={sampleStars}
+        />
+        {others.length > 0 ? <OtherCards applications={others} /> : null}
+      </>
+    );
+  }
+  if (primary.status === "rejected") {
+    return (
+      <>
+        <Greeting />
+        <DeniedCard
+          application={primary}
+          reason={detail?.denialReason ?? null}
+          note={detail?.denialReasonNote ?? null}
+          sampleStars={sampleStars}
+        />
         {others.length > 0 ? <OtherCards applications={others} /> : null}
       </>
     );
@@ -163,7 +197,8 @@ function HomeContent({ state, celebrate, sampleStars }: { state: HomeState; cele
 const PILLS: Record<Application["status"], string> = {
   applied: "APPLIED",
   approved: "APPROVED",
-  rejected: "REJECTED",
+  // Ben, 2026-10-23 (Flow 2 C9).
+  rejected: "NOT APPROVED",
 };
 
 function previewKind(card: { secured: boolean; studentsOnly: boolean }): string {
@@ -172,15 +207,10 @@ function previewKind(card: { secured: boolean; studentsOnly: boolean }): string 
   return "CREDIT";
 }
 
+// An applied card, waiting on the issuer's decision.
 function TrackedCard({ application }: { application: Application }) {
   const card = application.cardId ? findCard(application.cardId) : undefined;
-  const rows: Row[] =
-    application.status === "rejected"
-        ? [
-            { label: "First-month card plan", value: "Not started" },
-            { label: "Card reminders", value: "Off" },
-          ]
-        : [{ label: "Decision", value: "Waiting to hear back" }];
+  const rows: Row[] = [{ label: "Decision", value: "Waiting to hear back" }];
 
   return (
     <StatusCard
@@ -198,16 +228,6 @@ function TrackedCard({ application }: { application: Application }) {
 }
 
 function TrackedNextStep({ application }: { application: Application }) {
-  if (application.status === "rejected") {
-    return (
-      <NextStep
-        icon={Comment}
-        title="A denial isn’t the end"
-        body="Understand the reason and choose a calm next step."
-        action={{ href: deniedPath("options", application.id), label: "I was denied" }}
-      />
-    );
-  }
   return (
     <NextStep
       icon={Hourglass}

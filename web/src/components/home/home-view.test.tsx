@@ -13,7 +13,8 @@ import { HomeView } from "./home-view";
 const router = { push: vi.fn(), replace: vi.fn(), refresh: vi.fn() };
 vi.mock("next/navigation", () => ({ usePathname: () => "/home", useRouter: () => router }));
 
-// An approved card loads its first-month stars (approved-card.test.tsx covers them).
+// An approved or denied card loads its plan's stars (approved-card.test.tsx and
+// denied-card.test.tsx cover them).
 beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(async () => Response.json({ applicationId: "x", plan: "first_month", completedSteps: [] })));
 });
@@ -88,11 +89,20 @@ describe("HomeView", () => {
     expect(screen.queryByRole("link", { name: "View card details" })).toBeNull();
   });
 
-  it("shows a rejected card as drawn, with the denial guide as the next step", () => {
+  it("shows a denied card as one module with its plan (denied-card.test.tsx covers it)", async () => {
     render(<HomeView state={homeState([app("rejected")], NONE, true)} initial="M" />);
-    expect(screen.getByText("REJECTED")).toBeTruthy();
-    expect(screen.getByText("Card reminders")).toBeTruthy();
-    expect(link("I was denied")).toBe(`/denied?application=${ID}`);
+    expect(screen.getByText("NOT APPROVED")).toBeTruthy();
+    expect(link("See my plan")).toBe(`/denied/plan?application=${ID}`);
+    expect(await screen.findByText("0 of 5 lit")).toBeTruthy();
+  });
+
+  it("calls a denied card in the list NOT APPROVED and opens its denial guide", () => {
+    const older = app("rejected", { id: "00000000-0000-4000-8000-000000000002", cardName: "Older Card", statusUpdatedAt: "2026-01-01T00:00:00Z" });
+    render(<HomeView state={homeState([older, app("applied")], NONE, true)} initial="M" />);
+    expect(screen.getByRole("link", { name: /Older Card/ }).textContent).toContain("NOT APPROVED");
+    expect(screen.getByRole("link", { name: /Older Card/ }).getAttribute("href")).toBe(
+      "/denied?application=00000000-0000-4000-8000-000000000002",
+    );
   });
 
   it("shows an approved card as one module: limit, first month and three steps, without a status pill", async () => {
