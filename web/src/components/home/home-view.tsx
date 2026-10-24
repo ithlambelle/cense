@@ -31,7 +31,19 @@ type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 // the others reuse its parts and are proposed to design.
 // `initial` is the student's initial for the profile circle. `celebrateId` is
 // the card Mark result just approved (?celebrate=), celebrated once.
-export function HomeView({ state, initial, celebrateId = null }: { state: HomeState; initial: string; celebrateId?: string | null }) {
+// `sampleStars` is for the dev gallery only: the approved card shows these
+// stars and never calls the API (its sample card does not exist there).
+export function HomeView({
+  state,
+  initial,
+  celebrateId = null,
+  sampleStars,
+}: {
+  state: HomeState;
+  initial: string;
+  celebrateId?: string | null;
+  sampleStars?: number;
+}) {
   const celebrate = celebrating(state, celebrateId);
   return (
     <div className="flex min-h-dvh justify-center bg-background">
@@ -47,7 +59,7 @@ export function HomeView({ state, initial, celebrateId = null }: { state: HomeSt
           </Link>
         </header>
         <main className="stagger flex flex-1 flex-col gap-[18px] px-6 pt-4 pb-6">
-          <HomeContent state={state} celebrate={celebrate} />
+          <HomeContent state={state} celebrate={celebrate} sampleStars={sampleStars} />
         </main>
         {celebrate ? <ApprovalBurst /> : null}
         <div className="sticky bottom-0">
@@ -58,7 +70,7 @@ export function HomeView({ state, initial, celebrateId = null }: { state: HomeSt
   );
 }
 
-function HomeContent({ state, celebrate }: { state: HomeState; celebrate: boolean }) {
+function HomeContent({ state, celebrate, sampleStars }: { state: HomeState; celebrate: boolean; sampleStars?: number }) {
   if (state.kind === "no_quiz") {
     return (
       <>
@@ -133,7 +145,7 @@ function HomeContent({ state, celebrate }: { state: HomeState; celebrate: boolea
     return (
       <>
         {celebrate ? <ApprovalHeading /> : <Greeting />}
-        <ApprovedCard application={primary} celebrate={celebrate} />
+        <ApprovedCard application={primary} celebrate={celebrate} sampleStars={sampleStars} />
         {others.length > 0 ? <OtherCards applications={others} /> : null}
       </>
     );

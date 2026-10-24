@@ -29,10 +29,12 @@ function app(status: Application["status"], extra: Partial<Application> = {}): A
 
 // Every Home state on sample data, without signing in.
 // ?state=no_quiz (default), started, matched, stretch, no_card, applied, rejected, approved, several.
-// Add &celebrate=1 to approved for the arrival from Mark result.
-export default async function HomePreviewPage({ searchParams }: { searchParams: Promise<{ state?: string; celebrate?: string }> }) {
+// Add &celebrate=1 to approved for the arrival from Mark result, and &lit=0 to 3
+// for that many stars. The approved card uses sample stars and saves nothing.
+export default async function HomePreviewPage({ searchParams }: { searchParams: Promise<{ state?: string; celebrate?: string; lit?: string }> }) {
   if (!devPagesEnabled()) notFound();
-  const { state = "no_quiz", celebrate } = await searchParams;
+  const { state = "no_quiz", celebrate, lit } = await searchParams;
+  const sampleStars = Math.min(3, Math.max(0, Number.parseInt(lit ?? "0", 10) || 0));
   const cards = listCards();
   const none = computeResult(undefined, cards);
   const views = {
@@ -59,6 +61,7 @@ export default async function HomePreviewPage({ searchParams }: { searchParams: 
       state={Object.hasOwn(views, state) ? views[state as keyof typeof views] : views.no_quiz}
       initial="M"
       celebrateId={celebrate ? SAMPLE_ID : null}
+      sampleStars={sampleStars}
     />
   );
 }

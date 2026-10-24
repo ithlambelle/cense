@@ -54,7 +54,29 @@ function loadLit(applicationId: string) {
   };
 }
 
-export function ApprovedCard({ application, celebrate }: { application: Application; celebrate: boolean }) {
+export function ApprovedCard({
+  application,
+  celebrate,
+  sampleStars,
+}: {
+  application: Application;
+  celebrate: boolean;
+  // Dev gallery only: this many stars lit, in order, with nothing loaded or saved.
+  sampleStars?: number;
+}) {
+  if (sampleStars !== undefined) {
+    const start = Object.fromEntries(STEPS.map((step, index) => [step.key, index < sampleStars])) as Lit;
+    return (
+      <>
+        {celebrate ? <ArrivalEffects /> : null}
+        <CardModule application={application} celebrate={celebrate} start={start} ready loadError={null} onRetry={() => {}} sample />
+      </>
+    );
+  }
+  return <SavedCard application={application} celebrate={celebrate} />;
+}
+
+function SavedCard({ application, celebrate }: { application: Application; celebrate: boolean }) {
   const load = useMemo(() => loadLit(application.id), [application.id]);
   const { loaded, retry } = useLoaded(load, signInPath(ROUTES.home));
   // A key per load state, so the stars start again from what was loaded.
@@ -63,13 +85,13 @@ export function ApprovedCard({ application, celebrate }: { application: Applicat
     <>
       {celebrate ? <ArrivalEffects /> : null}
       <CardModule
-      key={loaded.status}
-      application={application}
-      celebrate={celebrate}
-      start={loaded.status === "ready" ? loaded.data : NONE_LIT}
-      ready={loaded.status === "ready"}
-      loadError={loaded.status === "failed" ? loaded.message : null}
-      onRetry={retry}
+        key={loaded.status}
+        application={application}
+        celebrate={celebrate}
+        start={loaded.status === "ready" ? loaded.data : NONE_LIT}
+        ready={loaded.status === "ready"}
+        loadError={loaded.status === "failed" ? loaded.message : null}
+        onRetry={retry}
       />
     </>
   );
@@ -82,6 +104,7 @@ function CardModule({
   ready,
   loadError,
   onRetry,
+  sample = false,
 }: {
   application: Application;
   celebrate: boolean;
@@ -89,6 +112,7 @@ function CardModule({
   ready: boolean;
   loadError: string | null;
   onRetry: () => void;
+  sample?: boolean;
 }) {
   const router = useRouter();
   const now = useNow();
@@ -101,7 +125,7 @@ function CardModule({
     const value = !lit[key];
     setLit((current) => ({ ...current, [key]: value }));
     setError(null);
-    if (!step) return;
+    if (!step || sample) return;
     setSaving((current) => new Set(current).add(key));
     const result = await savePlanStep(application.id, "first_month", step, value);
     setSaving((current) => {
