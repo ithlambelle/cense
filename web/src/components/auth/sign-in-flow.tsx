@@ -57,9 +57,13 @@ function useCooldown(): [number, () => void] {
 export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
   const router = useRouter();
   const isMounted = useIsMounted();
-  const [step, setStep] = useState<"email" | "code" | "password">("email");
+  // "kept": signed in on an account that already existed, which kept its password.
+  const [step, setStep] = useState<"email" | "code" | "password" | "kept">("email");
   // True when the code confirms a password sign-up, not a code sign-in.
   const [confirming, setConfirming] = useState(false);
+  // The password chosen on the sign-up screen, kept in memory until the code
+  // proves the inbox and the confirm route sets it on the account.
+  const [chosenPassword, setChosenPassword] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [pending, setPending] = useState(false);
@@ -124,7 +128,9 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
     setPending(true);
     setError(null);
     setNotice(null);
-    const result = await apiRequest("post", "/auth/email/verify", { body: { email: email.trim(), code } });
+    const result = chosenPassword === null
+      ? await apiRequest("post", "/auth/email/verify", { body: { email: email.trim(), code } })
+      : await apiRequest("post", "/auth/password/signup/confirm", { body: { email: email.trim(), code, password: chosenPassword } });
     // The student left while it was checked: the answer must not move them again.
     if (!isMounted()) return;
     if (!result.ok) {
@@ -132,9 +138,38 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
       setError(failureMessage(result));
       return;
     }
-    // Stays pending while the next screen loads.
+    // A sign-up never changes the password of an account that already existed.
+    // Say so, or the password typed here would fail at the next log-in.
+    if ("passwordChanged" in result.data && !result.data.passwordChanged) {
+      setPending(false);
+      goTo("kept");
+      return;
+    }
+    leave();
+  }
+
+  // Stays pending while the next screen loads.
+  function leave() {
     router.replace(next ?? ROUTES.start);
     router.refresh();
+  }
+
+  if (step === "kept") {
+    return (
+      <AuthLayout key="kept" title="You’re signed in" focusTitle back={null}>
+        <p className="text-body-s text-indigo-black/70">You already had an account, so your password didn’t change.</p>
+        <Button
+          className="mt-1"
+          pending={pending}
+          onClick={() => {
+            setPending(true);
+            leave();
+          }}
+        >
+          Continue
+        </Button>
+      </AuthLayout>
+    );
   }
 
   if (step === "password") {
@@ -143,26 +178,28 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
         mode={mode}
         title={copy.title}
         initialEmail={email}
-        onDone={() => {
-          router.replace(next ?? ROUTES.start);
-          router.refresh();
-        }}
-        onConfirmEmail={(address) => {
+        onDone={leave}
+        onConfirmEmail={(address, password) => {
           // Supabase emails a 6-digit code to confirm the new account (the same
-          // template as code sign-in), and the code step verifies it, which
-          // confirms the account and signs the student in. The email was just
-          // sent, so the resend wait starts now.
+          // template as code sign-in). The code step sends it with the chosen
+          // password to the confirm route, which confirms the account, sets
+          // that password and signs the student in. The email was just sent,
+          // so the resend wait starts now.
           setEmail(address);
+          setChosenPassword(password);
           setCode("");
           setConfirming(true);
           startCooldown();
           goTo("code");
         }}
-        onUnconfirmed={async (address) => {
+        onUnconfirmed={async (address, password) => {
           // A password account that was never confirmed: a fresh code confirms
           // it and signs the student in. A failed send shows on the code step,
-          // with Resend.
+          // with Resend. The code goes to the confirm route with the password
+          // just typed, which keeps it: the plain code check replaces a password
+          // set before the inbox was proven.
           setEmail(address);
+          setChosenPassword(password);
           setCode("");
           setConfirming(true);
           await sendCode(address);
@@ -186,6 +223,7 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
             onClick={() => {
               goTo(confirming ? "password" : "email");
               setConfirming(false);
+              setChosenPassword(null);
               setCode("");
               setError(null);
               setNotice(null);
@@ -266,9 +304,9 @@ type PasswordStepProps = {
   title: string;
   initialEmail: string;
   onDone: () => void;
-  onConfirmEmail: (email: string) => void;
+  onConfirmEmail: (email: string, password: string) => void;
   // Log-in with the right password on an account that was never confirmed.
-  onUnconfirmed: (email: string) => Promise<void>;
+  onUnconfirmed: (email: string, password: string) => Promise<void>;
   onUseCode: () => void;
 };
 
@@ -321,7 +359,7 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnc
     if (result.kind === "ok") {
       if (result.data.status === "check_email") {
         setPending(false);
-        onConfirmEmail(email);
+        onConfirmEmail(email, password);
         return;
       }
       onDone();
@@ -330,7 +368,7 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnc
     if (result.kind === "failed" && result.code === "email_not_confirmed") {
       // Stays pending (Log in, Back and the code link disabled) until the code
       // step replaces this one, so a second tap cannot send a second code.
-      await onUnconfirmed(email);
+      await onUnconfirmed(email, password);
       return;
     }
     setPending(false);

@@ -47,7 +47,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Verify an email code and create a session */
+        /**
+         * Verify an email code and create a session
+         * @description When this code is what confirms the account, any password set before it is replaced with a random one and other sessions end.
+         */
         post: operations["verifyEmailCode"];
         delete?: never;
         options?: never;
@@ -66,6 +69,26 @@ export interface paths {
         put?: never;
         /** Create an optional password account */
         post: operations["signUpWithPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/password/signup/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a password sign-up with the emailed code and set its password
+         * @description Sets the chosen password and ends other sessions only when this code is what confirms the account. An account confirmed earlier keeps its password and sessions, and `passwordChanged` is false.
+         */
+        post: operations["confirmPasswordSignUp"];
         delete?: never;
         options?: never;
         head?: never;
@@ -735,6 +758,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Account could not be secured */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     signUpWithPassword: {
@@ -785,6 +817,66 @@ export interface operations {
                 };
             };
             /** @description Sign-up unavailable */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    confirmPasswordSignUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    email: string;
+                    code: string;
+                    password: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "signed_in";
+                        passwordChanged: boolean;
+                    };
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Wrong or expired code */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Password could not be set */
             502: {
                 headers: {
                     [name: string]: unknown;

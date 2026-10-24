@@ -618,6 +618,8 @@ paths:
     post:
       operationId: verifyEmailCode
       summary: Verify an email code and create a session
+      description: When this code is what confirms the account, any password set
+        before it is replaced with a random one and other sessions end.
       requestBody:
         content:
           application/json:
@@ -657,6 +659,12 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "401":
           description: Wrong or expired code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: Account could not be secured
           content:
             application/json:
               schema:
@@ -713,6 +721,71 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "502":
           description: Sign-up unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /auth/password/signup/confirm:
+    post:
+      operationId: confirmPasswordSignUp
+      summary: Confirm a password sign-up with the emailed code and set its password
+      description: Sets the chosen password and ends other sessions only when this
+        code is what confirms the account. An account confirmed earlier keeps
+        its password and sessions, and `passwordChanged` is false.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  maxLength: 254
+                  format: email
+                code:
+                  type: string
+                  pattern: ^\d{6}$
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 72
+              required:
+                - email
+                - code
+                - password
+              additionalProperties: false
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - signed_in
+                  passwordChanged:
+                    type: boolean
+                required:
+                  - status
+                  - passwordChanged
+                additionalProperties: false
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Wrong or expired code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: Password could not be set
           content:
             application/json:
               schema:
