@@ -1,14 +1,17 @@
 "use client";
 
 import ChevronRight from "@gravity-ui/icons/ChevronRight";
+import FileText from "@gravity-ui/icons/FileText";
 import StarFill from "@gravity-ui/icons/StarFill";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import { TrackOnMount } from "@/components/analytics/track-on-mount";
 import { AppHeader } from "@/components/ui/app-header";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
+import { SENSITIVE } from "@/lib/analytics";
+import { loadDenialReason, type SavedDenialReason } from "@/lib/api-client/denial-reason";
 import { loadPlanSteps, savePlanStep, type PlanStepName } from "@/lib/api-client/plans";
 import { deniedPath, ROUTES, signInPath } from "@/lib/routes";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
@@ -74,8 +77,7 @@ function loadPlan(applicationId: string) {
 }
 
 // A steady five-step plan (S22): one star lights for each finished step, saved
-// as denial plan steps. The frame's reason note ("Why?") is left out until the
-// API can read the denial reason.
+// as denial plan steps. The reason note (144:2070) shows the saved denial reason.
 export function DeniedPlanView({ applicationId }: { applicationId: string | null }) {
   if (!applicationId) return <DeniedPlanScreen applicationId={null} start={{ done: [], state: "read-only" }} />;
   return <SavedPlan applicationId={applicationId} />;
@@ -87,25 +89,47 @@ function SavedPlan({ applicationId }: { applicationId: string }) {
   // The return-path allow-list does not include this page, so Home it is.
   const { loaded, retry } = useLoaded(load, signInPath(ROUTES.home));
   const start: PlanStart = loaded.status === "ready" ? loaded.data : { done: [], state: loaded.status };
+  const reason = useDenialReason(applicationId);
   // A key per load state, so the stars start again from what was loaded.
   return (
     <DeniedPlanScreen
       key={loaded.status}
       applicationId={applicationId}
       start={start}
+      reason={reason}
       onRetry={loaded.status === "failed" ? retry : undefined}
     />
   );
+}
+
+// The saved denial reason for the note, read once. The note is extra, so it
+// stays hidden while loading or when the read fails; the plan works without it.
+function useDenialReason(applicationId: string): SavedDenialReason | null {
+  const [reason, setReason] = useState<SavedDenialReason | null>(null);
+  useEffect(() => {
+    let current = true;
+    loadDenialReason(applicationId)
+      .then((saved) => {
+        if (current) setReason(saved);
+      })
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [applicationId]);
+  return reason;
 }
 
 // Exported for the dev gallery, which shows it on sample stars.
 export function DeniedPlanScreen({
   applicationId,
   start,
+  reason = null,
   onRetry,
 }: {
   applicationId: string | null;
   start: PlanStart;
+  reason?: SavedDenialReason | null;
   onRetry?: () => void;
 }) {
   const [done, setDone] = useState<ReadonlySet<PlanStepName>>(() => new Set(start.done));
@@ -149,6 +173,7 @@ export function DeniedPlanScreen({
             </h1>
             <p className="text-body-m text-indigo-black">One step at a time. No rush.</p>
           </div>
+          {reason ? <ReasonNote reason={reason} /> : null}
           <p className="flex items-center gap-2 text-body-s font-medium text-indigo-black" aria-live="polite">
             <StarFill aria-hidden="true" width={16} height={16} className="shrink-0 text-amber" />
             {done.size} of {STEPS.length} done
@@ -244,6 +269,65 @@ export function DeniedPlanScreen({
         </main>
       </div>
     </div>
+  );
+}
+
+// The reason line for each saved answer. "Not yet" has no reason to show.
+function reasonLine({ reason, note }: SavedDenialReason): string | null {
+  switch (reason) {
+    case "no_credit_history":
+      return "Reason: no credit history yet";
+    case "income":
+      return "Reason: not enough income";
+    case "could_not_verify":
+      return "Reason: couldn’t verify identity";
+    case "report_frozen":
+      return "Reason: credit report frozen";
+    case "something_else":
+      return note ? `Reason: ${note}` : "Reason: something else";
+    case "no_letter_yet":
+      return null;
+  }
+}
+
+// Behind "Why?". Only no credit history has one: the frame draws it for that
+// reason alone (the old "No credit file" notice, C5 to C7).
+const WHY: Partial<Record<SavedDenialReason["reason"], string>> = {
+  no_credit_history:
+    "It usually means the credit bureau doesn’t have a record for you yet. That’s common for students and isn’t a mark against you.",
+};
+
+// Frame 144:2070, in Lavender (off-white) rather than the frame's light blue
+// tint, which design is moving away from.
+function ReasonNote({ reason }: { reason: SavedDenialReason }) {
+  const [open, setOpen] = useState(false);
+  const whyId = useId();
+  const line = reasonLine(reason);
+  if (!line) return null;
+  const why = WHY[reason.reason];
+  return (
+    <section aria-label="Denial reason" className="flex flex-col gap-1 rounded-input bg-off-white px-4 py-3 text-indigo-black">
+      <div className="flex items-center gap-3">
+        <FileText aria-hidden="true" width={22} height={22} className="shrink-0 text-violet" />
+        <p className={cn("min-w-0 flex-1 font-heading text-body-s leading-[22px] font-semibold break-words", SENSITIVE)}>{line}</p>
+        {why ? (
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={whyId}
+            onClick={() => setOpen(!open)}
+            className="relative shrink-0 text-body-s font-semibold text-violet underline outline-none before:absolute before:-inset-3 before:content-[''] focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            Why?
+          </button>
+        ) : null}
+      </div>
+      {why && open ? (
+        <p id={whyId} className="pl-[34px] text-body-s">
+          {why}
+        </p>
+      ) : null}
+    </section>
   );
 }
 

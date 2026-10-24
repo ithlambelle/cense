@@ -19,14 +19,36 @@ const plan = (...steps: string[]) => ({
 });
 const saved = (step: string) => ({ step, completedAt: "2026-10-16T00:00:00Z" });
 
-function server(replies: { status: number; body: unknown }[]) {
+const APPLICATION_URL = `/api/v1/applications/${ID}`;
+const application = (denialReason: string | null, denialReasonNote: string | null = null) => ({
+  status: 200,
+  body: {
+    id: ID,
+    cardId: "discover-it-student-cash-back",
+    cardName: "Discover it Student Cash Back",
+    status: "rejected",
+    creditLimitCents: null,
+    appliedAt: null,
+    statusUpdatedAt: "2026-10-24T12:00:00Z",
+    denialReason,
+    denialReasonNote,
+    autopayStatus: "unknown",
+    statementClosingDay: null,
+    paymentDueDay: null,
+  },
+});
+
+// Plan requests take the next reply and are counted in the returned mock. The
+// read of the denial reason (GET /applications/{id}) is answered on its own.
+function server(replies: { status: number; body: unknown }[], reason: { status: number; body: unknown } = application(null)) {
   const fetchFn = vi.fn<typeof fetch>(async () => {
     const reply = replies.shift();
     if (!reply) throw new Error("unexpected request");
     return reply.status === 204 ? new Response(null, { status: 204 }) : Response.json(reply.body, { status: reply.status });
   });
-  vi.stubGlobal("fetch", fetchFn);
-  return fetchFn;
+  const reasonFetch = vi.fn<typeof fetch>(async () => Response.json(reason.body, { status: reason.status }));
+  vi.stubGlobal("fetch", ((url, init) => (url === APPLICATION_URL ? reasonFetch(url, init) : fetchFn(url, init))) as typeof fetch);
+  return Object.assign(fetchFn, { reasonFetch });
 }
 
 const markDone = () => fireEvent.click(screen.getByRole("button", { name: "Mark as done" }));
@@ -113,6 +135,36 @@ describe("DeniedPlanView", () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/sign-in?next=%2Fhome"));
   });
 
+  it("shows the saved reason in a note, with Why? opening the explanation", async () => {
+    server([{ status: 200, body: plan() }], application("no_credit_history"));
+    render(<DeniedPlanView applicationId={ID} />);
+    expect(await screen.findByText("Reason: no credit history yet")).toBeTruthy();
+    const why = screen.getByRole("button", { name: "Why?" });
+    expect(why.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(why);
+    expect(why.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText(/the credit bureau doesn’t have a record for you yet/)).toBeTruthy();
+  });
+
+  it("shows the letter's words for Something else, without a Why?", async () => {
+    server([{ status: 200, body: plan() }], application("something_else", "Too many recent applications"));
+    render(<DeniedPlanView applicationId={ID} />);
+    expect(await screen.findByText("Reason: Too many recent applications")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Why?" })).toBeNull();
+  });
+
+  it("leaves the note out when no reason is saved, the letter has not come, or the read fails", async () => {
+    for (const reason of [application(null), application("no_letter_yet"), { status: 503, body: { error: { code: "data_unavailable", message: "Down." } } }]) {
+      const fetchFn = server([{ status: 200, body: plan() }], reason);
+      const { unmount } = render(<DeniedPlanView applicationId={ID} />);
+      await screen.findByText("0 of 5 done");
+      await waitFor(() => expect(fetchFn.reasonFetch).toHaveBeenCalledOnce());
+      expect(screen.queryByText(/^Reason:/)).toBeNull();
+      expect(screen.queryByRole("alert")).toBeNull();
+      unmount();
+    }
+  });
+
   it("shows the plan read-only, without saving, when there is no application", () => {
     const fetchFn = server([]);
     render(<DeniedPlanView applicationId={null} />);
@@ -121,5 +173,6 @@ describe("DeniedPlanView", () => {
     fireEvent.click(screen.getByRole("button", { name: /Reapply in about 6 months/ }));
     expect(screen.getByText(/Give positive history time to appear/)).toBeTruthy();
     expect(fetchFn).not.toHaveBeenCalled();
+    expect(fetchFn.reasonFetch).not.toHaveBeenCalled();
   });
 });
