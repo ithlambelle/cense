@@ -46,6 +46,7 @@ export function planPath(applicationId: string): string {
 const DENIED_STEPS = {
   options: ROUTES.denied,
   plan: `${ROUTES.denied}/plan`,
+  noLetter: `${ROUTES.denied}/no-letter`,
   fixable: `${ROUTES.denied}/fixable`,
   reminder: `${ROUTES.denied}/reminder`,
   reminderSaved: `${ROUTES.denied}/reminder/saved`,
