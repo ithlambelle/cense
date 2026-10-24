@@ -38,8 +38,8 @@ const NONE_LIT: Lit = { autopay: false, plannedPurchase: false, paymentReminder:
 // mask, so one file draws every color.
 const STAR = "mask-[url(/decor/burst-star.svg)] mask-contain mask-center mask-no-repeat";
 
-// Positions as a share of the box they sit in: the 390-wide screen for the
-// burst, the 299-wide constellation panel for the stars.
+// Positions as a share of the box they sit in: the 299-wide constellation
+// panel for the stars.
 const at = (x: number, y: number, width: number): CSSProperties => ({ left: `${(x / width) * 100}%`, top: y });
 
 function loadLit(applicationId: string) {
@@ -343,32 +343,55 @@ export function ApprovalHeading() {
   );
 }
 
-// The frame's burst (144:1601 to 144:1621 and 172:1670), in 390-wide
-// coordinates, one CSS pop after another (about 1.2s). Reduced motion shows
-// the stars still. The frame's light-blue stars are lavender.
-const BURST = [
-  { x: 270, y: 69, size: 14, turn: -49, color: "bg-violet" },
-  { x: 198, y: 37, size: 22, turn: -15, color: "bg-amber" },
-  { x: 245, y: 29, size: 14, turn: 10, color: "bg-selected-outline" },
-  { x: 302, y: 56, size: 12, turn: -20, color: "bg-selected-outline" },
-  { x: 335, y: 36, size: 16, turn: 20, color: "bg-amber" },
-  { x: 226, y: 76, size: 10, turn: 0, color: "bg-selected-outline" },
-  { x: 163, y: 60, size: 18, turn: -30, color: "bg-violet" },
-  { x: 373, y: 119, size: 10, turn: -10, color: "bg-amber" },
-  { x: 4, y: 251, size: 12, turn: 15, color: "bg-selected-outline" },
-  { x: 372, y: 296, size: 14, turn: -25, color: "bg-selected-outline" },
-  { x: 4, y: 420, size: 10, turn: 0, color: "bg-amber" },
-  { x: 372, y: 520, size: 12, turn: 0, color: "bg-selected-outline" },
-] as const;
+// Star confetti on the arrival from Mark result (Ben, 2026-10-24: like the
+// "Congratulations" effect in iMessage). The frame's stars (144:1601 to
+// 144:1621) fall across the whole screen once, about three seconds, then the
+// layer removes itself. CSS does the motion; nothing can be tapped through it.
+// Reduced motion shows nothing. Positions are fixed (seeded), so the server
+// and the browser draw the same thing. The frame's light-blue stars are lavender.
+const CONFETTI_COLORS = ["bg-amber", "bg-violet", "bg-green", "bg-selected-outline"] as const;
 
-export function ApprovalBurst() {
+function seededConfetti(count: number) {
+  let seed = 11;
+  const next = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  return Array.from({ length: count }, (_, index) => ({
+    left: Math.round(next() * 96),
+    size: 10 + Math.round(next() * 12),
+    delay: Math.round(next() * 700),
+    duration: 2200 + Math.round(next() * 1000),
+    drift: Math.round((next() - 0.5) * 90),
+    spin: Math.round((next() - 0.5) * 720),
+    color: CONFETTI_COLORS[index % CONFETTI_COLORS.length],
+  }));
+}
+
+const CONFETTI = seededConfetti(36);
+export const CONFETTI_MS = Math.max(...CONFETTI.map((star) => star.delay + star.duration));
+
+export function StarConfetti() {
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setDone(true), CONFETTI_MS + 100);
+    return () => clearTimeout(timer);
+  }, []);
+  if (done) return null;
   return (
-    <div aria-hidden="true" data-testid="burst" className="pointer-events-none absolute inset-0">
-      {BURST.map((star, index) => (
+    <div aria-hidden="true" data-testid="confetti" className="pointer-events-none fixed inset-0 z-50 overflow-hidden motion-reduce:hidden">
+      {CONFETTI.map((star, index) => (
         <span
-          key={`${star.x}-${star.y}`}
-          className={cn(STAR, star.color, "absolute animate-pop")}
-          style={{ ...at(star.x, star.y, 390), width: star.size, height: star.size, rotate: `${star.turn}deg`, animationDelay: `${index * 80}ms` }}
+          key={index}
+          className={cn(STAR, star.color, "absolute -top-6 animate-confetti")}
+          style={
+            {
+              left: `${star.left}%`,
+              width: star.size,
+              height: star.size,
+              animationDelay: `${star.delay}ms`,
+              animationDuration: `${star.duration}ms`,
+              "--confetti-drift": `${star.drift}px`,
+              "--confetti-spin": `${star.spin}deg`,
+            } as CSSProperties
+          }
         />
       ))}
     </div>

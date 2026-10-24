@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Application } from "@/lib/api/application";
@@ -7,6 +7,7 @@ import { listCards } from "@/lib/cards/catalog";
 import { homeState } from "@/lib/home/state";
 import { computeResult } from "@/lib/results/compute";
 
+import { CONFETTI_MS } from "./approved-card";
 import { HomeView } from "./home-view";
 
 const replace = vi.fn();
@@ -72,7 +73,7 @@ describe("Home approved card", () => {
     expect(screen.getByRole("heading", { level: 1, name: "You’re approved!" })).toBeTruthy();
     expect(screen.getByText("Thursday, October 22")).toBeTruthy();
     expect(screen.getByText("Approved Oct 22")).toBeTruthy();
-    expect(screen.getByTestId("burst").children).toHaveLength(12);
+    expect(screen.getByTestId("confetti").children).toHaveLength(36);
     await screen.findByText("0 of 3 lit");
     expect(vibrate).toHaveBeenCalledExactlyOnceWith(40);
     // A reload reads the address without the flag.
@@ -80,7 +81,7 @@ describe("Home approved card", () => {
     unmount();
 
     render(<HomeView state={state} initial="M" celebrateId={null} />);
-    expect(screen.queryByTestId("burst")).toBeNull();
+    expect(screen.queryByTestId("confetti")).toBeNull();
     expect(screen.queryByText("You’re approved!")).toBeNull();
     expect(screen.queryByText(/^Approved /)).toBeNull();
     expect(screen.getByRole("heading", { level: 1, name: "Good afternoon" })).toBeTruthy();
@@ -89,11 +90,25 @@ describe("Home approved card", () => {
     expect(vibrate).toHaveBeenCalledOnce();
   });
 
+  it("lets the star confetti fall once, then removes it", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    server([{ status: 200, body: plan() }]);
+    stubMotion(false);
+    render(<HomeView state={state} initial="M" celebrateId={ID} />);
+    expect(screen.getByTestId("confetti")).toBeTruthy();
+    await act(async () => {
+      vi.advanceTimersByTime(CONFETTI_MS + 200);
+    });
+    expect(screen.queryByTestId("confetti")).toBeNull();
+    expect(screen.getByRole("heading", { level: 1, name: "You’re approved!" })).toBeTruthy();
+    vi.useRealTimers();
+  });
+
   it("ignores a flag for another card, and keeps still for reduced motion", async () => {
     server([{ status: 200, body: plan() }, { status: 200, body: plan() }]);
     const vibrate = stubMotion(true);
     const { unmount } = render(<HomeView state={state} initial="M" celebrateId="00000000-0000-4000-8000-000000000009" />);
-    expect(screen.queryByTestId("burst")).toBeNull();
+    expect(screen.queryByTestId("confetti")).toBeNull();
     await screen.findByText("0 of 3 lit");
     unmount();
     render(<HomeView state={state} initial="M" celebrateId={ID} />);

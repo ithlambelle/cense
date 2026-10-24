@@ -8,7 +8,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 
-import { ApprovalBurst, ApprovalHeading, ApprovedCard } from "@/components/home/approved-card";
+import { ApprovalHeading, ApprovedCard, StarConfetti } from "@/components/home/approved-card";
 import { Greeting } from "@/components/home/greeting";
 import { UpdatedLine } from "@/components/home/updated-line";
 import { BottomNav } from "@/components/ui/bottom-nav";
@@ -61,7 +61,7 @@ export function HomeView({
         <main className="stagger flex flex-1 flex-col gap-[18px] px-6 pt-4 pb-6">
           <HomeContent state={state} celebrate={celebrate} sampleStars={sampleStars} />
         </main>
-        {celebrate ? <ApprovalBurst /> : null}
+        {celebrate ? <StarConfetti /> : null}
         <div className="sticky bottom-0">
           <BottomNav />
         </div>
