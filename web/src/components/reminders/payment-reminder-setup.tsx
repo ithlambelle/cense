@@ -32,6 +32,8 @@ type Props = {
   paymentDueDay: number | null;
   // The student's saved choices. They cover every card, not only this one.
   savedChoices: ReminderChoices;
+  // False after the student unsubscribed; saving with a reminder on turns emails back on.
+  emailsOn?: boolean;
   email: string | null;
   // Replaced in the dev preview, so it never calls the API.
   save?: typeof saveReminderSetup;
@@ -46,6 +48,7 @@ export function PaymentReminderSetup({
   statementClosingDay,
   paymentDueDay,
   savedChoices,
+  emailsOn = true,
   email,
   save = saveReminderSetup,
   doneHref = ROUTES.home,
@@ -78,6 +81,7 @@ export function PaymentReminderSetup({
       days: { statementClosingDay: closingDay, paymentDueDay: dueDay },
       choices,
       savedChoices: baseline,
+      emailsOn,
     });
     // The student left while it saved: the answer must not move them again.
     if (!isMounted()) return;
@@ -143,7 +147,7 @@ export function PaymentReminderSetup({
             onChange={(paymentDue) => setChoices((current) => ({ ...current, paymentDue }))}
           />
           <ReminderToggle
-            title="When the statement closes"
+            title="3 days before the statement closes"
             detail="Pay it down for a lower reported balance"
             checked={choices.statementClosing}
             disabled={pending}

@@ -47,12 +47,15 @@ export async function saveReminderSetup({
   days,
   choices,
   savedChoices,
+  emailsOn = true,
 }: {
   applicationId: string;
   days: CardDays;
   choices: ReminderChoices;
   // The choices as last saved. Only the ones that differ are sent.
   savedChoices: ReminderChoices;
+  // False after the student unsubscribed from an email's link.
+  emailsOn?: boolean;
 }): Promise<ReminderSetupSave> {
   // Saving the days makes the database schedule this card's reminders.
   const daysResult = await apiRequest("patch", "/applications/{id}", {
@@ -61,9 +64,12 @@ export async function saveReminderSetup({
   });
   if (!daysResult.ok) return failed("days", daysResult);
 
-  const changed: Partial<ReminderChoices> = {};
+  const changed: Partial<ReminderChoices & { emailsOn: boolean }> = {};
   if (choices.paymentDue !== savedChoices.paymentDue) changed.paymentDue = choices.paymentDue;
   if (choices.statementClosing !== savedChoices.statementClosing) changed.statementClosing = choices.statementClosing;
+  // Saving with a reminder on turns reminder emails back on after an
+  // unsubscribe (Ben, 2026-10-24): the student just asked for them here.
+  if (!emailsOn && (choices.paymentDue || choices.statementClosing)) changed.emailsOn = true;
   if (Object.keys(changed).length > 0) {
     const choicesResult = await apiRequest("patch", "/me/reminder-settings", { body: changed });
     if (!choicesResult.ok) return failed("choices", choicesResult);

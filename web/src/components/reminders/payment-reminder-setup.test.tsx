@@ -77,7 +77,7 @@ describe("PaymentReminderSetup", () => {
     renderSetup();
     fireEvent.change(closingField(), { target: { value: "14" } });
     fireEvent.change(dueField(), { target: { value: "9" } });
-    fireEvent.click(screen.getByRole("switch", { name: "When the statement closes" }));
+    fireEvent.click(screen.getByRole("switch", { name: "3 days before the statement closes" }));
     fireEvent.click(saveButton());
     await waitFor(() => expect(push).toHaveBeenCalledWith("/home"));
     expect(sent(fetchFn)).toEqual([

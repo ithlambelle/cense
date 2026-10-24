@@ -23,6 +23,7 @@ export default async function PaymentRemindersPage({ params }: PageProps<"/appli
       statementClosingDay={setup.application.statementClosingDay}
       paymentDueDay={setup.application.paymentDueDay}
       savedChoices={{ paymentDue: setup.settings.paymentDue, statementClosing: setup.settings.statementClosing }}
+      emailsOn={setup.settings.emailsOn}
       email={student.email}
     />
   );

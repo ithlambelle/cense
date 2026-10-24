@@ -60,6 +60,20 @@ describe("saveReminderSetup", () => {
     ]);
   });
 
+  it("turns reminder emails back on for a student who unsubscribed, when a reminder is on", async () => {
+    const fetchFn = server(ok, ok, ok);
+    const result = await saveReminderSetup({ applicationId: ID, days: DAYS, choices: ON, savedChoices: ON, emailsOn: false });
+    expect(result).toEqual({ kind: "ok" });
+    expect(calls(fetchFn)[1]).toEqual({ method: "PATCH", url: "/api/v1/me/reminder-settings", body: { emailsOn: true } });
+  });
+
+  it("leaves emails off when both reminders are off", async () => {
+    const fetchFn = server(ok, ok, ok);
+    const off = { paymentDue: false, statementClosing: false };
+    await saveReminderSetup({ applicationId: ID, days: DAYS, choices: off, savedChoices: ON, emailsOn: false });
+    expect(calls(fetchFn)[1]).toEqual({ method: "PATCH", url: "/api/v1/me/reminder-settings", body: off });
+  });
+
   it("skips the settings request when no toggle changed", async () => {
     const fetchFn = server(ok, ok);
     expect(await saveReminderSetup({ applicationId: ID, days: DAYS, choices: ON, savedChoices: ON })).toEqual({ kind: "ok" });
