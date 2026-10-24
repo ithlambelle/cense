@@ -1,6 +1,6 @@
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { authCallbackUrl, passwordCredentialsSchema } from "@/lib/api/password";
-import { createStudentClient } from "@/lib/supabase/server";
+import { createCookielessClient, createStudentClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request): Promise<Response> {
   const body = await parseJson(request);
@@ -18,28 +18,38 @@ export async function POST(request: Request): Promise<Response> {
     ...parsed.data,
     options: { emailRedirectTo: authCallbackUrl(new URL(request.url).origin, "/sign-in?confirmed=1") },
   });
+
+  // The email already has a confirmed account. Supabase sends no email then, so
+  // a code to sign in is sent instead, and the answer is the same as for a new
+  // account: this public form never says whether an email has an account.
+  // Supabase reports it as the error `user_already_exists` when confirmation is
+  // off, and as a placeholder user with no identities when it is on (hosted).
+  // https://supabase.com/docs/reference/javascript/auth-signup
+  const existing = error?.code === "user_already_exists" ||
+    (!error && Array.isArray(data.user?.identities) && data.user.identities.length === 0);
+  if (existing) {
+    // Cookieless, so the response carries the same cookies as a new account's.
+    const { error: otpError } = await createCookielessClient().auth.signInWithOtp({
+      email: parsed.data.email,
+      options: { shouldCreateUser: false },
+    });
+    // Only the code: the email must not reach the logs. A failed send keeps
+    // the same answer, and the code screen offers Resend.
+    if (otpError) console.error("Sign-in code for an existing account failed", { code: otpError.code, status: otpError.status });
+    return checkEmail();
+  }
+
   if (error) {
-    // With a confirm setting off, Supabase reports an existing account as an error.
-    if (error.code === "user_already_exists") return accountExists();
     console.error("Password signup failed", { code: error.code, status: error.status });
     if (error.status === 429) return apiError(429, "rate_limited", "Please wait before trying again.");
     return apiError(502, "sign_up_failed", "We could not create your account. Please try again.");
   }
 
-  // With Confirm email on (the hosted setup), Supabase answers an existing
-  // confirmed account with a placeholder user that has no identities and sends
-  // no email. Telling the student is our choice (Ben, 2026-10-19), so they are
-  // not left waiting for a code. Checked defensively: the shape is not a
-  // documented contract, and anything else keeps the normal answer.
-  // https://supabase.com/docs/reference/javascript/auth-signup
-  if (Array.isArray(data.user?.identities) && data.user.identities.length === 0) return accountExists();
-
-  return Response.json(
-    { status: data.session ? "signed_in" : "check_email" },
-    { headers: { "Cache-Control": "no-store" } },
-  );
+  return data.session
+    ? Response.json({ status: "signed_in" }, { headers: { "Cache-Control": "no-store" } })
+    : checkEmail();
 }
 
-function accountExists(): Response {
-  return apiError(409, "account_exists", "An account already uses this email.");
+function checkEmail(): Response {
+  return Response.json({ status: "check_email" }, { headers: { "Cache-Control": "no-store" } });
 }

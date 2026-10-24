@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthApiError } from "@supabase/supabase-js";
+import { AuthApiError, AuthRetryableFetchError } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 
 const auth = vi.hoisted(() => ({
@@ -13,7 +13,13 @@ const auth = vi.hoisted(() => ({
   exchangeCodeForSession: vi.fn(),
 }));
 
-vi.mock("@/lib/supabase/server", () => ({ createStudentClient: async () => ({ auth }) }));
+// The sign-in code for an existing account goes through the cookieless client.
+const otpAuth = vi.hoisted(() => ({ signInWithOtp: vi.fn() }));
+
+vi.mock("@/lib/supabase/server", () => ({
+  createStudentClient: async () => ({ auth }),
+  createCookielessClient: () => ({ auth: otpAuth }),
+}));
 
 import { POST as signUp } from "./signup/route";
 import { POST as signIn } from "./signin/route";
@@ -64,35 +70,50 @@ describe("optional password auth", () => {
     expect(auth.signUp).not.toHaveBeenCalled();
   });
 
-  // Telling a student their email already has an account is Ben's call
-  // (2026-10-19): otherwise they wait for a code Supabase never sends.
   const SIGN_UP_BODY = { email: "student@example.com", password: "long-enough-password" };
+  const NEW_STUDENT = { data: { user: { id: "new", identities: [{ provider: "email" }] }, session: null }, error: null };
+  // Supabase's two signals for an email that already has a confirmed account.
+  const EXISTING = {
+    "the error user_already_exists (confirmation off)": { data: { user: null, session: null }, error: new AuthApiError("User already registered", 422, "user_already_exists") },
+    "a placeholder user with no identities (confirmation on)": { data: { user: { id: "placeholder", identities: [] }, session: null }, error: null },
+  };
 
-  it("says an account already uses the email when Supabase reports it as an error", async () => {
-    auth.signUp.mockResolvedValue({ data: { user: null, session: null }, error: new AuthApiError("User already registered", 422, "user_already_exists") });
-    const response = await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY));
-    expect(response.status).toBe(409);
-    expect(await response.json()).toEqual({ error: { code: "account_exists", message: "An account already uses this email." } });
-  });
+  async function answer(response: Response) {
+    return { status: response.status, cache: response.headers.get("Cache-Control"), body: await response.json() };
+  }
 
-  it("says an account already uses the email when Supabase answers with a placeholder user", async () => {
-    auth.signUp.mockResolvedValue({ data: { user: { id: "fake", identities: [] }, session: null }, error: null });
-    const response = await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY));
-    expect(response.status).toBe(409);
-    expect((await response.json()).error.code).toBe("account_exists");
-  });
+  for (const [signal, result] of Object.entries(EXISTING)) {
+    it(`answers an existing account exactly like a new one, and emails it a sign-in code, for ${signal}`, async () => {
+      auth.signUp.mockResolvedValue(NEW_STUDENT);
+      const forNew = await answer(await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY)));
+      expect(otpAuth.signInWithOtp).not.toHaveBeenCalled();
 
-  it("asks a new student to confirm their email", async () => {
-    auth.signUp.mockResolvedValue({ data: { user: { id: "new", identities: [{ provider: "email" }] }, session: null }, error: null });
+      auth.signUp.mockResolvedValue(result);
+      otpAuth.signInWithOtp.mockResolvedValue({ data: {}, error: null });
+      const forExisting = await answer(await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY)));
+
+      expect(forExisting).toEqual(forNew);
+      expect(forExisting.body).toEqual({ status: "check_email" });
+      expect(otpAuth.signInWithOtp).toHaveBeenCalledWith({ email: "student@example.com", options: { shouldCreateUser: false } });
+    });
+  }
+
+  it("keeps the same answer when the sign-in code fails to send, and logs no email", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    auth.signUp.mockResolvedValue(EXISTING["a placeholder user with no identities (confirmation on)"]);
+    otpAuth.signInWithOtp.mockResolvedValue({ data: {}, error: new AuthApiError("Too many requests", 429, "over_email_send_rate_limit") });
     const response = await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ status: "check_email" });
+    expect(JSON.stringify(log.mock.calls)).not.toContain("student@example.com");
+    log.mockRestore();
   });
 
   it("signs the student in when Supabase returns a session", async () => {
     auth.signUp.mockResolvedValue({ data: { user: { id: "new", identities: [{ provider: "email" }] }, session: {} }, error: null });
     const response = await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY));
     expect(await response.json()).toEqual({ status: "signed_in" });
+    expect(otpAuth.signInWithOtp).not.toHaveBeenCalled();
   });
 
   it("keeps the normal answer when the user has no identities field", async () => {
@@ -100,6 +121,17 @@ describe("optional password auth", () => {
     const response = await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ status: "check_email" });
+    expect(otpAuth.signInWithOtp).not.toHaveBeenCalled();
+  });
+
+  it("reports an outage as a failed sign-up", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    auth.signUp.mockResolvedValue({ data: { user: null, session: null }, error: new AuthRetryableFetchError("fetch failed", 0) });
+    const response = await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY));
+    expect(response.status).toBe(502);
+    expect((await response.json()).error.code).toBe("sign_up_failed");
+    expect(otpAuth.signInWithOtp).not.toHaveBeenCalled();
+    log.mockRestore();
   });
 
   it("reports signup rate limits", async () => {

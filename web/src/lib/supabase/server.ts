@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 import { SESSION_COOKIE_OPTIONS, supabaseConfig } from "./config";
@@ -24,5 +25,15 @@ export async function createStudentClient() {
         }
       },
     },
+  });
+}
+
+// Keeps nothing: no session and no cookies. For a call that must leave no trace
+// in the response, such as the sign-in code sign-up sends an email that already
+// has an account (the student client would add a cookie only that answer has).
+export function createCookielessClient() {
+  const { url, publishableKey } = supabaseConfig();
+  return createClient(url, publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
 }
