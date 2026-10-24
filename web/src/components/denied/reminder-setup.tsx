@@ -10,7 +10,7 @@ import { DeniedLayout } from "@/components/denied/denied-layout";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { SelectionMark } from "@/components/ui/selection-mark";
-import { pendingRequest } from "@/lib/api-client/pending";
+import { saveReapplyReminder } from "@/lib/api-client/reminders";
 import { addMonths, formatIsoDate, toIsoDate } from "@/lib/dates";
 import { deniedPath, ROUTES, signInPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
@@ -18,9 +18,9 @@ import { useNow } from "@/lib/use-now";
 
 type Choice = "six-months" | "custom";
 
-// Choose when to check in (Figma 144:2145, was 397:2362, S23). Saves a reapply reminder
-// email (spec C2). Until the backend route exists the screen says so and shows
-// the date to note down; it never claims a reminder was saved.
+// Choose when to check in (Figma 144:2145, was 397:2362, S23). Saves a reapply
+// reminder email (POST /reminders, spec C2) and opens the saved check, which
+// reads it back before saying it is saved.
 export function ReminderSetup({ applicationId }: { applicationId: string | null }) {
   const router = useRouter();
   const isMounted = useIsMounted();
@@ -30,7 +30,6 @@ export function ReminderSetup({ applicationId }: { applicationId: string | null 
   const [customDate, setCustomDate] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [unavailable, setUnavailable] = useState(false);
 
   // Midday, so adding a day never lands on the wrong date across a clock change.
   const todayNoon = today ? new Date(`${today}T12:00:00`) : null;
@@ -55,7 +54,7 @@ export function ReminderSetup({ applicationId }: { applicationId: string | null 
     }
     setPending(true);
     setError(null);
-    const result = await pendingRequest("POST /reminders", { applicationId, remindOn });
+    const result = await saveReapplyReminder(applicationId, remindOn);
     // The student left while it saved: the answer must not move them again.
     if (!isMounted()) return;
     if (result.kind === "ok") {
@@ -65,10 +64,6 @@ export function ReminderSetup({ applicationId }: { applicationId: string | null 
     setPending(false);
     if (result.kind === "signed-out") {
       router.replace(signInPath(ROUTES.home));
-      return;
-    }
-    if (result.kind === "unavailable") {
-      setUnavailable(true);
       return;
     }
     setError(result.message);
@@ -126,14 +121,6 @@ export function ReminderSetup({ applicationId }: { applicationId: string | null 
         </Link>
       </section>
 
-      {unavailable ? (
-        <section role="status" className="flex flex-col gap-2 rounded-input border border-hairline p-4">
-          <h2 className="font-heading text-h6 font-medium text-navy">Reminder emails aren’t on yet</h2>
-          <p className="text-body-s text-indigo-black">
-            We can’t send reminders yet, so nothing was saved. Note the date for now: {remindOnLabel}.
-          </p>
-        </section>
-      ) : null}
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
 
       {applicationId ? (

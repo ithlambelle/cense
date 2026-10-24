@@ -6,17 +6,17 @@ import { ReminderSavedCheck } from "./reminder-saved-check";
 
 // Lets a test make the next request throw, as a bug in this app would.
 const loadBug = vi.hoisted(() => ({ throwOnce: false }));
-vi.mock("@/lib/api-client/pending", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/api-client/pending")>();
+vi.mock("@/lib/api-client/reminders", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api-client/reminders")>();
   return {
     ...actual,
-    pendingRequest: ((...args: Parameters<typeof actual.pendingRequest>) => {
+    loadReminders: () => {
       if (loadBug.throwOnce) {
         loadBug.throwOnce = false;
         return Promise.reject(new Error("bug"));
       }
-      return actual.pendingRequest(...args);
-    }) as typeof actual.pendingRequest,
+      return actual.loadReminders();
+    },
   };
 });
 
@@ -26,10 +26,15 @@ const router = { push: vi.fn(), replace, refresh: vi.fn() };
 vi.mock("next/navigation", () => ({ usePathname: () => "/denied/reminder/saved", useRouter: () => router }));
 
 const ID = "00000000-0000-4000-8000-000000000001";
-const reminder = (applicationId: string, remindOn: string, createdAt: string) => ({
+const reminder = (applicationId: string, remindOn: string, createdAt: string, kind = "reapply") => ({
   id: "00000000-0000-4000-8000-0000000000aa",
   applicationId,
+  kind,
+  occurrence: remindOn,
   remindOn,
+  dueAt: `${remindOn}T13:00:00Z`,
+  sentAt: null,
+  actedAt: null,
   createdAt,
 });
 
@@ -50,7 +55,7 @@ afterEach(() => {
 });
 
 describe("ReminderSavedCheck", () => {
-  it("says the reminder is saved, with the date of this card's newest reminder", async () => {
+  it("says the reminder is saved, with the date of this card's newest reapply reminder", async () => {
     server([
       {
         status: 200,
@@ -58,6 +63,7 @@ describe("ReminderSavedCheck", () => {
           reminders: [
             reminder(ID, "2027-04-17", "2026-10-17T10:00:00Z"),
             reminder(ID, "2027-05-01", "2026-10-17T11:00:00Z"),
+            reminder(ID, "2026-11-20", "2026-10-17T12:30:00Z", "payment_due"),
             reminder("00000000-0000-4000-8000-000000000002", "2027-06-01", "2026-10-17T12:00:00Z"),
           ],
         },
@@ -69,7 +75,17 @@ describe("ReminderSavedCheck", () => {
   });
 
   it("never claims a reminder that is not saved for this card", async () => {
-    server([{ status: 200, body: { reminders: [reminder("00000000-0000-4000-8000-000000000002", "2027-06-01", "2026-10-17T12:00:00Z")] } }]);
+    server([
+      {
+        status: 200,
+        body: {
+          reminders: [
+            reminder("00000000-0000-4000-8000-000000000002", "2027-06-01", "2026-10-17T12:00:00Z"),
+            reminder(ID, "2026-11-20", "2026-10-17T12:30:00Z", "check_autopay"),
+          ],
+        },
+      },
+    ]);
     render(<ReminderSavedCheck applicationId={ID} />);
     expect(await screen.findByRole("heading", { name: "We couldn’t find a reminder" })).toBeTruthy();
   });
@@ -86,10 +102,16 @@ describe("ReminderSavedCheck", () => {
     expect(await screen.findByRole("heading", { name: "Your reminder is saved" })).toBeTruthy();
   });
 
-  it("says the check failed, not that the reminder is missing, when the request fails", async () => {
-    server([{ status: 500, body: {} }]);
+  it("says the check failed, not that the reminder is missing, and checks again on Try again", async () => {
+    const fetchFn = server([
+      { status: 503, body: { error: { code: "data_unavailable", message: "Your data is temporarily unavailable. Please try again." } } },
+      { status: 200, body: { reminders: [reminder(ID, "2027-04-17", "2026-10-17T10:00:00Z")] } },
+    ]);
     render(<ReminderSavedCheck applicationId={ID} />);
     expect(await screen.findByRole("heading", { name: "We couldn’t check your reminder" })).toBeTruthy();
+    expect(fetchFn.mock.calls[0][0]).toBe("/api/v1/reminders");
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("heading", { name: "Your reminder is saved" })).toBeTruthy();
   });
 
   it("sends a student whose session ended to sign in", async () => {

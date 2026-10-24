@@ -5,26 +5,22 @@ import Link from "next/link";
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { ReminderSavedView } from "@/components/denied/reminder-saved-view";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { FALLBACK_MESSAGE } from "@/lib/api-client/client";
-import { pendingRequest, type Reminder } from "@/lib/api-client/pending";
+import { loadReminders as requestReminders, reapplyReminderFor, type Reminder } from "@/lib/api-client/reminders";
 import { formatIsoDate } from "@/lib/dates";
 import { deniedPath, ROUTES, signInPath } from "@/lib/routes";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
 
 async function loadReminders(): Promise<LoadOutcome<Reminder[]>> {
-  const result = await pendingRequest("GET /reminders");
-  if (result.kind === "ok") return { status: "ready", data: result.data.reminders };
+  const result = await requestReminders();
+  if (result.kind === "ok") return { status: "ready", data: result.reminders };
   if (result.kind === "signed-out") return "signed-out";
-  // The check itself failed (or the route is missing), so nothing is known either way.
-  return { status: "failed", message: result.kind === "failed" ? result.message : FALLBACK_MESSAGE };
+  // The check itself failed, so nothing is known either way.
+  return { status: "failed", message: result.message };
 }
 
-// The date of this card's reminder, or null when none is saved. The newest
-// one, if the backend ever keeps more than one per card.
+// The date of this card's reapply reminder, or null when none is saved.
 function savedDateLabel(reminders: Reminder[], applicationId: string): string | null {
-  const reminder = reminders
-    .filter((r) => r.applicationId === applicationId)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  const reminder = reapplyReminderFor(reminders, applicationId);
   return reminder ? formatIsoDate(reminder.remindOn) : null;
 }
 
