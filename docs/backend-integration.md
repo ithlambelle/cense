@@ -22,7 +22,11 @@ cached.
 Optional password flows use `POST /api/v1/auth/password/signup` and
 `POST /api/v1/auth/password/signin` with `{ "email": "...", "password": "..." }`.
 Sign-up returns `signed_in` when confirmation is disabled, or `check_email`
-when the student must confirm their address. Sign-in returns `401`
+when the student must confirm their address. To confirm, send the emailed
+code with the same password to `POST /api/v1/auth/password/signup/confirm`
+(`{ "email": "...", "code": "123456", "password": "..." }`). It verifies the
+code, then sets that password and ends any other session, because Supabase
+keeps the password from the first sign-up on an unconfirmed account. Sign-in returns `401`
 `invalid_credentials` for an incorrect email or password. To reset a password,
 send `{ "email": "..." }` to `POST /api/v1/auth/password/reset`. The emailed
 link returns through `/api/v1/auth/password/reset/verify` and then opens

@@ -60,6 +60,9 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
   const [step, setStep] = useState<"email" | "code" | "password">("email");
   // True when the code confirms a password sign-up, not a code sign-in.
   const [confirming, setConfirming] = useState(false);
+  // The password chosen on the sign-up screen, kept in memory until the code
+  // proves the inbox and the confirm route sets it on the account.
+  const [chosenPassword, setChosenPassword] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [pending, setPending] = useState(false);
@@ -124,7 +127,9 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
     setPending(true);
     setError(null);
     setNotice(null);
-    const result = await apiRequest("post", "/auth/email/verify", { body: { email: email.trim(), code } });
+    const result = chosenPassword === null
+      ? await apiRequest("post", "/auth/email/verify", { body: { email: email.trim(), code } })
+      : await apiRequest("post", "/auth/password/signup/confirm", { body: { email: email.trim(), code, password: chosenPassword } });
     // The student left while it was checked: the answer must not move them again.
     if (!isMounted()) return;
     if (!result.ok) {
@@ -147,12 +152,14 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
           router.replace(next ?? ROUTES.start);
           router.refresh();
         }}
-        onConfirmEmail={(address) => {
+        onConfirmEmail={(address, password) => {
           // Supabase emails a 6-digit code to confirm the new account (the same
-          // template as code sign-in), and the code step verifies it, which
-          // confirms the account and signs the student in. The email was just
-          // sent, so the resend wait starts now.
+          // template as code sign-in). The code step sends it with the chosen
+          // password to the confirm route, which confirms the account, sets
+          // that password and signs the student in. The email was just sent,
+          // so the resend wait starts now.
           setEmail(address);
+          setChosenPassword(password);
           setCode("");
           setConfirming(true);
           startCooldown();
@@ -161,8 +168,9 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
         onUnconfirmed={async (address) => {
           // A password account that was never confirmed: a fresh code confirms
           // it and signs the student in. A failed send shows on the code step,
-          // with Resend.
+          // with Resend. The password just worked, so it stays as it is.
           setEmail(address);
+          setChosenPassword(null);
           setCode("");
           setConfirming(true);
           await sendCode(address);
@@ -186,6 +194,7 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
             onClick={() => {
               goTo(confirming ? "password" : "email");
               setConfirming(false);
+              setChosenPassword(null);
               setCode("");
               setError(null);
               setNotice(null);
@@ -261,7 +270,7 @@ type PasswordStepProps = {
   title: string;
   initialEmail: string;
   onDone: () => void;
-  onConfirmEmail: (email: string) => void;
+  onConfirmEmail: (email: string, password: string) => void;
   // Log-in with the right password on an account that was never confirmed.
   onUnconfirmed: (email: string) => Promise<void>;
   onUseCode: () => void;
@@ -316,7 +325,7 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnc
     if (result.kind === "ok") {
       if (result.data.status === "check_email") {
         setPending(false);
-        onConfirmEmail(email);
+        onConfirmEmail(email, password);
         return;
       }
       onDone();

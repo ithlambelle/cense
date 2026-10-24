@@ -531,6 +531,65 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /auth/password/signup/confirm:
+    post:
+      operationId: confirmPasswordSignUp
+      summary: Confirm a password sign-up with the emailed code and set its password
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  maxLength: 254
+                  format: email
+                code:
+                  type: string
+                  pattern: ^\d{6}$
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 72
+              required:
+                - email
+                - code
+                - password
+              additionalProperties: false
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - signed_in
+                required:
+                  - status
+                additionalProperties: false
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Wrong or expired code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: Password could not be set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /auth/password/signin:
     post:
       operationId: signInWithPassword
