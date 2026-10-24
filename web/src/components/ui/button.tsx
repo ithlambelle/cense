@@ -21,8 +21,9 @@ const baseButtonVariants = cva(
         outline:
           "h-14 justify-center rounded-button border-[1.5px] border-violet bg-white px-6 text-button-s font-semibold text-navy hover:bg-off-white active:bg-off-white disabled:opacity-40 aria-busy:opacity-100",
         // "I already have an account" on the welcome frame (397:1505): navy outline and label.
+        // Rectangular like every button: design made the 16px button canonical on 2026-10-24.
         navyOutline:
-          "h-14 justify-center rounded-pill border-[1.5px] border-navy bg-white px-6 text-body-l text-navy hover:bg-off-white active:bg-off-white disabled:opacity-40 aria-busy:opacity-100",
+          "h-14 justify-center rounded-button border-[1.5px] border-navy bg-white px-6 text-button-s font-semibold text-navy hover:bg-off-white active:bg-off-white disabled:opacity-40 aria-busy:opacity-100",
         // "Log out" (144:3588) and the auth frames' supporting actions (397:1886).
         link: "h-auto min-h-11 justify-center rounded-none px-0 text-body-s text-violet underline underline-offset-2 hover:text-violet-hover",
       },
