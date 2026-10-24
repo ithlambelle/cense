@@ -251,6 +251,10 @@ registry.registerPath({
   responses: { 200: ok(recommendationContract), 404: failure("No saved recommendation"), ...protectedResponses },
 });
 
+// Left out on purpose: GET /cron/reminders (Vercel Cron) and
+// /reminders/unsubscribe (the link in reminder emails). No client calls them;
+// they are described in api/data-contract.md.
+
 const generator = new OpenApiGeneratorV31(registry.definitions);
 const document = generator.generateDocument({
   openapi: "3.1.0",

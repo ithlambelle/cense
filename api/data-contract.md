@@ -14,7 +14,7 @@ queries as that student, never with a service role key.
 | `recommendations` | `id` UUID primary key, `student_id` UUID, `card_id` text (null when no card fits, with `fit_tier` not_yet), `fit_tier` text, `reason` text, `answer_snapshot` JSONB, `result_snapshot` JSONB, `created_at` | Store the exact server-generated result and inputs shown to the student. Never let the client write a recommendation directly. |
 | `issuer_clicks` | `id` UUID primary key, `student_id` UUID, `card_id` text, `kind` text, `clicked_at` | Append one row for each preapproval or apply click. A click is not an application. |
 | `card_applications` | `id` UUID primary key, `student_id` UUID, `card_id` text nullable, `card_name` text nullable, `source` text, `status` text, `credit_limit_cents` bigint nullable, `applied_at` timestamp nullable, `rejected_at`, `denial_reason` text nullable, `denial_reason_note` text nullable (at most 200 characters, never sent to analytics), `autopay_status` text (`on`, `off`, `unknown`), `autopay_updated_at`, `statement_closing_day` and `payment_due_day` (1 to 31) nullable, `card_set_up_at` (server-set), `updated_at` timestamp, `created_at` | A student may have several card records. Status is `applied`, `approved`, or `rejected`. Leaving `rejected` clears the denial reason and note. |
-| `reminders` | `id` UUID primary key, `student_id` UUID, `card_application_id` UUID, `kind` text (`statement_closing`, `payment_due`, `check_autopay`, `reapply`), `occurrence` date, `due_at`, `claimed_at`, `attempts`, `sent_at`, `acted_at`, `created_at` | One row per reminder email, unique on card, kind and occurrence. The database schedules them (`refresh_reminders`) from the card's days and the student's time zone; students only read them, set `acted_at` on a sent one, and pick the day of the reapply reminder through `create_reapply_reminder`. Only the send job (service role) claims and marks them sent. |
+| `reminders` | `id` UUID primary key, `student_id` UUID, `card_application_id` UUID, `kind` text (`statement_closing`, `payment_due`, `check_autopay`, `reapply`), `occurrence` date, `due_at`, `claimed_at`, `attempts`, `sent_at`, `acted_at`, `created_at` | One row per reminder email, unique on card, kind and occurrence. The database schedules them (`refresh_reminders`) from the card's days and the student's time zone; students only read them, set `acted_at` on a sent one, and pick the day of the reapply reminder through `create_reapply_reminder`. Only the send job (service role) claims and marks them sent, through `claim_due_reminders`, `mark_reminder_sent` and `release_reminder_claim`. |
 | `plan_steps` | `student_id` UUID, `card_application_id` UUID, `plan` text (`first_month`, `denial`), `step` text, `completed_at`; primary key (card, plan, step) | One row per finished plan step; undo deletes it. first_month steps are `planned_purchase`, `payment_reminder` (autopay reads `autopay_status`); denial steps are `read_letter`, `check_reports`, `pause_applications`, `build_credit`, `reapply`. A first_month step needs an approved card, a denial step a rejected one. |
 
 `created_at`, `updated_at`, `clicked_at`, and `applied_at` are UTC timestamptz
@@ -43,8 +43,12 @@ review sites for estimates, on 2026-10-15; 13 are `recommend`.
   owner column equals `auth.uid()` for the current signed-in student.
 - Every protected route verifies the Supabase user before querying. Return
   `401` for an absent or invalid session and `404` for another user's record.
-- The API never uses the service role key in student routes. Scheduled jobs may
-  use it later and must be isolated from request handlers.
+- The API never uses the service role key in student routes. The one exception
+  is the two reminder routes below, which are not student requests: the daily
+  cron job has no student session at all, and the unsubscribe link is opened
+  by a student who is not signed in, so a signed token stands in for the
+  session. Both create the service client in `web/src/lib/supabase/service.ts`
+  (server only) and call only the functions made for them, never a table.
 - Money is integer cents. Timestamps in API responses are UTC ISO 8601 strings.
 - Errors use `{ "error": { "code": string, "message": string, "details"?: unknown } }`.
 - Responses containing student data send `Cache-Control: no-store`.
@@ -68,6 +72,24 @@ review sites for estimates, on 2026-10-15; 13 are `recommend`.
 | `GET /api/v1/reminders`, `POST /api/v1/reminders` | List the student's reminders (sent and upcoming, with `remindOn` on their calendar), and set the reapply reminder for a denied application, tomorrow to a year out, through `create_reapply_reminder`. |
 | `POST /api/v1/reminders/{id}/acted` | Mark a sent reminder acted on ("I paid it down"). The first time is kept. |
 | `GET /api/v1/me/reminder-settings`, `PATCH /api/v1/me/reminder-settings` | Read and change `emailsOn` and the three per-kind toggles. |
+
+## Server-only reminder routes
+
+Not part of the student API, so not in `api/openapi.yaml`: no client calls them.
+
+| Route | Who calls it | What it does |
+| --- | --- | --- |
+| `GET /api/v1/cron/reminders` | Vercel Cron, daily at 13:00 UTC (`web/vercel.json`), with `Authorization: Bearer <CRON_SECRET>`; anything else gets `401` | `refresh_all_reminders()`, then `claim_due_reminders(50)`, sends each through Resend, then `mark_reminder_sent(id)` or, on failure, `release_reminder_claim(id)`. Answers and logs counts only. |
+| `GET`, `POST /api/v1/reminders/unsubscribe?token=` | The unsubscribe link and the `List-Unsubscribe` header in every reminder email | GET shows a confirm button and changes nothing (mail scanners open links). POST, the button or the inbox's one-click unsubscribe, calls `unsubscribe_reminders(student_id)`. The token is the student id and an HMAC-SHA256 of it keyed with `REMINDER_UNSUBSCRIBE_SECRET`; it never holds the email. |
+
+The functions, all service role only (`supabase/migrations/20261024220000_reminder_sender.sql`):
+
+| Function | Rule |
+| --- | --- |
+| `claim_due_reminders(p_limit)` | Reminders whose day has come on the student's calendar, unsent, at most one per student a day (none for a student who had one sent today or has one being sent), never to an unsubscribed student or for a kind turned off, only while the card still fits, never about a closing or due date already passed, retried after a 15-minute stuck claim, at most 3 attempts. Sets `claimed_at` and `attempts` and returns the email, card, credit limit, autopay status, due day and time zone. One claimer at a time. |
+| `mark_reminder_sent(id)` | Sets `sent_at` once. The reminder then shows in the app. |
+| `release_reminder_claim(id)` | After a failed send: claimable again at once, attempts kept. |
+| `unsubscribe_reminders(student_id)` | Sets `reminders_unsubscribed_at` once. |
 
 The API route owner will implement a route only when its underlying dataset or
 table is available. No route will claim a successful recommendation based on an
