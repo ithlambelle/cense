@@ -184,7 +184,7 @@ Before it can run:
 | `RESEND_API_KEY` | Resend dashboard (Ben), API Keys, sending access for `send.censefinance.com`. |
 | `REMINDER_FROM_EMAIL` | `Cense <reminders@send.censefinance.com>` |
 | `REMINDER_UNSUBSCRIBE_SECRET` | Any long random string. Changing it breaks the unsubscribe links already sent. |
-| `APP_BASE_URL` | The app's public address, for the links in the emails. |
+| `APP_BASE_URL` | The app's public address, for the links in the emails: `https://censefinance.com`. |
 
 To run it by hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/v1/cron/reminders`. It answers with counts only.
 

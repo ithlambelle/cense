@@ -33,7 +33,7 @@ export type ReminderEmailLinks = {
 export type ReminderEmail = { subject: string; html: string; text: string };
 
 const BUREAUS_URL = "https://www.experian.com/blogs/ask-experian/credit-card-balance-vs-utilization/";
-const SIGN_OFF = "Cense ;)";
+const SIGN_OFF = "Penny ;)";
 
 // Why the student is getting it, in the footer.
 const WHY: Record<ReminderEmailKind, string> = {
