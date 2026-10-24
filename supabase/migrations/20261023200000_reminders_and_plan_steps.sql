@@ -12,9 +12,10 @@
 --
 -- Reminder rules: statement closing 3 days before the close, payment due 3
 -- days before the due date, check autopay the day after the first statement
--- closes. No payment-due reminder comes before the card's first statement has
--- closed (a card set up Nov 1 with close day 12 and due day 9 gets its first
--- one for Dec 9). When the 3-day mark has passed but the date has not, it goes
+-- closes. For a new card (source 'application'), no payment-due reminder comes
+-- before its first statement has closed (a card set up Nov 1 with close day 12
+-- and due day 9 gets its first one for Dec 9). A card the student already had
+-- (source 'added') gets its next due date straight away. When the 3-day mark has passed but the date has not, it goes
 -- out today. Emails go at 9:00 on the student's calendar; an unknown time zone
 -- name falls back to America/New_York.
 --
@@ -38,9 +39,9 @@ alter table public.card_applications
     check (char_length(denial_reason_note) <= 200),
   add column card_set_up_at timestamptz;
 
--- existing cards with a closing day count as set up now
+-- existing cards with a closing day count as set up when they were added
 update public.card_applications
-set card_set_up_at = now()
+set card_set_up_at = created_at
 where statement_closing_day is not null;
 
 -- the server keeps the first time; whatever the client sends is ignored
@@ -289,9 +290,11 @@ begin
             public.reminder_due_at(greatest(v_first_close + 1, v_today), v_tz));
   end if;
 
-  -- the first payment due is the one after the first statement closes
+  -- a new card's first payment due is the one after its first statement
+  -- closes; a card the student already had just uses the next due date
   if v_app.payment_due_day is not null and coalesce(v_profile.remind_payment_due, true) then
-    v_due := public.reminder_next_on_day(v_app.payment_due_day, greatest(v_today, v_first_close + 1));
+    v_due := public.reminder_next_on_day(v_app.payment_due_day,
+      case when v_app.source = 'application' then greatest(v_today, v_first_close + 1) else v_today end);
     insert into public.reminders (student_id, card_application_id, kind, occurrence, due_at)
     values (v_app.student_id, v_app.id, 'payment_due', v_due,
             public.reminder_due_at(greatest(v_due - 3, v_today), v_tz))
