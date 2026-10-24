@@ -347,6 +347,46 @@ components:
         - reason
         - createdAt
       additionalProperties: false
+    PlanStep:
+      type: object
+      properties:
+        step:
+          type: string
+          enum:
+            - planned_purchase
+            - payment_reminder
+            - read_letter
+            - check_reports
+            - pause_applications
+            - build_credit
+            - reapply
+        completedAt:
+          type: string
+          format: date-time
+      required:
+        - step
+        - completedAt
+      additionalProperties: false
+    PlanProgress:
+      type: object
+      properties:
+        applicationId:
+          type: string
+          format: uuid
+        plan:
+          type: string
+          enum:
+            - first_month
+            - denial
+        completedSteps:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanStep"
+      required:
+        - applicationId
+        - plan
+        - completedSteps
+      additionalProperties: false
   parameters: {}
   securitySchemes:
     studentSession:
@@ -1129,6 +1169,195 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "409":
           description: Already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /applications/{id}/plans/{plan}:
+    get:
+      operationId: getPlanProgress
+      summary: Read the finished steps of a first-month or denial plan
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+        - schema:
+            type: string
+            enum:
+              - first_month
+              - denial
+          required: true
+          name: plan
+          in: path
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanProgress"
+        "400":
+          description: Invalid application ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Application or plan not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /applications/{id}/plans/{plan}/steps/{step}:
+    put:
+      operationId: completePlanStep
+      summary: Mark a plan step done (doing it again keeps the first time)
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+        - schema:
+            type: string
+            enum:
+              - first_month
+              - denial
+          required: true
+          name: plan
+          in: path
+        - schema:
+            type: string
+            enum:
+              - planned_purchase
+              - payment_reminder
+              - read_letter
+              - check_reports
+              - pause_applications
+              - build_credit
+              - reapply
+          required: true
+          name: step
+          in: path
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanStep"
+        "201":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanStep"
+        "400":
+          description: Invalid application ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Application or plan step not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Plan not available for this application status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: undoPlanStep
+      summary: Undo a plan step
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+        - schema:
+            type: string
+            enum:
+              - first_month
+              - denial
+          required: true
+          name: plan
+          in: path
+        - schema:
+            type: string
+            enum:
+              - planned_purchase
+              - payment_reminder
+              - read_letter
+              - check_reports
+              - pause_applications
+              - build_credit
+              - reapply
+          required: true
+          name: step
+          in: path
+      responses:
+        "204":
+          description: Undone
+        "400":
+          description: Invalid application ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Application or plan step not found
           content:
             application/json:
               schema:

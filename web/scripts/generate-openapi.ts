@@ -18,6 +18,7 @@ import {
   saveQuizSchema,
   updateApplicationSchema,
 } from "../src/lib/api/schemas";
+import { planNameSchema, planProgressSchema, planStepNameSchema, planStepSchema } from "../src/lib/api/plans";
 import {
   passwordCredentialsSchema,
   passwordResetRequestSchema,
@@ -144,6 +145,32 @@ registry.registerPath({
   security: [{ studentSession: [] }],
   request: { params: z.object({ id: z.uuid() }), body: body(updateApplicationSchema) },
   responses: { 200: ok(applicationContract), 400: failure("Invalid update"), 404: failure("Application not found"), 409: failure("Already exists"), ...protectedResponses },
+});
+const planStepContract = registry.register("PlanStep", planStepSchema);
+const planParams = z.object({ id: z.uuid(), plan: planNameSchema });
+registry.registerPath({
+  method: "get", path: "/applications/{id}/plans/{plan}", operationId: "getPlanProgress",
+  summary: "Read the finished steps of a first-month or denial plan",
+  security: [{ studentSession: [] }],
+  request: { params: planParams },
+  responses: { 200: ok(registry.register("PlanProgress", planProgressSchema)), 400: failure("Invalid application ID"), 404: failure("Application or plan not found"), ...protectedResponses },
+});
+registry.registerPath({
+  method: "put", path: "/applications/{id}/plans/{plan}/steps/{step}", operationId: "completePlanStep",
+  summary: "Mark a plan step done (doing it again keeps the first time)",
+  security: [{ studentSession: [] }],
+  request: { params: planParams.extend({ step: planStepNameSchema }) },
+  responses: {
+    200: ok(planStepContract), 201: ok(planStepContract), 400: failure("Invalid application ID"),
+    404: failure("Application or plan step not found"), 409: failure("Plan not available for this application status"), ...protectedResponses,
+  },
+});
+registry.registerPath({
+  method: "delete", path: "/applications/{id}/plans/{plan}/steps/{step}", operationId: "undoPlanStep",
+  summary: "Undo a plan step",
+  security: [{ studentSession: [] }],
+  request: { params: planParams.extend({ step: planStepNameSchema }) },
+  responses: { 204: { description: "Undone" }, 400: failure("Invalid application ID"), 404: failure("Application or plan step not found"), ...protectedResponses },
 });
 registry.registerPath({
   method: "post", path: "/issuer-clicks", operationId: "recordIssuerClick", summary: "Record an issuer link click",

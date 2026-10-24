@@ -295,6 +295,41 @@ export interface paths {
         patch: operations["updateApplication"];
         trace?: never;
     };
+    "/applications/{id}/plans/{plan}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the finished steps of a first-month or denial plan */
+        get: operations["getPlanProgress"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/applications/{id}/plans/{plan}/steps/{step}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Mark a plan step done (doing it again keeps the first time) */
+        put: operations["completePlanStep"];
+        post?: never;
+        /** Undo a plan step */
+        delete: operations["undoPlanStep"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/issuer-clicks": {
         parameters: {
             query?: never;
@@ -439,6 +474,19 @@ export interface components {
             reason: string | null;
             /** Format: date-time */
             createdAt: string;
+        };
+        PlanStep: {
+            /** @enum {string} */
+            step: "planned_purchase" | "payment_reminder" | "read_letter" | "check_reports" | "pause_applications" | "build_credit" | "reapply";
+            /** Format: date-time */
+            completedAt: string;
+        };
+        PlanProgress: {
+            /** Format: uuid */
+            applicationId: string;
+            /** @enum {string} */
+            plan: "first_month" | "denial";
+            completedSteps: components["schemas"]["PlanStep"][];
         };
     };
     responses: never;
@@ -1301,6 +1349,201 @@ export interface operations {
             };
             /** @description Already exists */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getPlanProgress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                plan: "first_month" | "denial";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanProgress"];
+                };
+            };
+            /** @description Invalid application ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Application or plan not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    completePlanStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                plan: "first_month" | "denial";
+                step: "planned_purchase" | "payment_reminder" | "read_letter" | "check_reports" | "pause_applications" | "build_credit" | "reapply";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanStep"];
+                };
+            };
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanStep"];
+                };
+            };
+            /** @description Invalid application ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Application or plan step not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Plan not available for this application status */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    undoPlanStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                plan: "first_month" | "denial";
+                step: "planned_purchase" | "payment_reminder" | "read_letter" | "check_reports" | "pause_applications" | "build_credit" | "reapply";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Undone */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid application ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Application or plan step not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
