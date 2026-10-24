@@ -50,7 +50,7 @@ review sites for estimates, on 2026-10-15; 13 are `recommend`.
 
 | Endpoint | Role |
 | --- | --- |
-| `POST /api/v1/auth/email`, `POST /api/v1/auth/email/verify` | Send and verify a six-digit email code. |
+| `POST /api/v1/auth/email`, `POST /api/v1/auth/email/verify` | Send and verify a six-digit email code. When the code is what confirms the account, any password set before it is replaced with a random one and other sessions end. |
 | `POST /api/v1/auth/password/signup`, `POST /api/v1/auth/password/signin` | Optional password account creation and sign-in. |
 | `POST /api/v1/auth/password/signup/confirm` | Confirm a password sign-up with the emailed code, then set the chosen password and end other sessions. |
 | `POST /api/v1/auth/password/reset`, `POST /api/v1/auth/password/reset/confirm` | Request a reset email and set a password with an authenticated session. |

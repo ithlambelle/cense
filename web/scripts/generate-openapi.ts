@@ -61,8 +61,9 @@ registry.registerPath({
 });
 registry.registerPath({
   method: "post", path: "/auth/email/verify", operationId: "verifyEmailCode", summary: "Verify an email code and create a session",
+  description: "When this code is what confirms the account, any password set before it is replaced with a random one and other sessions end.",
   request: { body: body(z.strictObject({ email: z.email(), code: z.string().regex(/^\d{6}$/) })) },
-  responses: { 200: ok(z.strictObject({ status: z.literal("signed_in") })), 400: failure("Invalid request"), 401: failure("Wrong or expired code") },
+  responses: { 200: ok(z.strictObject({ status: z.literal("signed_in") })), 400: failure("Invalid request"), 401: failure("Wrong or expired code"), 502: failure("Account could not be secured") },
 });
 registry.registerPath({
   method: "post", path: "/auth/password/signup", operationId: "signUpWithPassword", summary: "Create an optional password account",

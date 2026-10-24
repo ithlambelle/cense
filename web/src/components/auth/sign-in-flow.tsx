@@ -165,12 +165,14 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
           startCooldown();
           goTo("code");
         }}
-        onUnconfirmed={async (address) => {
+        onUnconfirmed={async (address, password) => {
           // A password account that was never confirmed: a fresh code confirms
           // it and signs the student in. A failed send shows on the code step,
-          // with Resend. The password just worked, so it stays as it is.
+          // with Resend. The code goes to the confirm route with the password
+          // just typed, which keeps it: the plain code check replaces a password
+          // set before the inbox was proven.
           setEmail(address);
-          setChosenPassword(null);
+          setChosenPassword(password);
           setCode("");
           setConfirming(true);
           await sendCode(address);
@@ -272,7 +274,7 @@ type PasswordStepProps = {
   onDone: () => void;
   onConfirmEmail: (email: string, password: string) => void;
   // Log-in with the right password on an account that was never confirmed.
-  onUnconfirmed: (email: string) => Promise<void>;
+  onUnconfirmed: (email: string, password: string) => Promise<void>;
   onUseCode: () => void;
 };
 
@@ -334,7 +336,7 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnc
     if (result.kind === "failed" && result.code === "email_not_confirmed") {
       // Stays pending (Log in, Back and the code link disabled) until the code
       // step replaces this one, so a second tap cannot send a second code.
-      await onUnconfirmed(email);
+      await onUnconfirmed(email, password);
       return;
     }
     setPending(false);

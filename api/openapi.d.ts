@@ -47,7 +47,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Verify an email code and create a session */
+        /**
+         * Verify an email code and create a session
+         * @description When this code is what confirms the account, any password set before it is replaced with a random one and other sessions end.
+         */
         post: operations["verifyEmailCode"];
         delete?: never;
         options?: never;
@@ -588,6 +591,15 @@ export interface operations {
             };
             /** @description Wrong or expired code */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Account could not be secured */
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

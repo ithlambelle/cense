@@ -126,8 +126,12 @@ describe("password sign-up and log-in", () => {
     fill("Verification code", "123456");
     fireEvent.click(screen.getByRole("button", { name: "Verify" }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/start"));
-    // The password just worked, so the plain code check is enough.
-    expect(fetchFn.mock.calls.at(-1)?.[0]).toBe("/api/v1/auth/email/verify");
+    // The code goes to the confirm route with the password just typed, so it
+    // stays: the plain code check would replace it.
+    expect(fetchFn.mock.calls.at(-1)?.[0]).toBe("/api/v1/auth/password/signup/confirm");
+    expect(JSON.parse(String(fetchFn.mock.calls.at(-1)?.[1]?.body))).toEqual({
+      email: "alex@email.com", code: "123456", password: "correcthorse",
+    });
   });
 
   it("keeps where the student was going after confirming a new account", async () => {
