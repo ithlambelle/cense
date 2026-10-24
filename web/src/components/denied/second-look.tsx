@@ -22,7 +22,8 @@ import { cn } from "@/lib/utils";
 type View = "ask" | "approved" | "not-approved";
 
 // After "I requested a second look" (S26, S27). The outcome screens follow
-// Figma 397:2235 and 397:2184. "Approved after review" is shown only right
+// Figma 144:2492 (B2) and 144:2541 (B3). On B3 the frame's button says "Back to
+// your plan" while its note says "Review all 5 steps"; the frame wins. "Approved after review" is shown only right
 // after the update is saved: the database keeps no record that an approval
 // came from a second look (plan P-6, spec C6). The frames' "View application
 // details" button and "Card delivery" row are left out (no such screen or data).
@@ -66,19 +67,19 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
     return (
       <DeniedLayout backHref={ROUTES.home} backLabel="Home">
         <div className="flex flex-col items-center gap-4 pt-5 text-center">
-          <OutcomeMark icon={Check} />
+          <OutcomeMark icon={Check} tone="success" />
           <StatusPill>APPROVED AFTER REVIEW</StatusPill>
           <div className="flex flex-col gap-2">
             <h1 className="font-heading text-h1 font-medium text-navy">The issuer approved your application</h1>
             <p className="text-body-m text-indigo-black">
-              Good news. Watch for the issuer’s confirmation and card delivery details.
+              The corrected information was reviewed. Watch for the issuer’s confirmation and card delivery details.
             </p>
           </div>
         </div>
         <dl className="flex flex-col gap-3 rounded-card border-[1.5px] border-violet p-5 text-body-s">
-          <div className="flex justify-between gap-3">
-            <dt className="text-indigo-black">Application</dt>
-            <dd className="font-semibold text-navy">Approved</dd>
+          <div className="flex justify-between gap-3 bg-green/35 text-indigo-black">
+            <dt>Application</dt>
+            <dd className="font-semibold">Approved</dd>
           </div>
         </dl>
         <Notice icon={ToggleOff} title="Nothing starts automatically">
@@ -100,34 +101,17 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
           <div className="flex flex-col gap-2">
             <h1 className="font-heading text-h1 font-medium text-navy">The decision did not change</h1>
             <p className="text-body-m text-indigo-black">
-              That can feel discouraging. You do not need to send another application now.
+              That’s discouraging, but your plan still works. No need to apply again now.
             </p>
           </div>
         </div>
-        <section className="flex flex-col gap-3 rounded-card border-[1.5px] border-violet p-5">
-          <h2 className="font-heading text-h6 font-medium text-indigo-black">Return to the steady plan</h2>
-          <ul className="flex flex-col gap-3">
-            {[
-              "Check your reports and keep the corrected records.",
-              "Build history with a secured card, credit-builder loan, or authorized-user option.",
-              "Many people wait about 6 months, then use preapproval first.",
-            ].map((item) => (
-              <li key={item} className="flex items-start gap-2 text-body-s text-indigo-black">
-                <Check aria-hidden="true" width={16} height={16} className="mt-0.5 shrink-0 text-violet" />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-        <Notice icon={BellSlash} title="Rejected-card features stay off">
-          The first-month card plan and card reminders will not start.
-        </Notice>
+        <Notice icon={BellSlash} title="Rejected-card features stay off" />
         <div className="flex flex-col gap-2">
           <Link href={deniedPath("reminder", applicationId)} className={buttonVariants()}>
             Set a 6-month reminder
           </Link>
           <Link href={deniedPath("plan", applicationId)} className={buttonVariants({ variant: "secondary" })}>
-            Review all 5 steps
+            Back to your plan
           </Link>
         </div>
       </DeniedLayout>
