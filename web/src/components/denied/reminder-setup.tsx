@@ -37,7 +37,8 @@ export function ReminderSetup({ applicationId }: { applicationId: string | null 
   const todayNoon = today ? new Date(`${today}T12:00:00`) : null;
   const sixMonths = todayNoon ? toIsoDate(addMonths(todayNoon, 6)) : null;
   const tomorrow = todayNoon ? toIsoDate(new Date(todayNoon.getTime() + 86_400_000)) : undefined;
-  const latest = todayNoon ? toIsoDate(addMonths(todayNoon, 24)) : undefined;
+  // One year at most, the limit the reminder table enforces (366 days).
+  const latest = todayNoon ? toIsoDate(addMonths(todayNoon, 12)) : undefined;
   const remindOn = choice === "six-months" ? sixMonths : customDate || null;
   const remindOnLabel = remindOn ? formatIsoDate(remindOn) : null;
 
