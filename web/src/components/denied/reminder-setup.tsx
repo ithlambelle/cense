@@ -1,13 +1,12 @@
 "use client";
 
-import BellSlash from "@gravity-ui/icons/BellSlash";
 import Calendar from "@gravity-ui/icons/Calendar";
+import ChevronRight from "@gravity-ui/icons/ChevronRight";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { DeniedLayout } from "@/components/denied/denied-layout";
-import { Notice } from "@/components/denied/parts";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { SelectionMark } from "@/components/ui/selection-mark";
@@ -111,15 +110,21 @@ export function ReminderSetup({ applicationId }: { applicationId: string | null 
         </label>
       ) : null}
 
-      <section className="flex flex-col gap-3 rounded-card bg-off-white p-5 text-indigo-black">
+      <section className="relative flex flex-col gap-3 rounded-card bg-off-white p-5 text-indigo-black">
         <div className="flex items-center gap-2">
           <Calendar aria-hidden="true" width={22} height={22} className="text-violet" />
           <h2 className="font-heading text-h6 font-medium">Before you reapply</h2>
         </div>
         <p className="text-body-s">Your 5-step plan covers what to do until then.</p>
+        {/* The link's box covers the whole card (after:inset-0), so a tap anywhere opens the plan. */}
+        <Link
+          href={deniedPath("plan", applicationId)}
+          className="flex min-h-11 items-center justify-between text-body-s font-semibold text-violet outline-none after:absolute after:inset-0 after:rounded-card hover:text-violet-hover focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-ring"
+        >
+          See the 5-step plan
+          <ChevronRight aria-hidden="true" width={16} height={16} />
+        </Link>
       </section>
-
-      <Notice icon={BellSlash} title="Only this reminder is saved" />
 
       {unavailable ? (
         <section role="status" className="flex flex-col gap-2 rounded-input border border-hairline p-4">
