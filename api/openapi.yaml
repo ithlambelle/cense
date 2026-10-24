@@ -317,6 +317,86 @@ components:
         - appliedAt
         - statusUpdatedAt
       additionalProperties: false
+    ApplicationDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        cardId:
+          type:
+            - string
+            - "null"
+        cardName:
+          type: string
+        status:
+          type: string
+          enum:
+            - applied
+            - approved
+            - rejected
+        creditLimitCents:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+        appliedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        statusUpdatedAt:
+          type: string
+          format: date-time
+        denialReason:
+          type:
+            - string
+            - "null"
+          enum:
+            - no_credit_history
+            - could_not_verify
+            - report_frozen
+            - income
+            - something_else
+            - no_letter_yet
+            - null
+        denialReasonNote:
+          type:
+            - string
+            - "null"
+          maxLength: 200
+        autopayStatus:
+          type: string
+          enum:
+            - on
+            - off
+            - unknown
+        statementClosingDay:
+          type:
+            - integer
+            - "null"
+          minimum: 1
+          maximum: 31
+        paymentDueDay:
+          type:
+            - integer
+            - "null"
+          minimum: 1
+          maximum: 31
+      required:
+        - id
+        - cardId
+        - cardName
+        - status
+        - creditLimitCents
+        - appliedAt
+        - statusUpdatedAt
+        - denialReason
+        - denialReasonNote
+        - autopayStatus
+        - statementClosingDay
+        - paymentDueDay
+      additionalProperties: false
     Recommendation:
       type: object
       properties:
@@ -1111,7 +1191,11 @@ paths:
   /applications/{id}:
     patch:
       operationId: updateApplication
-      summary: Update application status
+      summary: "Update a tracked card: status, credit limit, denial reason and note,
+        autopay, closing and due days"
+      description: Any of the fields, at least one. A credit limit and the closing and
+        due days need an approved card, a denial reason and note a rejected one.
+        Saving the days, status or autopay re-plans the card's reminders.
       security:
         - studentSession: []
       parameters:
@@ -1138,9 +1222,41 @@ paths:
                     - integer
                     - "null"
                   minimum: 0
-              required:
-                - status
-                - creditLimitCents
+                denialReason:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - no_credit_history
+                    - could_not_verify
+                    - report_frozen
+                    - income
+                    - something_else
+                    - no_letter_yet
+                    - null
+                denialReasonNote:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 200
+                autopayStatus:
+                  type: string
+                  enum:
+                    - on
+                    - off
+                    - unknown
+                statementClosingDay:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 1
+                  maximum: 31
+                paymentDueDay:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 1
+                  maximum: 31
               additionalProperties: false
       responses:
         "200":
@@ -1148,7 +1264,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Application"
+                $ref: "#/components/schemas/ApplicationDetail"
         "400":
           description: Invalid update
           content:
@@ -1169,6 +1285,50 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "409":
           description: Already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    get:
+      operationId: getApplication
+      summary: Read one tracked card with its denial reason, autopay and closing and
+        due days
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationDetail"
+        "400":
+          description: Invalid application ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Application not found
           content:
             application/json:
               schema:
