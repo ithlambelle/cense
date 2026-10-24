@@ -467,6 +467,72 @@ components:
         - plan
         - completedSteps
       additionalProperties: false
+    Reminder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        applicationId:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - statement_closing
+            - payment_due
+            - check_autopay
+            - reapply
+        occurrence:
+          type: string
+          format: date
+        remindOn:
+          type: string
+          format: date
+        dueAt:
+          type: string
+          format: date-time
+        sentAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        actedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - applicationId
+        - kind
+        - occurrence
+        - remindOn
+        - dueAt
+        - sentAt
+        - actedAt
+        - createdAt
+      additionalProperties: false
+    ReminderSettings:
+      type: object
+      properties:
+        emailsOn:
+          type: boolean
+        statementClosing:
+          type: boolean
+        paymentDue:
+          type: boolean
+        checkAutopay:
+          type: boolean
+      required:
+        - emailsOn
+        - statementClosing
+        - paymentDue
+        - checkAutopay
+      additionalProperties: false
   parameters: {}
   securitySchemes:
     studentSession:
@@ -1518,6 +1584,234 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "404":
           description: Application or plan step not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /reminders:
+    get:
+      operationId: listReminders
+      summary: List the student's reminders, sent and upcoming
+      security:
+        - studentSession: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reminders:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Reminder"
+                required:
+                  - reminders
+                additionalProperties: false
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      operationId: createReapplyReminder
+      summary: Set the reapply reminder for a denied application (replaces an unsent
+        one)
+      description: The day must be tomorrow to a year from now on the student's
+        calendar. The answer carries the day as remindOn.
+      security:
+        - studentSession: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                applicationId:
+                  type: string
+                  format: uuid
+                remindOn:
+                  type: string
+                  format: date
+              required:
+                - applicationId
+                - remindOn
+              additionalProperties: false
+      responses:
+        "201":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reminder"
+        "400":
+          description: Invalid day or application not denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Already sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /reminders/{id}/acted:
+    post:
+      operationId: markReminderActed
+      summary: Mark a sent reminder acted on (keeps the first time)
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reminder"
+        "400":
+          description: Invalid reminder ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Reminder not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Reminder not sent yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /me/reminder-settings:
+    get:
+      operationId: getReminderSettings
+      summary: Read the student's reminder settings
+      security:
+        - studentSession: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderSettings"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    patch:
+      operationId: updateReminderSettings
+      summary: Turn reminder kinds, or all reminder emails, on or off
+      description: Turning a kind off removes its unsent reminders; turning it on
+        schedules them again. emailsOn false stops every reminder email.
+      security:
+        - studentSession: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emailsOn:
+                  type: boolean
+                statementClosing:
+                  type: boolean
+                paymentDue:
+                  type: boolean
+                checkAutopay:
+                  type: boolean
+              additionalProperties: false
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderSettings"
+        "400":
+          description: Invalid settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Profile not found
           content:
             application/json:
               schema:

@@ -21,6 +21,12 @@ import {
 } from "../src/lib/api/schemas";
 import { planNameSchema, planProgressSchema, planStepNameSchema, planStepSchema } from "../src/lib/api/plans";
 import {
+  createReapplyReminderSchema,
+  reminderSchema,
+  reminderSettingsSchema,
+  updateReminderSettingsSchema,
+} from "../src/lib/api/reminders";
+import {
   passwordCredentialsSchema,
   passwordResetRequestSchema,
   passwordSignInSchema,
@@ -181,6 +187,49 @@ registry.registerPath({
   security: [{ studentSession: [] }],
   request: { params: planParams.extend({ step: planStepNameSchema }) },
   responses: { 204: { description: "Undone" }, 400: failure("Invalid application ID"), 404: failure("Application or plan step not found"), ...protectedResponses },
+});
+const reminderContract = registry.register("Reminder", reminderSchema);
+const reminderSettingsContract = registry.register("ReminderSettings", reminderSettingsSchema);
+registry.registerPath({
+  method: "get", path: "/reminders", operationId: "listReminders",
+  summary: "List the student's reminders, sent and upcoming",
+  security: [{ studentSession: [] }],
+  responses: { 200: ok(z.strictObject({ reminders: z.array(reminderContract) })), ...protectedResponses },
+});
+registry.registerPath({
+  method: "post", path: "/reminders", operationId: "createReapplyReminder",
+  summary: "Set the reapply reminder for a denied application (replaces an unsent one)",
+  description: "The day must be tomorrow to a year from now on the student's calendar. The answer carries the day as remindOn.",
+  security: [{ studentSession: [] }],
+  request: { body: body(createReapplyReminderSchema) },
+  responses: {
+    201: ok(reminderContract), 400: failure("Invalid day or application not denied"),
+    404: failure("Application not found"), 409: failure("Already sent"), ...protectedResponses,
+  },
+});
+registry.registerPath({
+  method: "post", path: "/reminders/{id}/acted", operationId: "markReminderActed",
+  summary: "Mark a sent reminder acted on (keeps the first time)",
+  security: [{ studentSession: [] }],
+  request: { params: z.object({ id: z.uuid() }) },
+  responses: {
+    200: ok(reminderContract), 400: failure("Invalid reminder ID"), 404: failure("Reminder not found"),
+    409: failure("Reminder not sent yet"), ...protectedResponses,
+  },
+});
+registry.registerPath({
+  method: "get", path: "/me/reminder-settings", operationId: "getReminderSettings",
+  summary: "Read the student's reminder settings",
+  security: [{ studentSession: [] }],
+  responses: { 200: ok(reminderSettingsContract), 404: failure("Profile not found"), ...protectedResponses },
+});
+registry.registerPath({
+  method: "patch", path: "/me/reminder-settings", operationId: "updateReminderSettings",
+  summary: "Turn reminder kinds, or all reminder emails, on or off",
+  description: "Turning a kind off removes its unsent reminders; turning it on schedules them again. emailsOn false stops every reminder email.",
+  security: [{ studentSession: [] }],
+  request: { body: body(updateReminderSettingsSchema) },
+  responses: { 200: ok(reminderSettingsContract), 400: failure("Invalid settings"), 404: failure("Profile not found"), ...protectedResponses },
 });
 registry.registerPath({
   method: "post", path: "/issuer-clicks", operationId: "recordIssuerClick", summary: "Record an issuer link click",

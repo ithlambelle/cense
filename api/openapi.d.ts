@@ -334,6 +334,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the student's reminders, sent and upcoming */
+        get: operations["listReminders"];
+        put?: never;
+        /**
+         * Set the reapply reminder for a denied application (replaces an unsent one)
+         * @description The day must be tomorrow to a year from now on the student's calendar. The answer carries the day as remindOn.
+         */
+        post: operations["createReapplyReminder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reminders/{id}/acted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark a sent reminder acted on (keeps the first time) */
+        post: operations["markReminderActed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/reminder-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the student's reminder settings */
+        get: operations["getReminderSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Turn reminder kinds, or all reminder emails, on or off
+         * @description Turning a kind off removes its unsent reminders; turning it on schedules them again. emailsOn false stops every reminder email.
+         */
+        patch: operations["updateReminderSettings"];
+        trace?: never;
+    };
     "/issuer-clicks": {
         parameters: {
             query?: never;
@@ -511,6 +570,32 @@ export interface components {
             /** @enum {string} */
             plan: "first_month" | "denial";
             completedSteps: components["schemas"]["PlanStep"][];
+        };
+        Reminder: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            applicationId: string;
+            /** @enum {string} */
+            kind: "statement_closing" | "payment_due" | "check_autopay" | "reapply";
+            /** Format: date */
+            occurrence: string;
+            /** Format: date */
+            remindOn: string;
+            /** Format: date-time */
+            dueAt: string;
+            /** Format: date-time */
+            sentAt: string | null;
+            /** Format: date-time */
+            actedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ReminderSettings: {
+            emailsOn: boolean;
+            statementClosing: boolean;
+            paymentDue: boolean;
+            checkAutopay: boolean;
         };
     };
     responses: never;
@@ -1632,6 +1717,299 @@ export interface operations {
                 };
             };
             /** @description Application or plan step not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    listReminders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        reminders: components["schemas"]["Reminder"][];
+                    };
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    createReapplyReminder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    applicationId: string;
+                    /** Format: date */
+                    remindOn: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reminder"];
+                };
+            };
+            /** @description Invalid day or application not denied */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Application not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Already sent */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    markReminderActed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reminder"];
+                };
+            };
+            /** @description Invalid reminder ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Reminder not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Reminder not sent yet */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getReminderSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderSettings"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Profile not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    updateReminderSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    emailsOn?: boolean;
+                    statementClosing?: boolean;
+                    paymentDue?: boolean;
+                    checkAutopay?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderSettings"];
+                };
+            };
+            /** @description Invalid settings */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Profile not found */
             404: {
                 headers: {
                     [name: string]: unknown;
