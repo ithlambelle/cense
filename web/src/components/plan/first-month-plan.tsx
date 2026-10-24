@@ -91,7 +91,8 @@ function PlanScreen({
   onRetry: (() => void) | null;
 }) {
   const [actions, setActions] = useState<PlanActions>(start.actions);
-  const [state, setState] = useState<SaveState>(start.state);
+  // Fixed for this load: the screen is keyed on the load state.
+  const state: SaveState = start.state;
   const [error, setError] = useState<string | null>(null);
   // Actions whose save is still in flight; each is locked until its answer arrives.
   const [saving, setSaving] = useState<Set<ActionKey>>(new Set());
