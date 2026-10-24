@@ -28,9 +28,12 @@ describe("loadPlanSteps", () => {
     expect(fetchFn.mock.calls[0][0]).toBe(`/api/v1/applications/${ID}/plans/denial`);
   });
 
-  it("says unavailable when the database has no plan steps yet (503)", async () => {
-    answer(503, { error: { code: "service_unavailable", message: "Not available." } });
-    expect(await loadPlanSteps(ID, "first_month")).toEqual({ kind: "unavailable" });
+  it("treats a 503 as a passing outage with the API's try-again message", async () => {
+    answer(503, { error: { code: "data_unavailable", message: "Your data is temporarily unavailable. Please try again." } });
+    expect(await loadPlanSteps(ID, "first_month")).toEqual({
+      kind: "failed",
+      message: "Your data is temporarily unavailable. Please try again.",
+    });
   });
 
   it("says signed-out on 401 and passes other messages through", async () => {

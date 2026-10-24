@@ -35,9 +35,9 @@ const ACTIONS: { key: ActionKey; title: string; detail: string }[] = [
 
 const NONE_DONE: PlanActions = { autopay: false, plannedPurchase: false, paymentReminder: false };
 
-type SaveState = "loading" | "saved" | "unavailable" | "failed";
+type SaveState = "loading" | "saved" | "failed";
 
-type SavedPlan = { actions: PlanActions; state: "saved" | "unavailable" };
+type SavedPlan = { actions: PlanActions; state: "saved" };
 
 function loadPlan(applicationId: string) {
   return async (): Promise<LoadOutcome<SavedPlan>> => {
@@ -55,15 +55,13 @@ function loadPlan(applicationId: string) {
         },
       };
     }
-    if (result.kind === "unavailable") return { status: "ready", data: { actions: NONE_DONE, state: "unavailable" } };
     if (result.kind === "signed-out") return "signed-out";
     return { status: "failed", message: result.message };
   };
 }
 
 // Your first-month plan (S20), from the lo-fi board 219:2. Progress is saved
-// as plan steps; until the database has them the screen says checks are not
-// kept. The lo-fi's "suggested monthly spending limit" is left out: there is
+// as plan steps. The lo-fi's "suggested monthly spending limit" is left out: there is
 // no sourced, rules-approved way to work one out yet.
 export function FirstMonthPlan({ application }: { application: Application }) {
   // useLoaded needs a load with one identity per application.
@@ -114,8 +112,7 @@ function PlanScreen({
     if (result.kind === "ok") return;
     // Undo only this action, so other saves in flight are not overwritten.
     setActions((current) => ({ ...current, [key]: !value }));
-    if (result.kind === "unavailable") setState("unavailable");
-    else setError(result.kind === "failed" ? result.message : "Sign in again to save your plan.");
+    setError(result.kind === "failed" ? result.message : "Sign in again to save your plan.");
   }
 
   const done = Object.values(actions).filter(Boolean).length;
@@ -175,11 +172,6 @@ function PlanScreen({
             </ul>
           </section>
 
-          {state === "unavailable" ? (
-            <p role="status" className="rounded-input border border-hairline p-4 text-body-s text-indigo-black">
-              Saving your plan isn’t available yet, so your checks won’t be kept after you leave this page.
-            </p>
-          ) : null}
           {state === "failed" ? (
             <div className="flex flex-col gap-2">
               <ErrorMessage>We couldn’t load your saved plan. Your checks won’t be kept.</ErrorMessage>

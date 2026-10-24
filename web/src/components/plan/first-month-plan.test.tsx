@@ -63,14 +63,15 @@ afterEach(() => {
 });
 
 describe("FirstMonthPlan", () => {
-  it("says checks are not kept while the database has no plan steps yet", async () => {
-    server([{ status: 503, body: { error: { code: "service_unavailable", message: "Not available." } } }]);
+  it("offers to try again when the plan is briefly unavailable (503)", async () => {
+    server([
+      { status: 503, body: { error: { code: "data_unavailable", message: "Your data is temporarily unavailable. Please try again." } } },
+      { status: 200, body: plan("planned_purchase") },
+    ]);
     render(<FirstMonthPlan application={application} />);
-    expect((await screen.findByRole("status")).textContent).toContain("isn’t available yet");
-    const purchase = screen.getByRole("checkbox", { name: /Choose one planned purchase/ });
-    fireEvent.click(purchase);
-    expect(purchase.getAttribute("aria-checked")).toBe("true");
-    expect(screen.getByText("1 of 3 done")).toBeTruthy();
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("1 of 3 done")).toBeTruthy();
   });
 
   it("loads saved steps and lights or puts out each one", async () => {

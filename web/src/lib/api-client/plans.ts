@@ -9,16 +9,15 @@ export type PlanStepName = components["schemas"]["PlanStep"]["step"];
 
 export type PlanStepsResult =
   | { kind: "ok"; done: ReadonlySet<PlanStepName> }
-  // The plan_steps table is not on this database yet (503), so nothing can be kept.
-  | { kind: "unavailable" }
   | { kind: "signed-out" }
   | { kind: "failed"; message: string };
 
 export type PlanStepSave = { kind: "ok" } | Exclude<PlanStepsResult, { kind: "ok" }>;
 
 function failure(result: ApiFailure): Exclude<PlanStepsResult, { kind: "ok" }> {
+  // A 503 is a passing outage (the table is live), so it fails with the API's
+  // "try again" message like any other error.
   if (isUnauthorized(result)) return { kind: "signed-out" };
-  if (result.kind === "api" && result.status === 503) return { kind: "unavailable" };
   return { kind: "failed", message: failureMessage(result) };
 }
 
