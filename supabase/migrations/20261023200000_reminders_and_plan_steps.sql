@@ -21,7 +21,9 @@ create table public.reminders (
   id uuid primary key default gen_random_uuid(),
   student_id uuid not null references auth.users (id) on delete cascade,
   card_application_id uuid not null,
-  kind text not null check (kind in ('reapply', 'statement_closing', 'payment_due')),
+  -- statement_closing: 3 days before close. payment_due: 3 days before the
+  -- due date. check_autopay: after the first statement. reapply: after a denial.
+  kind text not null check (kind in ('statement_closing', 'payment_due', 'check_autopay', 'reapply')),
   -- which cycle this reminder is for, e.g. the due date it warns about
   occurrence date not null,
   due_at timestamptz not null,
@@ -49,9 +51,15 @@ create table public.plan_steps (
   student_id uuid not null references auth.users (id) on delete cascade,
   card_application_id uuid not null,
   plan text not null check (plan in ('first_month', 'denial')),
-  step text not null check (step ~ '^[a-z][a-z_]{0,39}$'),
+  step text not null,
   completed_at timestamptz not null default now(),
   primary key (card_application_id, plan, step),
+  -- the steps each plan shows; autopay is not a step (it reads autopay_status)
+  constraint plan_steps_known_step check (
+    (plan = 'first_month' and step in ('planned_purchase', 'payment_reminder'))
+    or (plan = 'denial' and step in (
+      'read_letter', 'check_reports', 'pause_applications', 'build_credit', 'reapply'))
+  ),
   constraint plan_steps_application_fkey
     foreign key (card_application_id, student_id)
     references public.card_applications (id, student_id) on delete cascade
@@ -65,9 +73,12 @@ alter table public.card_applications
   add column denial_reason_note text
     check (char_length(denial_reason_note) <= 200);
 
--- when the student last opened their updates
+-- when the student last opened their updates, and when they unsubscribed
+-- from reminder emails (null means subscribed). The cron job skips anyone
+-- who has unsubscribed.
 alter table public.profiles
-  add column updates_seen_at timestamptz;
+  add column updates_seen_at timestamptz,
+  add column reminders_unsubscribed_at timestamptz;
 
 -- clear the note along with denial_reason when an application is no longer rejected
 create or replace function public.set_rejected_at()
