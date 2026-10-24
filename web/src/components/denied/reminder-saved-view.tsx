@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { OutcomeMark } from "@/components/denied/parts";
-import { buttonVariants } from "@/components/ui/button";
+import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { ROUTES } from "@/lib/routes";
 
 // Your reminder is saved (Figma 397:2323, S24). Rendered by
@@ -50,6 +50,7 @@ export function ReminderSavedView({ dateLabel }: { dateLabel: string }) {
       </section>
       <Link href={ROUTES.home} className={buttonVariants()}>
         Done
+        <ButtonChevron />
       </Link>
     </DeniedLayout>
   );

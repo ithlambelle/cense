@@ -8,7 +8,7 @@ import { useState } from "react";
 
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { Notice } from "@/components/denied/parts";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button, ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { SelectionMark } from "@/components/ui/selection-mark";
 import { pendingRequest } from "@/lib/api-client/pending";
@@ -151,6 +151,7 @@ export function ReminderSetup({ applicationId }: { applicationId: string | null 
           <p className="text-body-s text-indigo-black">Open this from your card on Home to set a reminder for it.</p>
           <Link href={ROUTES.home} className={buttonVariants()}>
             Go to Home
+            <ButtonChevron />
           </Link>
         </div>
       )}
