@@ -22,15 +22,15 @@ describe("pendingRequest", () => {
   });
 
   it("treats a JSON 404 from a real route as an answer, not a missing route", async () => {
-    answer(404, { error: { code: "not_found", message: "No plan yet." } });
-    expect(await pendingRequest("GET /plan")).toEqual({ kind: "failed", message: "No plan yet.", code: "not_found" });
+    answer(404, { error: { code: "not_found", message: "No reminder yet." } });
+    expect(await pendingRequest("GET /reminders")).toEqual({ kind: "failed", message: "No reminder yet.", code: "not_found" });
   });
 
   it("says signed-out on 401 and failed on a server error", async () => {
     answer(401, {});
-    expect(await pendingRequest("GET /plan")).toEqual({ kind: "signed-out" });
+    expect(await pendingRequest("GET /reminders")).toEqual({ kind: "signed-out" });
     answer(500, {});
-    expect(await pendingRequest("GET /plan")).toEqual({ kind: "failed", message: FALLBACK_MESSAGE, code: undefined });
+    expect(await pendingRequest("GET /reminders")).toEqual({ kind: "failed", message: FALLBACK_MESSAGE, code: undefined });
   });
 
   it("gives up after the same timeout as every other request, so a stalled sign-in cannot spin for ever", async () => {
@@ -52,7 +52,7 @@ describe("pendingRequest", () => {
 
   it("says the connection failed when no answer comes back", async () => {
     vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => Promise.reject(new TypeError("Failed to fetch"))));
-    expect(await pendingRequest("GET /plan")).toEqual({ kind: "failed", message: OFFLINE_MESSAGE });
+    expect(await pendingRequest("GET /reminders")).toEqual({ kind: "failed", message: OFFLINE_MESSAGE });
   });
 
   it("accepts a real answer only when it matches the spec", async () => {
@@ -68,11 +68,11 @@ describe("pendingRequest", () => {
     vi.stubGlobal("fetch", fetchFn);
     vi.stubEnv("NEXT_PUBLIC_CENSE_MOCKS", "1");
     vi.stubEnv("NODE_ENV", "development");
-    expect((await pendingRequest("GET /plan")).kind).toBe("ok");
+    expect((await pendingRequest("GET /reminders")).kind).toBe("ok");
     expect(fetchFn).not.toHaveBeenCalled();
 
     vi.stubEnv("NODE_ENV", "production");
-    expect(await pendingRequest("GET /plan")).toEqual({ kind: "unavailable" });
+    expect(await pendingRequest("GET /reminders")).toEqual({ kind: "unavailable" });
     expect(fetchFn).toHaveBeenCalledOnce();
   });
 
