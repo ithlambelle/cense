@@ -1,6 +1,5 @@
 "use client";
 
-import BellSlash from "@gravity-ui/icons/BellSlash";
 import Check from "@gravity-ui/icons/Check";
 import Hourglass from "@gravity-ui/icons/Hourglass";
 import ToggleOff from "@gravity-ui/icons/ToggleOff";
@@ -22,8 +21,10 @@ import { cn } from "@/lib/utils";
 type View = "ask" | "approved" | "not-approved";
 
 // After "I requested a second look" (S26, S27). The outcome screens follow
-// Figma 144:2492 (B2) and 144:2541 (B3). On B3 the frame's button says "Back to
-// your plan" while its note says "Review all 5 steps"; the frame wins. "Approved after review" is shown only right
+// Figma 144:2492 (B2) and 144:2541 (B3). A student reaches B3 from "I think it
+// was a mistake", before seeing the plan, so B3 leads into the plan (Ben's
+// review, 2026-10-24) instead of the frame's "Back to your plan" and 6-month
+// reminder. "Approved after review" is shown only right
 // after the update is saved: the database keeps no record that an approval
 // came from a second look (plan P-6, spec C6). The frames' "View application
 // details" button and "Card delivery" row are left out (no such screen or data).
@@ -101,21 +102,16 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
           <div className="flex flex-col gap-2">
             <h1 className="font-heading text-h1 font-medium text-navy">The decision did not change</h1>
             <p className="text-body-m text-indigo-black">
-              That’s discouraging, but your plan still works. No need to apply again now.
+              That’s a bummer, but we can still start building toward better credit now.
             </p>
           </div>
         </div>
-        <Notice icon={BellSlash} title="Rejected-card features stay off" />
         <div className="flex flex-col gap-2">
-          <Link href={deniedPath("reminder", applicationId)} className={buttonVariants()}>
-            Set a 6-month reminder
+          <Link href={deniedPath("plan", applicationId)} className={buttonVariants()}>
+            See your 5-step plan
           </Link>
-          {/* A plain Amethyst text action, not an outlined button (144:2581): 44 tall, Inter SemiBold 15. */}
-          <Link
-            href={deniedPath("plan", applicationId)}
-            className="flex h-11 w-full items-center justify-center rounded-pill text-[15px] leading-6 font-semibold text-violet outline-none hover:text-violet-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          >
-            Back to your plan
+          <Link href={ROUTES.home} className={buttonVariants({ variant: "secondary" })}>
+            Go to Home
           </Link>
         </div>
       </DeniedLayout>
