@@ -110,7 +110,11 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
           <Link href={deniedPath("reminder", applicationId)} className={buttonVariants()}>
             Set a 6-month reminder
           </Link>
-          <Link href={deniedPath("plan", applicationId)} className={buttonVariants({ variant: "secondary" })}>
+          {/* A plain Amethyst text action, not an outlined button (144:2581): 44 tall, Inter SemiBold 15. */}
+          <Link
+            href={deniedPath("plan", applicationId)}
+            className="flex h-11 w-full items-center justify-center rounded-pill text-[15px] leading-6 font-semibold text-violet outline-none hover:text-violet-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
             Back to your plan
           </Link>
         </div>
