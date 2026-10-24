@@ -1,7 +1,7 @@
 // Types come from the generated API contract. Never retype a field by hand.
 import type { paths } from "../../../../api/openapi";
 
-type Method = "get" | "put" | "post" | "patch";
+type Method = "get" | "put" | "post" | "patch" | "delete";
 type JsonBody<T> = T extends { content: { "application/json": infer Body } } ? Body : never;
 
 // Only the methods the contract defines for a path, so a call such as
@@ -12,9 +12,12 @@ type MethodOf<Path extends keyof paths> = {
 
 type Operation<Path extends keyof paths, M extends Method> = NonNullable<paths[Path][M]>;
 
+// A 204 answer has no body, so its data is null.
 type SuccessBody<Path extends keyof paths, M extends Method> =
   Operation<Path, M> extends { responses: infer Responses }
-    ? JsonBody<Responses[Extract<keyof Responses, 200 | 201>]>
+    ? 204 extends keyof Responses
+      ? null
+      : JsonBody<Responses[Extract<keyof Responses, 200 | 201>]>
     : never;
 
 // The body of a successful answer, for example ApiData<"/quiz", "get">.
@@ -114,6 +117,9 @@ async function send<Data>(
   } catch {
     return { ok: false, kind: "network" };
   }
+
+  // No content, as when a DELETE succeeds.
+  if (response.status === 204) return { ok: true, data: null as Data };
 
   let payload: unknown;
   try {
