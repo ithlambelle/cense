@@ -543,6 +543,9 @@ paths:
     post:
       operationId: confirmPasswordSignUp
       summary: Confirm a password sign-up with the emailed code and set its password
+      description: Sets the chosen password and ends other sessions only when this
+        code is what confirms the account. An account confirmed earlier keeps
+        its password and sessions, and `passwordChanged` is false.
       requestBody:
         content:
           application/json:
@@ -577,8 +580,11 @@ paths:
                     type: string
                     enum:
                       - signed_in
+                  passwordChanged:
+                    type: boolean
                 required:
                   - status
+                  - passwordChanged
                 additionalProperties: false
         "400":
           description: Invalid request

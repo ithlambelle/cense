@@ -1,21 +1,28 @@
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
+import { confirmedByThisCode } from "@/lib/api/confirmation";
 import { passwordSignUpConfirmSchema } from "@/lib/api/password";
 import { createStudentClient } from "@/lib/supabase/server";
 
-// Confirms a password sign-up with the emailed code, then sets the password the
-// student chose. Supabase keeps the password from the first sign-up on an
+// Confirms a password sign-up with the emailed code. When this code is what
+// confirms the account, it then sets the password the student chose and ends
+// any other session: Supabase keeps the password from the first sign-up on an
 // account that was never confirmed and ignores a later one, so without this the
-// confirmed account would keep whichever password came first, possibly one
-// chosen by someone who does not own the inbox. The code proves the inbox, so
-// the password is set only after it, and any other session is ended.
+// account would keep whichever password came first, possibly one chosen by
+// someone who does not own the inbox.
+//
+// An account confirmed earlier keeps its password and its other sessions. A
+// sign-up form never changes a confirmed account's password; only Forgot
+// password does. The code still proves the inbox, so the student is signed in.
 export async function POST(request: Request): Promise<Response> {
   const parsed = passwordSignUpConfirmSchema.safeParse(await parseJson(request));
   if (!parsed.success) return validationError(parsed.error);
   const { email, code, password } = parsed.data;
 
   const supabase = await createStudentClient();
-  const { error } = await supabase.auth.verifyOtp({ email, token: code, type: "email" });
+  const { data, error } = await supabase.auth.verifyOtp({ email, token: code, type: "email" });
   if (error) return apiError(401, "invalid_code", "The code is wrong or expired. Request a new one.");
+
+  if (!confirmedByThisCode(data.user)) return signedIn(false);
 
   const { error: updateError } = await supabase.auth.updateUser({ password });
   // `same_password`: the account already has this password, which is the usual
@@ -30,5 +37,11 @@ export async function POST(request: Request): Promise<Response> {
   const { error: signOutError } = await supabase.auth.signOut({ scope: "others" });
   if (signOutError) console.error("Ending other sessions failed", { code: signOutError.code, status: signOutError.status });
 
-  return Response.json({ status: "signed_in" }, { headers: { "Cache-Control": "no-store" } });
+  return signedIn(true);
+}
+
+// `passwordChanged: false` tells the screen the account already existed and
+// kept its password. Only the inbox owner gets this far.
+function signedIn(passwordChanged: boolean): Response {
+  return Response.json({ status: "signed_in", passwordChanged }, { headers: { "Cache-Control": "no-store" } });
 }

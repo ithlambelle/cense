@@ -31,7 +31,12 @@ when the student must confirm their address. To confirm, send the emailed
 code with the same password to `POST /api/v1/auth/password/signup/confirm`
 (`{ "email": "...", "code": "123456", "password": "..." }`). It verifies the
 code, then sets that password and ends any other session, because Supabase
-keeps the password from the first sign-up on an unconfirmed account. A log-in on an account that was never confirmed returns `403`
+keeps the password from the first sign-up on an unconfirmed account. It
+answers `{ "status": "signed_in", "passwordChanged": true }`. If the account
+was confirmed earlier, nothing changes: a sign-up never changes a confirmed
+account's password, only Forgot password does. The student is signed in and
+the answer has `passwordChanged: false`, so the screen can say the password
+did not change. A log-in on an account that was never confirmed returns `403`
 `email_not_confirmed`; the screen then sends a code and confirms it here with
 the password just typed, so that password is kept. Sign-in returns `401`
 `invalid_credentials` for an incorrect email or password. To reset a password,

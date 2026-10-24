@@ -77,19 +77,31 @@ describe("optional password auth", () => {
 
   describe("confirming a password sign-up", () => {
     const CONFIRM_BODY = { email: "student@example.com", code: "123456", password: "long-enough-password" };
+    // Timestamps as Supabase returns them from verifying a code.
+    const FIRST_CONFIRMATION = { email_confirmed_at: "2026-10-24T18:03:31.266909Z", last_sign_in_at: "2026-10-24T18:03:31.269723294Z" };
+    const CONFIRMED_EARLIER = { email_confirmed_at: "2026-10-01T09:00:00.000000Z", last_sign_in_at: "2026-10-24T18:03:34.627138212Z" };
 
     it("verifies the code, then sets the chosen password, then ends other sessions", async () => {
-      auth.verifyOtp.mockResolvedValue({ data: {}, error: null });
+      auth.verifyOtp.mockResolvedValue({ data: { user: FIRST_CONFIRMATION }, error: null });
       auth.updateUser.mockResolvedValue({ data: {}, error: null });
       auth.signOut.mockResolvedValue({ error: null });
       const response = await confirmSignUp(request("/api/v1/auth/password/signup/confirm", CONFIRM_BODY));
       expect(response.status).toBe(200);
-      expect(await response.json()).toEqual({ status: "signed_in" });
+      expect(await response.json()).toEqual({ status: "signed_in", passwordChanged: true });
       expect(auth.verifyOtp).toHaveBeenCalledWith({ email: "student@example.com", token: "123456", type: "email" });
       expect(auth.updateUser).toHaveBeenCalledWith({ password: "long-enough-password" });
       expect(auth.signOut).toHaveBeenCalledWith({ scope: "others" });
       expect(auth.verifyOtp.mock.invocationCallOrder[0]).toBeLessThan(auth.updateUser.mock.invocationCallOrder[0]);
       expect(auth.updateUser.mock.invocationCallOrder[0]).toBeLessThan(auth.signOut.mock.invocationCallOrder[0]);
+    });
+
+    it("never changes the password or other sessions of an account confirmed earlier", async () => {
+      auth.verifyOtp.mockResolvedValue({ data: { user: CONFIRMED_EARLIER }, error: null });
+      const response = await confirmSignUp(request("/api/v1/auth/password/signup/confirm", CONFIRM_BODY));
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ status: "signed_in", passwordChanged: false });
+      expect(auth.updateUser).not.toHaveBeenCalled();
+      expect(auth.signOut).not.toHaveBeenCalled();
     });
 
     it("sets no password when the code is wrong", async () => {
@@ -101,17 +113,18 @@ describe("optional password auth", () => {
     });
 
     it("signs the student in when the account already has that password", async () => {
-      auth.verifyOtp.mockResolvedValue({ data: {}, error: null });
+      auth.verifyOtp.mockResolvedValue({ data: { user: FIRST_CONFIRMATION }, error: null });
       auth.updateUser.mockResolvedValue({ data: {}, error: new AuthApiError("New password should be different from the old password.", 422, "same_password") });
       auth.signOut.mockResolvedValue({ error: null });
       const response = await confirmSignUp(request("/api/v1/auth/password/signup/confirm", CONFIRM_BODY));
       expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ status: "signed_in", passwordChanged: true });
       expect(auth.signOut).toHaveBeenCalledWith({ scope: "others" });
     });
 
     it("leaves no session when the password cannot be set", async () => {
       const log = vi.spyOn(console, "error").mockImplementation(() => {});
-      auth.verifyOtp.mockResolvedValue({ data: {}, error: null });
+      auth.verifyOtp.mockResolvedValue({ data: { user: FIRST_CONFIRMATION }, error: null });
       auth.updateUser.mockResolvedValue({ data: {}, error: new AuthApiError("Password is known to be weak", 422, "weak_password") });
       auth.signOut.mockResolvedValue({ error: null });
       const response = await confirmSignUp(request("/api/v1/auth/password/signup/confirm", CONFIRM_BODY));

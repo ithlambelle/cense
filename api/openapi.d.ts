@@ -84,7 +84,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Confirm a password sign-up with the emailed code and set its password */
+        /**
+         * Confirm a password sign-up with the emailed code and set its password
+         * @description Sets the chosen password and ends other sessions only when this code is what confirms the account. An account confirmed earlier keeps its password and sessions, and `passwordChanged` is false.
+         */
         post: operations["confirmPasswordSignUp"];
         delete?: never;
         options?: never;
@@ -694,6 +697,7 @@ export interface operations {
                     "application/json": {
                         /** @enum {string} */
                         status: "signed_in";
+                        passwordChanged: boolean;
                     };
                 };
             };
