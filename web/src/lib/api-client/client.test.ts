@@ -111,6 +111,20 @@ describe("apiRequest", () => {
 
 // Checked by the type checker, not at run time: each @ts-expect-error line
 // fails `npm run typecheck` if the call below it ever starts to compile.
+describe("apiRequest DELETE", () => {
+  it("fills the path values and treats a 204 with no body as success", async () => {
+    const fetchFn = vi.fn<typeof fetch>(async () => new Response(null, { status: 204 }));
+    const id = "00000000-0000-4000-8000-000000000001";
+    const result = await apiRequest("delete", "/applications/{id}/plans/{plan}/steps/{step}", {
+      pathParams: { id, plan: "first_month", step: "planned_purchase" },
+      fetchFn,
+    });
+    expect(result).toEqual({ ok: true, data: null });
+    expect(fetchFn.mock.calls[0][0]).toBe(`/api/v1/applications/${id}/plans/first_month/steps/planned_purchase`);
+    expect(fetchFn.mock.calls[0][1]?.method).toBe("DELETE");
+  });
+});
+
 describe("apiRequest types", () => {
   it("only compiles calls the contract allows", () => {
     const fetchFn = fetchReturning(200, {});
