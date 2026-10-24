@@ -37,6 +37,12 @@ export function waitingPath(applicationId: string): string {
   return `${applicationPath(applicationId)}/waiting`;
 }
 
+// Payment reminders for one approved card (US-08): its closing and due days
+// and the reminder emails. Home's "Set a payment reminder" row opens it.
+export function paymentRemindersPath(applicationId: string): string {
+  return `${applicationPath(applicationId)}/reminders`;
+}
+
 // The first-month plan for one approved card.
 export function planPath(applicationId: string): string {
   return withApplication(ROUTES.plan, applicationId);
@@ -83,9 +89,9 @@ const NEXT_ALLOW_LIST: readonly string[] = [ROUTES.quiz, ROUTES.results, ROUTES.
 // A card page, for a visitor who pressed an issuer button while signed out.
 const CARD_PATH = /^\/cards\/[a-z0-9-]{1,100}$/;
 
-// A tracked card's update screen (opened from Home), so a signed-out visitor
-// returns to it after signing in.
-const APPLICATION_PATH = /^\/applications\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\/waiting)?$/;
+// A tracked card's screens opened from Home (update, waiting, payment
+// reminders), so a signed-out visitor returns to the one they were on.
+const APPLICATION_PATH = /^\/applications\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\/waiting|\/reminders)?$/;
 
 // Returns the path only when it is one this app chose. A `next` value read
 // from the address bar is attacker-controlled, so anything else is dropped.

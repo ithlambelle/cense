@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { allowedNext, cardBackLink, cardPath, deniedPath, googleSignInPath, planPath, signInPath, waitingPath } from "./routes";
+import {
+  allowedNext,
+  cardBackLink,
+  cardPath,
+  deniedPath,
+  googleSignInPath,
+  paymentRemindersPath,
+  planPath,
+  signInPath,
+  waitingPath,
+} from "./routes";
 
 describe("allowedNext", () => {
   it.each(["/quiz", "/results", "/home", "/cards/discover-cash-back"])("keeps %s", (path) => {
@@ -57,6 +67,12 @@ describe("tracked card paths", () => {
     expect(planPath(ID)).toBe(`/plan?application=${ID}`);
     expect(waitingPath(ID)).toBe(`/applications/${ID}/waiting`);
     expect(allowedNext(waitingPath(ID))).toBe(waitingPath(ID));
+  });
+
+  it("builds the payment reminders screen for one card, allowed after sign-in", () => {
+    expect(paymentRemindersPath(ID)).toBe(`/applications/${ID}/reminders`);
+    expect(allowedNext(paymentRemindersPath(ID))).toBe(paymentRemindersPath(ID));
+    expect(allowedNext(`/applications/${ID}/reminders/x`)).toBeNull();
   });
 });
 
