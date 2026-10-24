@@ -3,3 +3,14 @@ DerivedData/
 *.xcuserstate
 xcuserdata/
 
+
+# env files: keep only the example
+.env
+.env.*
+!.env.example
+
+node_modules/
+
+# Supabase CLI local state
+supabase/.temp/
+supabase/.branches/
