@@ -163,6 +163,7 @@ function HomeContent({
         {celebrate ? <ApprovalHeading /> : <Greeting />}
         <ApprovedCard
           application={primary}
+          autopayOn={detail?.autopayStatus === "on"}
           celebrate={celebrate}
           sampleStars={sampleStars}
         />

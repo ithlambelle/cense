@@ -9,6 +9,7 @@ import { Constellation, STAR } from "@/components/home/constellation";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { SENSITIVE } from "@/lib/analytics";
+import { saveAutopay } from "@/lib/api-client/applications";
 import { loadPlanSteps, savePlanStep, type PlanStepName } from "@/lib/api-client/plans";
 import type { Application } from "@/lib/api/application";
 import { moneyAmount } from "@/lib/money";
@@ -24,9 +25,8 @@ type StepKey = "autopay" | "plannedPurchase" | "paymentReminder";
 type Lit = Record<StepKey, boolean>;
 
 // Copy from the frames. Autopay is not a plan step: it is the card's own
-// autopay status.
-// TODO(#58): read and save autopay through autopayStatus on GET and PATCH
-// /applications/{id} once #58 merges. Until then its star is kept on the page only.
+// autopay status, read on the server with the card and saved with PATCH
+// /applications/{id}.
 const STEPS: { key: StepKey; step: PlanStepName | null; title: string; detail: string }[] = [
   { key: "autopay", step: null, title: "Turn on autopay", detail: "Statement balance, every month" },
   { key: "plannedPurchase", step: "planned_purchase", title: "Plan one purchase", detail: "A small cost you already budget for" },
@@ -35,24 +35,27 @@ const STEPS: { key: StepKey; step: PlanStepName | null; title: string; detail: s
 
 const NONE_LIT: Lit = { autopay: false, plannedPurchase: false, paymentReminder: false };
 
-function loadLit(applicationId: string) {
+function loadLit(applicationId: string, autopay: boolean) {
   return async (): Promise<LoadOutcome<Lit>> => {
     const result = await loadPlanSteps(applicationId, "first_month");
     if (result.kind === "signed-out") return "signed-out";
     if (result.kind === "failed") return { status: "failed", message: result.message };
     return {
       status: "ready",
-      data: { autopay: false, plannedPurchase: result.done.has("planned_purchase"), paymentReminder: result.done.has("payment_reminder") },
+      data: { autopay, plannedPurchase: result.done.has("planned_purchase"), paymentReminder: result.done.has("payment_reminder") },
     };
   };
 }
 
 export function ApprovedCard({
   application,
+  autopayOn,
   celebrate,
   sampleStars,
 }: {
   application: Application;
+  // The saved autopay status is "on" (off and unknown leave the star out).
+  autopayOn: boolean;
   celebrate: boolean;
   // Dev gallery only: this many stars lit, in order, with nothing loaded or saved.
   sampleStars?: number;
@@ -66,11 +69,11 @@ export function ApprovedCard({
       </>
     );
   }
-  return <SavedCard application={application} celebrate={celebrate} />;
+  return <SavedCard application={application} autopayOn={autopayOn} celebrate={celebrate} />;
 }
 
-function SavedCard({ application, celebrate }: { application: Application; celebrate: boolean }) {
-  const load = useMemo(() => loadLit(application.id), [application.id]);
+function SavedCard({ application, autopayOn, celebrate }: { application: Application; autopayOn: boolean; celebrate: boolean }) {
+  const load = useMemo(() => loadLit(application.id, autopayOn), [application.id, autopayOn]);
   const { loaded, retry } = useLoaded(load, signInPath(ROUTES.home));
   // A key per load state, so the stars start again from what was loaded.
   // The arrival effects sit outside it, so they run once.
@@ -81,7 +84,7 @@ function SavedCard({ application, celebrate }: { application: Application; celeb
         key={loaded.status}
         application={application}
         celebrate={celebrate}
-        start={loaded.status === "ready" ? loaded.data : NONE_LIT}
+        start={loaded.status === "ready" ? loaded.data : { ...NONE_LIT, autopay: autopayOn }}
         ready={loaded.status === "ready"}
         loadError={loaded.status === "failed" ? loaded.message : null}
         onRetry={retry}
@@ -118,9 +121,11 @@ function CardModule({
     const value = !lit[key];
     setLit((current) => ({ ...current, [key]: value }));
     setError(null);
-    if (!step || sample) return;
+    if (sample) return;
     setSaving((current) => new Set(current).add(key));
-    const result = await savePlanStep(application.id, "first_month", step, value);
+    const result = step
+      ? await savePlanStep(application.id, "first_month", step, value)
+      : await saveAutopay(application.id, value);
     setSaving((current) => {
       const next = new Set(current);
       next.delete(key);

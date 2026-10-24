@@ -26,6 +26,7 @@ const approved: Application = {
   statusUpdatedAt: new Date().toISOString(),
 };
 const state = homeState([approved], computeResult(undefined, listCards()), true);
+const NO_DETAIL = { denialReason: null, denialReasonNote: null, autopayStatus: "unknown" } as const;
 
 const PLAN_URL = `/api/v1/applications/${ID}/plans/first_month`;
 const plan = (...steps: string[]) => ({
@@ -141,15 +142,77 @@ describe("Home approved card", () => {
     await waitFor(() => expect(screen.getByText("1 of 3 lit")).toBeTruthy());
   });
 
-  it("shows all stars lit once the three are done, with autopay kept on the page only", async () => {
-    const fetchFn = server([{ status: 200, body: plan("planned_purchase", "payment_reminder") }]);
+  it("shows all stars lit once the three are done, saving autopay on the card", async () => {
+    const fetchFn = server([
+      { status: 200, body: plan("planned_purchase", "payment_reminder") },
+      { status: 200, body: { ...approved, autopayStatus: "on" } },
+      { status: 200, body: { ...approved, autopayStatus: "off" } },
+    ]);
     render(<HomeView state={state} initial="M" />);
     await screen.findByText("2 of 3 lit");
     expect(screen.queryByText(/All three stars lit/)).toBeNull();
     fireEvent.click(star(/Turn on autopay/));
     expect(screen.getByText("All stars lit")).toBeTruthy();
     expect(screen.getByText("All three stars lit. Your card is set up to build good credit.")).toBeTruthy();
-    expect(fetchFn).toHaveBeenCalledOnce();
+    await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(2));
+    expect(fetchFn.mock.calls[1][0]).toBe(`/api/v1/applications/${ID}`);
+    expect(fetchFn.mock.calls[1][1]?.method).toBe("PATCH");
+    expect(JSON.parse(String(fetchFn.mock.calls[1][1]?.body))).toEqual({ autopayStatus: "on" });
+
+    // Tapping it again undoes it: autopay is saved as off.
+    await waitFor(() => expect(star(/Turn on autopay/).hasAttribute("disabled")).toBe(false));
+    fireEvent.click(star(/Turn on autopay/));
+    await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(3));
+    expect(JSON.parse(String(fetchFn.mock.calls[2][1]?.body))).toEqual({ autopayStatus: "off" });
+    await waitFor(() => expect(screen.getByText("2 of 3 lit")).toBeTruthy());
+  });
+
+  it("lights the autopay star when the card's autopay is on, and only then", async () => {
+    server([{ status: 200, body: plan() }, { status: 200, body: plan() }]);
+    const { unmount } = render(<HomeView state={state} initial="M" detail={{ ...NO_DETAIL, autopayStatus: "on" }} />);
+    // On from the first paint, before the plan steps load.
+    expect(star(/Turn on autopay/).getAttribute("aria-checked")).toBe("true");
+    expect(await screen.findByText("1 of 3 lit")).toBeTruthy();
+    expect(star(/Turn on autopay/).getAttribute("aria-checked")).toBe("true");
+    unmount();
+    render(<HomeView state={state} initial="M" detail={{ ...NO_DETAIL, autopayStatus: "unknown" }} />);
+    expect(await screen.findByText("0 of 3 lit")).toBeTruthy();
+    expect(star(/Turn on autopay/).getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("puts the autopay star back out and shows the API's message when the save fails", async () => {
+    server([
+      { status: 200, body: plan() },
+      { status: 400, body: { error: { code: "invalid_request", message: "The update is invalid." } } },
+    ]);
+    render(<HomeView state={state} initial="M" />);
+    await screen.findByText("0 of 3 lit");
+    fireEvent.click(star(/Turn on autopay/));
+    expect((await screen.findByRole("alert")).textContent).toContain("The update is invalid.");
+    expect(star(/Turn on autopay/).getAttribute("aria-checked")).toBe("false");
+    expect(screen.getByText("0 of 3 lit")).toBeTruthy();
+  });
+
+  it("sends a student whose session ended while saving autopay to sign in", async () => {
+    server([
+      { status: 200, body: plan() },
+      { status: 401, body: { error: { code: "unauthorized", message: "Sign in to continue." } } },
+    ]);
+    render(<HomeView state={state} initial="M" detail={{ ...NO_DETAIL, autopayStatus: "on" }} />);
+    await screen.findByText("1 of 3 lit");
+    fireEvent.click(star(/Turn on autopay/));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/sign-in?next=%2Fhome"));
+    expect(star(/Turn on autopay/).getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("keeps the dev gallery's sample stars on the page, with no requests", () => {
+    const fetchFn = server([]);
+    render(<HomeView state={state} initial="M" sampleStars={1} />);
+    expect(screen.getByText("1 of 3 lit")).toBeTruthy();
+    fireEvent.click(star(/Turn on autopay/));
+    fireEvent.click(star(/Plan one purchase/));
+    expect(screen.getByText("1 of 3 lit")).toBeTruthy();
+    expect(fetchFn).not.toHaveBeenCalled();
   });
 
   it("undoes only the star whose save failed, keeping another that saved meanwhile", async () => {
