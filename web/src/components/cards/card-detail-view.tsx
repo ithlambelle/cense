@@ -106,11 +106,14 @@ export function CardDetailView({
 function TrackedStatus({ application }: { application: Application }) {
   return (
     <section
-      aria-label="Your status"
+      aria-labelledby="your-status"
       className="flex flex-col gap-3 rounded-card border-[1.5px] border-off-white bg-white px-5 py-4"
     >
       <div className="flex items-center justify-between gap-3">
-        <p className="text-body-s text-indigo-black">Your status</p>
+        {/* The card page's section heading style, as "What the issuer says about approval". */}
+        <h2 id="your-status" className="font-heading text-h6 font-medium text-navy">
+          Your status
+        </h2>
         <StatusPill className={SENSITIVE}>{STATUS_LABELS[application.status].toUpperCase()}</StatusPill>
       </div>
       <Link href={applicationPath(application.id, "card")} className={buttonVariants({ variant: "outline" })}>
