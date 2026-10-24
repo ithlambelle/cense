@@ -6,7 +6,7 @@ import { useEffect, useId, useRef } from "react";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { ProgressBar } from "@/components/ui/progress-bar";
-import { SelectedMark } from "@/components/ui/selected-mark";
+import { SelectionMark } from "@/components/ui/selection-mark";
 import { SENSITIVE } from "@/lib/analytics";
 import type { Question } from "@/lib/quiz/questions";
 import { cn } from "@/lib/utils";
@@ -127,11 +127,10 @@ export function QuizScreen({
                   className={cn(
                     "flex w-full items-center gap-4 border-[1.5px] border-violet bg-white px-[18px] py-3 text-left text-body-m text-navy outline-none transition-[background-color,scale] duration-200 ease-out-soft hover:bg-off-white motion-safe:active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress",
                     compact ? "min-h-14 rounded-[18px]" : "min-h-20 rounded-card",
-                    selected && "bg-off-white",
                   )}
                 >
                   <span className="flex-1">{choice.label}</span>
-                  {selected ? <SelectedMark /> : null}
+                  <SelectionMark selected={selected} />
                 </button>
               );
             })}

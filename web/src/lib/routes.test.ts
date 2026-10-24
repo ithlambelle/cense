@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { allowedNext, deniedPath, googleSignInPath, planPath, signInPath, waitingPath } from "./routes";
+import { allowedNext, cardBackLink, cardPath, deniedPath, googleSignInPath, planPath, signInPath, waitingPath } from "./routes";
 
 describe("allowedNext", () => {
   it.each(["/quiz", "/results", "/home", "/cards/discover-cash-back"])("keeps %s", (path) => {
@@ -57,5 +57,21 @@ describe("tracked card paths", () => {
     expect(planPath(ID)).toBe(`/plan?application=${ID}`);
     expect(waitingPath(ID)).toBe(`/applications/${ID}/waiting`);
     expect(allowedNext(waitingPath(ID))).toBe(waitingPath(ID));
+  });
+});
+
+describe("card pages remember where they were opened from", () => {
+  it("adds the origin to the card address", () => {
+    expect(cardPath("discover-it-student-cash-back")).toBe("/cards/discover-it-student-cash-back");
+    expect(cardPath("discover-it-student-cash-back", "results")).toBe("/cards/discover-it-student-cash-back?from=results");
+    expect(cardPath("discover-it-student-cash-back", "home")).toBe("/cards/discover-it-student-cash-back?from=home");
+  });
+
+  it("sends the back arrow to that origin, and anything else to the card list", () => {
+    expect(cardBackLink("results")).toEqual({ href: "/results", label: "Your match" });
+    expect(cardBackLink("home")).toEqual({ href: "/home", label: "Home" });
+    expect(cardBackLink(undefined)).toEqual({ href: "/cards", label: "Cards" });
+    expect(cardBackLink("https://evil.example")).toEqual({ href: "/cards", label: "Cards" });
+    expect(cardBackLink(["results", "home"])).toEqual({ href: "/cards", label: "Cards" });
   });
 });

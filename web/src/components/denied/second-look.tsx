@@ -64,7 +64,7 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
 
   if (view === "approved") {
     return (
-      <DeniedLayout backHref={ROUTES.home}>
+      <DeniedLayout backHref={ROUTES.home} backLabel="Home">
         <div className="flex flex-col items-center gap-4 pt-5 text-center">
           <OutcomeMark icon={Check} />
           <StatusPill>APPROVED AFTER REVIEW</StatusPill>
@@ -93,7 +93,7 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
 
   if (view === "not-approved") {
     return (
-      <DeniedLayout backHref={deniedPath("fixable", applicationId)}>
+      <DeniedLayout backHref={deniedPath("fixable", applicationId)} backLabel="Contact the issuer">
         <div className="flex flex-col items-center gap-4 pt-5 text-center">
           <OutcomeMark icon={Hourglass} />
           <StatusPill>NOT APPROVED</StatusPill>
@@ -135,7 +135,7 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
   }
 
   return (
-    <DeniedLayout backHref={deniedPath("fixable", applicationId)}>
+    <DeniedLayout backHref={deniedPath("fixable", applicationId)} backLabel="Contact the issuer">
       <div className="flex flex-col gap-2">
         <h1 className="font-heading text-h1 font-medium text-navy">How did the second look go?</h1>
         <p className="text-body-m text-indigo-black">Tell us what the issuer said, and we’ll update your card.</p>

@@ -41,7 +41,7 @@ const STEPS: Step[] = [
 // A steady five-step plan (S22). The steps are a real sequence, so they are numbered.
 export function DeniedPlanView({ applicationId }: { applicationId: string | null }) {
   return (
-    <DeniedLayout backHref={deniedPath("options", applicationId)}>
+    <DeniedLayout backHref={deniedPath("options", applicationId)} backLabel="Denial options">
       <TrackOnMount event="denial_plan_viewed" />
       <div className="flex flex-col gap-2">
         <h1 className="font-heading text-h1 font-medium text-navy">A steady five-step plan</h1>

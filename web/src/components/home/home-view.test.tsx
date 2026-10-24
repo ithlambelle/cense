@@ -40,7 +40,9 @@ describe("HomeView", () => {
     render(<HomeView state={state} />);
     expect(screen.getByText("LIKELY FIT")).toBeTruthy();
     expect(screen.getByText(`${RESULT_HEADLINES.likely_fit}.`)).toBeTruthy();
-    expect(link("View card")).toBe(`/cards/${state.result.card.id}`);
+    expect(link("View card")).toBe(`/cards/${state.result.card.id}?from=home`);
+    // The whole match card opens the result (students tapped it in interviews).
+    expect(link("See your match")).toBe("/results");
   });
 
   it("never calls a stretch a sure match: tier label, its first caution and a link to the reasons", () => {
@@ -67,6 +69,14 @@ describe("HomeView", () => {
     render(<HomeView state={homeState([app("applied")], NONE, true)} />);
     expect(screen.getByText("APPLIED")).toBeTruthy();
     expect(link("Update my status")).toBe(`/applications/${ID}`);
+  });
+
+  it("makes a catalog card on Home one link to its card page, and leaves a hand-added card to its next step", () => {
+    const { unmount } = render(<HomeView state={homeState([app("applied", { cardId: "discover-it-student-cash-back" })], NONE, true)} />);
+    expect(link("View card details")).toBe("/cards/discover-it-student-cash-back?from=home");
+    unmount();
+    render(<HomeView state={homeState([app("approved")], NONE, true)} />);
+    expect(screen.queryByRole("link", { name: "View card details" })).toBeNull();
   });
 
   it("shows a rejected card as drawn, with the denial guide as the next step", () => {
@@ -100,9 +110,9 @@ describe("HomeView", () => {
     );
   });
 
-  it("links the avatar to the account screen and marks Home in the bottom bar", () => {
+  it("links the labeled Profile button to the account screen and marks Home in the bottom bar", () => {
     render(<HomeView state={homeState([], NONE, false)} />);
-    expect(link("Your account")).toBe("/settings");
+    expect(link("Profile")).toBe("/settings");
     expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
   });
 });

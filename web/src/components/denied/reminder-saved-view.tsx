@@ -12,7 +12,7 @@ import { ROUTES } from "@/lib/routes";
 // will come (D8).
 export function ReminderSavedView({ dateLabel }: { dateLabel: string }) {
   return (
-    <DeniedLayout backHref={ROUTES.home}>
+    <DeniedLayout backHref={ROUTES.home} backLabel="Home">
       <div className="flex flex-col items-center gap-[18px] pt-5 text-center">
         <OutcomeMark icon={Check} />
         <div className="flex flex-col gap-2">
