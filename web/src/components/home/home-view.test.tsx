@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { listCards } from "@/lib/cards/catalog";
 import { RESULT_HEADLINES } from "@/lib/copy/results";
@@ -10,7 +10,16 @@ import { computeResult } from "@/lib/results/compute";
 
 import { HomeView } from "./home-view";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/home" }));
+const router = { push: vi.fn(), replace: vi.fn(), refresh: vi.fn() };
+vi.mock("next/navigation", () => ({ usePathname: () => "/home", useRouter: () => router }));
+
+// An approved card loads its first-month stars (approved-card.test.tsx covers them).
+beforeEach(() => {
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ applicationId: "x", plan: "first_month", completedSteps: [] })));
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 const cards = listCards();
 const NONE = computeResult(undefined, cards);
@@ -25,11 +34,11 @@ const link = (name: string) => screen.getByRole("link", { name }).getAttribute("
 
 describe("HomeView", () => {
   it("offers the quiz when nothing is saved, and to continue it when started", () => {
-    const { unmount } = render(<HomeView state={homeState([], NONE, false)} />);
+    const { unmount } = render(<HomeView state={homeState([], NONE, false)} initial="M" />);
     expect(screen.getByRole("heading", { name: "6 questions to your first card" })).toBeTruthy();
     expect(link("Start the quiz")).toBe("/quiz");
     unmount();
-    render(<HomeView state={homeState([], computeResult({ under21: true }, cards), true)} />);
+    render(<HomeView state={homeState([], computeResult({ under21: true }, cards), true)} initial="M" />);
     expect(link("Continue the quiz")).toBe("/quiz");
   });
 
@@ -37,7 +46,7 @@ describe("HomeView", () => {
     const state = homeState([], computeResult(ALL_SIX, cards), true);
     if (state.kind !== "matched") throw new Error("expected a match");
     expect(state.result.fit.tier).toBe("likely_fit");
-    render(<HomeView state={state} />);
+    render(<HomeView state={state} initial="M" />);
     expect(screen.getByText("LIKELY FIT")).toBeTruthy();
     expect(screen.getByText(`${RESULT_HEADLINES.likely_fit}.`)).toBeTruthy();
     expect(link("View card")).toBe(`/cards/${state.result.card.id}?from=home`);
@@ -49,7 +58,7 @@ describe("HomeView", () => {
     const state = homeState([], computeResult({ ...ALL_SIX, recentDenial: true }, cards), true);
     if (state.kind !== "matched") throw new Error("expected a match");
     expect(state.result.fit.tier).toBe("stretch");
-    render(<HomeView state={state} />);
+    render(<HomeView state={state} initial="M" />);
     expect(screen.getByText("STRETCH")).toBeTruthy();
     expect(screen.getByText(`${RESULT_HEADLINES.stretch}.`)).toBeTruthy();
     expect(screen.getByText(state.result.fit.reasons[0])).toBeTruthy();
@@ -60,49 +69,53 @@ describe("HomeView", () => {
   });
 
   it("explains a no-card result and links to the reason", () => {
-    render(<HomeView state={homeState([], computeResult({ ...ALL_SIX, incomeBand: "none" }, cards), true)} />);
+    render(<HomeView state={homeState([], computeResult({ ...ALL_SIX, incomeBand: "none" }, cards), true)} initial="M" />);
     expect(screen.getByRole("heading", { name: "No card fits yet" })).toBeTruthy();
     expect(link("See why")).toBe("/results");
   });
 
   it("asks an applied student what the issuer decided", () => {
-    render(<HomeView state={homeState([app("applied")], NONE, true)} />);
+    render(<HomeView state={homeState([app("applied")], NONE, true)} initial="M" />);
     expect(screen.getByText("APPLIED")).toBeTruthy();
     expect(link("Update my status")).toBe(`/applications/${ID}`);
   });
 
   it("makes a catalog card on Home one link to its card page, and leaves a hand-added card to its next step", () => {
-    const { unmount } = render(<HomeView state={homeState([app("applied", { cardId: "discover-it-student-cash-back" })], NONE, true)} />);
+    const { unmount } = render(<HomeView state={homeState([app("applied", { cardId: "discover-it-student-cash-back" })], NONE, true)} initial="M" />);
     expect(link("View card details")).toBe("/cards/discover-it-student-cash-back?from=home");
     unmount();
-    render(<HomeView state={homeState([app("approved")], NONE, true)} />);
+    render(<HomeView state={homeState([app("rejected")], NONE, true)} initial="M" />);
     expect(screen.queryByRole("link", { name: "View card details" })).toBeNull();
   });
 
   it("shows a rejected card as drawn, with the denial guide as the next step", () => {
-    render(<HomeView state={homeState([app("rejected")], NONE, true)} />);
+    render(<HomeView state={homeState([app("rejected")], NONE, true)} initial="M" />);
     expect(screen.getByText("REJECTED")).toBeTruthy();
     expect(screen.getByText("Card reminders")).toBeTruthy();
     expect(link("I was denied")).toBe(`/denied?application=${ID}`);
   });
 
-  it("shows an approved card's limit and the first-month plan for that card", () => {
-    render(<HomeView state={homeState([app("approved", { creditLimitCents: 50000 })], NONE, true)} />);
+  it("shows an approved card as one module: limit, first month and three steps, without a status pill", async () => {
+    render(<HomeView state={homeState([app("approved", { creditLimitCents: 50000 })], NONE, true)} initial="M" />);
     expect(screen.getByText("$500")).toBeTruthy();
-    expect(link("See my first-month plan")).toBe(`/plan?application=${ID}`);
+    expect(screen.getByRole("heading", { name: "Your first month" })).toBeTruthy();
+    expect(screen.getAllByRole("checkbox")).toHaveLength(3);
+    expect(screen.queryByText("APPROVED")).toBeNull();
+    expect(await screen.findByText("0 of 3 lit")).toBeTruthy();
   });
 
-  it("writes a limit with a thousands separator, and cents only when there are some", () => {
-    const { unmount } = render(<HomeView state={homeState([app("approved", { creditLimitCents: 150000 })], NONE, true)} />);
+  it("writes a limit with a thousands separator, and cents only when there are some", async () => {
+    const { unmount } = render(<HomeView state={homeState([app("approved", { creditLimitCents: 150000 })], NONE, true)} initial="M" />);
     expect(screen.getByText("$1,500")).toBeTruthy();
     unmount();
-    render(<HomeView state={homeState([app("approved", { creditLimitCents: 150050 })], NONE, true)} />);
+    render(<HomeView state={homeState([app("approved", { creditLimitCents: 150050 })], NONE, true)} initial="M" />);
     expect(screen.getByText("$1,500.50")).toBeTruthy();
+    await screen.findByText("0 of 3 lit");
   });
 
   it("lists other tracked cards below the newest one", () => {
     const older = app("approved", { id: "00000000-0000-4000-8000-000000000002", cardName: "Older Card", statusUpdatedAt: "2026-01-01T00:00:00Z" });
-    render(<HomeView state={homeState([older, app("applied")], NONE, true)} />);
+    render(<HomeView state={homeState([older, app("applied")], NONE, true)} initial="M" />);
     expect(screen.getByRole("heading", { name: "Your other cards" })).toBeTruthy();
     // Each approved card opens its own plan, not the newest approved card's.
     expect(screen.getByRole("link", { name: /Older Card/ }).getAttribute("href")).toBe(
@@ -110,9 +123,10 @@ describe("HomeView", () => {
     );
   });
 
-  it("links the labeled Profile button to the account screen and marks Home in the bottom bar", () => {
-    render(<HomeView state={homeState([], NONE, false)} />);
+  it("links the profile circle, with the student's initial, to the account screen and marks Home in the bottom bar", () => {
+    render(<HomeView state={homeState([], NONE, false)} initial="M" />);
     expect(link("Profile")).toBe("/settings");
+    expect(screen.getByRole("link", { name: "Profile" }).textContent).toBe("M");
     expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
   });
 });

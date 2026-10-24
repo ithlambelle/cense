@@ -13,7 +13,7 @@ import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE, track } from "@/lib/analytics";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import type { Application } from "@/lib/api/application";
-import { applicationPath, approvedPath, deniedPath, ROUTES, signInPath, waitingPath } from "@/lib/routes";
+import { applicationPath, celebratePath, deniedPath, ROUTES, signInPath, waitingPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
 import { cn } from "@/lib/utils";
 
@@ -79,11 +79,11 @@ export function MarkResult({ application }: { application: Application }) {
     // The outcome only, never the credit limit.
     track("outcome_reported", { outcome: status === "approved" ? "approved" : "denied", source: "mark_result" });
     // Stays pending while the next screen loads. A new approval is celebrated
-    // once (Flow 1 step 2); saving an approved card again, such as to fix its
-    // limit, goes straight Home.
+    // once on Home (Flow 1 step 2); saving an approved card again, such as to
+    // fix its limit, goes Home without it.
     let next: string = ROUTES.home;
     if (status === "rejected") next = deniedPath("options", application.id);
-    else if (application.status !== "approved") next = approvedPath(application.id, true);
+    else if (application.status !== "approved") next = celebratePath(application.id);
     router.push(next);
     router.refresh();
   }

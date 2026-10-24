@@ -8,6 +8,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 
+import { ApprovalBurst, ApprovalHeading, ApprovedCard } from "@/components/home/approved-card";
 import { Greeting } from "@/components/home/greeting";
 import { UpdatedLine } from "@/components/home/updated-line";
 import { BottomNav } from "@/components/ui/bottom-nav";
@@ -17,7 +18,7 @@ import { findCard } from "@/lib/cards/catalog";
 import { cardDisplayName, cardTypeLabel, NO_CARD_FALLBACK, RESULT_HEADLINES, TIER_LABELS } from "@/lib/copy/results";
 import { SENSITIVE } from "@/lib/analytics";
 import type { Application } from "@/lib/api/application";
-import type { HomeState } from "@/lib/home/state";
+import { celebrating, type HomeState } from "@/lib/home/state";
 import { moneyAmount } from "@/lib/money";
 import { QUESTIONS } from "@/lib/quiz/questions";
 import { applicationPath, cardPath, deniedPath, planPath, ROUTES } from "@/lib/routes";
@@ -28,26 +29,27 @@ type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 // Home for MVP1 (Ben, 2026-10-16): card status and the next step, built from
 // "Home · rejected card" (Figma 224:2675). Only the rejected state is drawn;
 // the others reuse its parts and are proposed to design.
-export function HomeView({ state }: { state: HomeState }) {
+// `initial` is the student's initial for the profile circle. `celebrateId` is
+// the card Mark result just approved (?celebrate=), celebrated once.
+export function HomeView({ state, initial, celebrateId = null }: { state: HomeState; initial: string; celebrateId?: string | null }) {
+  const celebrate = celebrating(state, celebrateId);
   return (
     <div className="flex min-h-dvh justify-center bg-background">
-      <div className="flex w-full max-w-phone flex-col">
-        <header className="flex h-14 items-center gap-3 px-6 pt-8 pb-0 box-content">
-          {/* A labeled button, not a bare avatar: students read the lone pig as
-              a logo and never found their profile (solution interviews,
-              2026-10-17). */}
+      <div className="relative flex w-full max-w-phone flex-col overflow-x-clip">
+        <header className="box-content flex h-11 items-center px-6 pt-[42px] pb-0.5">
+          {/* The initial in a circle replaces the labeled Profile button (Flow 1 frames). */}
           <Link
             href={ROUTES.settings}
-            className="flex min-h-11 items-center gap-2 rounded-pill border border-indigo-black/15 bg-white py-1 pr-3 pl-1 text-body-s font-semibold text-navy outline-none transition-colors hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            aria-label="Profile"
+            className="flex size-11 items-center justify-center rounded-pill border border-track bg-off-white font-heading text-[17px] font-medium text-navy outline-none transition-colors hover:bg-selected-outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            <Image src="/mascot/penny-avatar.png" alt="" width={32} height={32} className="rounded-pill" />
-            Profile
-            <ChevronRight aria-hidden="true" width={14} height={14} className="text-indigo-black/60" />
+            {initial}
           </Link>
         </header>
         <main className="stagger flex flex-1 flex-col gap-[18px] px-6 pt-4 pb-6">
-          <HomeContent state={state} />
+          <HomeContent state={state} celebrate={celebrate} />
         </main>
+        {celebrate ? <ApprovalBurst /> : null}
         <div className="sticky bottom-0">
           <BottomNav />
         </div>
@@ -56,7 +58,7 @@ export function HomeView({ state }: { state: HomeState }) {
   );
 }
 
-function HomeContent({ state }: { state: HomeState }) {
+function HomeContent({ state, celebrate }: { state: HomeState; celebrate: boolean }) {
   if (state.kind === "no_quiz") {
     return (
       <>
@@ -127,19 +129,23 @@ function HomeContent({ state }: { state: HomeState }) {
   }
 
   const { primary, others } = state;
+  if (primary.status === "approved") {
+    return (
+      <>
+        {celebrate ? <ApprovalHeading /> : <Greeting />}
+        <ApprovedCard application={primary} celebrate={celebrate} />
+        {others.length > 0 ? <OtherCards applications={others} /> : null}
+      </>
+    );
+  }
   return (
     <>
-      <Greeting subtitle={subtitleFor(primary)} />
+      <Greeting subtitle="Here’s the latest on your first card application." />
       <TrackedCard application={primary} />
       <TrackedNextStep application={primary} />
       {others.length > 0 ? <OtherCards applications={others} /> : null}
     </>
   );
-}
-
-function subtitleFor(application: Application): string {
-  if (application.status === "approved") return "Here’s your card and what to do first.";
-  return "Here’s the latest on your first card application.";
 }
 
 const PILLS: Record<Application["status"], string> = {
@@ -157,15 +163,7 @@ function previewKind(card: { secured: boolean; studentsOnly: boolean }): string 
 function TrackedCard({ application }: { application: Application }) {
   const card = application.cardId ? findCard(application.cardId) : undefined;
   const rows: Row[] =
-    application.status === "approved"
-      ? [
-          {
-            label: "Credit limit",
-            value: application.creditLimitCents === null ? "Not added" : moneyAmount(application.creditLimitCents),
-          },
-          { label: "First-month card plan", value: "Not started" },
-        ]
-      : application.status === "rejected"
+    application.status === "rejected"
         ? [
             { label: "First-month card plan", value: "Not started" },
             { label: "Card reminders", value: "Off" },
@@ -195,16 +193,6 @@ function TrackedNextStep({ application }: { application: Application }) {
         title="A denial isn’t the end"
         body="Understand the reason and choose a calm next step."
         action={{ href: deniedPath("options", application.id), label: "I was denied" }}
-      />
-    );
-  }
-  if (application.status === "approved") {
-    return (
-      <NextStep
-        icon={CircleCheck}
-        title="Plan your first month"
-        body="Three small steps help you start your card on the right foot."
-        action={{ href: planPath(application.id), label: "See my first-month plan" }}
       />
     );
   }

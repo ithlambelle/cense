@@ -12,9 +12,11 @@ export const metadata: Metadata = { title: "Home preview", robots: { index: fals
 
 const ALL_SIX = { under21: true, incomeBand: "under_5k", student: true, standing: "none", recentDenial: false, canDeposit: true };
 
+const SAMPLE_ID = "00000000-0000-4000-8000-000000000001";
+
 function app(status: Application["status"], extra: Partial<Application> = {}): Application {
   return {
-    id: "00000000-0000-4000-8000-000000000001",
+    id: SAMPLE_ID,
     cardId: "discover-it-student-cash-back",
     cardName: "Discover it Student Cash Back",
     status,
@@ -26,10 +28,11 @@ function app(status: Application["status"], extra: Partial<Application> = {}): A
 }
 
 // Every Home state on sample data, without signing in.
-// ?state=no_quiz (default), started, matched, stretch, no_card, applied, rejected, approved, several
-export default async function HomePreviewPage({ searchParams }: { searchParams: Promise<{ state?: string }> }) {
+// ?state=no_quiz (default), started, matched, stretch, no_card, applied, rejected, approved, several.
+// Add &celebrate=1 to approved for the arrival from Mark result.
+export default async function HomePreviewPage({ searchParams }: { searchParams: Promise<{ state?: string; celebrate?: string }> }) {
   if (!devPagesEnabled()) notFound();
-  const { state = "no_quiz" } = await searchParams;
+  const { state = "no_quiz", celebrate } = await searchParams;
   const cards = listCards();
   const none = computeResult(undefined, cards);
   const views = {
@@ -51,5 +54,11 @@ export default async function HomePreviewPage({ searchParams }: { searchParams: 
     ),
   };
   // Own keys only, so ?state=constructor falls back instead of crashing.
-  return <HomeView state={Object.hasOwn(views, state) ? views[state as keyof typeof views] : views.no_quiz} />;
+  return (
+    <HomeView
+      state={Object.hasOwn(views, state) ? views[state as keyof typeof views] : views.no_quiz}
+      initial="M"
+      celebrateId={celebrate ? SAMPLE_ID : null}
+    />
+  );
 }

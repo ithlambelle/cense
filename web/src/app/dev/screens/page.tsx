@@ -34,10 +34,13 @@ const GROUPS: { title: string; entries: Entry[] }[] = [
   },
   {
     title: "Home",
-    entries: ["no_quiz", "started", "matched", "no_card", "applied", "rejected", "approved", "several"].map((state) => ({
-      label: `Home: ${state.replace("_", " ")}`,
-      href: `/dev/home?state=${state}`,
-    })),
+    entries: [
+      ...["no_quiz", "started", "matched", "no_card", "applied", "rejected", "approved", "several"].map((state) => ({
+        label: `Home: ${state.replace("_", " ")}`,
+        href: `/dev/home?state=${state}`,
+      })),
+      { label: "Home: just approved (from Mark result)", href: "/dev/home?state=approved&celebrate=1" },
+    ],
   },
   {
     title: "Account and other",
@@ -52,8 +55,6 @@ const GROUPS: { title: string; entries: Entry[] }[] = [
     entries: [
       { label: "S18 Mark your result", href: "/dev/preview?screen=mark-result" },
       { label: "S19 Still waiting", href: "/dev/preview?screen=waiting" },
-      { label: "Approved: celebration (from Mark result)", href: "/dev/preview?screen=approved" },
-      { label: "Approved: opened later (no burst or date)", href: "/dev/preview?screen=approved-later" },
       { label: "S14 Card page (signed in, for the hand-off sheets)", href: "/dev/preview?screen=card-signed-in" },
       { label: "S20 First-month plan", href: "/dev/preview?screen=plan" },
       { label: "S21 Denial Options", href: "/dev/preview?screen=denied" },

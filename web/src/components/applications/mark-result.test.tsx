@@ -72,13 +72,13 @@ describe("MarkResult", () => {
     expect(sent(fetchFn)).toEqual({ status: "rejected", creditLimitCents: null });
   });
 
-  it("saves an approval with the limit in cents, then opens the celebration once", async () => {
+  it("saves an approval with the limit in cents, then celebrates once on Home", async () => {
     const fetchFn = server(200, { ...saved, status: "approved", creditLimitCents: 50000 });
     render(<MarkResult application={application} />);
     fireEvent.click(screen.getByRole("button", { name: "I was approved" }));
     fireEvent.change(screen.getByLabelText("Credit limit (optional)"), { target: { value: "$500" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith(`/applications/${ID}/approved?celebrate=1`));
+    await waitFor(() => expect(push).toHaveBeenCalledWith(`/home?celebrate=${ID}`));
     expect(sent(fetchFn)).toEqual({ status: "approved", creditLimitCents: 50000 });
     // The status only: the credit limit never reaches analytics.
     expect(track).toHaveBeenCalledExactlyOnceWith("outcome_reported", { outcome: "approved", source: "mark_result" });
