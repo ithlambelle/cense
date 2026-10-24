@@ -2,13 +2,12 @@
 
 import Check from "@gravity-ui/icons/Check";
 import Hourglass from "@gravity-ui/icons/Hourglass";
-import ToggleOff from "@gravity-ui/icons/ToggleOff";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { DeniedLayout } from "@/components/denied/denied-layout";
-import { Notice, OutcomeMark } from "@/components/denied/parts";
+import { OutcomeMark } from "@/components/denied/parts";
 import { buttonVariants } from "@/components/ui/button";
 import { choiceRowClass } from "@/components/ui/choice-row";
 import { ErrorMessage } from "@/components/ui/error-message";
@@ -83,9 +82,6 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
             <dd className="font-semibold">Approved</dd>
           </div>
         </dl>
-        <Notice icon={ToggleOff} title="Nothing starts automatically">
-          The rejected-card plan and card reminders remain off.
-        </Notice>
         <Link href={ROUTES.home} className={buttonVariants()}>
           Return to Home
         </Link>
