@@ -83,7 +83,7 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
           </div>
         </dl>
         <Notice icon={ToggleOff} title="Nothing starts automatically">
-          The rejected-card plan and card reminders remain off. Confirm that the card arrived before starting a card plan.
+          The rejected-card plan and card reminders remain off.
         </Notice>
         <Link href={ROUTES.home} className={buttonVariants()}>
           Return to Home
