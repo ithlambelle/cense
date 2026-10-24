@@ -6,7 +6,7 @@ import { MarkResult } from "@/components/applications/mark-result";
 import { WaitingView } from "@/components/applications/waiting-view";
 import { CardDetailView } from "@/components/cards/card-detail-view";
 import { DeniedOptionsView } from "@/components/denied/options-view";
-import { DeniedPlanView } from "@/components/denied/plan-view";
+import { DeniedPlanScreen } from "@/components/denied/plan-view";
 import { FixableView } from "@/components/denied/fixable-view";
 import { ReminderSavedView } from "@/components/denied/reminder-saved-view";
 import { ReminderSetup } from "@/components/denied/reminder-setup";
@@ -41,7 +41,11 @@ const SCREENS = {
     return card ? <CardDetailView card={card} signedIn /> : null;
   },
   denied: () => <DeniedOptionsView applicationId={SAMPLE_ID} />,
-  "denied-plan": () => <DeniedPlanView applicationId={SAMPLE_ID} />,
+  // Shown on sample stars rather than loaded, so no session is needed.
+  "denied-plan": () => <DeniedPlanScreen applicationId={SAMPLE_ID} start={{ done: [], state: "saved" }} />,
+  "denied-plan-stars": () => (
+    <DeniedPlanScreen applicationId={SAMPLE_ID} start={{ done: ["read_letter", "check_reports"], state: "saved" }} />
+  ),
   reminder: () => <ReminderSetup applicationId={SAMPLE_ID} />,
   "reminder-saved": () => <ReminderSavedView dateLabel="April 16, 2027" />,
   fixable: () => <FixableView applicationId={SAMPLE_ID} />,
