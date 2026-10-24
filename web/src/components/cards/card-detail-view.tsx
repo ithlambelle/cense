@@ -99,21 +99,23 @@ export function CardDetailView({
 }
 
 // The student's status for a card they track, with the way to change it
-// (US-05). No frame yet: built from the status pill, the link button and the
-// hairline card, and proposed to design. Mark result's back returns here.
+// (US-05). No frame yet: the box is the card page's white bordered box ("What
+// the issuer looks for", 144:2936: 1.5px off-white border, radius 22, 20/16
+// padding), with the status pill and the outline button ("Compare side by
+// side", 144:2785) full width below. Mark result's back returns here.
 function TrackedStatus({ application }: { application: Application }) {
   return (
-    <section aria-label="Your status" className="flex flex-col rounded-card border border-hairline pt-3 pr-4 pb-1 pl-5">
-      <p className="text-body-s text-indigo-black">Your status</p>
+    <section
+      aria-label="Your status"
+      className="flex flex-col gap-3 rounded-card border-[1.5px] border-off-white bg-white px-5 py-4"
+    >
       <div className="flex items-center justify-between gap-3">
+        <p className="text-body-s text-indigo-black">Your status</p>
         <StatusPill className={SENSITIVE}>{STATUS_LABELS[application.status].toUpperCase()}</StatusPill>
-        <Link
-          href={applicationPath(application.id, "card")}
-          className={buttonVariants({ variant: "link", className: "w-auto text-violet" })}
-        >
-          Update status
-        </Link>
       </div>
+      <Link href={applicationPath(application.id, "card")} className={buttonVariants({ variant: "outline" })}>
+        Update status
+      </Link>
     </section>
   );
 }
