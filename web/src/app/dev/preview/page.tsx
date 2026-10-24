@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { AccountView } from "@/components/account/account-view";
+import { Celebration } from "@/components/applications/celebration";
 import { MarkResult } from "@/components/applications/mark-result";
 import { WaitingView } from "@/components/applications/waiting-view";
 import { CardDetailView } from "@/components/cards/card-detail-view";
@@ -30,12 +31,16 @@ const SAMPLE_APPLICATION: Application = {
   statusUpdatedAt: "2026-10-16T12:00:00Z",
 };
 
+const APPROVED: Application = { ...SAMPLE_APPLICATION, status: "approved", creditLimitCents: 50000 };
+
 // Signed-in screens on sample data, without signing in. Local development
 // only: with a real session (as on a Vercel preview) some of these screens
 // would save for the visitor, so the page is off outside local development.
 const SCREENS = {
   "mark-result": () => <MarkResult application={SAMPLE_APPLICATION} />,
   waiting: () => <WaitingView application={SAMPLE_APPLICATION} />,
+  approved: () => <Celebration application={APPROVED} celebrate />,
+  "approved-later": () => <Celebration application={APPROVED} celebrate={false} />,
   "card-signed-in": () => {
     const card = findCard("discover-it-student-cash-back");
     return card ? <CardDetailView card={card} signedIn /> : null;

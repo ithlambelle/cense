@@ -37,6 +37,13 @@ export function waitingPath(applicationId: string): string {
   return `${applicationPath(applicationId)}/waiting`;
 }
 
+// "You're approved!" for one card. Only Mark result sets `celebrate`, right
+// after the student saves an approval: the star burst and the approval date
+// show on that arrival only (there is no approved_at column to read later).
+export function approvedPath(applicationId: string, celebrate = false): string {
+  return `${applicationPath(applicationId)}/approved${celebrate ? "?celebrate=1" : ""}`;
+}
+
 // The first-month plan for one approved card.
 export function planPath(applicationId: string): string {
   return withApplication(ROUTES.plan, applicationId);

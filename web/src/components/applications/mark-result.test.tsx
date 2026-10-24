@@ -72,19 +72,19 @@ describe("MarkResult", () => {
     expect(sent(fetchFn)).toEqual({ status: "rejected", creditLimitCents: null });
   });
 
-  it("saves an approval with the limit in cents, then goes Home", async () => {
+  it("saves an approval with the limit in cents, then opens the celebration once", async () => {
     const fetchFn = server(200, { ...saved, status: "approved", creditLimitCents: 50000 });
     render(<MarkResult application={application} />);
     fireEvent.click(screen.getByRole("button", { name: "I was approved" }));
     fireEvent.change(screen.getByLabelText("Credit limit (optional)"), { target: { value: "$500" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/home"));
+    await waitFor(() => expect(push).toHaveBeenCalledWith(`/applications/${ID}/approved?celebrate=1`));
     expect(sent(fetchFn)).toEqual({ status: "approved", creditLimitCents: 50000 });
     // The status only: the credit limit never reaches analytics.
     expect(track).toHaveBeenCalledExactlyOnceWith("outcome_reported", { outcome: "approved", source: "mark_result" });
   });
 
-  it("keeps the saved limit when an approved card is marked again", async () => {
+  it("keeps the saved limit when an approved card is marked again, and goes Home without a second celebration", async () => {
     const fetchFn = server(200, { ...saved, status: "approved", creditLimitCents: 50000 });
     render(<MarkResult application={{ ...application, status: "approved", creditLimitCents: 50000 }} />);
     fireEvent.click(screen.getByRole("button", { name: "I was approved" }));
@@ -92,6 +92,12 @@ describe("MarkResult", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(push).toHaveBeenCalledWith("/home"));
     expect(sent(fetchFn)).toEqual({ status: "approved", creditLimitCents: 50000 });
+  });
+
+  it("shows the frame's hint under the credit limit", () => {
+    render(<MarkResult application={application} />);
+    fireEvent.click(screen.getByRole("button", { name: "I was approved" }));
+    expect(screen.getByText("Find it in the approval email or the issuer’s app. Leave it blank if you don’t know yet.")).toBeTruthy();
   });
 
   it("asks for dollars instead of saving a limit it cannot read", () => {
