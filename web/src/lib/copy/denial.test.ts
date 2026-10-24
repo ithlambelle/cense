@@ -17,17 +17,15 @@ describe("nextDenialStep", () => {
 
 describe("denialReasonLine", () => {
   it("says each picked reason in plain words", () => {
-    expect(denialReasonLine("no_credit_history", null)).toBe("not enough credit history");
-    expect(denialReasonLine("report_frozen", null)).toBe("credit report frozen");
+    expect(denialReasonLine("no_credit_history")).toBe("not enough credit history");
+    expect(denialReasonLine("report_frozen")).toBe("credit report frozen");
   });
 
-  it("uses the student's own note for something else, when there is one", () => {
-    expect(denialReasonLine("something_else", "  Too many recent applications ")).toBe("Too many recent applications");
-    expect(denialReasonLine("something_else", "   ")).toBe("something else");
-    expect(denialReasonLine("something_else", null)).toBe("something else");
+  it("says other for something else, never the student's own note", () => {
+    expect(denialReasonLine("something_else")).toBe("other");
   });
 
   it("has no line while the letter has not come", () => {
-    expect(denialReasonLine("no_letter_yet", null)).toBeNull();
+    expect(denialReasonLine("no_letter_yet")).toBeNull();
   });
 });

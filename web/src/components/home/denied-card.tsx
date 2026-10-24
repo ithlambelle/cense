@@ -36,32 +36,29 @@ function loadDone(applicationId: string) {
 export function DeniedCard({
   application,
   reason,
-  note,
   sampleStars,
 }: {
   application: Application;
   // Null when the student has not said why yet.
   reason: DenialReason;
-  note: string | null;
   // Dev gallery only: this many steps done, in order, with nothing loaded.
   sampleStars?: number;
 }) {
   if (reason === "no_letter_yet") return <WaitingCard application={application} />;
   if (sampleStars !== undefined) {
     const done = new Set(DENIAL_PLAN_STEPS.slice(0, sampleStars).map(({ step }) => step));
-    return <PlanCard application={application} reason={reason} note={note} done={done} loadError={null} onRetry={() => {}} />;
+    return <PlanCard application={application} reason={reason} done={done} loadError={null} onRetry={() => {}} />;
   }
-  return <SavedPlanCard application={application} reason={reason} note={note} />;
+  return <SavedPlanCard application={application} reason={reason} />;
 }
 
-function SavedPlanCard({ application, reason, note }: { application: Application; reason: DenialReason; note: string | null }) {
+function SavedPlanCard({ application, reason }: { application: Application; reason: DenialReason }) {
   const load = useMemo(() => loadDone(application.id), [application.id]);
   const { loaded, retry } = useLoaded(load, signInPath(ROUTES.home));
   return (
     <PlanCard
       application={application}
       reason={reason}
-      note={note}
       done={loaded.status === "ready" ? loaded.data : null}
       loadError={loaded.status === "failed" ? loaded.message : null}
       onRetry={retry}
@@ -99,27 +96,24 @@ function Module({ name, gap, children }: { name: string; gap: string; children: 
 function PlanCard({
   application,
   reason,
-  note,
   done,
   loadError,
   onRetry,
 }: {
   application: Application;
   reason: DenialReason;
-  note: string | null;
   // Null until the saved steps load.
   done: ReadonlySet<PlanStepName> | null;
   loadError: string | null;
   onRetry: () => void;
 }) {
-  const line = reason ? denialReasonLine(reason, note) : null;
+  const line = reason ? denialReasonLine(reason) : null;
   const next = done ? nextDenialStep(done) : null;
   const planHref = deniedPath("plan", application.id);
 
   return (
     <Module name={application.cardName} gap="gap-4">
       {line ? (
-        // A "Something else" note is the student's own words: never sent to analytics.
         <p className={cn(SENSITIVE, "text-body-s text-indigo-black")}>Reason: {line}</p>
       ) : (
         // No reason saved yet: the denial options ask for it.

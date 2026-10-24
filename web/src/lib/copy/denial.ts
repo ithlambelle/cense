@@ -21,18 +21,18 @@ export function nextDenialStep(done: ReadonlySet<PlanStepName>): { step: PlanSte
 
 // The reason on Home's denied card, after "Reason: " (Figma 144:2264). The
 // first three follow the choices on "Was it one of these?" (144:2014).
-// "Something else" shows the student's own note when they wrote one. No
-// letter yet has its own card on Home (144:2370), so it has no line.
+// "Something else" reads "other": the student's own note is not shown as the
+// reason (Ben, 2026-10-24). No letter yet has its own card on Home (144:2370),
+// so it has no line.
 const REASON_LINES: Record<Exclude<DenialReason, "no_letter_yet">, string> = {
   no_credit_history: "not enough credit history",
   income: "not enough income",
   could_not_verify: "couldn’t verify identity",
   report_frozen: "credit report frozen",
-  something_else: "something else",
+  something_else: "other",
 };
 
-export function denialReasonLine(reason: DenialReason, note: string | null): string | null {
+export function denialReasonLine(reason: DenialReason): string | null {
   if (reason === "no_letter_yet") return null;
-  if (reason === "something_else" && note?.trim()) return note.trim();
   return REASON_LINES[reason];
 }

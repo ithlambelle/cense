@@ -88,10 +88,11 @@ describe("Home denied card", () => {
     await screen.findByText("0 of 5 lit");
   });
 
-  it("shows the student's own words for something else", async () => {
+  it("says other for something else, not the student's own words", async () => {
     server([{ status: 200, body: plan() }]);
     render(<HomeView state={state} initial="M" detail={detail("something_else", "Too many recent applications")} />);
-    expect(screen.getByText("Reason: Too many recent applications")).toBeTruthy();
+    expect(screen.getByText("Reason: other")).toBeTruthy();
+    expect(screen.queryByText(/Too many recent applications/)).toBeNull();
     await screen.findByText("0 of 5 lit");
   });
 

@@ -178,7 +178,6 @@ function HomeContent({
         <DeniedCard
           application={primary}
           reason={detail?.denialReason ?? null}
-          note={detail?.denialReasonNote ?? null}
           sampleStars={sampleStars}
         />
         {others.length > 0 ? <OtherCards applications={others} /> : null}
