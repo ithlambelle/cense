@@ -201,18 +201,19 @@ function CardModule({
               aria-checked={lit[step.key]}
               disabled={!ready || saving.has(step.key)}
               onClick={() => toggle(step.key, step.step)}
-              className="flex w-full items-center gap-3 rounded-card bg-off-white px-3.5 py-2.5 text-left text-indigo-black outline-none hover:bg-selected-outline/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress"
+              className="flex w-full items-center gap-3 rounded-[14px] bg-off-white px-3.5 py-3 text-left text-indigo-black outline-none hover:bg-selected-outline/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress"
             >
               {lit[step.key] ? (
                 <span aria-hidden="true" className="flex size-6 shrink-0 animate-pop items-center justify-center rounded-pill bg-amber text-white">
                   <StarFill width={13} height={13} />
                 </span>
               ) : (
-                <span aria-hidden="true" className="size-6 shrink-0 rounded-pill border-[1.5px] border-indigo-black/70" />
+                <span aria-hidden="true" className="size-6 shrink-0 rounded-pill border-[1.5px] border-indigo-black" />
               )}
-              <span className="flex flex-col gap-0.5">
-                <span className="text-body-m font-medium">{step.title}</span>
-                <span className="text-body-s">{step.detail}</span>
+              {/* List row, Tinted (273:2196): a done step's title goes quiet. */}
+              <span className="flex flex-col gap-[3px] leading-[normal]">
+                <span className={cn("text-body-m leading-[normal]", lit[step.key] ? "text-indigo-black/70" : "font-medium")}>{step.title}</span>
+                <span className="text-body-s leading-[normal] text-indigo-black/70">{step.detail}</span>
               </span>
             </button>
           </li>
