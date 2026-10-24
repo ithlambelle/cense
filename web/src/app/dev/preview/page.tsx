@@ -5,6 +5,7 @@ import { AccountView } from "@/components/account/account-view";
 import { MarkResult } from "@/components/applications/mark-result";
 import { WaitingView } from "@/components/applications/waiting-view";
 import { CardDetailView } from "@/components/cards/card-detail-view";
+import { CardListView } from "@/components/cards/card-list-view";
 import { DeniedOptionsView } from "@/components/denied/options-view";
 import { DeniedPlanView } from "@/components/denied/plan-view";
 import { FixableView } from "@/components/denied/fixable-view";
@@ -13,7 +14,7 @@ import { ReminderSetup } from "@/components/denied/reminder-setup";
 import { SecondLook } from "@/components/denied/second-look";
 import { AddCardScreen } from "@/components/home/add-card-form";
 import { FirstMonthPlan } from "@/components/plan/first-month-plan";
-import { findCard } from "@/lib/cards/catalog";
+import { findCard, listCards } from "@/lib/cards/catalog";
 import { localDevOnly } from "@/lib/dev-only";
 import type { Application } from "@/lib/api/application";
 
@@ -40,6 +41,9 @@ const SCREENS = {
     const card = findCard("discover-it-student-cash-back");
     return card ? <CardDetailView card={card} signedIn /> : null;
   },
+  "cards-matched": () => (
+    <CardListView cards={listCards()} signedIn yourMatch={{ name: "Discover it Student Cash Back", tier: "likely_fit" }} />
+  ),
   denied: () => <DeniedOptionsView applicationId={SAMPLE_ID} />,
   "denied-plan": () => <DeniedPlanView applicationId={SAMPLE_ID} />,
   reminder: () => <ReminderSetup applicationId={SAMPLE_ID} />,

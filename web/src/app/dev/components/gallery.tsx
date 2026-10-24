@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { CodeInput } from "@/components/ui/code-input";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { FactChip } from "@/components/ui/fact-chip";
+import { FitSignal } from "@/components/ui/fit-signal";
 import { NoteLine } from "@/components/ui/note";
 import { PasswordField } from "@/components/ui/password-field";
 import { ProgressBar } from "@/components/ui/progress-bar";
@@ -92,6 +93,10 @@ export function Gallery() {
             <div className="flex gap-2">
               <StatusPill>APPLIED</StatusPill>
               <StatusPill>REJECTED</StatusPill>
+            </div>
+            <div className="flex gap-4">
+              <FitSignal tier="likely_fit" />
+              <FitSignal tier="stretch" />
             </div>
           </Section>
 

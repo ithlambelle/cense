@@ -21,7 +21,10 @@ describe("ResultsView", () => {
 
   it("goes back Home, never into the finished quiz", () => {
     render(<ResultsView view={{ kind: "no_card", ruleId: null, reason: null }} />);
-    expect(screen.getByRole("link", { name: "Back to Home" }).getAttribute("href")).toBe(ROUTES.home);
+    const back = screen.getByRole("link", { name: "Back to Home" });
+    expect(back.getAttribute("href")).toBe(ROUTES.home);
+    // G6: the arrow alone on screen; the destination is for screen readers only.
+    expect(back.textContent).toBe("");
     expect(screen.queryByRole("link", { name: "Back to the questions" })).toBeNull();
   });
 
@@ -58,7 +61,7 @@ describe("ResultsView", () => {
     expect(screen.getByRole("link", { name: `View card: ${view.card.name}` }).getAttribute("href")).toBe(
       cardPath(view.card.id, "results"),
     );
-    expect(top.getByText(TIER_LABELS[view.fit.tier].toUpperCase())).toBeTruthy();
+    expect(top.getByText(TIER_LABELS[view.fit.tier])).toBeTruthy();
     expect(screen.getByText("Another option")).toBeTruthy();
     expect(screen.getByRole("link", { name: new RegExp(view.alternative.card.name) }).getAttribute("href")).toBe(
       cardPath(view.alternative.card.id, "results"),
@@ -74,7 +77,7 @@ describe("ResultsView", () => {
     const alternative = { ...view.alternative, fit: { ...view.alternative.fit, tier: "stretch" as const, reasons: [reason] } };
     render(<ResultsView view={{ ...view, alternative }} />);
     const option = screen.getByRole("link", { name: new RegExp(view.alternative.card.name) });
-    expect(option.textContent).toContain(TIER_LABELS.stretch.toUpperCase());
+    expect(option.textContent).toContain(`Fit: ${TIER_LABELS.stretch}`);
     expect(option.textContent).toContain(reason);
   });
 
