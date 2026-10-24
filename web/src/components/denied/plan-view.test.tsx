@@ -96,15 +96,6 @@ describe("DeniedPlanView", () => {
     expect(screen.getByRole("button", { name: /Check all three credit reports, done/ })).toBeTruthy();
   });
 
-  it("says stars are not kept while the database has no plan steps yet", async () => {
-    const fetchFn = server([{ status: 503, body: { error: { code: "service_unavailable", message: "Not available." } } }]);
-    render(<DeniedPlanView applicationId={ID} />);
-    expect((await screen.findByRole("status")).textContent).toContain("isn’t available yet");
-    markDone();
-    expect(screen.getByText("1 of 5 done")).toBeTruthy();
-    expect(fetchFn).toHaveBeenCalledOnce();
-  });
-
   it("offers to try again when the saved plan cannot load", async () => {
     server([
       { status: 500, body: { error: { code: "internal_error", message: "Something broke." } } },

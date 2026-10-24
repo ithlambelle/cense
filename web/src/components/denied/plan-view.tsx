@@ -54,7 +54,7 @@ const STEPS: Step[] = [
 ];
 
 // "read-only": no application id, so there is nothing to save stars against.
-type SaveState = "loading" | "saved" | "unavailable" | "failed" | "read-only";
+type SaveState = "loading" | "saved" | "failed" | "read-only";
 export type PlanStart = { done: readonly PlanStepName[]; state: SaveState };
 
 function withStep(steps: ReadonlySet<PlanStepName>, step: PlanStepName, on: boolean): ReadonlySet<PlanStepName> {
@@ -68,7 +68,6 @@ function loadPlan(applicationId: string) {
   return async (): Promise<LoadOutcome<PlanStart>> => {
     const result = await loadPlanSteps(applicationId, "denial");
     if (result.kind === "ok") return { status: "ready", data: { done: [...result.done], state: "saved" } };
-    if (result.kind === "unavailable") return { status: "ready", data: { done: [], state: "unavailable" } };
     if (result.kind === "signed-out") return "signed-out";
     return { status: "failed", message: result.message };
   };
@@ -132,8 +131,7 @@ export function DeniedPlanScreen({
     // Undo only this step, so other saves in flight are not overwritten.
     setDone((current) => withStep(current, step, !value));
     setOpen(step);
-    if (result.kind === "unavailable") setState("unavailable");
-    else setError(result.kind === "failed" ? result.message : "Sign in again to save your plan.");
+    setError(result.kind === "failed" ? result.message : "Sign in again to save your plan.");
   }
 
   return (
@@ -223,11 +221,6 @@ export function DeniedPlanScreen({
           {state === "read-only" ? (
             <p role="status" className="rounded-input border border-hairline p-4 text-body-s text-indigo-black">
               We can’t tell which card this plan is for, so stars can’t be saved here.
-            </p>
-          ) : null}
-          {state === "unavailable" ? (
-            <p role="status" className="rounded-input border border-hairline p-4 text-body-s text-indigo-black">
-              Saving stars isn’t available yet, so they won’t be kept after you leave this page.
             </p>
           ) : null}
           {state === "failed" ? (
