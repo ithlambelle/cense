@@ -12,7 +12,7 @@ import { SAFE_TO_SPEND_COPY } from "@/lib/safe-to-spend/copy";
 import { cn } from "@/lib/utils";
 
 const NAVY_LINK =
-  "min-h-11 content-center text-body-s font-semibold text-white underline underline-offset-2 outline-none hover:text-light-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-off-white";
+  "min-h-11 content-center text-body-s font-semibold text-white underline underline-offset-2 hover:text-light-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-off-white";
 
 // Safe to spend on Home (US-12). Linked and answered: the navy card from
 // "Home with safe to spend" (Figma 222:2133). Linked but not answered: a
@@ -43,11 +43,14 @@ export function SafeToSpendHome({ safeToSpend }: { safeToSpend: SafeToSpend | nu
         <p className="text-body-m leading-[18px] font-semibold">Safe to spend today:</p>
         <PreviewLabel onNavy className="-mt-0.5" />
       </div>
-      {safeToSpend.status === "reconnect_needed" ? (
+      {/* A broken link shows what to do, never the last number as if current. */}
+      {safeToSpend.status !== "active" ? (
         <>
-          <p className="pt-3 text-body-s">{SAFE_TO_SPEND_COPY.reconnect}</p>
+          <p className="pt-3 text-body-s">
+            {safeToSpend.status === "reconnect_needed" ? SAFE_TO_SPEND_COPY.reconnect : SAFE_TO_SPEND_COPY.relink}
+          </p>
           <Link href={ROUTES.safeToSpend} className={cn(NAVY_LINK, "self-start")}>
-            Reconnect your bank
+            {safeToSpend.status === "reconnect_needed" ? "Reconnect your bank" : "Connect again"}
           </Link>
         </>
       ) : (

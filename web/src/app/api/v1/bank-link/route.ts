@@ -2,10 +2,11 @@ import { authenticatedStudent } from "@/lib/api/auth";
 import { databaseError } from "@/lib/api/database";
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { createBankLinkSchema } from "@/lib/api/safe-to-spend";
-import { exchangePublicToken, getAccounts, itemAlreadyGone, removeItem } from "@/lib/plaid/client";
+import { exchangePublicToken, getAccounts, removeItem } from "@/lib/plaid/client";
 import { plaidConfig, type PlaidConfig } from "@/lib/plaid/config";
 import { alreadyLinked, bankUnreachable, NO_STORE, notLinked, safeToSpendOff } from "@/lib/plaid/responses";
-import { deleteBankLink, linkStatus, loadSafeToSpend, readAccessToken, saveBalances, saveBankLink } from "@/lib/plaid/store";
+import { linkStatus, loadSafeToSpend, saveBalances, saveBankLink } from "@/lib/plaid/store";
+import { removeBankLinksForStudent } from "@/lib/plaid/unlink";
 import { balanceRows } from "@/lib/safe-to-spend/compute";
 
 // Removes an Item this request made but could not keep, so it is not left
@@ -67,28 +68,25 @@ export async function POST(request: Request): Promise<Response> {
   return Response.json(loaded.value, { status: 201, headers: NO_STORE });
 }
 
-// Disconnect (US-12): the Item is removed at Plaid first, then the token,
-// balances and answers are deleted. If Plaid cannot be reached nothing
-// changes, so the token is never lost while the Item still exists there.
+// Disconnect (US-12): every Item is removed at Plaid first, then the token,
+// balances and answers are deleted (removeBankLinksForStudent, the same step
+// account deletion takes). If Plaid cannot be reached nothing changes, so the
+// token is never lost while the Item still exists there.
 export async function DELETE(): Promise<Response> {
   const student = await authenticatedStudent();
   if (!student) return apiError(401, "unauthorized", "Sign in to continue.");
   const config = plaidConfig();
   if (!config) return safeToSpendOff();
 
-  const stored = await readAccessToken(student, config);
-  if (!stored.ok) return databaseError("bank_link_secret_read", stored.error);
-  if (stored.value.kind === "none") return notLinked();
-  if (stored.value.kind === "token") {
-    const removed = await removeItem(config, stored.value.accessToken);
-    if (!removed.ok && !itemAlreadyGone(removed)) {
+  const result = await removeBankLinksForStudent(student, config);
+  switch (result.kind) {
+    case "removed":
+      return new Response(null, { status: 204, headers: NO_STORE });
+    case "none":
+      return notLinked();
+    case "database_error":
+      return databaseError("bank_link_delete", result.error);
+    default:
       return apiError(502, "bank_unavailable", "We couldn’t disconnect your bank. Nothing changed. Try again in a few minutes.");
-    }
   }
-  // An unreadable token cannot be used at Plaid; the local copy still goes.
-
-  const deleted = await deleteBankLink(student);
-  if (!deleted.ok) return databaseError("bank_link_delete", deleted.error);
-  if (!deleted.value) return notLinked();
-  return new Response(null, { status: 204, headers: NO_STORE });
 }

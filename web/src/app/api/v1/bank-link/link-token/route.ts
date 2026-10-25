@@ -20,6 +20,7 @@ export async function POST(): Promise<Response> {
   if (!status.ok) return databaseError("bank_link_read", status.error);
   let accessToken: string | undefined;
   if (status.value !== null) {
+    if (status.value === "relink_needed") return relinkNeeded();
     if (status.value !== "reconnect_needed") return alreadyLinked();
     const stored = await readAccessToken(student, config);
     if (!stored.ok) return databaseError("bank_link_secret_read", stored.error);

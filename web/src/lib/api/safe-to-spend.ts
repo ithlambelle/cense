@@ -60,7 +60,9 @@ export const linkTokenSchema = z
   })
   .openapi("LinkToken");
 
-export const bankLinkStatusSchema = z.enum(["active", "reconnect_needed"]);
+// reconnect_needed: sign in to the bank again (Link update mode).
+// relink_needed: the Item is gone at Plaid; disconnect and link again.
+export const bankLinkStatusSchema = z.enum(["active", "reconnect_needed", "relink_needed"]);
 
 export const bankAccountSchema = z
   .strictObject({

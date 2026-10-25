@@ -58,8 +58,9 @@ export function ConnectView() {
       if (linked.code === "already_linked") return router.replace(ROUTES.safeToSpend);
       return done({ kind: "error", text: linked.message });
     }
-    // Stays pending while the questions load.
-    router.push(safeToSpendSetupPath());
+    // Stays pending while the questions load. Replace: the bank is linked, so
+    // Back never returns to this finished screen.
+    router.replace(safeToSpendSetupPath());
   }
 
   return (
@@ -99,7 +100,7 @@ export function ConnectView() {
           </Button>
           <Link
             href={ROUTES.home}
-            className="min-h-11 content-center self-center text-body-s text-violet outline-none hover:text-violet-hover focus-visible:outline-2 focus-visible:outline-ring"
+            className="min-h-11 content-center self-center text-body-s text-violet hover:text-violet-hover focus-visible:outline-2 focus-visible:outline-ring"
           >
             Not now
           </Link>

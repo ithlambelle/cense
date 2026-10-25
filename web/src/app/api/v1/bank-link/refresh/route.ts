@@ -4,7 +4,7 @@ import { apiError } from "@/lib/api/errors";
 import { getAccounts, itemAlreadyGone, needsReconnect } from "@/lib/plaid/client";
 import { plaidConfig } from "@/lib/plaid/config";
 import { bankUnreachable, NO_STORE, notLinked, reconnectNeeded, relinkNeeded, safeToSpendOff } from "@/lib/plaid/responses";
-import { loadSafeToSpend, markReconnect, readAccessToken, saveBalances } from "@/lib/plaid/store";
+import { loadSafeToSpend, markLinkStatus, readAccessToken, saveBalances } from "@/lib/plaid/store";
 import { balanceRows } from "@/lib/safe-to-spend/compute";
 
 // Reads the balances from Plaid again and answers safe to spend (US-12).
@@ -20,16 +20,21 @@ export async function POST(): Promise<Response> {
   const stored = await readAccessToken(student, config);
   if (!stored.ok) return databaseError("bank_link_secret_read", stored.error);
   if (stored.value.kind === "none") return notLinked();
-  if (stored.value.kind === "unreadable") return relinkNeeded();
+  // Saved on the link, so Home shows the notice instead of the last number.
+  const relink = async () => {
+    const marked = await markLinkStatus(student, "relink_needed");
+    return marked.ok ? relinkNeeded() : databaseError("bank_link_mark_status", marked.error);
+  };
+  if (stored.value.kind === "unreadable") return relink();
 
   const accounts = await getAccounts(config, stored.value.accessToken);
   if (!accounts.ok) {
     if (needsReconnect(accounts)) {
-      const marked = await markReconnect(student);
-      if (!marked.ok) return databaseError("bank_link_mark_reconnect", marked.error);
+      const marked = await markLinkStatus(student, "reconnect_needed");
+      if (!marked.ok) return databaseError("bank_link_mark_status", marked.error);
       return reconnectNeeded();
     }
-    if (itemAlreadyGone(accounts)) return relinkNeeded();
+    if (itemAlreadyGone(accounts)) return relink();
     return bankUnreachable();
   }
 

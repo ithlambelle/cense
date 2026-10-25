@@ -40,5 +40,7 @@ export const SAFE_TO_SPEND_COPY = {
   howTitle: "How we got this",
   howIntro: "Your checking, minus card balances, the bills you pay and what you keep aside, spread over 30 days.",
   reconnect: "Your bank needs you to sign in again.",
+  relink: "Your bank connection ended.",
+  lastNumbers: "Until then, these are the last numbers we read.",
   plaidCopy: "Plaid keeps its own copy of what it shared. Manage it at my.plaid.com.",
 } as const;

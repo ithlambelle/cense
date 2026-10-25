@@ -709,7 +709,7 @@ export interface components {
         SafeToSpend: {
             institutionName: string;
             /** @enum {string} */
-            status: "active" | "reconnect_needed";
+            status: "active" | "reconnect_needed" | "relink_needed";
             /** Format: date-time */
             linkedAt: string;
             /** Format: date-time */

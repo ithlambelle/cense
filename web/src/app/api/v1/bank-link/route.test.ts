@@ -13,7 +13,7 @@ vi.mock("@/lib/plaid/client", async (importOriginal) => ({ ...(await importOrigi
 
 const store = vi.hoisted(() => ({
   linkStatus: vi.fn(),
-  readAccessToken: vi.fn(),
+  readAccessTokens: vi.fn(),
   saveBankLink: vi.fn(),
   saveBalances: vi.fn(),
   deleteBankLink: vi.fn(),
@@ -117,7 +117,7 @@ describe("POST /bank-link", () => {
 
 describe("DELETE /bank-link", () => {
   it("removes the Item at Plaid, then deletes everything", async () => {
-    store.readAccessToken.mockResolvedValue({ ok: true, value: { kind: "token", itemId: "item-1", accessToken: "access-sandbox-1" } });
+    store.readAccessTokens.mockResolvedValue({ ok: true, value: [{ kind: "token", itemId: "item-1", accessToken: "access-sandbox-1" }] });
     store.deleteBankLink.mockResolvedValue({ ok: true, value: true });
     const response = await DELETE();
     expect(response.status).toBe(204);
@@ -126,7 +126,7 @@ describe("DELETE /bank-link", () => {
   });
 
   it("changes nothing when Plaid cannot remove the Item, so the token is never lost", async () => {
-    store.readAccessToken.mockResolvedValue({ ok: true, value: { kind: "token", itemId: "item-1", accessToken: "access-sandbox-1" } });
+    store.readAccessTokens.mockResolvedValue({ ok: true, value: [{ kind: "token", itemId: "item-1", accessToken: "access-sandbox-1" }] });
     plaid.removeItem.mockResolvedValue({ ok: false, kind: "network" });
     const response = await DELETE();
     expect(response.status).toBe(502);
@@ -135,21 +135,21 @@ describe("DELETE /bank-link", () => {
   });
 
   it("still deletes when Plaid says the Item is already gone", async () => {
-    store.readAccessToken.mockResolvedValue({ ok: true, value: { kind: "token", itemId: "item-1", accessToken: "access-sandbox-1" } });
+    store.readAccessTokens.mockResolvedValue({ ok: true, value: [{ kind: "token", itemId: "item-1", accessToken: "access-sandbox-1" }] });
     plaid.removeItem.mockResolvedValue({ ok: false, kind: "plaid", code: "ITEM_NOT_FOUND" });
     store.deleteBankLink.mockResolvedValue({ ok: true, value: true });
     expect((await DELETE()).status).toBe(204);
   });
 
   it("deletes the local copy of a token that cannot be opened", async () => {
-    store.readAccessToken.mockResolvedValue({ ok: true, value: { kind: "unreadable", itemId: "item-1" } });
+    store.readAccessTokens.mockResolvedValue({ ok: true, value: [{ kind: "unreadable", itemId: "item-1" }] });
     store.deleteBankLink.mockResolvedValue({ ok: true, value: true });
     expect((await DELETE()).status).toBe(204);
     expect(plaid.removeItem).not.toHaveBeenCalled();
   });
 
   it("answers 404 with no bank, and 401 signed out", async () => {
-    store.readAccessToken.mockResolvedValue({ ok: true, value: { kind: "none" } });
+    store.readAccessTokens.mockResolvedValue({ ok: true, value: [] });
     expect((await DELETE()).status).toBe(404);
     auth.authenticatedStudent.mockResolvedValueOnce(null);
     expect((await DELETE()).status).toBe(401);

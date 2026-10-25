@@ -32,5 +32,5 @@ export function reconnectNeeded(): Response {
 // The Item is gone at Plaid (revoked at my.plaid.com, or the token cannot be
 // opened): only disconnecting and linking again helps.
 export function relinkNeeded(): Response {
-  return apiError(409, "relink_needed", "Disconnect your bank, then connect it again.");
+  return apiError(409, "relink_needed", "Your bank connection ended. Connect it again to update.");
 }

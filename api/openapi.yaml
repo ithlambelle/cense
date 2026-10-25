@@ -543,6 +543,7 @@ components:
           enum:
             - active
             - reconnect_needed
+            - relink_needed
         linkedAt:
           type: string
           format: date-time

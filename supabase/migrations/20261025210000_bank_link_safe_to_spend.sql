@@ -13,8 +13,8 @@
 -- Who can do what, all through the student's own session (no service role):
 -- - students read their own bank_links and bank_balances, and read and write
 --   their own bill_coverage and set-aside amount (row level security);
--- - linking, saving balances, marking the bank as needing a new sign-in and
---   disconnecting go through the functions below, each acting on auth.uid()
+-- - linking, saving balances, marking the bank as needing a new sign-in or a
+--   new link, and disconnecting go through the functions below, each acting on auth.uid()
 --   only, so a student calling one directly can change only their own rows;
 -- - bank_link_secret() returns the caller's own token ciphertext, which is
 --   useless without the app's key.
@@ -42,8 +42,10 @@ revoke all on table plaid.items from public, anon, authenticated;
 create table if not exists public.bank_links (
   student_id uuid primary key references auth.users (id) on delete cascade,
   institution_name text not null check (char_length(institution_name) between 1 and 100),
-  -- reconnect_needed: Plaid answered ITEM_LOGIN_REQUIRED; Link in update mode fixes it
-  status text not null default 'active' check (status in ('active', 'reconnect_needed')),
+  -- reconnect_needed: Plaid answered ITEM_LOGIN_REQUIRED; Link in update mode
+  -- fixes it. relink_needed: the Item is gone at Plaid (removed at my.plaid.com)
+  -- or its token cannot be opened; only disconnecting and linking again fixes it.
+  status text not null default 'active' check (status in ('active', 'reconnect_needed', 'relink_needed')),
   linked_at timestamptz not null default now(),
   -- when balances were last read from Plaid
   refreshed_at timestamptz,
@@ -52,6 +54,11 @@ create table if not exists public.bank_links (
   -- when the student last answered who covers which bills; null until then
   answered_at timestamptz
 );
+
+-- the same status rule on a table made by an earlier draft of this file
+alter table public.bank_links drop constraint if exists bank_links_status_check;
+alter table public.bank_links add constraint bank_links_status_check
+  check (status in ('active', 'reconnect_needed', 'relink_needed'));
 
 -- one row per account read at the last refresh. Loans and investments are
 -- never stored. kind: cash (checking and other everyday accounts, counted),
@@ -152,14 +159,21 @@ begin
 end;
 $$;
 
--- Plaid says the bank needs the student to sign in again
-create or replace function public.mark_bank_link_reconnect()
+-- Plaid says the bank needs the student to sign in again (reconnect_needed),
+-- or the Item is gone (relink_needed). Only a good read sets it active again.
+drop function if exists public.mark_bank_link_reconnect();
+create or replace function public.mark_bank_link_status(p_status text)
 returns void
-language sql
+language plpgsql
 security definer
 set search_path = ''
 as $$
-  update public.bank_links set status = 'reconnect_needed' where student_id = auth.uid();
+begin
+  if p_status is null or p_status not in ('reconnect_needed', 'relink_needed') then
+    raise exception 'unknown bank link status' using errcode = '22023';
+  end if;
+  update public.bank_links set status = p_status where student_id = auth.uid();
+end;
 $$;
 
 -- disconnect: the token row and the link, which cascades to the balances and
@@ -217,13 +231,13 @@ $$;
 revoke execute on function public.save_bank_link(text, text, text) from public, anon;
 revoke execute on function public.bank_link_secret() from public, anon;
 revoke execute on function public.save_bank_balances(jsonb) from public, anon;
-revoke execute on function public.mark_bank_link_reconnect() from public, anon;
+revoke execute on function public.mark_bank_link_status(text) from public, anon;
 revoke execute on function public.delete_bank_link() from public, anon;
 revoke execute on function public.save_safe_to_spend_answers(jsonb, bigint) from public, anon;
 grant execute on function public.save_bank_link(text, text, text) to authenticated;
 grant execute on function public.bank_link_secret() to authenticated;
 grant execute on function public.save_bank_balances(jsonb) to authenticated;
-grant execute on function public.mark_bank_link_reconnect() to authenticated;
+grant execute on function public.mark_bank_link_status(text) to authenticated;
 grant execute on function public.delete_bank_link() to authenticated;
 grant execute on function public.save_safe_to_spend_answers(jsonb, bigint) to authenticated;
 

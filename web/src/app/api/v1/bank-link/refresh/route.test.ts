@@ -11,7 +11,7 @@ vi.mock("@/lib/plaid/config", () => config);
 const plaid = vi.hoisted(() => ({ getAccounts: vi.fn() }));
 vi.mock("@/lib/plaid/client", async (importOriginal) => ({ ...(await importOriginal<object>()), ...plaid }));
 
-const store = vi.hoisted(() => ({ readAccessToken: vi.fn(), saveBalances: vi.fn(), markReconnect: vi.fn(), loadSafeToSpend: vi.fn() }));
+const store = vi.hoisted(() => ({ readAccessToken: vi.fn(), saveBalances: vi.fn(), markLinkStatus: vi.fn(), loadSafeToSpend: vi.fn() }));
 vi.mock("@/lib/plaid/store", () => store);
 
 import { POST } from "./route";
@@ -23,7 +23,7 @@ beforeEach(() => {
   config.plaidConfig.mockReturnValue({ clientId: "c", secret: "s", baseUrl: "https://sandbox.plaid.com", tokenKey: Buffer.alloc(32) });
   store.readAccessToken.mockResolvedValue(TOKEN);
   store.saveBalances.mockResolvedValue({ ok: true, value: true });
-  store.markReconnect.mockResolvedValue({ ok: true, value: null });
+  store.markLinkStatus.mockResolvedValue({ ok: true, value: null });
   store.loadSafeToSpend.mockResolvedValue({ ok: true, value: { dailyCents: 633 } });
   plaid.getAccounts.mockResolvedValue({ ok: true, data: { accounts: [], item: {} } });
 });
@@ -45,16 +45,17 @@ describe("POST /bank-link/refresh", () => {
     const response = await POST();
     expect(response.status).toBe(409);
     expect((await response.json()).error.code).toBe("reconnect_needed");
-    expect(store.markReconnect).toHaveBeenCalled();
+    expect(store.markLinkStatus).toHaveBeenCalledWith(expect.anything(), "reconnect_needed");
     expect(store.saveBalances).not.toHaveBeenCalled();
   });
 
-  it("asks to link again when the Item is gone at Plaid or the token cannot be opened", async () => {
+  it("saves that the link must be made again when the Item is gone at Plaid or the token cannot be opened", async () => {
     plaid.getAccounts.mockResolvedValue({ ok: false, kind: "plaid", code: "INVALID_ACCESS_TOKEN" });
     expect((await (await POST()).json()).error.code).toBe("relink_needed");
     store.readAccessToken.mockResolvedValue({ ok: true, value: { kind: "unreadable", itemId: "item-1" } });
     expect((await (await POST()).json()).error.code).toBe("relink_needed");
-    expect(store.markReconnect).not.toHaveBeenCalled();
+    expect(store.markLinkStatus.mock.calls.map((call) => call[1])).toEqual(["relink_needed", "relink_needed"]);
+    expect(store.saveBalances).not.toHaveBeenCalled();
   });
 
   it("keeps the old numbers when the bank is down", async () => {

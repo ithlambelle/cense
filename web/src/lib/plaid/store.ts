@@ -47,24 +47,41 @@ export async function linkStatus(student: Student): Promise<StoreResult<string |
   return { ok: true, value: data ? (data as { status: string }).status : null };
 }
 
-export type StoredToken =
-  | { kind: "none" }
-  // The ciphertext does not open: the key changed, or the row was not written by the app.
+export type StoredItem =
+  // The ciphertext does not open: the key changed, the row was not written by
+  // the app, or there is no key to open it with.
   | { kind: "unreadable"; itemId: string }
   | { kind: "token"; itemId: string; accessToken: string };
 
-// The student's access token, decrypted here and never returned to the browser.
-export async function readAccessToken(student: Student, config: PlaidConfig): Promise<StoreResult<StoredToken>> {
+export type StoredToken = { kind: "none" } | StoredItem;
+
+// Every Item the student has linked (one today), with its access token
+// decrypted here and never returned to the browser. With no config there is
+// no key, so each comes back unreadable.
+export async function readAccessTokens(student: Student, config: PlaidConfig | null): Promise<StoreResult<StoredItem[]>> {
   const { data, error } = await student.supabase.rpc("bank_link_secret");
   if (error) return { ok: false, error };
-  const row = (data as { item_id: string; token_ciphertext: string }[] | null)?.[0];
-  if (!row) return { ok: true, value: { kind: "none" } };
-  const accessToken = openToken(row.token_ciphertext, config.tokenKey, { studentId: student.studentId, itemId: row.item_id });
-  if (accessToken === null) {
-    console.error(JSON.stringify({ event: "plaid_token_unreadable" }));
-    return { ok: true, value: { kind: "unreadable", itemId: row.item_id } };
-  }
-  return { ok: true, value: { kind: "token", itemId: row.item_id, accessToken } };
+  const rows = (data as { item_id: string; token_ciphertext: string }[] | null) ?? [];
+  return {
+    ok: true,
+    value: rows.map((row): StoredItem => {
+      const accessToken = config
+        ? openToken(row.token_ciphertext, config.tokenKey, { studentId: student.studentId, itemId: row.item_id })
+        : null;
+      if (accessToken === null) {
+        if (config) console.error(JSON.stringify({ event: "plaid_token_unreadable" }));
+        return { kind: "unreadable", itemId: row.item_id };
+      }
+      return { kind: "token", itemId: row.item_id, accessToken };
+    }),
+  };
+}
+
+// The student's one linked Item, or none.
+export async function readAccessToken(student: Student, config: PlaidConfig): Promise<StoreResult<StoredToken>> {
+  const items = await readAccessTokens(student, config);
+  if (!items.ok) return items;
+  return { ok: true, value: items.value[0] ?? { kind: "none" } };
 }
 
 // Saves a new link with the token sealed. "conflict" when the student already
@@ -101,8 +118,10 @@ export async function saveBalances(student: Student, rows: BalanceRow[]): Promis
   return { ok: true, value: data === true };
 }
 
-export async function markReconnect(student: Student): Promise<StoreResult<null>> {
-  const { error } = await student.supabase.rpc("mark_bank_link_reconnect");
+// The bank needs the student to sign in again (reconnect_needed), or the
+// Item is gone and only a new link helps (relink_needed).
+export async function markLinkStatus(student: Student, status: "reconnect_needed" | "relink_needed"): Promise<StoreResult<null>> {
+  const { error } = await student.supabase.rpc("mark_bank_link_status", { p_status: status });
   return error ? { ok: false, error } : { ok: true, value: null };
 }
 

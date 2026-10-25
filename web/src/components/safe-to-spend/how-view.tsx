@@ -53,7 +53,7 @@ export function HowView({ data }: { data: SafeToSpendData }) {
     setNote(null);
     const result = await refreshBank();
     if (result.kind === "signed-out") return router.replace(signInPath(ROUTES.safeToSpend));
-    if (result.kind === "ok" || result.code === "reconnect_needed") {
+    if (result.kind === "ok" || result.code === "reconnect_needed" || result.code === "relink_needed") {
       router.refresh();
       return finish(null);
     }
@@ -78,7 +78,20 @@ export function HowView({ data }: { data: SafeToSpendData }) {
     finish(null);
   }
 
+  // The Item is gone at Plaid: only a new link helps, so Connect again
+  // disconnects the dead one (deleting what Cense kept) and opens consent.
+  async function connectAgain() {
+    if (busy) return;
+    setBusy("reconnect");
+    setNote(null);
+    const result = await disconnectBank();
+    if (result.kind === "signed-out") return router.replace(signInPath(ROUTES.safeToSpend));
+    if (result.kind === "ok" || result.code === "not_linked") return router.replace(ROUTES.safeToSpendConnect);
+    finish({ kind: "error", text: result.message });
+  }
+
   const reconnectNeeded = data.status === "reconnect_needed";
+  const relinkNeeded = data.status === "relink_needed";
   const refreshed =
     now && data.refreshedAt
       ? new Date(data.refreshedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
@@ -98,12 +111,12 @@ export function HowView({ data }: { data: SafeToSpendData }) {
             <p className="text-body-s text-indigo-black/70">{SAFE_TO_SPEND_COPY.howIntro}</p>
           </div>
 
-          {reconnectNeeded ? (
+          {reconnectNeeded || relinkNeeded ? (
             <section aria-label="Reconnect" className="flex flex-col gap-3 rounded-card bg-off-white p-5">
-              <p className="text-body-m text-navy">{SAFE_TO_SPEND_COPY.reconnect}</p>
-              <p className="text-body-s text-indigo-black/70">Until then, these are the last numbers we read.</p>
-              <Button type="button" pending={busy === "reconnect"} onClick={reconnect}>
-                Reconnect your bank
+              <p className="text-body-m text-navy">{reconnectNeeded ? SAFE_TO_SPEND_COPY.reconnect : SAFE_TO_SPEND_COPY.relink}</p>
+              <p className="text-body-s text-indigo-black/70">{SAFE_TO_SPEND_COPY.lastNumbers}</p>
+              <Button type="button" pending={busy === "reconnect"} onClick={reconnectNeeded ? reconnect : connectAgain}>
+                {reconnectNeeded ? "Reconnect your bank" : "Connect again"}
               </Button>
             </section>
           ) : null}
@@ -174,7 +187,7 @@ export function HowView({ data }: { data: SafeToSpendData }) {
             </ul>
             <Link
               href={safeToSpendSetupPath()}
-              className="min-h-11 content-center self-start text-body-s font-semibold text-violet underline underline-offset-2 outline-none hover:text-violet-hover focus-visible:outline-2 focus-visible:outline-ring"
+              className="min-h-11 content-center self-start text-body-s font-semibold text-violet underline underline-offset-2 hover:text-violet-hover focus-visible:outline-2 focus-visible:outline-ring"
             >
               Change your answers
             </Link>
@@ -246,7 +259,7 @@ function DisconnectSheet({ open, onOpenChange }: { open: boolean; onOpenChange: 
           href="https://my.plaid.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-violet underline underline-offset-2 outline-none focus-visible:outline-2 focus-visible:outline-ring"
+          className="text-violet underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-ring"
         >
           my.plaid.com
         </a>

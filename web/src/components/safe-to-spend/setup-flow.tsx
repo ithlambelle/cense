@@ -1,11 +1,13 @@
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState, type FormEvent } from "react";
 
 import { answerCardClass } from "@/components/quiz/quiz-screen";
 import { PreviewLabel } from "@/components/safe-to-spend/parts";
-import { AppHeader } from "@/components/ui/app-header";
+import { BACK_CONTROL } from "@/components/ui/app-header";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { SelectionMark } from "@/components/ui/selection-mark";
@@ -71,9 +73,12 @@ export function SetupFlow({
   const backHref = step === 1 ? (answered ? ROUTES.safeToSpend : ROUTES.home) : safeToSpendSetupPath(step - 1);
   const stepError = error?.step === step ? error : null;
 
+  // Steps replace one another in history, so Back from wherever the questions
+  // lead never reopens one (Mark result does the same after saving); the back
+  // arrow steps through them.
   function goTo(next: number) {
     setError(null);
-    router.push(safeToSpendSetupPath(next));
+    router.replace(safeToSpendSetupPath(next));
   }
 
   function continueFromBill(event: FormEvent) {
@@ -131,7 +136,7 @@ export function SetupFlow({
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
-        <AppHeader backHref={backHref} backLabel={step === 1 ? (answered ? "How we got this" : "Home") : "the last question"} />
+        <StepHeader href={backHref} label={step === 1 ? (answered ? "How we got this" : "Home") : "the last question"} />
         <main className="flex flex-1 flex-col">
           {step <= BILLS.length ? (
             <BillStep
@@ -175,6 +180,18 @@ export function SetupFlow({
         </main>
       </div>
     </div>
+  );
+}
+
+// The app's back control (AppHeader), but replacing the step in history
+// rather than adding one.
+function StepHeader({ href, label }: { href: string; label: string }) {
+  return (
+    <header className="box-content flex h-14 items-center px-6 pt-8">
+      <Link href={href} replace aria-label={`Back to ${label}`} className={cn(BACK_CONTROL, "focus-visible:outline-ring")}>
+        <Image src="/icons/arrow-left-dark.svg" alt="" width={48} height={48} />
+      </Link>
+    </header>
   );
 }
 
