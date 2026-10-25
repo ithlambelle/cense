@@ -8,8 +8,7 @@ import { AuthLayout, BackLinkHome } from "@/components/auth/auth-layout";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { PasswordField } from "@/components/ui/password-field";
-import { FALLBACK_MESSAGE } from "@/lib/api-client/client";
-import { pendingRequest } from "@/lib/api-client/pending";
+import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import { PASSWORD_MIN, passwordProblem } from "@/lib/auth/password";
 import { ROUTES } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
@@ -34,24 +33,17 @@ export function ResetPassword() {
     if (repeat !== password) return setErrors({ repeat: "Let’s make those passwords match." });
     setErrors({});
     setPending(true);
-    const result = await pendingRequest("POST /auth/password/reset/confirm", { password });
+    const result = await apiRequest("post", "/auth/password/reset/confirm", { body: { password } });
     // The student left while it saved: the answer must not move them again.
     if (!isMounted()) return;
-    if (result.kind === "ok") {
+    if (result.ok) {
       router.replace(ROUTES.start);
       router.refresh();
       return;
     }
     setPending(false);
-    if (result.kind === "signed-out") return setExpired(true);
-    setErrors({
-      form:
-        result.kind === "unavailable"
-          ? "Setting a new password isn’t available yet."
-          : result.kind === "failed"
-            ? result.message
-            : FALLBACK_MESSAGE,
-    });
+    if (isUnauthorized(result)) return setExpired(true);
+    setErrors({ form: failureMessage(result) });
   }
 
   if (expired) {

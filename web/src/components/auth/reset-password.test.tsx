@@ -52,11 +52,11 @@ describe("ResetPassword", () => {
     expect(screen.getByRole("link", { name: "Send a new link" }).getAttribute("href")).toBe("/forgot-password");
   });
 
-  it("says so while the backend route does not exist yet", async () => {
-    server(() => new Response("<html>404</html>", { status: 404 }));
+  it("shows the API's message when it refuses the password, and stays put", async () => {
+    server(() => Response.json({ error: { code: "recovery_required", message: "Open a password reset link before setting a new password." } }, { status: 403 }));
     render(<ResetPassword />);
     submit("long enough", "long enough");
-    expect((await screen.findByRole("alert")).textContent).toBe("Setting a new password isn’t available yet.");
+    expect((await screen.findByRole("alert")).textContent).toBe("Open a password reset link before setting a new password.");
     expect(replace).not.toHaveBeenCalled();
   });
 });

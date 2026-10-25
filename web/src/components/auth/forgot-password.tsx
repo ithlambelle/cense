@@ -9,8 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE } from "@/lib/analytics";
-import { FALLBACK_MESSAGE } from "@/lib/api-client/client";
-import { pendingRequest } from "@/lib/api-client/pending";
+import { apiRequest, failureMessage } from "@/lib/api-client/client";
 import { looksLikeEmail } from "@/lib/auth/password";
 import { ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -40,19 +39,13 @@ export function ForgotPassword() {
     setError(null);
     setFormError(null);
     setPending(true);
-    const result = await pendingRequest("POST /auth/password/reset", { email: email.trim() });
+    const result = await apiRequest("post", "/auth/password/reset", { body: { email: email.trim() } });
     setPending(false);
-    if (result.kind === "ok") {
+    if (result.ok) {
       setSent(true);
       return;
     }
-    setFormError(
-      result.kind === "unavailable"
-        ? "Password reset isn’t available yet. You can sign in with Google or an email code."
-        : result.kind === "failed"
-          ? result.message
-          : FALLBACK_MESSAGE,
-    );
+    setFormError(failureMessage(result));
   }
 
   return (
