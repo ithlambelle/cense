@@ -144,7 +144,7 @@ export function DeniedPlanScreen({
           <TrackOnMount event="denial_plan_viewed" />
           <div className="flex flex-col gap-2">
             {/* Breaks after "steady" as the frame does, never at the hyphen. */}
-            <h1 className="font-heading text-h1 font-semibold text-navy">
+            <h1 className="font-heading text-h1 font-medium text-navy">
               A steady <span className="whitespace-nowrap">five-step plan</span>
             </h1>
             <p className="text-body-m text-indigo-black">One step at a time. No rush.</p>

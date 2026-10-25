@@ -47,6 +47,17 @@ Unit tests and a green build do not show that a screen works. On Oct 24 three Ho
 5. **A journey test in `web/e2e` does what you did,** so CI repeats it on every pull request. It fails on the code before your fix.
 6. **The pull request shows the evidence:** what you walked, and screenshots of the screens it changed.
 
+**The quality suite does the screen-by-screen review on every pull request.** `web/e2e/quality.spec.ts` visits every screen in every state (the list is `web/e2e/support/screens.ts`; add any new screen or state there) at 320, 390 and 430 pixels wide, and checks:
+
+- nothing runs off the screen or stays under the bottom bar;
+- every font is one the app loads, at a weight it loads (no faked bold);
+- type sizes are on the scale;
+- the copy rules hold (no em dashes, no "~$", no code values like "undefined");
+- tap areas are big enough, and accessibility passes (axe);
+- there are no console errors or failed requests, and every link on the screen works.
+
+Errors fail the check. The `quality-report` artifact on each run is one page with every screen's screenshot, what was found on it, and every heading, button and card grouped by its exact style, so two versions of the "same" element sit side by side. Open it whenever a pull request changes what a student sees.
+
 Agents follow the same list. An agent never reports a screen as working because it compiled or matched a Figma frame; it reports what it did as a student and what it saw.
 
 ## AI use
