@@ -59,8 +59,15 @@ function ref(answer: PennyAnswer): QuestionRef {
   return { id: answer.id, question: answer.question };
 }
 
-// Where fresh questions come from: the starters, then each topic's list.
-const FRESH_ORDER: string[] = [...new Set<string>([...STARTER_IDS, ...PENNY_TOPICS.flatMap((topic) => TOPIC_QUESTIONS[topic.slug]), ...PENNY_ANSWER_IDS])];
+// Where fresh questions come from: the starters, then one from each topic
+// in turn, so two new questions are never from one topic. "How does a
+// credit card work?" goes last: it is a near twin of the first starter.
+const NEAR_TWINS = new Set<string>(["credit-card-basics"]);
+const BY_TOPIC = PENNY_TOPICS.map((topic) => TOPIC_QUESTIONS[topic.slug].filter((id) => !NEAR_TWINS.has(id)));
+const ROTATION = Array.from({ length: Math.max(...BY_TOPIC.map((ids) => ids.length)) }, (_, index) =>
+  BY_TOPIC.map((ids) => ids[index]).filter((id) => id !== undefined),
+).flat();
+const FRESH_ORDER: string[] = [...new Set<string>([...STARTER_IDS, ...ROTATION, ...PENNY_ANSWER_IDS.filter((id) => !NEAR_TWINS.has(id)), ...NEAR_TWINS])];
 
 // A reply never offers a question already offered or answered above (it is
 // still on screen): repeats are replaced with checked answers not shown yet.

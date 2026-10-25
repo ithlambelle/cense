@@ -123,8 +123,10 @@ describe("PennyChat", () => {
     await type("What is APR?");
     const limit = pennyMessages().at(-1)!;
     expect(limit.textContent).toContain(PENNY_COPY.limit);
-    // The greeting above already offers the two starters.
-    expect(within(limit).getAllByRole("button").map((b) => b.textContent)).toEqual(["How does a credit card work?", "What is a credit score?"]);
+    // The greeting above already offers the two starters, so two new
+    // questions from different topics, neither a near twin of a starter
+    // ("How does a credit card work?" next to "How to use a credit card?").
+    expect(within(limit).getAllByRole("button").map((b) => b.textContent)).toEqual(["What is a credit score?", "Fixed vs. variable expenses"]);
   });
 
   it.each([
