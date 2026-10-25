@@ -22,8 +22,10 @@ import { cn } from "@/lib/utils";
 const DAY_ERROR = "Enter a day from 1 to 31.";
 
 // The fields as drawn: white fill, off-white 1.5px edge, 20px corners, 16px
-// sides and 14px top and bottom (Figma 144:1828).
-const DAY_FIELD = "h-auto bg-white px-4 py-3.5";
+// sides and 14px top and bottom (Figma 144:1828). The padding is on the input,
+// so a tap anywhere in the box focuses it.
+const DAY_FIELD = "h-auto bg-white p-0";
+const DAY_INPUT = "px-4 py-3.5 leading-[normal] text-navy";
 
 type Props = {
   applicationId: string;
@@ -86,8 +88,10 @@ export function PaymentReminderSetup({
     // The student left while it saved: the answer must not move them again.
     if (!isMounted()) return;
     if (result.kind === "ok") {
-      // Stays pending while Home loads with the star lit.
-      router.push(doneHref);
+      // Stays pending while Home loads with the star lit. Replace, not push:
+      // Back from Home goes where the student came from, not to this form (as
+      // Mark result does).
+      router.replace(doneHref);
       router.refresh();
       return;
     }
@@ -123,7 +127,7 @@ export function PaymentReminderSetup({
             error={closingError ?? undefined}
             disabled={pending}
             className={DAY_FIELD}
-            inputClassName="leading-[normal] text-navy"
+            inputClassName={DAY_INPUT}
           />
           <TextField
             label="Payment due on day"
@@ -135,7 +139,7 @@ export function PaymentReminderSetup({
             error={dueError ?? undefined}
             disabled={pending}
             className={DAY_FIELD}
-            inputClassName="leading-[normal] text-navy"
+            inputClassName={DAY_INPUT}
           />
 
           <ReminderToggle

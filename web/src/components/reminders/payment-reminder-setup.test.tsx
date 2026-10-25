@@ -79,7 +79,7 @@ describe("PaymentReminderSetup", () => {
     fireEvent.change(dueField(), { target: { value: "9" } });
     fireEvent.click(screen.getByRole("switch", { name: "3 days before the statement closes" }));
     fireEvent.click(saveButton());
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/home"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
     expect(sent(fetchFn)).toEqual([
       ["PATCH", `/api/v1/applications/${ID}`, { statementClosingDay: 14, paymentDueDay: 9 }],
       ["PATCH", "/api/v1/me/reminder-settings", { statementClosing: false }],
@@ -98,15 +98,16 @@ describe("PaymentReminderSetup", () => {
     expect((await screen.findByRole("alert")).textContent).toContain("Your dates are saved, but your reminder choices are not.");
     expect(fetchFn).toHaveBeenCalledTimes(2);
     expect(sent(fetchFn).some(([method]) => method === "PUT")).toBe(false);
-    expect(push).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
 
     // Try again: the unsaved choice is sent again, then the star.
     fireEvent.click(saveButton());
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/home"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
     expect(sent(fetchFn).slice(2).map(([method, url, body]) => [method, url, body])).toEqual([
       ["PATCH", `/api/v1/applications/${ID}`, { statementClosingDay: 14, paymentDueDay: 9 }],
       ["PATCH", "/api/v1/me/reminder-settings", { paymentDue: false }],
-      ["PUT", `/api/v1/applications/${ID}/plans/first_month/steps/payment_reminder`, undefined],
+      // The due-date reminder is off, so the star is put out, not lit.
+      ["DELETE", `/api/v1/applications/${ID}/plans/first_month/steps/payment_reminder`, undefined],
     ]);
   });
 
@@ -115,7 +116,7 @@ describe("PaymentReminderSetup", () => {
     renderSetup({ closing: 14, due: 9 });
     fireEvent.click(saveButton());
     expect((await screen.findByRole("alert")).textContent).toBe("Closing and due days are for an approved card.");
-    expect(push).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
   });
 
   it("sends a signed-out student to sign-in and back to this screen", async () => {
@@ -125,6 +126,6 @@ describe("PaymentReminderSetup", () => {
     await waitFor(() =>
       expect(replace).toHaveBeenCalledWith(`/sign-in?next=${encodeURIComponent(`/applications/${ID}/reminders`)}`),
     );
-    expect(push).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalledWith("/home");
   });
 });

@@ -75,7 +75,9 @@ export async function saveReminderSetup({
     if (!choicesResult.ok) return failed("choices", choicesResult);
   }
 
-  const star = await savePlanStep(applicationId, "first_month", "payment_reminder", true);
+  // The star means a payment reminder is on: with the due-date email off it
+  // is put out, so Home never shows the step done without a reminder.
+  const star = await savePlanStep(applicationId, "first_month", "payment_reminder", choices.paymentDue);
   if (star.kind === "signed-out") return star;
   if (star.kind === "failed") return { kind: "failed", stage: "star", message: `${SAVED_BEFORE.star}${star.message}` };
   return { kind: "ok" };

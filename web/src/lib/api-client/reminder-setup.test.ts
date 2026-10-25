@@ -67,6 +67,22 @@ describe("saveReminderSetup", () => {
     expect(calls(fetchFn)[1]).toEqual({ method: "PATCH", url: "/api/v1/me/reminder-settings", body: { emailsOn: true } });
   });
 
+  it("puts the star out instead of lighting it when the due-date reminder is off", async () => {
+    const fetchFn = server(ok, ok, { status: 204, body: null });
+    const result = await saveReminderSetup({
+      applicationId: ID,
+      days: DAYS,
+      choices: { paymentDue: false, statementClosing: true },
+      savedChoices: ON,
+    });
+    expect(result).toEqual({ kind: "ok" });
+    expect(calls(fetchFn)[2]).toEqual({
+      method: "DELETE",
+      url: `/api/v1/applications/${ID}/plans/first_month/steps/payment_reminder`,
+      body: undefined,
+    });
+  });
+
   it("leaves emails off when both reminders are off", async () => {
     const fetchFn = server(ok, ok, ok);
     const off = { paymentDue: false, statementClosing: false };
