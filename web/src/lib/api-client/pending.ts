@@ -12,19 +12,6 @@ import { z } from "zod";
 import { PASSWORD_MAX, PASSWORD_MIN } from "../auth/password";
 import { FALLBACK_MESSAGE, OFFLINE_MESSAGE, readApiError, withTimeout } from "./client";
 
-const isoDate = z.iso.date();
-
-// C2: a reapply reminder email (D8).
-const reminderSchema = z.strictObject({
-  id: z.uuid(),
-  applicationId: z.uuid(),
-  remindOn: isoDate,
-  createdAt: z.iso.datetime({ offset: true }),
-});
-const createReminderSchema = z.strictObject({ applicationId: z.uuid(), remindOn: isoDate });
-
-export type Reminder = z.infer<typeof reminderSchema>;
-
 // Mabelle's draft PR #24 (password sign-in). Same shapes as its contract;
 // removed from here once #24 merges and the routes are in the real contract.
 const email = z.email().max(254);
@@ -47,8 +34,6 @@ const ENDPOINTS = {
     request: z.strictObject({ password: newPassword }),
     response: z.strictObject({ status: z.literal("password_updated") }),
   },
-  "GET /reminders": { response: z.strictObject({ reminders: z.array(reminderSchema) }) },
-  "POST /reminders": { request: createReminderSchema, response: reminderSchema },
 } as const;
 
 export type PendingEndpoint = keyof typeof ENDPOINTS;

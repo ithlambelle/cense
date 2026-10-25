@@ -1,7 +1,5 @@
 // Development-only answers for the pending endpoints (see pending.ts). Loaded
-// only when mocks are on. Kept per browser tab so a walkthrough behaves like
-// the real thing. The import from pending.ts is type-only, so it adds no code.
-import type { Reminder } from "./pending";
+// only when mocks are on.
 
 // CENSE_FIXTURE_SENTINEL: `npm run fixtures:check` (part of `npm run check`)
 // fails if this string shows up in the browser bundle.
@@ -17,34 +15,8 @@ export class MockApiError extends Error {
   }
 }
 
-function read<T>(key: string, fallback: T): T {
-  try {
-    const raw = sessionStorage.getItem(`cense:mock:${key}`);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function write(key: string, value: unknown) {
-  try {
-    sessionStorage.setItem(`cense:mock:${key}`, JSON.stringify(value));
-  } catch {
-    // Mocks only: losing state on reload is fine.
-  }
-}
-
 export async function mockPending(endpoint: string, body: unknown): Promise<unknown> {
-  const now = new Date().toISOString();
   switch (endpoint) {
-    case "GET /reminders":
-      return { reminders: read<Reminder[]>("reminders", []) };
-    case "POST /reminders": {
-      const input = body as { applicationId: string; remindOn: string };
-      const reminder: Reminder = { id: crypto.randomUUID(), ...input, createdAt: now };
-      write("reminders", [...read<Reminder[]>("reminders", []).filter((r) => r.applicationId !== input.applicationId), reminder]);
-      return reminder;
-    }
     case "POST /auth/password/signup":
       return { status: "signed_in" };
     case "POST /auth/password/signin":
