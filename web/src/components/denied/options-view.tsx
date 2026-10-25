@@ -8,38 +8,46 @@ import { TrackedLink } from "@/components/analytics/tracked-link";
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { Button } from "@/components/ui/button";
 import { choiceRowClass } from "@/components/ui/choice-row";
+import { ErrorMessage } from "@/components/ui/error-message";
 import { SelectionMark } from "@/components/ui/selection-mark";
 import { SENSITIVE, track } from "@/lib/analytics";
+import { DENIAL_NOTE_MAX, saveDenialReason, type DenialReason } from "@/lib/api-client/denial-reason";
+import { useIsMounted } from "@/lib/use-is-mounted";
 import { cn } from "@/lib/utils";
-import { deniedPath, ROUTES } from "@/lib/routes";
+import { deniedPath, ROUTES, signInPath, type DeniedStep } from "@/lib/routes";
 
-// The four reasons on "Was it one of these?" (Figma 144:2002, C6). The values
-// match card_applications.denial_reason on main; report_frozen has no choice.
+// The four reasons on "Was it one of these?" (Figma 144:2002, C6), saved as
+// the application's denialReason. report_frozen has no choice.
 const REASONS = [
   { value: "no_credit_history", label: "Not enough credit history" },
   { value: "income", label: "Not enough income" },
   { value: "could_not_verify", label: "Couldn’t verify my identity" },
   { value: "something_else", label: "Something else" },
-] as const;
+] as const satisfies readonly { value: DenialReason; label: string }[];
 
 type Reason = (typeof REASONS)[number]["value"];
+// Which answer is saving or failed: the reason's Continue, or "Not yet".
+type Answer = "reason" | "no-letter";
+
+// Only the dev gallery sets this, to show the reason step mid-save or failed
+// without calling the API.
+export type OptionsPreview = { reason: Reason; note?: string; saving?: Answer; error?: { answer: Answer; message: string } };
 
 // Denial options (Figma 144:1955, C5) and the reason reveal on the same page
 // (144:2002, C6). Issuers have up to 30 days to send the letter (Regulation B,
 // 12 CFR 1002.9(a)(1)), so the first question asks whether they know the reason
-// yet. "Not yet" will open the "No problem" screen (A1, 144:2322) once it is
-// built; until then it goes to the plan, as before.
-//
-// NOT SAVED YET: the API does not expose denial_reason (PATCH
-// /applications/{id} takes only status and creditLimitCents), so the reason and
-// the "Something else" note live in this page's state only and are dropped on
-// Continue. Nothing here claims a save. The note must never reach analytics or
-// a URL. Wire the save here when the contract gains denialReason.
-export function DeniedOptionsView({ applicationId }: { applicationId: string | null }) {
+// yet. Continue saves the reason (PATCH /applications/{id}) and then opens the
+// plan; "Not yet" saves no_letter_yet and opens "No problem" (A1, 144:2322).
+// Nothing moves on until the save answers, so no screen claims a save that
+// failed. The note must never reach analytics or a URL.
+export function DeniedOptionsView({ applicationId, preview }: { applicationId: string | null; preview?: OptionsPreview }) {
   const router = useRouter();
-  const [knowsReason, setKnowsReason] = useState(false);
-  const [reason, setReason] = useState<Reason | null>(null);
-  const [note, setNote] = useState("");
+  const isMounted = useIsMounted();
+  const [knowsReason, setKnowsReason] = useState(preview !== undefined);
+  const [reason, setReason] = useState<Reason | null>(preview?.reason ?? null);
+  const [note, setNote] = useState(preview?.note ?? "");
+  const [saving, setSaving] = useState<Answer | null>(preview?.saving ?? null);
+  const [error, setError] = useState<{ answer: Answer; message: string } | null>(preview?.error ?? null);
   const questionRef = useRef<HTMLElement>(null);
   const reasonHeadingRef = useRef<HTMLHeadingElement>(null);
   const noteId = useId();
@@ -52,7 +60,36 @@ export function DeniedOptionsView({ applicationId }: { applicationId: string | n
     reasonHeadingRef.current?.focus({ preventScroll: true });
   }, [knowsReason]);
 
+  // Saves the answer, then opens the next screen. Without a card there is
+  // nothing to save against, so it only moves on (that screen says so).
+  async function saveThenOpen(answer: Answer, value: DenialReason, next: DeniedStep) {
+    if (saving) return;
+    setError(null);
+    if (applicationId) {
+      setSaving(answer);
+      const result = await saveDenialReason(applicationId, value, note);
+      // The student left while it saved: the answer must not move them again.
+      if (!isMounted()) return;
+      setSaving(null);
+      if (result.kind === "signed-out") {
+        router.replace(signInPath(ROUTES.home));
+        return;
+      }
+      if (result.kind === "failed") {
+        setError({ answer, message: result.message });
+        return;
+      }
+      // Home shows the reason from its server render: refresh it, or Back
+      // restores the cached Home saying "not added".
+      router.refresh();
+    }
+    if (answer === "no-letter") track("denial_letter_answered", { answer: "waiting_on_letter" });
+    router.push(deniedPath(next, applicationId));
+  }
+
   function chooseKnowsReason() {
+    if (saving) return;
+    setError(null);
     if (knowsReason) {
       // Tapping the chosen answer again reopens the three answers.
       setKnowsReason(false);
@@ -93,13 +130,16 @@ export function DeniedOptionsView({ applicationId }: { applicationId: string | n
           {knowsReason ? null : (
             <>
               <li>
-                <TrackedLink
-                  href={deniedPath("plan", applicationId)}
-                  className={choiceRowClass}
-                  track={{ event: "denial_letter_answered", props: { answer: "waiting_on_letter" } }}
+                <button
+                  type="button"
+                  aria-busy={saving === "no-letter"}
+                  disabled={saving !== null}
+                  onClick={() => void saveThenOpen("no-letter", "no_letter_yet", "noLetter")}
+                  className={cn(choiceRowClass, "justify-between gap-4 text-left disabled:cursor-progress disabled:opacity-60")}
                 >
                   Not yet, I’m waiting on the letter
-                </TrackedLink>
+                  {saving === "no-letter" ? <Saving /> : null}
+                </button>
               </li>
               <li>
                 <TrackedLink
@@ -113,6 +153,7 @@ export function DeniedOptionsView({ applicationId }: { applicationId: string | n
             </>
           )}
         </ul>
+        {error?.answer === "no-letter" ? <ErrorMessage>{error.message}</ErrorMessage> : null}
       </section>
 
       {knowsReason ? (
@@ -132,7 +173,11 @@ export function DeniedOptionsView({ applicationId }: { applicationId: string | n
                 <button
                   type="button"
                   aria-pressed={reason === option.value}
-                  onClick={() => setReason(option.value)}
+                  disabled={saving !== null}
+                  onClick={() => {
+                    setReason(option.value);
+                    setError(null);
+                  }}
                   className={cn(choiceRowClass, "justify-between gap-4 text-left", SENSITIVE)}
                 >
                   {option.label}
@@ -149,7 +194,8 @@ export function DeniedOptionsView({ applicationId }: { applicationId: string | n
               <textarea
                 id={noteId}
                 value={note}
-                maxLength={200}
+                maxLength={DENIAL_NOTE_MAX}
+                disabled={saving !== null}
                 placeholder="Too many recent applications"
                 onChange={(event) => setNote(event.target.value)}
                 className={cn(
@@ -159,11 +205,28 @@ export function DeniedOptionsView({ applicationId }: { applicationId: string | n
               />
             </div>
           ) : null}
-          <Button disabled={!reason} onClick={() => router.push(deniedPath("plan", applicationId))}>
+          {error?.answer === "reason" ? <ErrorMessage>{error.message}</ErrorMessage> : null}
+          <Button
+            pending={saving === "reason"}
+            disabled={!reason}
+            onClick={() => {
+              if (reason) void saveThenOpen("reason", reason, "plan");
+            }}
+          >
             Continue
           </Button>
         </section>
       ) : null}
     </DeniedLayout>
+  );
+}
+
+// The small spinner the shared Button shows while saving, for the answer row.
+function Saving() {
+  return (
+    <span role="status" className="flex items-center">
+      <span aria-hidden="true" className="size-4 rounded-full border-2 border-violet border-r-transparent motion-safe:animate-spin" />
+      <span className="sr-only">Saving</span>
+    </span>
   );
 }

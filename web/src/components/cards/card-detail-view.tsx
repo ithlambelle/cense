@@ -86,6 +86,7 @@ export function CardDetailView({
             }}
             notes={cardNotes(card).map((note) => note.text)}
             signedIn={signedIn}
+            tracked={signedIn && tracked !== null}
           />
         </main>
         {signedIn ? (

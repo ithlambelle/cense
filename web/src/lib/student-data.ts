@@ -82,6 +82,20 @@ export async function loadApplication(student: Student, applicationId: string): 
   return data ? applicationFromRow(data as ApplicationRow) : null;
 }
 
+// One tracked card with its denial reason and note, autopay and closing and
+// due days, read as GET /applications/{id} reads it. Null when it is not this
+// student's.
+export async function loadApplicationDetail(student: Student, applicationId: string): Promise<ApplicationDetail | null> {
+  const { data, error } = await student.supabase
+    .from("card_applications")
+    .select(APPLICATION_DETAIL_FIELDS)
+    .eq("id", applicationId)
+    .eq("student_id", student.studentId)
+    .maybeSingle();
+  if (error) throw new Error("Could not read the student's card.");
+  return data ? applicationDetailFromRow(data as ApplicationDetailRow) : null;
+}
+
 // What the payment reminder screen starts from: one card with its closing and
 // due days, and the student's reminder settings (the same reads as GET
 // /applications/{id} and GET /me/reminder-settings). Null when the card is

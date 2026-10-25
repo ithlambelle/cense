@@ -6,6 +6,7 @@ import { MarkResult } from "@/components/applications/mark-result";
 import { WaitingView } from "@/components/applications/waiting-view";
 import { CardDetailView } from "@/components/cards/card-detail-view";
 import { CardListView } from "@/components/cards/card-list-view";
+import { NoLetterView } from "@/components/denied/no-letter-view";
 import { DeniedOptionsView } from "@/components/denied/options-view";
 import { DeniedPlanScreen } from "@/components/denied/plan-view";
 import { FixableView } from "@/components/denied/fixable-view";
@@ -19,6 +20,7 @@ import { localDevOnly } from "@/lib/dev-only";
 
 import { PaymentRemindersPreview } from "./payment-reminders-preview";
 import type { Application } from "@/lib/api/application";
+import { OFFLINE_MESSAGE } from "@/lib/api-client/client";
 
 export const metadata: Metadata = { title: "Screen preview", robots: { index: false } };
 
@@ -54,10 +56,34 @@ const SCREENS = {
     <CardListView cards={listCards()} signedIn yourMatch={{ name: "Discover it Student Cash Back", tier: "likely_fit" }} />
   ),
   denied: () => <DeniedOptionsView applicationId={SAMPLE_ID} />,
+  // The reason step as frame 144:2002 draws it, then mid-save and after a failed save.
+  "denied-reason": () => (
+    <DeniedOptionsView applicationId={SAMPLE_ID} preview={{ reason: "something_else", note: "Too many recent applications" }} />
+  ),
+  "denied-reason-saving": () => (
+    <DeniedOptionsView
+      applicationId={SAMPLE_ID}
+      preview={{ reason: "something_else", note: "Too many recent applications", saving: "reason" }}
+    />
+  ),
+  "denied-reason-error": () => (
+    <DeniedOptionsView
+      applicationId={SAMPLE_ID}
+      preview={{ reason: "something_else", note: "Too many recent applications", error: { answer: "reason", message: OFFLINE_MESSAGE } }}
+    />
+  ),
+  "denied-no-letter": () => <NoLetterView applicationId={SAMPLE_ID} />,
   // Shown on sample stars rather than loaded, so no session is needed.
   "denied-plan": () => <DeniedPlanScreen applicationId={SAMPLE_ID} start={{ done: [], state: "saved" }} />,
   "denied-plan-stars": () => (
     <DeniedPlanScreen applicationId={SAMPLE_ID} start={{ done: ["read_letter", "check_reports"], state: "saved" }} />
+  ),
+  "denied-plan-reason": () => (
+    <DeniedPlanScreen
+      applicationId={SAMPLE_ID}
+      start={{ done: ["read_letter", "check_reports"], state: "saved" }}
+      reason={{ reason: "no_credit_history", note: null }}
+    />
   ),
   reminder: () => <ReminderSetup applicationId={SAMPLE_ID} />,
   "reminder-saved": () => <ReminderSavedView dateLabel="April 16, 2027" />,

@@ -62,6 +62,7 @@ describe("tracked card paths", () => {
   it("keeps the card with the student through the rejection guide", () => {
     expect(deniedPath("options", ID)).toBe(`/denied?application=${ID}`);
     expect(deniedPath("reminderSaved", ID)).toBe(`/denied/reminder/saved?application=${ID}`);
+    expect(deniedPath("noLetter", ID)).toBe(`/denied/no-letter?application=${ID}`);
     expect(deniedPath("secondLook", null)).toBe("/denied/second-look");
   });
 

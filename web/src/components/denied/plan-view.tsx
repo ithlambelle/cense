@@ -1,14 +1,17 @@
 "use client";
 
 import ChevronRight from "@gravity-ui/icons/ChevronRight";
+import FileText from "@gravity-ui/icons/FileText";
 import StarFill from "@gravity-ui/icons/StarFill";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import { TrackOnMount } from "@/components/analytics/track-on-mount";
 import { AppHeader } from "@/components/ui/app-header";
 import { Button, ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
+import { SENSITIVE } from "@/lib/analytics";
+import { loadDenialReason, type SavedDenialReason } from "@/lib/api-client/denial-reason";
 import { loadPlanSteps, savePlanStep, type PlanStepName } from "@/lib/api-client/plans";
 import { deniedPath, ROUTES, signInPath } from "@/lib/routes";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
@@ -74,8 +77,7 @@ function loadPlan(applicationId: string) {
 }
 
 // A steady five-step plan (S22): one star lights for each finished step, saved
-// as denial plan steps. The frame's reason note ("Why?") is left out until the
-// API can read the denial reason.
+// as denial plan steps. The reason note (144:2070) shows the saved denial reason.
 export function DeniedPlanView({ applicationId }: { applicationId: string | null }) {
   if (!applicationId) return <DeniedPlanScreen applicationId={null} start={{ done: [], state: "read-only" }} />;
   return <SavedPlan applicationId={applicationId} />;
@@ -87,25 +89,47 @@ function SavedPlan({ applicationId }: { applicationId: string }) {
   // The return-path allow-list does not include this page, so Home it is.
   const { loaded, retry } = useLoaded(load, signInPath(ROUTES.home));
   const start: PlanStart = loaded.status === "ready" ? loaded.data : { done: [], state: loaded.status };
+  const reason = useDenialReason(applicationId);
   // A key per load state, so the stars start again from what was loaded.
   return (
     <DeniedPlanScreen
       key={loaded.status}
       applicationId={applicationId}
       start={start}
+      reason={reason}
       onRetry={loaded.status === "failed" ? retry : undefined}
     />
   );
+}
+
+// The saved denial reason for the note, read once. The note is extra, so it
+// stays hidden while loading or when the read fails; the plan works without it.
+function useDenialReason(applicationId: string): SavedDenialReason | null {
+  const [reason, setReason] = useState<SavedDenialReason | null>(null);
+  useEffect(() => {
+    let current = true;
+    loadDenialReason(applicationId)
+      .then((saved) => {
+        if (current) setReason(saved);
+      })
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [applicationId]);
+  return reason;
 }
 
 // Exported for the dev gallery, which shows it on sample stars.
 export function DeniedPlanScreen({
   applicationId,
   start,
+  reason = null,
   onRetry,
 }: {
   applicationId: string | null;
   start: PlanStart;
+  reason?: SavedDenialReason | null;
   onRetry?: () => void;
 }) {
   const [done, setDone] = useState<ReadonlySet<PlanStepName>>(() => new Set(start.done));
@@ -144,11 +168,12 @@ export function DeniedPlanScreen({
           <TrackOnMount event="denial_plan_viewed" />
           <div className="flex flex-col gap-2">
             {/* Breaks after "steady" as the frame does, never at the hyphen. */}
-            <h1 className="font-heading text-h1 font-semibold text-navy">
+            <h1 className="font-heading text-h1 font-medium text-navy">
               A steady <span className="whitespace-nowrap">five-step plan</span>
             </h1>
             <p className="text-body-m text-indigo-black">One step at a time. No rush.</p>
           </div>
+          {reason ? <ReasonNote reason={reason} /> : null}
           <p className="flex items-center gap-2 text-body-s font-medium text-indigo-black" aria-live="polite">
             <StarFill aria-hidden="true" width={16} height={16} className="shrink-0 text-amber" />
             {done.size} of {STEPS.length} done
@@ -159,8 +184,9 @@ export function DeniedPlanScreen({
               style={{ width: `${(done.size / STEPS.length) * 100}%` }}
             />
           </div>
-          {/* Figma strokes sit inside the box: padding is 20 by 6 less the 1.5 border, and
-              row dividers are inset shadows, so rows keep the frame's 54px. */}
+          {/* List row, Divider (Figma 273:2196). Strokes sit inside the box: padding is 20 by 6
+              less the 1.5 border, and row dividers are inset shadows, so rows keep the frame's
+              height. */}
           <ul className="flex flex-col rounded-card border-[1.5px] border-violet bg-white px-[18.5px] py-[4.5px]">
             {STEPS.map((step) => {
               const lit = done.has(step.id);
@@ -170,16 +196,17 @@ export function DeniedPlanScreen({
                   {lit ? <span className="sr-only">, done</span> : null}
                 </>
               );
-              const titleClass = cn("font-heading text-h6 font-medium", lit ? "text-indigo-black/70" : "text-indigo-black");
+              // A done step's title goes quiet: regular weight at 70%.
+              const titleClass = cn("text-body-m leading-[normal]", lit ? "text-indigo-black/70" : "font-medium text-indigo-black");
               return (
                 <li key={step.id} className="not-last:shadow-[inset_0_-1px_0_var(--color-off-white)]">
                   {open === step.id ? (
-                    <div className="flex items-start gap-2.5 py-3.5">
+                    <div className="flex items-start gap-3 py-3.5">
                       <StarSlot lit={lit} />
                       <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5 text-indigo-black">
                         {step.id === upNext ? <p className="text-[11px] leading-[13px] font-semibold text-violet">UP NEXT</p> : null}
                         <p className={titleClass}>{title}</p>
-                        <p className="text-body-s">{step.body}</p>
+                        <p className="text-body-s leading-[normal] text-indigo-black/70">{step.body}</p>
                         {step.link ? (
                           <a
                             href={step.link.href}
@@ -208,7 +235,7 @@ export function DeniedPlanScreen({
                       type="button"
                       aria-expanded={false}
                       onClick={() => setOpen(step.id)}
-                      className="flex w-full items-center gap-2.5 py-3.5 text-left outline-none focus-visible:outline-2 focus-visible:outline-ring"
+                      className="flex w-full items-center gap-3 py-3.5 text-left outline-none focus-visible:outline-2 focus-visible:outline-ring"
                     >
                       <StarSlot lit={lit} />
                       <span className={cn("min-w-0 flex-1", titleClass)}>{title}</span>
@@ -248,13 +275,74 @@ export function DeniedPlanScreen({
   );
 }
 
-// Figma "Star slot / lit" (144:2082) and "Star slot / empty" (144:2097).
+// The reason line for each saved answer. "Not yet" has no reason to show.
+// "Something else" reads "other": the student's own note is not shown as the
+// reason (Ben, 2026-10-24).
+function reasonLine({ reason }: SavedDenialReason): string | null {
+  switch (reason) {
+    case "no_credit_history":
+      return "Reason: no credit history yet";
+    case "income":
+      return "Reason: not enough income";
+    case "could_not_verify":
+      return "Reason: couldn’t verify identity";
+    case "report_frozen":
+      return "Reason: credit report frozen";
+    case "something_else":
+      return "Reason: other";
+    case "no_letter_yet":
+      return null;
+  }
+}
+
+// Behind "Why?". Only no credit history has one: the frame draws it for that
+// reason alone (the old "No credit file" notice, C5 to C7).
+const WHY: Partial<Record<SavedDenialReason["reason"], string>> = {
+  no_credit_history:
+    "It usually means the credit bureau doesn’t have a record for you yet. That’s common for students and isn’t a mark against you.",
+};
+
+// Frame 144:2070, in Lavender (off-white) rather than the frame's light blue
+// tint, which design is moving away from.
+function ReasonNote({ reason }: { reason: SavedDenialReason }) {
+  const [open, setOpen] = useState(false);
+  const whyId = useId();
+  const line = reasonLine(reason);
+  if (!line) return null;
+  const why = WHY[reason.reason];
+  return (
+    <section aria-label="Denial reason" className="flex flex-col gap-1 rounded-input bg-off-white px-4 py-3 text-indigo-black">
+      <div className="flex items-center gap-3">
+        <FileText aria-hidden="true" width={22} height={22} className="shrink-0 text-violet" />
+        <p className={cn("min-w-0 flex-1 font-heading text-body-s leading-[22px] font-semibold break-words", SENSITIVE)}>{line}</p>
+        {why ? (
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={whyId}
+            onClick={() => setOpen(!open)}
+            className="relative shrink-0 text-body-s font-semibold text-violet underline outline-none before:absolute before:-inset-3 before:content-[''] focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            Why?
+          </button>
+        ) : null}
+      </div>
+      {why && open ? (
+        <p id={whyId} className="pl-[34px] text-body-s">
+          {why}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+// List row "Lead / done" and "Lead / slot" (273:2161, 273:2145): 24px.
 function StarSlot({ lit }: { lit: boolean }) {
   return lit ? (
-    <span aria-hidden="true" className="flex size-[26px] shrink-0 items-center justify-center rounded-pill bg-amber">
+    <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-pill bg-amber">
       <StarFill width={12} height={12} className="animate-pop text-white" />
     </span>
   ) : (
-    <span aria-hidden="true" className="size-[26px] shrink-0 rounded-pill border-[1.5px] border-indigo-black/70" />
+    <span aria-hidden="true" className="size-6 shrink-0 rounded-pill border-[1.5px] border-indigo-black" />
   );
 }
