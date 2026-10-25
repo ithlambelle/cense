@@ -1,5 +1,5 @@
 -- Reminder fixes before real students (US-08, Reminders audit Oct 25: R-05,
--- R-07, R-13). Three changes to the functions in
+-- R-07, R-13, and the claim's speed). Four changes to the functions in
 -- 20261023200000_reminders_and_plan_steps.sql and 20261024220000_reminder_sender.sql:
 --
 -- 1. The first-statement email (check_autopay) goes only to a card the
@@ -18,6 +18,14 @@
 --    one whose date runs out first goes first. Before, ties went by random id,
 --    so a payment due today could lose to a closing tomorrow, and the due-date
 --    email was then dropped because its date had passed.
+-- 4. Speed. Checking a time zone name reads Postgres's whole list of zones
+--    (about 10 ms), and the claim did it for every pair of rows it compared:
+--    6 to 11 seconds with 82 students and 38 reminders on a local stack, near
+--    the API's 8-second statement limit, past which the job sends nothing
+--    (503). The claim now reads the list once (24 ms with every student on a
+--    saved zone), reminder_safe_tz skips the list for an empty zone (every
+--    student today: nothing saves one yet), and refresh_reminders checks the
+--    zone once per card. The rule itself is unchanged.
 --
 -- Applied by hand in the Supabase SQL editor, after 20261024220000_reminder_sender.sql.
 -- Safe to run again.
@@ -31,9 +39,26 @@ update public.reminders
 set attempted_at = claimed_at
 where attempted_at is null and attempts > 0 and claimed_at is not null;
 
+-- 4. The same rule as before (an empty or unknown name is New York), but an
+-- empty one is answered without reading the list of zones.
+create or replace function public.reminder_safe_tz(p_time_zone text)
+returns text
+language sql
+stable
+set search_path = ''
+as $$
+  select case
+    when p_time_zone is null or p_time_zone = '' then 'America/New_York'
+    when exists (select 1 from pg_catalog.pg_timezone_names where name = p_time_zone) then p_time_zone
+    else 'America/New_York'
+  end;
+$$;
+
 -- 1. First-statement email: scheduled only for a new card, and only while
--- the first statement closed at most 3 days ago. The rest of the function is
--- unchanged.
+-- the first statement closed at most 3 days ago. 4: each send time is worked
+-- out from v_tz, already checked, instead of checking it again in
+-- reminder_due_at (the same 9:00 on the student's calendar). The rest of the
+-- function is unchanged.
 create or replace function public.refresh_reminders(p_application_id uuid, p_today date default null)
 returns void
 language plpgsql
@@ -90,7 +115,7 @@ begin
   if coalesce(v_profile.remind_statement_closing, true) then
     insert into public.reminders (student_id, card_application_id, kind, occurrence, due_at)
     values (v_app.student_id, v_app.id, 'statement_closing', v_close,
-            public.reminder_due_at(greatest(v_close - 3, v_today), v_tz))
+            (greatest(v_close - 3, v_today) + time '09:00') at time zone v_tz)
     on conflict (card_application_id, kind, occurrence) do nothing;
   end if;
 
@@ -106,7 +131,7 @@ begin
                      where card_application_id = v_app.id and kind = 'check_autopay') then
     insert into public.reminders (student_id, card_application_id, kind, occurrence, due_at)
     values (v_app.student_id, v_app.id, 'check_autopay', v_first_close,
-            public.reminder_due_at(greatest(v_first_close + 1, v_today), v_tz));
+            (greatest(v_first_close + 1, v_today) + time '09:00') at time zone v_tz);
   end if;
 
   -- a new card's first payment due is the one after its first statement
@@ -116,13 +141,13 @@ begin
       case when v_app.source = 'application' then greatest(v_today, v_first_close + 1) else v_today end);
     insert into public.reminders (student_id, card_application_id, kind, occurrence, due_at)
     values (v_app.student_id, v_app.id, 'payment_due', v_due,
-            public.reminder_due_at(greatest(v_due - 3, v_today), v_tz))
+            (greatest(v_due - 3, v_today) + time '09:00') at time zone v_tz)
     on conflict (card_application_id, kind, occurrence) do nothing;
   end if;
 end;
 $$;
 
--- 1, 2 and 3 in the claim. Changes from the sender migration are marked NEW.
+-- 1, 2, 3 and 4 in the claim. Changes from the sender migration are marked NEW.
 create or replace function public.claim_due_reminders(p_limit int default 50)
 returns table (
   reminder_id uuid,
@@ -147,7 +172,12 @@ begin
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext('cense.claim_due_reminders'));
 
   return query
-  with student_day as (
+  -- NEW: the names Postgres knows, read once (reminder_safe_tz's rule, in one pass)
+  with zones as materialized (
+    select name from pg_catalog.pg_timezone_names
+  ),
+  -- NEW: materialized, so each student's day is worked out once
+  student_day as materialized (
     -- each student's time zone and the start of their today and tomorrow
     select p.student_id,
            p.reminders_unsubscribed_at,
@@ -159,7 +189,8 @@ begin
            ((now() at time zone z.tz)::date)::timestamp at time zone z.tz as today_starts,
            ((now() at time zone z.tz)::date + 1)::timestamp at time zone z.tz as tomorrow_starts
     from public.profiles p
-    cross join lateral (select public.reminder_safe_tz(p.time_zone) as tz) z
+    left join zones n on n.name = p.time_zone
+    cross join lateral (select coalesce(n.name, 'America/New_York') as tz) z
   ),
   eligible as (
     -- the due reminder of each student who can get an email today whose

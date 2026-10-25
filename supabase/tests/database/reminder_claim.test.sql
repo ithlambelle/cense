@@ -10,7 +10,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(25);
+select plan(27);
 
 create temp table students (name text primary key, id uuid);
 insert into students values
@@ -25,7 +25,9 @@ insert into students values
   ('unsubscribed', 'c0000000-0000-4000-8000-000000000009'),
   ('kind_off',     'c0000000-0000-4000-8000-000000000010'),
   ('passed',       'c0000000-0000-4000-8000-000000000011'),
-  ('rejected',     'c0000000-0000-4000-8000-000000000012');
+  ('rejected',     'c0000000-0000-4000-8000-000000000012'),
+  ('tokyo',        'c0000000-0000-4000-8000-000000000013'),
+  ('bad_zone',     'c0000000-0000-4000-8000-000000000014');
 insert into auth.users (id, email) select id, 'claim-' || name || '@example.com' from students;
 
 create function pg_temp.student(p_name text) returns uuid language sql as $$
@@ -35,6 +37,8 @@ $$;
 -- Settings first: changing them re-plans, which would remove the rows below.
 update public.profiles set reminders_unsubscribed_at = now() where student_id = pg_temp.student('unsubscribed');
 update public.profiles set remind_payment_due = false where student_id = pg_temp.student('kind_off');
+update public.profiles set time_zone = 'Asia/Tokyo' where student_id = pg_temp.student('tokyo');
+update public.profiles set time_zone = 'Not/AZone' where student_id = pg_temp.student('bad_zone');
 
 -- A card with no closing day, so the scheduler adds nothing of its own and
 -- the reminders below are the only ones.
@@ -73,7 +77,9 @@ insert into rows values
   ('unsubscribed', pg_temp.due(pg_temp.card(pg_temp.student('unsubscribed')), 'statement_closing', 2)),
   ('kind_off',     pg_temp.due(pg_temp.card(pg_temp.student('kind_off')), 'payment_due', 2)),
   ('passed',       pg_temp.due(pg_temp.card(pg_temp.student('passed')), 'statement_closing', -1)),
-  ('rejected',     pg_temp.due(pg_temp.card(pg_temp.student('rejected'), 'application', 'rejected'), 'statement_closing', 2));
+  ('rejected',     pg_temp.due(pg_temp.card(pg_temp.student('rejected'), 'application', 'rejected'), 'statement_closing', 2)),
+  ('tokyo',        pg_temp.due(pg_temp.card(pg_temp.student('tokyo')), 'statement_closing', 2)),
+  ('bad_zone',     pg_temp.due(pg_temp.card(pg_temp.student('bad_zone')), 'statement_closing', 2));
 
 -- Two reminders due the same day, with the same send time. The ids put the
 -- one that can wait first, so a tie broken by id would pick it.
@@ -129,6 +135,11 @@ select is_empty($$select pg_temp.claimed('claim1', 'passed')$$,
   'nothing about a closing date that has passed');
 select is_empty($$select pg_temp.claimed('claim1', 'rejected')$$,
   'no card reminder for a card that is no longer approved');
+
+select is((select time_zone from claim1 where student_id = pg_temp.student('tokyo')), 'Asia/Tokyo',
+  'a student''s saved time zone comes back with the claim');
+select is((select time_zone from claim1 where student_id = pg_temp.student('bad_zone')), 'America/New_York',
+  'an unknown time zone is claimed as New York');
 
 -- The send failed. The reminder is released, and a second run the same day
 -- (the job run again by hand) does not try it again.

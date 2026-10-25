@@ -8,7 +8,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(19);
+select plan(25);
 
 -- The card's set-up day is the server's own clock; the tests set it by hand.
 alter table public.card_applications disable trigger card_applications_set_card_set_up_at;
@@ -18,7 +18,8 @@ insert into auth.users (id, email) values
   ('a0000000-0000-4000-8000-000000000002', 'schedule-added@example.com'),
   ('a0000000-0000-4000-8000-000000000003', 'schedule-late@example.com'),
   ('a0000000-0000-4000-8000-000000000004', 'schedule-settings@example.com'),
-  ('a0000000-0000-4000-8000-000000000005', 'schedule-unsubscribed@example.com');
+  ('a0000000-0000-4000-8000-000000000005', 'schedule-unsubscribed@example.com'),
+  ('a0000000-0000-4000-8000-000000000006', 'schedule-tokyo@example.com');
 
 -- An approved card with its closing and due days, set up on p_set_up.
 create function pg_temp.approved_card(p_student uuid, p_source text, p_close int, p_due int, p_set_up date)
@@ -51,6 +52,13 @@ select is(public.reminder_next_on_day(31, '2027-02-01'), date '2027-02-28', 'day
 select is(public.reminder_next_on_day(31, '2028-02-01'), date '2028-02-29', 'day 31 in a leap February is the 29th');
 select is(public.reminder_next_on_day(30, '2027-01-31'), date '2027-02-28', 'a day already past this month moves to next month');
 select is(public.reminder_next_on_day(12, '2026-10-12'), date '2026-10-12', 'today counts as the next day');
+
+-- Time zones: an empty or unknown name is New York, a real one is kept.
+select is(public.reminder_safe_tz(null), 'America/New_York', 'no time zone saved is New York');
+select is(public.reminder_safe_tz(''), 'America/New_York', 'an empty time zone is New York');
+select is(public.reminder_safe_tz('Not/AZone'), 'America/New_York', 'an unknown time zone is New York');
+select is(public.reminder_safe_tz('Asia/Tokyo'), 'Asia/Tokyo', 'a real time zone is kept');
+select is(public.reminder_safe_tz('America/Los_Angeles'), 'America/Los_Angeles', 'another real time zone is kept');
 
 -- A new card (source application) set up Oct 25, closing day 12, due day 9:
 -- closing reminder 3 days before Nov 12, the first-statement email the day
@@ -184,6 +192,17 @@ select is(
    where card_application_id = (select id from cards where name = 'added') and kind = 'statement_closing' and sent_at is not null and occurrence = '2026-11-12'),
   1,
   'a sent reminder stays as it was when the days change');
+
+-- A student in Tokyo gets theirs at 9:00 on their own calendar.
+update public.profiles set time_zone = 'Asia/Tokyo' where student_id = 'a0000000-0000-4000-8000-000000000006';
+insert into cards values
+  ('tokyo', pg_temp.approved_card('a0000000-0000-4000-8000-000000000006', 'added', 12, 9, '2026-10-25'));
+select public.refresh_reminders((select id from cards where name = 'tokyo'), '2026-10-25');
+select is(
+  (select to_char(due_at at time zone 'Asia/Tokyo', 'YYYY-MM-DD HH24:MI') from public.reminders
+   where card_application_id = (select id from cards where name = 'tokyo') and kind = 'statement_closing'),
+  '2026-11-09 09:00',
+  'reminders go at 9:00 in the student''s own time zone');
 
 -- Students cannot run the scheduler.
 select ok(
