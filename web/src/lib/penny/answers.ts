@@ -1,6 +1,7 @@
 // Penny's checked answers (Ask Penny, S34; Flow 5 frames 144:3045). Every
 // answer was read against the official page it cites on 2026-10-25, and every
-// number in it appears on that page. Change an answer only after re-reading
+// number in it appears on that page. The audit that day reworded five so they
+// keep a condition their source sets (answers.test.ts). Change an answer only after re-reading
 // its source. A tapped question shows its answer exactly as written here; a
 // typed question is answered by the model from these facts only
 // (lib/penny/ask.ts), and the source shown always comes from this file.
@@ -49,7 +50,7 @@ export const PENNY_ANSWERS = [
     topic: "credit",
     question: "Preapproval vs. applying",
     answer:
-      "Preapproval comes from a lender prescreening your credit file, which counts as a soft inquiry. Soft inquiries do not affect your score, so it stays the same. Applying is what triggers a hard inquiry. Lenders use it to decide on approval, and hard inquiries can affect your score.",
+      "Preapproved offers usually come from a lender prescreening your credit file, which counts as a soft inquiry. Soft inquiries do not affect your credit scores. Applying is what triggers a hard inquiry. Lenders use it to decide on approval, and hard inquiries can affect your score.",
     source: { name: "CFPB", url: "https://www.consumerfinance.gov/ask-cfpb/what-is-a-credit-inquiry-en-1317/" },
   },
   {
@@ -57,7 +58,7 @@ export const PENNY_ANSWERS = [
     topic: "credit",
     question: "How do I avoid paying interest?",
     answer:
-      "Most cards have a grace period between the end of a billing cycle and the due date. Paying the full balance by the due date means no interest on new purchases. Paying less ends the grace period, so interest applies to the unpaid part and new purchases. Cash advances usually start interest right away.",
+      "Most cards give a grace period between the end of a billing cycle and the due date. If you carry no balance, paying in full by then means no interest on new purchases. Paying less ends the grace period, so the unpaid part and new purchases get interest. Cash advances usually start interest right away.",
     source: { name: "CFPB", url: "https://www.consumerfinance.gov/ask-cfpb/what-is-a-grace-period-for-a-credit-card-en-47/" },
   },
   {
@@ -65,7 +66,7 @@ export const PENNY_ANSWERS = [
     topic: "credit",
     question: "What is a secured card?",
     answer:
-      "With a secured card, you deposit money with the bank or credit union, then spend that money using the card. It is one option if you cannot get a regular credit card. It can help build credit history when the card reports to the three credit bureaus.",
+      "A secured card starts with a deposit at a bank or credit union. It is still a credit card, with one bill a month for what you buy. It is an option if you cannot get a regular card, and it can help build credit history when it reports to the three credit bureaus.",
     source: { name: "FTC", url: "https://consumer.gov/credit/getting-credit-card" },
   },
   {
@@ -89,7 +90,7 @@ export const PENNY_ANSWERS = [
     topic: "credit",
     question: "What happens if I pay late?",
     answer:
-      "Paying on time means paying at least the minimum by the due date. Missing it can bring a late fee and a higher penalty rate on new purchases. It can also end an introductory rate, moving your existing balance to the higher long-term rate. Late or missed payments can also hurt your credit history.",
+      "Paying on time means paying at least the minimum by the due date. Missing it can bring a late fee and a higher penalty rate on new purchases. Late or missed payments can also hurt your credit history.",
     source: { name: "CFPB", url: "https://www.consumerfinance.gov/data-research/credit-card-data/know-you-owe-credit-cards/" },
   },
   {
@@ -129,8 +130,8 @@ export const PENNY_ANSWERS = [
     topic: "budgeting",
     question: "What is an overdraft fee?",
     answer:
-      "An overdraft is when your bank lets a debit card purchase or ATM withdrawal go through without enough money in your account. Banks cannot charge a fee for that unless you opted in. If you overdraw, you owe the fee plus the amount you were short. Without opting in, those transactions could be declined.",
-    source: { name: "CFPB", url: "https://www.consumerfinance.gov/paying-for-college/manage-your-college-money/" },
+      "An overdraft is when your bank covers a transaction you don’t have enough money for, and charges a fee. For one-time debit card purchases and ATM withdrawals, banks cannot charge that fee unless you opted in. Checks and recurring electronic payments can bring fees even if you did not opt in.",
+    source: { name: "CFPB", url: "https://www.consumerfinance.gov/ask-cfpb/what-can-i-do-if-my-bank-charged-me-a-fee-for-overdrawing-my-account-en-1037/" },
   },
   {
     id: "buy-now-pay-later",

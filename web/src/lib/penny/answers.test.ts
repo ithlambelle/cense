@@ -84,3 +84,34 @@ describe("topics and starters", () => {
     expect(answer).toContain("Applying is what triggers a hard inquiry.");
   });
 });
+
+// Conditions each answer's source sets, which an earlier wording dropped
+// (audit PEN-03, Oct 25 2026). Re-read the source before changing one.
+describe("answers keep their sources' conditions", () => {
+  const text = (id: string) => findAnswer(id)?.answer ?? "";
+
+  it("preapproval: prescreening is usual, not a promise the score stays the same", () => {
+    expect(text("preapproval-vs-applying")).toContain("usually come from a lender prescreening");
+    expect(text("preapproval-vs-applying")).not.toContain("stays the same");
+  });
+
+  it("avoid interest: paying in full avoids interest only when no balance is carried", () => {
+    expect(text("avoid-interest")).toContain("If you carry no balance, paying in full");
+  });
+
+  it("secured card: still a credit card, with a bill each month", () => {
+    expect(text("secured-card")).toContain("It is still a credit card, with one bill a month");
+  });
+
+  it("paying late: never says one late payment moves an existing balance to a higher rate", () => {
+    // Reg Z 1026.55(b)(4): only a payment more than 60 days late can.
+    expect(text("paying-late")).not.toMatch(/introductory|existing balance/i);
+  });
+
+  it("overdraft: opting in covers one-time debit and ATM only, from CFPB's page that says so", () => {
+    expect(text("overdraft-fees")).toContain("Checks and recurring electronic payments can bring fees even if you did not opt in.");
+    expect(findAnswer("overdraft-fees")?.source.url).toBe(
+      "https://www.consumerfinance.gov/ask-cfpb/what-can-i-do-if-my-bank-charged-me-a-fee-for-overdrawing-my-account-en-1037/",
+    );
+  });
+});
