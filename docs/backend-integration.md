@@ -10,7 +10,12 @@ cached.
 1. Send `POST /api/v1/auth/email` with `{ "email": "..." }` to request a code.
 2. Send `POST /api/v1/auth/email/verify` with `{ "email": "...", "code": "123456" }`.
    A wrong or expired code returns `401` with code `invalid_code`; the user can
-   request a new code through step 1.
+   request a new code through step 1. When this code is what confirms the
+   account (its email was never confirmed before), any password set before it
+   is replaced with a random one and other sessions end: anyone can sign up
+   with someone else's email, so a password set before the inbox was proven may
+   not be the student's. The student can set one with Forgot password. An
+   account confirmed earlier keeps its password.
 3. The Google button navigates to `/api/v1/auth/google?next=/quiz`. The `next`
    value must be an app-relative path. Supabase returns through
    `/api/v1/auth/callback` and the API redirects to that path. A cancelled or
@@ -22,7 +27,18 @@ cached.
 Optional password flows use `POST /api/v1/auth/password/signup` and
 `POST /api/v1/auth/password/signin` with `{ "email": "...", "password": "..." }`.
 Sign-up returns `signed_in` when confirmation is disabled, or `check_email`
-when the student must confirm their address. Sign-in returns `401`
+when the student must confirm their address. To confirm, send the emailed
+code with the same password to `POST /api/v1/auth/password/signup/confirm`
+(`{ "email": "...", "code": "123456", "password": "..." }`). It verifies the
+code, then sets that password and ends any other session, because Supabase
+keeps the password from the first sign-up on an unconfirmed account. It
+answers `{ "status": "signed_in", "passwordChanged": true }`. If the account
+was confirmed earlier, nothing changes: a sign-up never changes a confirmed
+account's password, only Forgot password does. The student is signed in and
+the answer has `passwordChanged: false`, so the screen can say the password
+did not change. A log-in on an account that was never confirmed returns `403`
+`email_not_confirmed`; the screen then sends a code and confirms it here with
+the password just typed, so that password is kept. Sign-in returns `401`
 `invalid_credentials` for an incorrect email or password. To reset a password,
 send `{ "email": "..." }` to `POST /api/v1/auth/password/reset`. The emailed
 link returns through `/api/v1/auth/password/reset/verify` and then opens

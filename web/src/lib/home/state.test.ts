@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Application } from "../api/application";
 import { listCards } from "../cards/catalog";
 import { computeResult } from "../results/compute";
-import { homeState, planApplication } from "./state";
+import { cardApplication, celebrating, homeState, planApplication, profileInitial } from "./state";
 
 const ALL_SIX = { under21: true, incomeBand: "under_5k", student: true, standing: "none", recentDenial: false, canDeposit: true };
 const cards = listCards();
@@ -69,5 +69,41 @@ describe("planApplication", () => {
     expect(planApplication([older, denied], denied.id)).toBe(older);
     expect(planApplication([denied], denied.id)).toBeNull();
     expect(planApplication([], null)).toBeNull();
+  });
+});
+
+describe("cardApplication", () => {
+  const forCard = (application: Application) => ({ ...application, cardId: "discover-it-student-cash-back" });
+  const older = forCard(app("1", "applied", "2026-10-10T00:00:00Z"));
+  const newer = forCard(app("2", "approved", "2026-10-12T00:00:00Z"));
+  const denied = forCard(app("3", "rejected", "2026-10-14T00:00:00Z"));
+  const other = app("4", "applied", "2026-10-15T00:00:00Z");
+
+  it("picks the most recently changed application for the card that is still open to update", () => {
+    expect(cardApplication([older, denied, newer, other], "discover-it-student-cash-back")).toBe(newer);
+  });
+
+  it("falls back to a denied one, and is null for a card the student does not track", () => {
+    expect(cardApplication([denied, other], "discover-it-student-cash-back")).toBe(denied);
+    expect(cardApplication([other], "discover-it-student-cash-back")).toBeNull();
+  });
+});
+
+describe("celebrating", () => {
+  const none = computeResult(undefined, cards);
+  it("celebrates only the approved card Home leads with, named by the flag", () => {
+    const newest = app("1", "approved", "2026-10-22T00:00:00Z");
+    const state = homeState([newest, app("2", "approved", "2026-10-01T00:00:00Z")], none, true);
+    expect(celebrating(state, newest.id)).toBe(true);
+    expect(celebrating(state, null)).toBe(false);
+    expect(celebrating(state, "00000000-0000-4000-8000-000000000002")).toBe(false);
+    expect(celebrating(homeState([app("1", "applied", "2026-10-22T00:00:00Z")], none, true), newest.id)).toBe(false);
+  });
+});
+
+describe("profileInitial", () => {
+  it("uses the email's first letter, uppercase, until a name is saved", () => {
+    expect(profileInitial("maya@bu.edu")).toBe("M");
+    expect(profileInitial(null)).toBe("");
   });
 });

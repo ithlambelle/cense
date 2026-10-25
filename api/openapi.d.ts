@@ -47,7 +47,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Verify an email code and create a session */
+        /**
+         * Verify an email code and create a session
+         * @description When this code is what confirms the account, any password set before it is replaced with a random one and other sessions end.
+         */
         post: operations["verifyEmailCode"];
         delete?: never;
         options?: never;
@@ -66,6 +69,26 @@ export interface paths {
         put?: never;
         /** Create an optional password account */
         post: operations["signUpWithPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/password/signup/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a password sign-up with the emailed code and set its password
+         * @description Sets the chosen password and ends other sessions only when this code is what confirms the account. An account confirmed earlier keeps its password and sessions, and `passwordChanged` is false.
+         */
+        post: operations["confirmPasswordSignUp"];
         delete?: never;
         options?: never;
         head?: never;
@@ -285,14 +308,112 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Read one tracked card with its denial reason, autopay and closing and due days */
+        get: operations["getApplication"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /** Update application status */
+        /**
+         * Update a tracked card: status, credit limit, denial reason and note, autopay, closing and due days
+         * @description Any of the fields, at least one. A credit limit and the closing and due days need an approved card, a denial reason and note a rejected one. Saving the days, status or autopay re-plans the card's reminders.
+         */
         patch: operations["updateApplication"];
+        trace?: never;
+    };
+    "/applications/{id}/plans/{plan}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the finished steps of a first-month or denial plan */
+        get: operations["getPlanProgress"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/applications/{id}/plans/{plan}/steps/{step}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Mark a plan step done (doing it again keeps the first time) */
+        put: operations["completePlanStep"];
+        post?: never;
+        /** Undo a plan step */
+        delete: operations["undoPlanStep"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the student's reminders, sent and upcoming */
+        get: operations["listReminders"];
+        put?: never;
+        /**
+         * Set the reapply reminder for a denied application (replaces an unsent one)
+         * @description The day must be tomorrow to a year from now on the student's calendar. The answer carries the day as remindOn.
+         */
+        post: operations["createReapplyReminder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reminders/{id}/acted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark a sent reminder acted on (keeps the first time) */
+        post: operations["markReminderActed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/reminder-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the student's reminder settings */
+        get: operations["getReminderSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Turn reminder kinds, or all reminder emails, on or off
+         * @description Turning a kind off removes its unsent reminders; turning it on schedules them again. emailsOn false stops every reminder email.
+         */
+        patch: operations["updateReminderSettings"];
         trace?: never;
     };
     "/issuer-clicks": {
@@ -430,6 +551,26 @@ export interface components {
             /** Format: date-time */
             statusUpdatedAt: string;
         };
+        ApplicationDetail: {
+            /** Format: uuid */
+            id: string;
+            cardId: string | null;
+            cardName: string;
+            /** @enum {string} */
+            status: "applied" | "approved" | "rejected";
+            creditLimitCents: number | null;
+            /** Format: date-time */
+            appliedAt: string | null;
+            /** Format: date-time */
+            statusUpdatedAt: string;
+            /** @enum {string|null} */
+            denialReason: "no_credit_history" | "could_not_verify" | "report_frozen" | "income" | "something_else" | "no_letter_yet" | null;
+            denialReasonNote: string | null;
+            /** @enum {string} */
+            autopayStatus: "on" | "off" | "unknown";
+            statementClosingDay: number | null;
+            paymentDueDay: number | null;
+        };
         Recommendation: {
             /** Format: uuid */
             id: string;
@@ -439,6 +580,45 @@ export interface components {
             reason: string | null;
             /** Format: date-time */
             createdAt: string;
+        };
+        PlanStep: {
+            /** @enum {string} */
+            step: "planned_purchase" | "payment_reminder" | "read_letter" | "check_reports" | "pause_applications" | "build_credit" | "reapply";
+            /** Format: date-time */
+            completedAt: string;
+        };
+        PlanProgress: {
+            /** Format: uuid */
+            applicationId: string;
+            /** @enum {string} */
+            plan: "first_month" | "denial";
+            completedSteps: components["schemas"]["PlanStep"][];
+        };
+        Reminder: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            applicationId: string;
+            /** @enum {string} */
+            kind: "statement_closing" | "payment_due" | "check_autopay" | "reapply";
+            /** Format: date */
+            occurrence: string;
+            /** Format: date */
+            remindOn: string;
+            /** Format: date-time */
+            dueAt: string;
+            /** Format: date-time */
+            sentAt: string | null;
+            /** Format: date-time */
+            actedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ReminderSettings: {
+            emailsOn: boolean;
+            statementClosing: boolean;
+            paymentDue: boolean;
+            checkAutopay: boolean;
         };
     };
     responses: never;
@@ -578,6 +758,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Account could not be secured */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     signUpWithPassword: {
@@ -628,6 +817,66 @@ export interface operations {
                 };
             };
             /** @description Sign-up unavailable */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    confirmPasswordSignUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    email: string;
+                    code: string;
+                    password: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "signed_in";
+                        passwordChanged: boolean;
+                    };
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Wrong or expired code */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Password could not be set */
             502: {
                 headers: {
                     [name: string]: unknown;
@@ -1244,6 +1493,64 @@ export interface operations {
             };
         };
     };
+    getApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDetail"];
+                };
+            };
+            /** @description Invalid application ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Application not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     updateApplication: {
         parameters: {
             query?: never;
@@ -1257,8 +1564,15 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    status: "applied" | "approved" | "rejected";
-                    creditLimitCents: number | null;
+                    status?: "applied" | "approved" | "rejected";
+                    creditLimitCents?: number | null;
+                    /** @enum {string|null} */
+                    denialReason?: "no_credit_history" | "could_not_verify" | "report_frozen" | "income" | "something_else" | "no_letter_yet" | null;
+                    denialReasonNote?: string | null;
+                    /** @enum {string} */
+                    autopayStatus?: "on" | "off" | "unknown";
+                    statementClosingDay?: number | null;
+                    paymentDueDay?: number | null;
                 };
             };
         };
@@ -1269,7 +1583,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Application"];
+                    "application/json": components["schemas"]["ApplicationDetail"];
                 };
             };
             /** @description Invalid update */
@@ -1301,6 +1615,494 @@ export interface operations {
             };
             /** @description Already exists */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getPlanProgress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                plan: "first_month" | "denial";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanProgress"];
+                };
+            };
+            /** @description Invalid application ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Application or plan not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    completePlanStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                plan: "first_month" | "denial";
+                step: "planned_purchase" | "payment_reminder" | "read_letter" | "check_reports" | "pause_applications" | "build_credit" | "reapply";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanStep"];
+                };
+            };
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanStep"];
+                };
+            };
+            /** @description Invalid application ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Application or plan step not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Plan not available for this application status */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    undoPlanStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                plan: "first_month" | "denial";
+                step: "planned_purchase" | "payment_reminder" | "read_letter" | "check_reports" | "pause_applications" | "build_credit" | "reapply";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Undone */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid application ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Application or plan step not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    listReminders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        reminders: components["schemas"]["Reminder"][];
+                    };
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    createReapplyReminder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    applicationId: string;
+                    /** Format: date */
+                    remindOn: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reminder"];
+                };
+            };
+            /** @description Invalid day or application not denied */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Application not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Already sent */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    markReminderActed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reminder"];
+                };
+            };
+            /** @description Invalid reminder ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Reminder not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Reminder not sent yet */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getReminderSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderSettings"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Profile not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    updateReminderSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    emailsOn?: boolean;
+                    statementClosing?: boolean;
+                    paymentDue?: boolean;
+                    checkAutopay?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderSettings"];
+                };
+            };
+            /** @description Invalid settings */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Profile not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -84,7 +84,7 @@ export function WelcomeScreen() {
         </div>
 
         <div className="relative flex flex-col gap-2.5 pt-6">
-          <Link href={ROUTES.signUp} className={buttonVariants()}>
+          <Link href={ROUTES.signUp} className={buttonVariants({ chevron: false })}>
             Get started
           </Link>
           <Link href={ROUTES.signIn} className={buttonVariants({ variant: "navyOutline" })}>

@@ -121,9 +121,9 @@ test("student marks an applied card as denied and reaches the five-step plan", a
   await page.getByRole("button", { name: "Yes, mark as denied" }).click();
 
   await expect(page).toHaveURL(/\/denied\?application=/);
-  await expect(page.getByRole("heading", { level: 1, name: "Denial Options" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Denial options" })).toBeVisible();
   await checkA11y("denied: options");
-  await page.getByRole("link", { name: "I don’t have the letter yet" }).click();
+  await page.getByRole("link", { name: "Not yet, I’m waiting on the letter" }).click();
 
   await expect(page).toHaveURL(/\/denied\/plan\?application=/);
   await expect(page.getByRole("heading", { level: 1, name: "A steady five-step plan" })).toBeVisible();

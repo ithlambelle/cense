@@ -1,7 +1,7 @@
 // Development-only answers for the pending endpoints (see pending.ts). Loaded
 // only when mocks are on. Kept per browser tab so a walkthrough behaves like
 // the real thing. The import from pending.ts is type-only, so it adds no code.
-import type { Plan, Reminder } from "./pending";
+import type { Reminder } from "./pending";
 
 // CENSE_FIXTURE_SENTINEL: `npm run fixtures:check` (part of `npm run check`)
 // fails if this string shows up in the browser bundle.
@@ -16,8 +16,6 @@ export class MockApiError extends Error {
     super(message);
   }
 }
-
-const MOCK_APPLICATION_ID = "00000000-0000-4000-8000-000000000001";
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -46,18 +44,6 @@ export async function mockPending(endpoint: string, body: unknown): Promise<unkn
       const reminder: Reminder = { id: crypto.randomUUID(), ...input, createdAt: now };
       write("reminders", [...read<Reminder[]>("reminders", []).filter((r) => r.applicationId !== input.applicationId), reminder]);
       return reminder;
-    }
-    case "GET /plan":
-      return read<Plan>("plan", {
-        applicationId: MOCK_APPLICATION_ID,
-        actions: { autopay: false, plannedPurchase: false, paymentReminder: false },
-        updatedAt: now,
-      });
-    case "PATCH /plan": {
-      const current = (await mockPending("GET /plan", undefined)) as Plan;
-      const next: Plan = { ...current, actions: { ...current.actions, ...(body as { actions: Partial<Plan["actions"]> }).actions }, updatedAt: now };
-      write("plan", next);
-      return next;
     }
     case "POST /auth/password/signup":
       return { status: "signed_in" };

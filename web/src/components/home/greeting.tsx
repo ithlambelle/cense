@@ -9,7 +9,7 @@ function greetingFor(hour: number): string {
   return "Good evening";
 }
 
-export function Greeting({ subtitle }: { subtitle: string }) {
+export function Greeting({ subtitle }: { subtitle?: string }) {
   const date = useNow();
 
   return (
@@ -19,7 +19,7 @@ export function Greeting({ subtitle }: { subtitle: string }) {
       </p>
       <div className="flex flex-col gap-2">
         <h1 className="font-heading text-h1 font-medium text-navy">{date ? greetingFor(date.getHours()) : "Hello"}</h1>
-        <p className="text-body-m text-indigo-black">{subtitle}</p>
+        {subtitle ? <p className="text-body-m text-indigo-black">{subtitle}</p> : null}
       </div>
     </div>
   );

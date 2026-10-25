@@ -317,6 +317,86 @@ components:
         - appliedAt
         - statusUpdatedAt
       additionalProperties: false
+    ApplicationDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        cardId:
+          type:
+            - string
+            - "null"
+        cardName:
+          type: string
+        status:
+          type: string
+          enum:
+            - applied
+            - approved
+            - rejected
+        creditLimitCents:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+        appliedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        statusUpdatedAt:
+          type: string
+          format: date-time
+        denialReason:
+          type:
+            - string
+            - "null"
+          enum:
+            - no_credit_history
+            - could_not_verify
+            - report_frozen
+            - income
+            - something_else
+            - no_letter_yet
+            - null
+        denialReasonNote:
+          type:
+            - string
+            - "null"
+          maxLength: 200
+        autopayStatus:
+          type: string
+          enum:
+            - on
+            - off
+            - unknown
+        statementClosingDay:
+          type:
+            - integer
+            - "null"
+          minimum: 1
+          maximum: 31
+        paymentDueDay:
+          type:
+            - integer
+            - "null"
+          minimum: 1
+          maximum: 31
+      required:
+        - id
+        - cardId
+        - cardName
+        - status
+        - creditLimitCents
+        - appliedAt
+        - statusUpdatedAt
+        - denialReason
+        - denialReasonNote
+        - autopayStatus
+        - statementClosingDay
+        - paymentDueDay
+      additionalProperties: false
     Recommendation:
       type: object
       properties:
@@ -346,6 +426,112 @@ components:
         - fitTier
         - reason
         - createdAt
+      additionalProperties: false
+    PlanStep:
+      type: object
+      properties:
+        step:
+          type: string
+          enum:
+            - planned_purchase
+            - payment_reminder
+            - read_letter
+            - check_reports
+            - pause_applications
+            - build_credit
+            - reapply
+        completedAt:
+          type: string
+          format: date-time
+      required:
+        - step
+        - completedAt
+      additionalProperties: false
+    PlanProgress:
+      type: object
+      properties:
+        applicationId:
+          type: string
+          format: uuid
+        plan:
+          type: string
+          enum:
+            - first_month
+            - denial
+        completedSteps:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanStep"
+      required:
+        - applicationId
+        - plan
+        - completedSteps
+      additionalProperties: false
+    Reminder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        applicationId:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - statement_closing
+            - payment_due
+            - check_autopay
+            - reapply
+        occurrence:
+          type: string
+          format: date
+        remindOn:
+          type: string
+          format: date
+        dueAt:
+          type: string
+          format: date-time
+        sentAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        actedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - applicationId
+        - kind
+        - occurrence
+        - remindOn
+        - dueAt
+        - sentAt
+        - actedAt
+        - createdAt
+      additionalProperties: false
+    ReminderSettings:
+      type: object
+      properties:
+        emailsOn:
+          type: boolean
+        statementClosing:
+          type: boolean
+        paymentDue:
+          type: boolean
+        checkAutopay:
+          type: boolean
+      required:
+        - emailsOn
+        - statementClosing
+        - paymentDue
+        - checkAutopay
       additionalProperties: false
   parameters: {}
   securitySchemes:
@@ -432,6 +618,8 @@ paths:
     post:
       operationId: verifyEmailCode
       summary: Verify an email code and create a session
+      description: When this code is what confirms the account, any password set
+        before it is replaced with a random one and other sessions end.
       requestBody:
         content:
           application/json:
@@ -471,6 +659,12 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "401":
           description: Wrong or expired code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: Account could not be secured
           content:
             application/json:
               schema:
@@ -527,6 +721,71 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "502":
           description: Sign-up unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /auth/password/signup/confirm:
+    post:
+      operationId: confirmPasswordSignUp
+      summary: Confirm a password sign-up with the emailed code and set its password
+      description: Sets the chosen password and ends other sessions only when this
+        code is what confirms the account. An account confirmed earlier keeps
+        its password and sessions, and `passwordChanged` is false.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  maxLength: 254
+                  format: email
+                code:
+                  type: string
+                  pattern: ^\d{6}$
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 72
+              required:
+                - email
+                - code
+                - password
+              additionalProperties: false
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - signed_in
+                  passwordChanged:
+                    type: boolean
+                required:
+                  - status
+                  - passwordChanged
+                additionalProperties: false
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Wrong or expired code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: Password could not be set
           content:
             application/json:
               schema:
@@ -1071,7 +1330,11 @@ paths:
   /applications/{id}:
     patch:
       operationId: updateApplication
-      summary: Update application status
+      summary: "Update a tracked card: status, credit limit, denial reason and note,
+        autopay, closing and due days"
+      description: Any of the fields, at least one. A credit limit and the closing and
+        due days need an approved card, a denial reason and note a rejected one.
+        Saving the days, status or autopay re-plans the card's reminders.
       security:
         - studentSession: []
       parameters:
@@ -1098,9 +1361,41 @@ paths:
                     - integer
                     - "null"
                   minimum: 0
-              required:
-                - status
-                - creditLimitCents
+                denialReason:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - no_credit_history
+                    - could_not_verify
+                    - report_frozen
+                    - income
+                    - something_else
+                    - no_letter_yet
+                    - null
+                denialReasonNote:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 200
+                autopayStatus:
+                  type: string
+                  enum:
+                    - on
+                    - off
+                    - unknown
+                statementClosingDay:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 1
+                  maximum: 31
+                paymentDueDay:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 1
+                  maximum: 31
               additionalProperties: false
       responses:
         "200":
@@ -1108,7 +1403,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Application"
+                $ref: "#/components/schemas/ApplicationDetail"
         "400":
           description: Invalid update
           content:
@@ -1129,6 +1424,467 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "409":
           description: Already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    get:
+      operationId: getApplication
+      summary: Read one tracked card with its denial reason, autopay and closing and
+        due days
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationDetail"
+        "400":
+          description: Invalid application ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /applications/{id}/plans/{plan}:
+    get:
+      operationId: getPlanProgress
+      summary: Read the finished steps of a first-month or denial plan
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+        - schema:
+            type: string
+            enum:
+              - first_month
+              - denial
+          required: true
+          name: plan
+          in: path
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanProgress"
+        "400":
+          description: Invalid application ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Application or plan not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /applications/{id}/plans/{plan}/steps/{step}:
+    put:
+      operationId: completePlanStep
+      summary: Mark a plan step done (doing it again keeps the first time)
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+        - schema:
+            type: string
+            enum:
+              - first_month
+              - denial
+          required: true
+          name: plan
+          in: path
+        - schema:
+            type: string
+            enum:
+              - planned_purchase
+              - payment_reminder
+              - read_letter
+              - check_reports
+              - pause_applications
+              - build_credit
+              - reapply
+          required: true
+          name: step
+          in: path
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanStep"
+        "201":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanStep"
+        "400":
+          description: Invalid application ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Application or plan step not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Plan not available for this application status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: undoPlanStep
+      summary: Undo a plan step
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+        - schema:
+            type: string
+            enum:
+              - first_month
+              - denial
+          required: true
+          name: plan
+          in: path
+        - schema:
+            type: string
+            enum:
+              - planned_purchase
+              - payment_reminder
+              - read_letter
+              - check_reports
+              - pause_applications
+              - build_credit
+              - reapply
+          required: true
+          name: step
+          in: path
+      responses:
+        "204":
+          description: Undone
+        "400":
+          description: Invalid application ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Application or plan step not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /reminders:
+    get:
+      operationId: listReminders
+      summary: List the student's reminders, sent and upcoming
+      security:
+        - studentSession: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reminders:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Reminder"
+                required:
+                  - reminders
+                additionalProperties: false
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      operationId: createReapplyReminder
+      summary: Set the reapply reminder for a denied application (replaces an unsent
+        one)
+      description: The day must be tomorrow to a year from now on the student's
+        calendar. The answer carries the day as remindOn.
+      security:
+        - studentSession: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                applicationId:
+                  type: string
+                  format: uuid
+                remindOn:
+                  type: string
+                  format: date
+              required:
+                - applicationId
+                - remindOn
+              additionalProperties: false
+      responses:
+        "201":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reminder"
+        "400":
+          description: Invalid day or application not denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Already sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /reminders/{id}/acted:
+    post:
+      operationId: markReminderActed
+      summary: Mark a sent reminder acted on (keeps the first time)
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reminder"
+        "400":
+          description: Invalid reminder ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Reminder not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Reminder not sent yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /me/reminder-settings:
+    get:
+      operationId: getReminderSettings
+      summary: Read the student's reminder settings
+      security:
+        - studentSession: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderSettings"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    patch:
+      operationId: updateReminderSettings
+      summary: Turn reminder kinds, or all reminder emails, on or off
+      description: Turning a kind off removes its unsent reminders; turning it on
+        schedules them again. emailsOn false stops every reminder email.
+      security:
+        - studentSession: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emailsOn:
+                  type: boolean
+                statementClosing:
+                  type: boolean
+                paymentDue:
+                  type: boolean
+                checkAutopay:
+                  type: boolean
+              additionalProperties: false
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderSettings"
+        "400":
+          description: Invalid settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Profile not found
           content:
             application/json:
               schema:
