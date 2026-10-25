@@ -13,7 +13,7 @@ import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE, track } from "@/lib/analytics";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import type { Application } from "@/lib/api/application";
-import { applicationPath, deniedPath, ROUTES, signInPath, waitingPath } from "@/lib/routes";
+import { applicationPath, celebratePath, deniedPath, ROUTES, signInPath, waitingPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
 import { cn } from "@/lib/utils";
 
@@ -48,7 +48,14 @@ function centsToField(cents: number | null): string {
 // Mark what the issuer decided for one tracked card (S18), from the Updates
 // card's Approved / Denied choice (Figma 416:409) and Home's "I was denied".
 // "I haven't heard yet" saves nothing: there is no such status (plan P-3).
-export function MarkResult({ application }: { application: Application }) {
+// `back` is where the back arrow goes: Home, or the card's page it was opened from.
+export function MarkResult({
+  application,
+  back = { href: ROUTES.home, label: "Home" },
+}: {
+  application: Application;
+  back?: { href: string; label: string };
+}) {
   const router = useRouter();
   const isMounted = useIsMounted();
   const [choice, setChoice] = useState<Choice | null>(null);
@@ -78,8 +85,13 @@ export function MarkResult({ application }: { application: Application }) {
     }
     // The outcome only, never the credit limit.
     track("outcome_reported", { outcome: status === "approved" ? "approved" : "denied", source: "mark_result" });
-    // Stays pending while the next screen loads.
-    router.push(status === "rejected" ? deniedPath("options", application.id) : ROUTES.home);
+    // Stays pending while the next screen loads. A new approval is celebrated
+    // once on Home (Flow 1 step 2); saving an approved card again, such as to
+    // fix its limit, goes Home without it.
+    let next: string = ROUTES.home;
+    if (status === "rejected") next = deniedPath("options", application.id);
+    else if (application.status !== "approved") next = celebratePath(application.id);
+    router.push(next);
     router.refresh();
   }
 
@@ -108,8 +120,8 @@ export function MarkResult({ application }: { application: Application }) {
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
-        <AppHeader backHref={ROUTES.home} backLabel="Home" />
-        <main className="stagger flex flex-1 flex-col gap-6 px-6 pt-4 pb-6">
+        <AppHeader backHref={back.href} backLabel={back.label} />
+        <main className="stagger flex flex-1 flex-col gap-4 px-6 pt-4 pb-6">
           <div className="flex flex-col gap-2">
             <h1 className="font-heading text-h2 font-medium text-navy">What did the issuer decide?</h1>
             <p className="text-body-m text-indigo-black">{application.cardName}</p>
@@ -138,7 +150,7 @@ export function MarkResult({ application }: { application: Application }) {
             <form method="post" onSubmit={submitApproved} className={cn(SENSITIVE, "flex flex-col gap-4")} noValidate>
               <TextField
                 label="Credit limit (optional)"
-                hint="You can find it in the approval email or the issuer’s app. Leave it blank if you don’t know yet."
+                hint="Find it in the approval email or the issuer’s app. Leave it blank if you don’t know yet."
                 inputMode="numeric"
                 autoComplete="off"
                 placeholder="$500"

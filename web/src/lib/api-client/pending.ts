@@ -1,5 +1,5 @@
 // Endpoints the screens need that the backend does not have yet (plan section
-// 6, specs C2 and C3 for Mabelle and Yunho). They are NOT part of the API
+// 6, spec C2). They are NOT part of the API
 // contract: their shapes live here until the owners add them for real.
 //
 // pendingRequest calls the real path. While the route does not exist (404 or
@@ -23,22 +23,7 @@ const reminderSchema = z.strictObject({
 });
 const createReminderSchema = z.strictObject({ applicationId: z.uuid(), remindOn: isoDate });
 
-// C3: the first-month plan's three actions for the approved card.
-const planActionsSchema = z.strictObject({
-  autopay: z.boolean(),
-  plannedPurchase: z.boolean(),
-  paymentReminder: z.boolean(),
-});
-const planSchema = z.strictObject({
-  applicationId: z.uuid(),
-  actions: planActionsSchema,
-  updatedAt: z.iso.datetime({ offset: true }),
-});
-const updatePlanSchema = z.strictObject({ actions: planActionsSchema.partial() });
-
 export type Reminder = z.infer<typeof reminderSchema>;
-export type PlanActions = z.infer<typeof planActionsSchema>;
-export type Plan = z.infer<typeof planSchema>;
 
 // Mabelle's draft PR #24 (password sign-in). Same shapes as its contract;
 // removed from here once #24 merges and the routes are in the real contract.
@@ -64,8 +49,6 @@ const ENDPOINTS = {
   },
   "GET /reminders": { response: z.strictObject({ reminders: z.array(reminderSchema) }) },
   "POST /reminders": { request: createReminderSchema, response: reminderSchema },
-  "GET /plan": { response: planSchema },
-  "PATCH /plan": { request: updatePlanSchema, response: planSchema },
 } as const;
 
 export type PendingEndpoint = keyof typeof ENDPOINTS;

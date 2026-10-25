@@ -7,7 +7,7 @@ import { WaitingView } from "@/components/applications/waiting-view";
 import { CardDetailView } from "@/components/cards/card-detail-view";
 import { CardListView } from "@/components/cards/card-list-view";
 import { DeniedOptionsView } from "@/components/denied/options-view";
-import { DeniedPlanView } from "@/components/denied/plan-view";
+import { DeniedPlanScreen } from "@/components/denied/plan-view";
 import { FixableView } from "@/components/denied/fixable-view";
 import { ReminderSavedView } from "@/components/denied/reminder-saved-view";
 import { ReminderSetup } from "@/components/denied/reminder-setup";
@@ -36,16 +36,27 @@ const SAMPLE_APPLICATION: Application = {
 // would save for the visitor, so the page is off outside local development.
 const SCREENS = {
   "mark-result": () => <MarkResult application={SAMPLE_APPLICATION} />,
+  "mark-result-from-card": () => (
+    <MarkResult application={SAMPLE_APPLICATION} back={{ href: "/cards/discover-it-student-cash-back", label: "Card details" }} />
+  ),
   waiting: () => <WaitingView application={SAMPLE_APPLICATION} />,
   "card-signed-in": () => {
     const card = findCard("discover-it-student-cash-back");
     return card ? <CardDetailView card={card} signedIn /> : null;
   },
+  "card-tracked": () => {
+    const card = findCard("discover-it-student-cash-back");
+    return card ? <CardDetailView card={card} signedIn tracked={SAMPLE_APPLICATION} /> : null;
+  },
   "cards-matched": () => (
     <CardListView cards={listCards()} signedIn yourMatch={{ name: "Discover it Student Cash Back", tier: "likely_fit" }} />
   ),
   denied: () => <DeniedOptionsView applicationId={SAMPLE_ID} />,
-  "denied-plan": () => <DeniedPlanView applicationId={SAMPLE_ID} />,
+  // Shown on sample stars rather than loaded, so no session is needed.
+  "denied-plan": () => <DeniedPlanScreen applicationId={SAMPLE_ID} start={{ done: [], state: "saved" }} />,
+  "denied-plan-stars": () => (
+    <DeniedPlanScreen applicationId={SAMPLE_ID} start={{ done: ["read_letter", "check_reports"], state: "saved" }} />
+  ),
   reminder: () => <ReminderSetup applicationId={SAMPLE_ID} />,
   "reminder-saved": () => <ReminderSavedView dateLabel="April 16, 2027" />,
   fixable: () => <FixableView applicationId={SAMPLE_ID} />,

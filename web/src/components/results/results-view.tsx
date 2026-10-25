@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { BackLink } from "@/components/ui/app-header";
 import { FitSignal } from "@/components/ui/fit-signal";
 import { BottomNav } from "@/components/ui/bottom-nav";
-import { buttonVariants } from "@/components/ui/button";
+import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { FactChip } from "@/components/ui/fact-chip";
 import { NoteLine } from "@/components/ui/note";
 import { TrackOnMount } from "@/components/analytics/track-on-mount";
@@ -35,6 +35,7 @@ export function ResultsView({ view }: { view: ResultView }) {
         </p>
         <Link href={ROUTES.quiz} className={cn(buttonVariants(), "mt-6")}>
           Take the quiz
+          <ButtonChevron />
         </Link>
       </ResultLayout>
     );
@@ -115,7 +116,7 @@ export function ResultsView({ view }: { view: ResultView }) {
             href={cardPath(card.id, "results")}
             aria-label={`View card: ${cardDisplayName(card)}`}
             className={cn(
-              buttonVariants(),
+              buttonVariants({ chevron: false }),
               SENSITIVE,
               "after:absolute after:inset-0 after:rounded-card motion-safe:active:translate-none",
             )}

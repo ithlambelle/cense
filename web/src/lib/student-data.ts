@@ -18,20 +18,24 @@ export type StudentSnapshot = {
 // with the student's own session (RLS limits every read to their rows). Both
 // tables are readable by students; nothing here writes.
 export async function loadStudentSnapshot(student: Student): Promise<StudentSnapshot> {
-  const [applications, answers] = await Promise.all([
-    student.supabase
-      .from("card_applications")
-      .select(APPLICATION_FIELDS)
-      .eq("student_id", student.studentId)
-      .order("updated_at", { ascending: false }),
-    readQuizAnswers(student, "snapshot_read"),
-  ]);
-  if (applications.error) throw new Error("Could not read the student's cards.");
+  const [applications, answers] = await Promise.all([loadApplications(student), readQuizAnswers(student, "snapshot_read")]);
   return {
-    applications: (applications.data as ApplicationRow[]).map(applicationFromRow),
+    applications,
     quiz: computeResult(answers, listCards()),
     quizStarted: firstUnanswered(answers) !== 0,
   };
+}
+
+// Every tracked card, most recently changed first, for screens that do not
+// need the quiz (a card's page).
+export async function loadApplications(student: Student): Promise<Application[]> {
+  const { data, error } = await student.supabase
+    .from("card_applications")
+    .select(APPLICATION_FIELDS)
+    .eq("student_id", student.studentId)
+    .order("updated_at", { ascending: false });
+  if (error) throw new Error("Could not read the student's cards.");
+  return (data as ApplicationRow[]).map(applicationFromRow);
 }
 
 // Only the quiz result, for screens that show the match but not the tracked

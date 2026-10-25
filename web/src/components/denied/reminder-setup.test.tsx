@@ -44,6 +44,12 @@ describe("ReminderSetup", () => {
     expect(screen.getByText("April 17, 2027")).toBeTruthy();
   });
 
+  it("links the before-you-reapply card to this card's plan", () => {
+    server(404, "<html>404</html>");
+    render(<ReminderSetup applicationId={ID} />);
+    expect(screen.getByRole("link", { name: "See the 5-step plan" }).getAttribute("href")).toBe(`/denied/plan?application=${ID}`);
+  });
+
   it("refuses today, and saves nothing", () => {
     const fetchFn = server(404, "<html>404</html>");
     render(<ReminderSetup applicationId={ID} />);
@@ -52,11 +58,11 @@ describe("ReminderSetup", () => {
     expect(fetchFn).not.toHaveBeenCalled();
   });
 
-  it("refuses a typed date past the 24-month limit the date picker suggests", () => {
+  it("refuses a typed date past the one-year limit the date picker suggests", () => {
     const fetchFn = server(404, "<html>404</html>");
     render(<ReminderSetup applicationId={ID} />);
-    chooseDate("2028-10-18");
-    expect(screen.getByRole("alert").textContent).toContain("Pick a date no later than October 17, 2028.");
+    chooseDate("2027-10-18");
+    expect(screen.getByRole("alert").textContent).toContain("Pick a date no later than October 17, 2027.");
     expect(fetchFn).not.toHaveBeenCalled();
   });
 
@@ -64,13 +70,13 @@ describe("ReminderSetup", () => {
     const fetchFn = server(201, {
       id: "00000000-0000-4000-8000-0000000000aa",
       applicationId: ID,
-      remindOn: "2028-10-17",
+      remindOn: "2027-10-17",
       createdAt: "2026-10-17T13:00:00Z",
     });
     render(<ReminderSetup applicationId={ID} />);
-    chooseDate("2028-10-17");
+    chooseDate("2027-10-17");
     await waitFor(() => expect(push).toHaveBeenCalledWith(`/denied/reminder/saved?application=${ID}`));
-    expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toEqual({ applicationId: ID, remindOn: "2028-10-17" });
+    expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toEqual({ applicationId: ID, remindOn: "2027-10-17" });
   });
 
   it("says reminders are not on yet while the route is missing, with the date to note down", async () => {

@@ -132,11 +132,42 @@ export const createApplicationSchema = z.strictObject({
   { message: "Only approved cards can have a credit limit." },
 );
 
+// Why an application was denied, as the student picked it (Flow 2 reasons step).
+export const denialReasonSchema = z.enum([
+  "no_credit_history", "could_not_verify", "report_frozen", "income", "something_else", "no_letter_yet",
+]);
+export const autopayStatusSchema = z.enum(["on", "off", "unknown"]);
+const dayOfMonthSchema = z.int().min(1).max(31);
+
+// One tracked card with everything its own screens use: the denial reason and
+// note, autopay, and the closing and due days that reminders are built from.
+// The list keeps the shorter Application shape.
+export const applicationDetailSchema = applicationSchema.extend({
+  denialReason: denialReasonSchema.nullable(),
+  denialReasonNote: z.string().max(200).nullable(),
+  autopayStatus: autopayStatusSchema,
+  statementClosingDay: dayOfMonthSchema.nullable(),
+  paymentDueDay: dayOfMonthSchema.nullable(),
+});
+
+// Any of the fields, at least one. Sending status and creditLimitCents
+// together, as the screens do today, works as before. The route checks the
+// rest against the application's status: a credit limit and the closing and
+// due days need an approved card, a denial reason and note a rejected one.
 export const updateApplicationSchema = z.strictObject({
-  status: applicationStatusSchema,
-  creditLimitCents: z.int().nonnegative().nullable(),
+  status: applicationStatusSchema.optional(),
+  creditLimitCents: z.int().nonnegative().nullable().optional(),
+  denialReason: denialReasonSchema.nullable().optional(),
+  // Trimmed; an empty note is saved as no note.
+  denialReasonNote: z.string().trim().max(200).nullable().optional(),
+  autopayStatus: autopayStatusSchema.optional(),
+  statementClosingDay: dayOfMonthSchema.nullable().optional(),
+  paymentDueDay: dayOfMonthSchema.nullable().optional(),
 }).refine(
-  ({ status, creditLimitCents }) => status === "approved" || creditLimitCents === null,
+  (body) => Object.values(body).some((value) => value !== undefined),
+  { message: "Send at least one field to change." },
+).refine(
+  ({ status, creditLimitCents }) => status === undefined || status === "approved" || creditLimitCents == null,
   { message: "Only approved cards can have a credit limit." },
 );
 
