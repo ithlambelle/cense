@@ -37,6 +37,30 @@ test("a button tapped straight from a text field fires: the bottom bar does not 
   await expect(page).toHaveURL(/\/denied\/plan\?application=/);
 });
 
+test("the same tap with a finger fires too", async ({ browser }) => {
+  // Touch sends pointerup before the mousedown that moves focus, unlike a mouse.
+  const context = await browser.newContext({
+    baseURL: test.info().project.use.baseURL,
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+    reducedMotion: "reduce",
+  });
+  await blockExternalRequests(context);
+  const page = await context.newPage();
+  await signUp(page, uniqueEmail("tap-from-field-touch"), async () => {});
+  const id = await track(page, DISCOVER, "rejected");
+  await page.goto(`/denied?application=${id}`);
+  await page.getByRole("button", { name: "Yes, I know the reason" }).tap();
+  await page.getByRole("button", { name: "Something else" }).tap();
+  const note = page.getByLabel("What did the letter say?");
+  await note.fill("Too many recent applications");
+  await expect(page.getByRole("navigation")).toBeHidden();
+  await page.getByRole("button", { name: "Continue" }).tap();
+  await expect(page).toHaveURL(/\/denied\/plan\?application=/);
+  await context.close();
+});
+
 test("after approving a card, Back does not reopen the status form", async ({ page }) => {
   await signUp(page, uniqueEmail("back-after-approve"), async () => {});
   await track(page, DISCOVER, "applied");

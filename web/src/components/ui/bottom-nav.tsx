@@ -64,8 +64,12 @@ function useTyping(): boolean {
     }
     const onFocusIn = (event: FocusEvent) => {
       if (isTextField(event.target)) setTyping(true)
-      // Focus moving to a button during a press: wait for the release.
-      else if (!pressing) setTyping(false)
+      // Focus moving to a button during a press: wait for the release. With
+      // a finger, Chrome sends pointerup before the mousedown that moves
+      // focus, so `pressing` is already false here; the click still follows
+      // in the same task. Re-reading after this task keeps the bar away until
+      // the click has landed.
+      else if (!pressing) recheck()
     }
     // Re-read once the move has settled (after the next focusin), so moving
     // from one field to the next never flashes the bar, and focus leaving the
