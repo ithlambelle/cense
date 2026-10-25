@@ -7,7 +7,7 @@ import { useEffect, useEffectEvent, useRef, useState, type RefObject } from "rea
 
 import { PennyComposer } from "@/components/learn/penny-composer";
 import { BackLink } from "@/components/ui/app-header";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button, ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { choiceRowClass } from "@/components/ui/choice-row";
 import { NO_CAPTURE, SENSITIVE, track } from "@/lib/analytics";
 import type { PennyReply } from "@/lib/api/penny";
@@ -343,12 +343,14 @@ function MessageView({ message, from, latest, lastRef, onPick, onRetry, busy }: 
 
       {message.kind === "answer" && message.answer.topic !== from ? <TopicCard topic={message.answer.topic} /> : null}
 
+      {/* The app's primary then secondary pair (as on Second look). */}
       {message.kind === "crisis" ? (
-        <div className="grid w-full grid-cols-2 gap-3">
-          <a href="tel:988" className={buttonVariants({ chevron: false })}>
+        <div className="flex w-full flex-col gap-2">
+          <a href="tel:988" className={buttonVariants()}>
             Call 988
+            <ButtonChevron />
           </a>
-          <a href="sms:988" className={buttonVariants({ variant: "outline" })}>
+          <a href="sms:988" className={buttonVariants({ variant: "secondary" })}>
             Text 988
           </a>
         </div>
