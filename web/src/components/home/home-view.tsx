@@ -12,6 +12,7 @@ import { ApprovalHeading, ApprovedCard, StarConfetti } from "@/components/home/a
 import { DeniedCard } from "@/components/home/denied-card";
 import { Greeting } from "@/components/home/greeting";
 import { UpdatedLine } from "@/components/home/updated-line";
+import { MascotStill } from "@/components/mascot/mascot";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { FitSignal } from "@/components/ui/fit-signal";
@@ -62,7 +63,7 @@ export function HomeView({
             aria-label="Profile"
             className="flex size-11 items-center justify-center rounded-pill border border-track bg-off-white font-heading text-[17px] font-medium text-navy outline-none transition-colors hover:bg-selected-outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            {initial}
+            <Image src="/mascot/astro-pig/avatar.png" alt={initial} width={40} height={40} className="rounded-input" />
           </Link>
         </header>
         <main className="stagger flex flex-1 flex-col gap-[18px] px-6 pt-4 pb-6">
@@ -91,7 +92,10 @@ function HomeContent({
   if (state.kind === "no_quiz") {
     return (
       <>
-        <Greeting subtitle="Let’s find your first card." />
+        <div className="flex items-end justify-between gap-3">
+          <Greeting subtitle="Let’s find your first card." />
+          <MascotStill pose="idle" size={72} className="shrink-0" />
+        </div>
         <QuizPrompt started={state.started} />
         <Link
           href={ROUTES.addCard}

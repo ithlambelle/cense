@@ -11,6 +11,6 @@ describe("FindingCards", () => {
     expect(screen.getByRole("heading", { name: "Hold tight!" })).toBeTruthy();
     const source = container.querySelector("source");
     expect(source?.getAttribute("media")).toBe("(prefers-reduced-motion: reduce)");
-    expect(source?.getAttribute("srcset")).toBe("/mascot/penny-loading-still.png");
+    expect(source?.getAttribute("srcset")).toBe("/mascot/astro-pig/swim-still.png");
   });
 });

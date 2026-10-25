@@ -135,10 +135,12 @@ describe("HomeView", () => {
     );
   });
 
-  it("links the profile circle, with the student's initial, to the account screen and marks Home in the bottom bar", () => {
+  it("links the pig avatar to the account screen and marks Home in the bottom bar", () => {
     render(<HomeView state={homeState([], NONE, false)} initial="M" />);
     expect(link("Profile")).toBe("/settings");
-    expect(screen.getByRole("link", { name: "Profile" }).textContent).toBe("M");
+    const avatar = screen.getByRole("link", { name: "Profile" }).querySelector("img");
+    expect(avatar?.getAttribute("src")).toContain("astro-pig");
+    expect(avatar?.getAttribute("alt")).toBe("M");
     expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
   });
 });
