@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
+import { SENSITIVE_SELECTOR } from "@/lib/analytics-config";
 import { findAnswer } from "@/lib/penny/answers";
 import { PENNY_COPY } from "@/lib/penny/copy";
 import { handOffQuestion } from "@/lib/penny/pending-question";
@@ -53,6 +54,15 @@ describe("PennyChat", () => {
   it("leaves out the topic link when opened from that topic", () => {
     render(<PennyChat initialAnswerId={preapproval.id} from="credit" back={BACK} />);
     expect(screen.queryByRole("link", { name: /More about credit/ })).toBeNull();
+  });
+
+  it("masks what the student typed, and Penny's reply, in session replay", async () => {
+    vi.stubGlobal("fetch", reply(200, { kind: "answer", text: "It’s a soft inquiry.", answer: { ...preapproval } }));
+    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    await type("I'm jordan@bu.edu, does preapproval hurt my score?");
+    // The question shows the moment Send is tapped, before any scrubbing.
+    expect(screen.getByText("I'm jordan@bu.edu, does preapproval hurt my score?").closest(SENSITIVE_SELECTOR)).not.toBeNull();
+    expect(screen.getByText("It’s a soft inquiry.").closest(SENSITIVE_SELECTOR)).not.toBeNull();
   });
 
   it("greets with two questions when opened with nothing, and a tapped one answers at once", () => {

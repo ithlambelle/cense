@@ -9,7 +9,7 @@ import { PennyComposer } from "@/components/learn/penny-composer";
 import { BackLink } from "@/components/ui/app-header";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { choiceRowClass } from "@/components/ui/choice-row";
-import { track } from "@/lib/analytics";
+import { SENSITIVE, track } from "@/lib/analytics";
 import type { PennyReply } from "@/lib/api/penny";
 import { apiRequest, isUnauthorized, OFFLINE_MESSAGE, type ApiFailure } from "@/lib/api-client/client";
 import {
@@ -284,7 +284,11 @@ function MessageView({ message, from, latest, lastRef, onPick, onRetry, busy }: 
   if (message.from === "student") {
     return (
       <article ref={lastRef} aria-label="You" className="flex scroll-mb-28 justify-end">
-        <p className="max-w-[252px] rounded-[20px] bg-violet px-4 py-2.5 text-body-s break-words text-white">{message.text}</p>
+        {/* Masked in session replay: a typed question shows here before any
+            personal detail is removed. */}
+        <p className={cn(SENSITIVE, "max-w-[252px] rounded-[20px] bg-violet px-4 py-2.5 text-body-s break-words text-white")}>
+          {message.text}
+        </p>
       </article>
     );
   }
@@ -293,7 +297,8 @@ function MessageView({ message, from, latest, lastRef, onPick, onRetry, busy }: 
     <article ref={lastRef} aria-label="Penny" className="flex scroll-mb-28 flex-col items-start gap-4">
       {/* Lavender in place of the frame's light blue bubble (G3). */}
       <div className="flex max-w-[302px] flex-col gap-1.5 rounded-[20px] bg-off-white px-4 py-2.5">
-        <p className="text-body-s text-navy">{message.text}</p>
+        {/* Masked too: a typed answer can restate the question. */}
+        <p className={cn(SENSITIVE, "text-body-s text-navy")}>{message.text}</p>
         {message.kind === "answer" ? (
           <a
             href={message.answer.source.url}
