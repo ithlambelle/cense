@@ -36,6 +36,34 @@ export const ADVANCE_HINT = "Tap an answer to go to the next question.";
 const control =
   "flex size-12 items-center justify-center rounded-pill outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress";
 
+// The designers' answer card (G7): white, Amethyst outline, never shaded.
+// Callers add the height and corners.
+export const answerCardClass =
+  "flex w-full items-center gap-4 border-[1.5px] border-violet bg-white px-[18px] py-3 text-left text-body-m text-navy outline-none transition-[background-color,scale] duration-200 ease-out-soft hover:bg-off-white motion-safe:active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress";
+
+type QuizHeaderProps = { step: number; total: number; onBack: () => void; onClose: () => void; pending: boolean };
+
+// The top of every quiz screen: the back arrow (no destination word, as
+// drawn), "Question n of total", the close X and the progress bar.
+export function QuizHeader({ step, total, onBack, onClose, pending }: QuizHeaderProps) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <button type="button" onClick={onBack} disabled={pending} aria-label="Back" className={control}>
+          <Image src="/icons/arrow-left-dark.svg" alt="" width={48} height={48} />
+        </button>
+        <p className="text-body-s text-indigo-black">
+          Question {step} of {total}
+        </p>
+        <button type="button" onClick={onClose} disabled={pending} aria-label="Close quiz" className={control}>
+          <Image src="/icons/xmark-dark.svg" alt="" width={48} height={48} />
+        </button>
+      </div>
+      <ProgressBar current={step} total={total} />
+    </div>
+  );
+}
+
 // One question per screen, from the newest hi-fi frames (397:1208 to 397:906).
 // Each answer is a button: choosing it is the action, so arrow keys never move
 // the student on by accident (native radios select on arrow keys).
@@ -67,20 +95,7 @@ export function QuizScreen({
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
         <main className="flex flex-1 flex-col gap-6 px-6 pt-8 pb-6">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <button type="button" onClick={onBack} disabled={pending} aria-label="Back" className={control}>
-                <Image src="/icons/arrow-left-dark.svg" alt="" width={48} height={48} />
-              </button>
-              <p className="text-body-s text-indigo-black">
-                Question {step} of {total}
-              </p>
-              <button type="button" onClick={onClose} disabled={pending} aria-label="Close quiz" className={control}>
-                <Image src="/icons/xmark-dark.svg" alt="" width={48} height={48} />
-              </button>
-            </div>
-            <ProgressBar current={step} total={total} />
-          </div>
+          <QuizHeader step={step} total={total} onBack={onBack} onClose={onClose} pending={pending} />
 
           {/* Keyed by question, so each new one fades up in its turn. */}
           <div key={`title-${question.field}`} className="flex animate-fade-up flex-col gap-2">
@@ -125,7 +140,7 @@ export function QuizScreen({
                   disabled={pending}
                   onClick={() => onChoose(choice.id)}
                   className={cn(
-                    "flex w-full items-center gap-4 border-[1.5px] border-violet bg-white px-[18px] py-3 text-left text-body-m text-navy outline-none transition-[background-color,scale] duration-200 ease-out-soft hover:bg-off-white motion-safe:active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress",
+                    answerCardClass,
                     compact ? "min-h-14 rounded-[18px]" : "min-h-20 rounded-card",
                   )}
                 >

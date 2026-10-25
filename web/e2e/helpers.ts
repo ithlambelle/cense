@@ -3,6 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, type BrowserContext, type Page } from "@playwright/test";
 
 import { QUESTIONS, type QuizAnswers } from "../src/lib/quiz/questions";
+import { QUIZ_STEP_COUNT, SPENDING_COPY } from "../src/lib/quiz/spending";
 
 const MAILPIT = process.env.E2E_MAILPIT_URL ?? "http://127.0.0.1:54324";
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
@@ -95,7 +96,7 @@ export async function takeQuiz(page: Page, picks: QuizPicks, checkA11y: (screen:
   for (const [index, question] of QUESTIONS.entries()) {
     const heading = page.getByRole("heading", { level: 1, name: question.title });
     await expect(heading).toBeVisible();
-    await expect(page.getByText(`Question ${index + 1} of ${QUESTIONS.length}`)).toBeVisible();
+    await expect(page.getByText(`Question ${index + 1} of ${QUIZ_STEP_COUNT}`)).toBeVisible();
     const label = picks[question.field];
     if (!label) throw new Error(`No answer picked for ${question.field}`);
     const answer = page.getByRole("group", { name: question.title }).getByRole("button", { name: label, exact: true });
@@ -103,6 +104,10 @@ export async function takeQuiz(page: Page, picks: QuizPicks, checkA11y: (screen:
     await checkA11y(`quiz: question ${index + 1}`);
     await answer.click();
   }
+  // The spending question is optional and not saved yet: skip it.
+  await expect(page.getByRole("heading", { level: 1, name: SPENDING_COPY.title })).toBeVisible();
+  await checkA11y("quiz: spending");
+  await page.getByRole("button", { name: "Continue" }).click();
   await page.waitForURL("**/results");
 }
 
