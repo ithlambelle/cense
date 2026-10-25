@@ -147,6 +147,10 @@ test("a student links the sandbox bank, says who covers what, and sees safe to s
   await expect(card).toContainText(DAILY);
   await expect(card).toContainText("Preview");
   await checkA11y("home: safe to spend");
+  // Back goes where the student came from (Home), never into the finished
+  // questions or the consent screen.
+  await page.goBack();
+  await expect(page).toHaveURL(/\/home$/);
   await page.reload();
   await expect(safeToSpendCard(page)).toContainText(DAILY);
 
@@ -177,6 +181,10 @@ test("a student links the sandbox bank, says who covers what, and sees safe to s
   await expect(page.getByRole("heading", { level: 1, name: "Who covers your rent?" })).toBeVisible();
   await expect(page.getByLabel("Your rent each month")).toHaveValue("650");
   await continueTo("Who covers your phone?");
+  // The back arrow steps back through the questions.
+  await page.getByRole("link", { name: "Back to the last question" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Who covers your rent?" })).toBeVisible();
+  await continueTo("Who covers your phone?");
   await continueTo("Who covers your tuition?");
   await page.getByRole("group", { name: "Who covers your tuition?" }).getByRole("button", { name: "Me", exact: true }).click();
   await page.getByLabel("Your tuition each month").fill("100");
@@ -186,6 +194,11 @@ test("a student links the sandbox bank, says who covers what, and sees safe to s
   await expect(page.getByLabel("Set aside each month")).toHaveValue("50");
   await page.getByRole("button", { name: "See safe to spend" }).click();
   await expect(safeToSpendCard(page)).toContainText("$3 a day");
+  // Back returns to How we got this, where the change started.
+  await page.goBack();
+  await expect(page).toHaveURL(/\/safe-to-spend$/);
+  await expect(page.getByRole("heading", { level: 1, name: "How we got this" })).toBeVisible();
+  await page.goto("/home");
 
   // Back from How we got this returns Home.
   await safeToSpendCard(page).getByRole("link", { name: "How we got this" }).click();
@@ -266,6 +279,78 @@ test("when the bank needs a new sign-in, the student reconnects and safe to spen
   expect(opened.at(-1)?.token).toContain("update");
   await page.goto("/home");
   await expect(safeToSpendCard(page)).toContainText(DAILY);
+});
+
+test("when the bank link is gone at Plaid, Home stops showing the number and the student connects again", async ({ page }) => {
+  await linkedStudent(page, "sts-relink");
+  behavior.accounts = "gone";
+  await safeToSpendCard(page).getByRole("link", { name: "How we got this" }).click();
+  await page.getByRole("button", { name: "Refresh" }).click();
+  await expect(page.getByText("Your bank connection ended.")).toBeVisible();
+
+  await page.goto("/home");
+  await expect(safeToSpendCard(page)).toContainText("Your bank connection ended.");
+  await expect(safeToSpendCard(page)).not.toContainText(DAILY);
+  await safeToSpendCard(page).getByRole("link", { name: "Connect again" }).click();
+
+  // Connect again disconnects the dead link, then links the bank anew.
+  await page.getByRole("button", { name: "Connect again" }).click();
+  await expect(page).toHaveURL(/\/safe-to-spend\/connect$/);
+  behavior.accounts = "ok";
+  await page.getByRole("button", { name: "Connect (Preview)" }).click();
+  await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
+  await answerWhoCovers(page);
+  await expect(safeToSpendCard(page)).toContainText(DAILY);
+});
+
+// What has keyboard focus after Tabbing to the control named `name`, and the
+// ring it draws.
+async function tabTo(page: Page, name: string) {
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  for (let i = 0; i < 40; i++) {
+    await page.keyboard.press("Tab");
+    const focused = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el || el === document.body) return null;
+      const style = getComputedStyle(el);
+      return {
+        name: (el.getAttribute("aria-label") ?? el.textContent ?? "").trim().replace(/\s+/g, " "),
+        keyboard: el.matches(":focus-visible"),
+        style: style.outlineStyle,
+        width: parseFloat(style.outlineWidth),
+      };
+    });
+    if (focused?.name === name) return focused;
+  }
+  throw new Error(`Tab never reached "${name}"`);
+}
+
+test("the safe-to-spend links show a focus ring from the keyboard", async ({ page }) => {
+  await signUp(page, uniqueEmail("sts-focus"), axeChecker(page));
+  await page.goto("/safe-to-spend/connect");
+  const rings: Record<string, Awaited<ReturnType<typeof tabTo>>> = {};
+  rings["Not now"] = await tabTo(page, "Not now");
+  await page.getByRole("button", { name: "Connect (Preview)" }).click();
+  await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
+  await answerWhoCovers(page);
+  rings["How we got this"] = await tabTo(page, "How we got this");
+  await safeToSpendCard(page).getByRole("link", { name: "How we got this" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "How we got this" })).toBeVisible();
+  rings["Change your answers"] = await tabTo(page, "Change your answers");
+  await page.getByRole("button", { name: "Disconnect bank" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  rings["my.plaid.com"] = await tabTo(page, "my.plaid.com");
+  behavior.accounts = "login_required";
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Refresh" }).click();
+  await expect(page.getByText("Your bank needs you to sign in again.")).toBeVisible();
+  await page.goto("/home");
+  rings["Reconnect your bank"] = await tabTo(page, "Reconnect your bank");
+  for (const [name, ring] of Object.entries(rings)) {
+    expect(ring.keyboard, `${name} matches :focus-visible`).toBe(true);
+    expect(ring.style, `${name} ring style`).toBe("solid");
+    expect(ring.width, `${name} ring width`).toBeGreaterThanOrEqual(2);
+  }
 });
 
 test("disconnecting removes the bank at Plaid and deletes every balance and answer", async ({ page, context }) => {

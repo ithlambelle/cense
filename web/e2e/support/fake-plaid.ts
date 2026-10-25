@@ -25,8 +25,10 @@ export const FAKE_BANK = {
 };
 
 // What the next calls answer. Reset before each test.
+// "gone": the Item was removed at Plaid (for example from my.plaid.com), so
+// every call with its token answers INVALID_ACCESS_TOKEN.
 export const behavior = {
-  accounts: "ok" as "ok" | "login_required" | "down",
+  accounts: "ok" as "ok" | "login_required" | "down" | "gone",
   remove: "ok" as "ok" | "down",
 };
 
@@ -104,6 +106,7 @@ function answer(path: string, body: Record<string, unknown>): { status: number; 
       if (!issuedAccessTokens.includes(String(body.access_token)) || removedAccessTokens.includes(String(body.access_token))) {
         return plaidError(400, "INVALID_INPUT", "INVALID_ACCESS_TOKEN");
       }
+      if (behavior.accounts === "gone") return plaidError(400, "INVALID_INPUT", "INVALID_ACCESS_TOKEN");
       if (behavior.accounts === "login_required") return plaidError(400, "ITEM_ERROR", "ITEM_LOGIN_REQUIRED");
       if (behavior.accounts === "down") return plaidError(502, "INSTITUTION_ERROR", "INSTITUTION_DOWN");
       return {
@@ -122,6 +125,7 @@ function answer(path: string, body: Record<string, unknown>): { status: number; 
     }
     case "/item/remove": {
       if (behavior.remove === "down") return plaidError(500, "API_ERROR", "INTERNAL_SERVER_ERROR");
+      if (behavior.accounts === "gone") return plaidError(400, "INVALID_INPUT", "INVALID_ACCESS_TOKEN");
       removedAccessTokens.push(String(body.access_token));
       return { status: 200, body: { request_id: requestId() } };
     }
