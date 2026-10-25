@@ -123,7 +123,43 @@ describe("PennyChat", () => {
     await type("What is APR?");
     const limit = pennyMessages().at(-1)!;
     expect(limit.textContent).toContain(PENNY_COPY.limit);
-    expect(within(limit).getAllByRole("button").map((b) => b.textContent)).toEqual(["How to use a credit card?", "How to budget as a student?"]);
+    // The greeting above already offers the two starters.
+    expect(within(limit).getAllByRole("button").map((b) => b.textContent)).toEqual(["How does a credit card work?", "What is a credit score?"]);
+  });
+
+  it.each([
+    ["a failed answer", () => reply(503, { error: { code: "penny_unavailable", message: "Down" } })],
+    [
+      "an off-topic reply",
+      () =>
+        reply(200, {
+          kind: "declined",
+          reason: "off_topic",
+          text: PENNY_COPY.offTopic,
+          suggestions: [
+            { id: "using-a-credit-card", question: "How to use a credit card?" },
+            { id: "student-budget", question: "How to budget as a student?" },
+          ],
+        }),
+    ],
+  ])("offers each question once: %s after the greeting offers new ones", async (_case, server) => {
+    vi.stubGlobal("fetch", server());
+    render(<PennyChat canType initialAnswerId={null} from={null} back={BACK} />);
+    await type("What's the weather?");
+    const offered = within(screen.getByRole("log"))
+      .getAllByRole("button")
+      .map((b) => b.textContent)
+      .filter((text) => text !== "Try again");
+    expect(offered).toHaveLength(4);
+    expect(new Set(offered).size).toBe(4);
+  });
+
+  it("does not offer an answer already shown above", async () => {
+    vi.stubGlobal("fetch", reply(503, { error: { code: "penny_unavailable", message: "Down" } }));
+    render(<PennyChat canType initialAnswerId="using-a-credit-card" from="learn" back={BACK} />);
+    await type("What is APR?");
+    const failed = pennyMessages().at(-1)!;
+    expect(within(failed).getAllByRole("button").map((b) => b.textContent)).not.toContain("How to use a credit card?");
   });
 
   it("offers Try again when Penny is unavailable, and only on the newest message", async () => {

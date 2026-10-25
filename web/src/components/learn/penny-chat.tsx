@@ -16,6 +16,7 @@ import {
   findAnswer,
   findTopic,
   PENNY_ANSWER_IDS,
+  PENNY_TOPICS,
   STARTER_IDS,
   TOPIC_QUESTIONS,
   type PennyAnswer,
@@ -56,6 +57,29 @@ const STARTERS: QuestionRef[] = STARTER_IDS.map((id) => findAnswer(id)).filter((
 
 function ref(answer: PennyAnswer): QuestionRef {
   return { id: answer.id, question: answer.question };
+}
+
+// Where fresh questions come from: the starters, then each topic's list.
+const FRESH_ORDER: string[] = [...new Set<string>([...STARTER_IDS, ...PENNY_TOPICS.flatMap((topic) => TOPIC_QUESTIONS[topic.slug]), ...PENNY_ANSWER_IDS])];
+
+// A reply never offers a question already offered or answered above (it is
+// still on screen): repeats are replaced with checked answers not shown yet.
+// Only if every one has been shown do repeats stay.
+function withFreshSuggestions(message: Message, earlier: Message[]): Message {
+  if (message.from !== "penny" || message.kind !== "note" || message.suggestions.length === 0) return message;
+  const shown = new Set<string>();
+  for (const before of earlier) {
+    if (before.from !== "penny") continue;
+    if (before.kind === "answer") shown.add(before.answer.id);
+    if (before.kind === "note") for (const suggestion of before.suggestions) shown.add(suggestion.id);
+  }
+  const fresh = [...new Set([...message.suggestions.map((suggestion) => suggestion.id), ...FRESH_ORDER])]
+    .filter((id) => !shown.has(id))
+    .slice(0, message.suggestions.length)
+    .map((id) => findAnswer(id))
+    .filter((answer) => answer !== undefined)
+    .map(ref);
+  return fresh.length > 0 ? { ...message, suggestions: fresh } : message;
 }
 
 let nextId = 0;
@@ -171,13 +195,14 @@ export function PennyChat({ initialAnswerId, from, back, canType }: Props) {
     setPending(false);
     setSlow(false);
     if (result.ok) {
-      setMessages((current) => [...current, replyMessage(result.data)]);
+      const reply = replyMessage(result.data);
+      setMessages((current) => [...current, withFreshSuggestions(reply, current)]);
       const outcome = outcomeOf(result.data);
       if (outcome) sendEvent("typed", outcome, result.data.kind === "answer" ? result.data.answer.id : undefined);
       return;
     }
     const { message, outcome } = failureMessage(result, question);
-    setMessages((current) => [...current, message]);
+    setMessages((current) => [...current, withFreshSuggestions(message, current)]);
     sendEvent("typed", outcome);
   }
 
