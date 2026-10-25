@@ -1,10 +1,11 @@
 // Penny's checked answers (Ask Penny, S34; Flow 5 frames 144:3045). Every
 // answer was read against the official page it cites on 2026-10-25, and every
 // number in it appears on that page. The audit that day reworded five so they
-// keep a condition their source sets (answers.test.ts). Change an answer only after re-reading
-// its source. A tapped question shows its answer exactly as written here; a
-// typed question is answered by the model from these facts only
-// (lib/penny/ask.ts), and the source shown always comes from this file.
+// keep a condition their source sets (answers.test.ts). Change an answer only
+// after re-reading its source. A tapped question shows its answer exactly as
+// written here. A typed one shows the answer the model picks, word for word
+// by default (TYPED_ANSWERS in lib/penny/ask.ts, D8). The source shown always
+// comes from this file.
 //
 // Copy rules: plain words, 25 to 55 words, no dashes, tildes or semicolons,
 // how things work and never what this student should do with their money, and

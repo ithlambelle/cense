@@ -40,7 +40,8 @@ function typeset(text: string): string {
     .replace(/"([^"]*)"/g, "“$1”");
 }
 
-// The model's rephrasing, if it only says what the checked answer says.
+// With typed answers set to "rephrased" (D8, lib/penny/ask.ts): the model's
+// rephrasing, if it only says what the checked answer says.
 // Otherwise the checked answer exactly as written: a number that is not in
 // it, a link or email, a card or issuer name, or a reply too long for a
 // bubble all mean the model went beyond its facts.

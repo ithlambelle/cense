@@ -14,7 +14,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
 }));
 
 import { findAnswer } from "./answers";
-import { askPenny, PENNY_MODEL, PENNY_SYSTEM_PROMPT, replyFrom } from "./ask";
+import { askPenny, PENNY_MODEL, PENNY_SYSTEM_PROMPT, pennySystemPrompt, replyFrom, TYPED_ANSWERS } from "./ask";
 import { PENNY_COPY } from "./copy";
 
 afterEach(() => {
@@ -23,9 +23,39 @@ afterEach(() => {
 
 const model = (over: Record<string, unknown>) => ({ kind: "answer", answerId: null, reply: null, suggestionIds: [], ...over });
 
+// D8, Ben's call: typed questions show the checked answer the model picks,
+// word for word ("checked", the default), or the model's own wording of it
+// ("rephrased").
+describe("typed answers (D8)", () => {
+  it("default to the checked answer the model picked, word for word", () => {
+    expect(TYPED_ANSWERS).toBe("checked");
+    // A wrong fact with no number, link or name: the guard alone lets it through.
+    const reply = replyFrom(model({ answerId: "credit-score", reply: "Soft inquiries raise your score, so check often." }) as never);
+    expect(reply).toMatchObject({ kind: "answer", text: findAnswer("credit-score")?.answer, answer: { id: "credit-score" } });
+  });
+
+  it("ask the model only to choose, with no reply to write", async () => {
+    sdk.parse.mockResolvedValue({ stop_reason: "end_turn", parsed_output: model({ answerId: "credit-score" }) });
+    await askPenny("What is a credit score?");
+    const request = sdk.parse.mock.calls[0][0];
+    expect(Object.keys(request.output_config.format.schema.properties).sort()).toEqual(["answerId", "kind", "suggestionIds"]);
+    expect(PENNY_SYSTEM_PROMPT).toBe(pennySystemPrompt("checked"));
+    expect(PENNY_SYSTEM_PROMPT).not.toMatch(/\breply\b/);
+  });
+
+  it("when rephrased, ask for the reply and keep it only within the answer's facts", async () => {
+    sdk.parse.mockResolvedValue({ stop_reason: "end_turn", parsed_output: model({ answerId: "credit-score", reply: "A number." }) });
+    await askPenny("What is a credit score?", "rephrased");
+    const request = sdk.parse.mock.calls[0][0];
+    expect(Object.keys(request.output_config.format.schema.properties)).toContain("reply");
+    expect(request.system[0].text).toBe(pennySystemPrompt("rephrased"));
+    expect(pennySystemPrompt("rephrased")).toContain("Write reply");
+  });
+});
+
 describe("replyFrom", () => {
-  it("answers with the model's rephrasing and the checked answer's source and topic", () => {
-    const reply = replyFrom(model({ answerId: "credit-score", reply: "It's a number from 300 to 850." }) as never);
+  it("when rephrased, answers with the model's wording and the checked answer's source and topic", () => {
+    const reply = replyFrom(model({ answerId: "credit-score", reply: "It's a number from 300 to 850." }) as never, "rephrased");
     expect(reply).toEqual({
       kind: "answer",
       text: "It’s a number from 300 to 850.",

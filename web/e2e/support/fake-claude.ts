@@ -12,7 +12,8 @@
 //   "weather"  off topic
 //   "mortgage" a money question with no checked answer
 //   "ninety"   a reply that invents a number ("90%")
-//   anything else: the preapproval answer, rephrased
+//   anything else: the preapproval answer, with a rephrasing that students
+//   see only when typed answers are set to "rephrased" (D8, lib/penny/ask.ts)
 import { createServer, type IncomingMessage, type Server } from "node:http";
 
 export const FAKE_CLAUDE_PORT = Number(process.env.E2E_FAKE_CLAUDE_PORT ?? 3599);
