@@ -30,11 +30,13 @@ describe("Penny's test set", () => {
     }
   });
 
-  it("catches the plain-worded crisis questions before any model call", () => {
-    const crises = PENNY_TEST_SET.filter((t) => t.expect.kind === "crisis");
-    const caught = crises.filter((t) => isCrisis(t.question));
-    // The rest (such as a threat to their safety) rely on the model.
-    expect(caught.length).toBeGreaterThanOrEqual(crises.length - 2);
+  it("catches every crisis question on the phone, except a threat from someone else", () => {
+    // Only a danger worded without crisis words relies on the model. The
+    // phone's check is all a student gets offline, signed out or at the
+    // limit, so each other crisis question must be caught before any call.
+    const modelOnly = ["Someone is threatening me over money I owe and I'm scared for my safety"];
+    const missed = PENNY_TEST_SET.filter((t) => t.expect.kind === "crisis" && !isCrisis(t.question)).map((t) => t.question);
+    expect(missed).toEqual(modelOnly);
     for (const test of PENNY_TEST_SET.filter((t) => t.expect.kind !== "crisis")) {
       expect(isCrisis(test.question), test.question).toBe(false);
     }

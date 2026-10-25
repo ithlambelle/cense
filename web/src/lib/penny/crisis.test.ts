@@ -21,6 +21,8 @@ describe("isCrisis", () => {
     "I don’t want to be here anymore",
     "I can't go on",
     "I can’t go on like this.",
+    "I can't go on like this with my debt",
+    "i cant go on anymore with these loans",
     "wanna die",
     "I do not want to live",
     "I've been self-harming",

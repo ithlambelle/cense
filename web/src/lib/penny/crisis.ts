@@ -18,8 +18,9 @@ const PHRASES = [
   /(?:better\s+off|wish\s+i\s+(?:was|were)|want(?:ed)?\s+to\s+be)\s+dead/,
   /(?:don[’']?t|do\s+not)\s+want\s+to\s+(?:live|be\s+alive|exist|be\s+here)/,
   /(?:no\s+reason|nothing)\s+to\s+live/,
-  // "I can't go on (like this)", but not "can't go on vacation".
-  /(?:can[’']?t|cannot)\s+go\s+on(?:\s+like\s+this|\s+any\s*more)?(?=\s*(?:[.!?,]|$))/,
+  // "I can't go on like this (with my debt)", "can't go on anymore", and a
+  // bare "I can't go on." at the end, but not "can't go on vacation".
+  /(?:can[’']?t|cannot)\s+go\s+on(?:\s+like\s+this|\s+any\s*more|(?=\s*(?:[.!?,]|$)))/,
   /self[\s-]?harm\w*/,
   /(?:hurt|hurting|harm|harming|cut|cutting)\s+(?:myself|my\s*self)/,
   /cut(?:ting)?\s+my\s+wrists?/,
