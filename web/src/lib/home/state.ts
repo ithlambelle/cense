@@ -12,8 +12,8 @@ export type HomeState =
   | { kind: "tracking"; primary: Application; others: Application[] };
 
 // The leading card's own fields Home reads beyond the list: the denial reason
-// and note for a denied card, autopay for an approved one.
-export type CardDetail = Pick<ApplicationDetail, "denialReason" | "denialReasonNote" | "autopayStatus">;
+// and note for a denied card, autopay and the saved due day for an approved one.
+export type CardDetail = Pick<ApplicationDetail, "denialReason" | "denialReasonNote" | "autopayStatus" | "paymentDueDay">;
 
 // Only an approved or denied leading card needs them.
 export function needsDetail(state: HomeState): state is Extract<HomeState, { kind: "tracking" }> {

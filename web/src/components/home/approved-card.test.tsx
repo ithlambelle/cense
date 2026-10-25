@@ -26,7 +26,9 @@ const approved: Application = {
   statusUpdatedAt: new Date().toISOString(),
 };
 const state = homeState([approved], computeResult(undefined, listCards()), true);
-const NO_DETAIL = { denialReason: null, denialReasonNote: null, autopayStatus: "unknown" } as const;
+const NO_DETAIL = { denialReason: null, denialReasonNote: null, autopayStatus: "unknown", paymentDueDay: null } as const;
+// The card's reminder days are saved, so a done payment_reminder step lights its star.
+const DAYS_SAVED = { ...NO_DETAIL, paymentDueDay: 9 };
 
 const PLAN_URL = `/api/v1/applications/${ID}/plans/first_month`;
 const plan = (...steps: string[]) => ({
@@ -123,7 +125,7 @@ describe("Home approved card", () => {
       { status: 201, body: saved("planned_purchase") },
       { status: 204, body: null },
     ]);
-    render(<HomeView state={state} initial="M" />);
+    render(<HomeView state={state} initial="M" detail={DAYS_SAVED} />);
     expect(await screen.findByText("1 of 3 lit")).toBeTruthy();
     expect(fetchFn.mock.calls[0][0]).toBe(PLAN_URL);
     expect(star(/Plan one purchase/).getAttribute("aria-checked")).toBe("false");
@@ -156,7 +158,7 @@ describe("Home approved card", () => {
     expect(fetchFn).toHaveBeenCalledTimes(1);
     unmount();
 
-    render(<HomeView state={state} initial="M" />);
+    render(<HomeView state={state} initial="M" detail={DAYS_SAVED} />);
     await screen.findByText("1 of 3 lit");
     const lit = screen.getByRole("link", { name: /^Set a payment reminder\s*, done/ });
     expect(lit.getAttribute("href")).toBe(`/applications/${ID}/reminders`);
@@ -168,7 +170,7 @@ describe("Home approved card", () => {
       { status: 200, body: { ...approved, autopayStatus: "on" } },
       { status: 200, body: { ...approved, autopayStatus: "off" } },
     ]);
-    render(<HomeView state={state} initial="M" />);
+    render(<HomeView state={state} initial="M" detail={DAYS_SAVED} />);
     await screen.findByText("2 of 3 lit");
     expect(screen.queryByText(/All three stars lit/)).toBeNull();
     fireEvent.click(star(/Turn on autopay/));
@@ -185,6 +187,13 @@ describe("Home approved card", () => {
     await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(3));
     expect(JSON.parse(String(fetchFn.mock.calls[2][1]?.body))).toEqual({ autopayStatus: "off" });
     await waitFor(() => expect(screen.getByText("2 of 3 lit")).toBeTruthy());
+  });
+
+  it("leaves the reminder star out when the step is done but no days are saved", async () => {
+    server([{ status: 200, body: plan("payment_reminder") }]);
+    render(<HomeView state={state} initial="M" detail={NO_DETAIL} />);
+    expect(await screen.findByText("0 of 3 lit")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /^Set a payment reminder/ }).textContent).not.toContain("done");
   });
 
   it("lights the autopay star when the card's autopay is on, and only then", async () => {

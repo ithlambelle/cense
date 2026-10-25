@@ -135,12 +135,12 @@ test("the reminder row opens the reminder screen instead of ticking, and saving 
   expect(await savedDays(page, id)).toEqual({ closing: 14, due: 20 });
   await expect(card.getByRole("link", { name: REMINDER_DONE })).toBeVisible();
 
-  // Back after saving shows the reminder screen with what was just saved, not the old days.
+  // Back after saving never reopens the saved form (it replaced itself), and
+  // the Home it lands on shows the reminder done, not a stale copy.
   await page.goBack();
-  await expect(page).toHaveURL(remindersUrl(id));
-  await expect(page.getByLabel("Payment due on day")).toHaveValue("20");
-  await page.getByRole("link", { name: "Back to Home" }).click();
+  await expect(page).not.toHaveURL(remindersUrl(id));
   await expect(page).toHaveURL(/\/home$/);
+  await expect(card.getByRole("link", { name: REMINDER_DONE })).toBeVisible();
 
   // The other two still tick; with the reminder set, all three are lit.
   for (const title of [/Turn on autopay/, /Plan one purchase/]) {
