@@ -151,18 +151,20 @@ Setup verified from a fresh clone by a second teammate: verified by Yunho on 202
 
 ### Run the app and journey tests locally
 
-The journey tests (Playwright) and the seed script run against a local Supabase stack, never a hosted project. They need Docker.
+The journey tests (Playwright) and the seed script run against a local Supabase stack, never a hosted project. They need Docker. CI runs the same tests on every pull request (the `e2e` job in `.github/workflows/ci.yml`), so a pull request is green only when they pass.
 
-This repo has the migrations but no Supabase CLI config yet, so set the stack up once in a separate folder: run `npx supabase init` there, copy `supabase/migrations` into it, and in its `supabase/config.toml` set `site_url = "http://localhost:3300"` and point the `magic_link` and `confirmation` email templates at an HTML file that shows `{{ .Token }}` (the tests read the 6-digit code from the email). Then:
+The stack's config is `supabase/config.toml` (migrations from `supabase/migrations`, sign-in emails that show the 6-digit code, Mailpit at http://127.0.0.1:54324). From the repo root:
 
 ```bash
-npx supabase start        # in that folder; Mailpit catches the emails at http://127.0.0.1:54324
+npx supabase start        # first run pulls the Docker images
 npx supabase status       # copy the API URL and publishable key into web/.env.local
-cd <this repo>/web
-npm run dev:local         # the app on http://localhost:3300
+cd web
+npm run dev:local         # the app on http://localhost:3300 (or: npm run build && npx next start -p 3300, as CI does)
 npm run seed:local        # optional: six test students, one per Home state
 npm run e2e               # in a second terminal, with the app still running
 ```
+
+Every pull request that changes a screen adds or updates a journey test that does what a student does: use each control, reload to check it saved, and follow every link to where it should go. A failed run keeps its report and traces as the `playwright-report` artifact; open a trace with `npx playwright show-trace`.
 
 `.env.local` needs `NEXT_PUBLIC_SUPABASE_URL` (the API URL, `http://127.0.0.1:54321`) and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. The optional variables the tests and seed script read are listed in `.env.example`.
 

@@ -34,7 +34,12 @@ export function axeChecker(page: Page) {
   return async function checkA11y(screen: string) {
     if (seen.has(screen)) return;
     seen.add(screen);
+    // Scrolled to the end first: content under the fixed bottom bar at the
+    // current scroll counts as an obscured touch target, though a student only
+    // ever taps it after scrolling it clear.
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+    await page.evaluate(() => window.scrollTo(0, 0));
     const summary = results.violations.map((v) => ({
       id: v.id,
       impact: v.impact,
@@ -45,12 +50,23 @@ export function axeChecker(page: Page) {
   };
 }
 
-// Polls Mailpit for a 6-digit code sent to `email` after `since` (ms).
-async function codeFromMailpit(email: string, since: number): Promise<string> {
+type MailpitList = { messages?: { ID: string; Snippet?: string }[] };
+
+async function mailIds(email: string): Promise<Set<string>> {
+  const response = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`);
+  const list = (await response.json()) as MailpitList;
+  return new Set((list.messages ?? []).map((m) => m.ID));
+}
+
+// Polls Mailpit for a 6-digit code in a message to `email` that was not there
+// before (`seen`). Matched by message id, not time: the Docker VM's clock can
+// drift a minute from the host's (it did on Oct 24), which made a time filter
+// drop fresh codes.
+async function codeFromMailpit(email: string, seen: Set<string>): Promise<string> {
   for (let attempt = 0; attempt < 40; attempt++) {
     const response = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`);
-    const list = (await response.json()) as { messages?: { Created: string; Snippet?: string }[] };
-    const message = list.messages?.find((m) => Date.parse(m.Created) >= since - 2000);
+    const list = (await response.json()) as MailpitList;
+    const message = list.messages?.find((m) => !seen.has(m.ID));
     const code = message && /\b(\d{6})\b/.exec(message.Snippet ?? "")?.[1];
     if (code) return code;
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -66,13 +82,13 @@ export async function signUp(page: Page, email: string, checkA11y: (screen: stri
   await expect(emailField).toBeEditable();
   await checkA11y("sign-up: email");
   await emailField.fill(email);
-  const sentAfter = Date.now();
+  const seen = await mailIds(email);
   await page.getByRole("button", { name: "Email me a code" }).click();
 
   const codeField = page.getByLabel("Verification code");
   await expect(page.getByRole("heading", { level: 1, name: "Check your email" })).toBeVisible();
   await checkA11y("sign-up: code");
-  await codeField.fill(await codeFromMailpit(email, sentAfter));
+  await codeField.fill(await codeFromMailpit(email, seen));
   await page.getByRole("button", { name: "Verify" }).click();
 
   await page.waitForURL((url) => !["/sign-up", "/sign-in", "/start"].includes(url.pathname));
