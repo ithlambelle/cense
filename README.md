@@ -121,7 +121,7 @@ flowchart TB
 | Risk | Mitigation |
 | --- | --- |
 | Google sign-in may not work inside the app once it is saved to the iPhone Home Screen. An installed web app keeps its own storage, separate from Safari, and redirect-based sign-in has reported failures there. | The 6-digit email code works in that setting and is always offered. Google sign-in is tested on a real iPhone, in Safari and from the Home Screen, before MVP1. |
-| A signed-in user can reach Supabase's data API directly, without going through our server. | Row level security and explicit grants on every table that holds user data, plus an automated test in CI that signs in as one user and proves they cannot read another user's records. |
+| A signed-in user can reach Supabase's data API directly, without going through our server. | Row level security on every table that holds user data, plus a test in CI (`web/e2e/cross-student.spec.ts`) that signs in as two students and proves neither can read or change the other's records, through the API or straight to the database. Narrowing the default table grants to what the API uses is still open. |
 | Card terms and links go stale, so a recommendation could rest on old facts. | Card data lives in typed files in this repo, each card with a last-verified date. It is validated in CI and changes only through a reviewed pull request. |
 | The reminder job could send a reminder twice, or stop without anyone noticing. | Each reminder is claimed once by a unique key, so a rerun cannot send it again. A heartbeat check alerts the team if the job stops running. |
 

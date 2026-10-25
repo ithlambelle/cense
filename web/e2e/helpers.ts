@@ -83,7 +83,7 @@ export async function newEmail(email: string, seen: Set<string>): Promise<{ subj
 // before (`seen`). Matched by message id, not time: the Docker VM's clock can
 // drift a minute from the host's (it did on Oct 24), which made a time filter
 // drop fresh codes.
-async function codeFromMailpit(email: string, seen: Set<string>): Promise<string> {
+export async function codeFromMailpit(email: string, seen: Set<string>): Promise<string> {
   for (let attempt = 0; attempt < 40; attempt++) {
     const response = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`);
     const list = (await response.json()) as MailpitList;
