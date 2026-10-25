@@ -33,6 +33,13 @@ describe("isCrisis", () => {
     "thinking of overdosing",
     "there's no reason to live",
     "I   want  to   die",
+    // Missed in the gate review of #71 (Oct 25 2026).
+    "i want to end it",
+    "thinking about ending it",
+    "I'm going to end it tonight",
+    "I don't want to wake up tomorrow",
+    "I hope I never wake up",
+    "i feel like dying",
   ])("flags %j", (text) => {
     expect(isCrisis(text)).toBe(true);
   });
@@ -47,6 +54,11 @@ describe("isCrisis", () => {
     "I drive 20 kms to campus, can I write off gas?",
     "What is an overdraft fee?",
     "How do I cut my spending?",
+    "How do I end my card?",
+    "Is ending my subscription early bad for my credit?",
+    "How do I end it with my bank?",
+    "Should I wake up early to pay my bill on time?",
+    "I don't want to wake up early to pay rent",
   ])("does not flag %j", (text) => {
     expect(isCrisis(text)).toBe(false);
   });

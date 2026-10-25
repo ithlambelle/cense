@@ -13,6 +13,14 @@ const PHRASES = [
   /(?<![\d.]\s?)kms/,
   /unaliv\w*/,
   /end(?:ing)?\s+(?:my\s+life|it\s+all)/,
+  // "I want to end it", "thinking about ending it", but not "how do I end
+  // it with my bank" or "end my card": the wish or plan has to be there.
+  /(?:want(?:ed|s)?\s+to|wanna|going\s+to|gonna|thinking\s+(?:about|of)|plan(?:ning)?\s+(?:to|on))\s+end(?:ing)?\s+it\b/,
+  // "I don't want to wake up (tomorrow)", "I hope I never wake up", but not
+  // "wake up early to pay".
+  /(?:don[’']?t|do\s+not)\s+want\s+to\s+wake\s+up(?!\s+(?:early|at|before|for)\b)/,
+  /(?:hope|wish)\s+i\s+(?:never|don[’']?t)\s+wake\s+up/,
+  /feel(?:s|ing)?\s+like\s+dying/,
   /tak(?:e|ing)\s+my\s+(?:own\s+)?life/,
   /(?:want(?:ed|s)?\s+to|wanna)\s+die/,
   /(?:better\s+off|wish\s+i\s+(?:was|were)|want(?:ed)?\s+to\s+be)\s+dead/,
