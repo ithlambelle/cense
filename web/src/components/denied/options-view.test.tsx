@@ -7,7 +7,8 @@ import { OFFLINE_MESSAGE } from "@/lib/api-client/client";
 
 const push = vi.fn();
 const replace = vi.fn();
-vi.mock("next/navigation", () => ({ usePathname: () => "/denied", useRouter: () => ({ push, replace }) }));
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ usePathname: () => "/denied", useRouter: () => ({ push, replace, refresh }) }));
 
 const ID = "00000000-0000-4000-8000-000000000001";
 const PATCH_URL = `/api/v1/applications/${ID}`;
@@ -51,6 +52,8 @@ describe("DeniedOptionsView", () => {
     render(<DeniedOptionsView applicationId={ID} />);
     fireEvent.click(screen.getByRole("button", { name: "Not yet, I’m waiting on the letter" }));
     await waitFor(() => expect(push).toHaveBeenCalledWith(`/denied/no-letter?application=${ID}`));
+    // Home shows the saved reason from its server render, so it is refreshed.
+    expect(refresh).toHaveBeenCalled();
     expect(fetchFn.mock.calls[0][0]).toBe(PATCH_URL);
     expect(fetchFn.mock.calls[0][1]?.method).toBe("PATCH");
     expect(sentBody(fetchFn)).toEqual({ denialReason: "no_letter_yet", denialReasonNote: null });

@@ -1,17 +1,22 @@
 "use client";
 
+import ChevronRight from "@gravity-ui/icons/ChevronRight";
 import StarFill from "@gravity-ui/icons/StarFill";
 import Link from "next/link";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
+import { centsToField, limitToCents } from "@/components/applications/mark-result";
+import { Constellation, STAR } from "@/components/home/constellation";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
+import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE } from "@/lib/analytics";
+import { saveAutopay, saveCreditLimit } from "@/lib/api-client/applications";
 import { loadPlanSteps, savePlanStep, type PlanStepName } from "@/lib/api-client/plans";
 import type { Application } from "@/lib/api/application";
 import { moneyAmount } from "@/lib/money";
-import { applicationPath, CELEBRATE_PARAM, ROUTES, signInPath } from "@/lib/routes";
+import { cardPath, CELEBRATE_PARAM, ROUTES, signInPath } from "@/lib/routes";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
 import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
@@ -23,9 +28,8 @@ type StepKey = "autopay" | "plannedPurchase" | "paymentReminder";
 type Lit = Record<StepKey, boolean>;
 
 // Copy from the frames. Autopay is not a plan step: it is the card's own
-// autopay status.
-// TODO(#58): read and save autopay through autopayStatus on GET and PATCH
-// /applications/{id} once #58 merges. Until then its star is kept on the page only.
+// autopay status, read on the server with the card and saved with PATCH
+// /applications/{id}.
 const STEPS: { key: StepKey; step: PlanStepName | null; title: string; detail: string }[] = [
   { key: "autopay", step: null, title: "Turn on autopay", detail: "Statement balance, every month" },
   { key: "plannedPurchase", step: "planned_purchase", title: "Plan one purchase", detail: "A small cost you already budget for" },
@@ -34,32 +38,27 @@ const STEPS: { key: StepKey; step: PlanStepName | null; title: string; detail: s
 
 const NONE_LIT: Lit = { autopay: false, plannedPurchase: false, paymentReminder: false };
 
-// The burst star (public/decor/burst-star.svg, the frames' star shape) as a
-// mask, so one file draws every color.
-const STAR = "mask-[url(/decor/burst-star.svg)] mask-contain mask-center mask-no-repeat";
-
-// Positions as a share of the box they sit in: the 299-wide constellation
-// panel for the stars.
-const at = (x: number, y: number, width: number): CSSProperties => ({ left: `${(x / width) * 100}%`, top: y });
-
-function loadLit(applicationId: string) {
+function loadLit(applicationId: string, autopay: boolean) {
   return async (): Promise<LoadOutcome<Lit>> => {
     const result = await loadPlanSteps(applicationId, "first_month");
     if (result.kind === "signed-out") return "signed-out";
     if (result.kind === "failed") return { status: "failed", message: result.message };
     return {
       status: "ready",
-      data: { autopay: false, plannedPurchase: result.done.has("planned_purchase"), paymentReminder: result.done.has("payment_reminder") },
+      data: { autopay, plannedPurchase: result.done.has("planned_purchase"), paymentReminder: result.done.has("payment_reminder") },
     };
   };
 }
 
 export function ApprovedCard({
   application,
+  autopayOn,
   celebrate,
   sampleStars,
 }: {
   application: Application;
+  // The saved autopay status is "on" (off and unknown leave the star out).
+  autopayOn: boolean;
   celebrate: boolean;
   // Dev gallery only: this many stars lit, in order, with nothing loaded or saved.
   sampleStars?: number;
@@ -73,11 +72,11 @@ export function ApprovedCard({
       </>
     );
   }
-  return <SavedCard application={application} celebrate={celebrate} />;
+  return <SavedCard application={application} autopayOn={autopayOn} celebrate={celebrate} />;
 }
 
-function SavedCard({ application, celebrate }: { application: Application; celebrate: boolean }) {
-  const load = useMemo(() => loadLit(application.id), [application.id]);
+function SavedCard({ application, autopayOn, celebrate }: { application: Application; autopayOn: boolean; celebrate: boolean }) {
+  const load = useMemo(() => loadLit(application.id, autopayOn), [application.id, autopayOn]);
   const { loaded, retry } = useLoaded(load, signInPath(ROUTES.home));
   // A key per load state, so the stars start again from what was loaded.
   // The arrival effects sit outside it, so they run once.
@@ -88,7 +87,7 @@ function SavedCard({ application, celebrate }: { application: Application; celeb
         key={loaded.status}
         application={application}
         celebrate={celebrate}
-        start={loaded.status === "ready" ? loaded.data : NONE_LIT}
+        start={loaded.status === "ready" ? loaded.data : { ...NONE_LIT, autopay: autopayOn }}
         ready={loaded.status === "ready"}
         loadError={loaded.status === "failed" ? loaded.message : null}
         onRetry={retry}
@@ -125,15 +124,22 @@ function CardModule({
     const value = !lit[key];
     setLit((current) => ({ ...current, [key]: value }));
     setError(null);
-    if (!step || sample) return;
+    if (sample) return;
     setSaving((current) => new Set(current).add(key));
-    const result = await savePlanStep(application.id, "first_month", step, value);
+    const result = step
+      ? await savePlanStep(application.id, "first_month", step, value)
+      : await saveAutopay(application.id, value);
     setSaving((current) => {
       const next = new Set(current);
       next.delete(key);
       return next;
     });
-    if (result.kind === "ok") return;
+    if (result.kind === "ok") {
+      // Autopay reaches Home in the server render: refresh it, or Back from
+      // another screen restores the cached Home with the old star.
+      if (!step) router.refresh();
+      return;
+    }
     // Undo only this star, so other saves in flight are not overwritten.
     setLit((current) => ({ ...current, [key]: !value }));
     if (result.kind === "signed-out") router.replace(signInPath(ROUTES.home));
@@ -144,7 +150,10 @@ function CardModule({
 
   return (
     <section aria-label={application.cardName} className="flex flex-col gap-3.5 rounded-card border-[1.5px] border-violet bg-white p-5">
-      <div className="flex items-center gap-3">
+      {/* The card's own page (with its status, from #62). The whole title row is the
+          link, with a chevron so it reads as tappable (G4). A card added from outside
+          the catalog has no page, so its row is not a link. */}
+      <TitleRow application={application}>
         <span aria-hidden="true" className="relative h-[38px] w-14 shrink-0 rounded-[6px] bg-navy">
           <span className="absolute top-[9px] left-[7px] h-2 w-[11px] rounded-[2px] bg-amber" />
           <span className="absolute top-[27px] left-[7px] h-[3px] w-[26px] rounded-[2px] bg-white/35" />
@@ -165,32 +174,13 @@ function CardModule({
             </p>
           ) : null}
         </div>
-      </div>
+      </TitleRow>
 
-      <div className="flex flex-col gap-0.5">
-        <p className="text-body-s text-indigo-black">Credit limit</p>
-        <div className="flex items-baseline gap-2">
-          {application.creditLimitCents === null ? (
-            <p className="flex-1 text-body-m text-indigo-black">Not added</p>
-          ) : (
-            <p className={cn(SENSITIVE, "flex-1 font-number text-[2.25rem] leading-[2.75rem] font-medium text-navy")}>
-              {moneyAmount(application.creditLimitCents)}
-            </p>
-          )}
-          {/* Mark result is where the limit is saved. A 44px tap area (after:-inset-3) in the frame's 44px row. */}
-          <Link
-            href={applicationPath(application.id)}
-            aria-label={application.creditLimitCents === null ? "Add credit limit" : "Edit credit limit"}
-            className="relative text-body-s font-medium text-violet underline underline-offset-2 outline-none after:absolute after:-inset-3 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
-          >
-            {application.creditLimitCents === null ? "Add" : "Edit"}
-          </Link>
-        </div>
-      </div>
+      <CreditLimit application={application} sample={sample} />
 
       <div className="h-[1.5px] bg-off-white" />
       <h2 className="font-heading text-h6 font-medium text-navy">Your first month</h2>
-      <Constellation count={count} />
+      <Constellation count={count} layout="three" />
 
       <ul className="flex flex-col gap-3.5">
         {STEPS.map((step) => (
@@ -239,79 +229,111 @@ function CardModule({
   );
 }
 
-// The three stars by their centers in the 299 by 92 panel (212:1777).
-const STAR_AT = [
-  [40, 60],
-  [154.5, 34],
-  [269, 52],
-] as const;
-
-const SKY_DOTS = [
-  [18, 72],
-  [120, 16],
-  [200, 80],
-  [276, 22],
-  [60, 40],
-  [236, 58],
-] as const;
-
-// Lit stars are amber with a warm glow, the next one is white with a halo,
-// the rest wait dim. A line turns solid amber once both its stars are lit
-// (144:1733). The frames' light blue (lines, halo, count) is lavender here.
-function Constellation({ count }: { count: number }) {
+function TitleRow({ application, children }: { application: Application; children: ReactNode }) {
+  if (!application.cardId) return <div className="flex items-center gap-3">{children}</div>;
   return (
-    <div className="relative h-[92px] overflow-hidden rounded-[16px] bg-navy">
-      <svg aria-hidden="true" className="absolute inset-0 size-full" viewBox="0 0 299 92" preserveAspectRatio="none">
-        {STAR_AT.slice(1).map(([x, y], index) => {
-          const [fromX, fromY] = STAR_AT[index];
-          const solid = index + 1 < count;
-          return (
-            <line
-              key={x}
-              x1={fromX}
-              y1={fromY}
-              x2={x}
-              y2={y}
-              className={solid ? "stroke-amber" : "stroke-off-white"}
-              strokeOpacity={solid ? 1 : 0.35}
-              strokeWidth={solid ? 2 : 1.25}
-              strokeDasharray={solid ? undefined : "2.9 4.9"}
-              strokeLinecap="round"
-              vectorEffect="non-scaling-stroke"
-            />
-          );
-        })}
-      </svg>
-      {SKY_DOTS.map(([x, y]) => (
-        <span key={`${x}-${y}`} aria-hidden="true" className="absolute size-[2.5px] rounded-pill bg-white/35" style={at(x, y, 299)} />
-      ))}
-      {STAR_AT.map(([x, y], index) => {
-        if (index < count) {
-          return (
-            <span key={x} aria-hidden="true" className="absolute -translate-1/2 drop-shadow-[0_0_6px_rgb(253_192_61/0.9)]" style={at(x, y, 299)}>
-              <span className={cn(STAR, "block size-[22px] animate-pop bg-amber")} />
-            </span>
-          );
-        }
-        if (index === count) {
-          return (
-            <span key={x} aria-hidden="true" className="absolute -translate-1/2" style={at(x, y, 299)}>
-              <span className="absolute top-1/2 left-1/2 size-[34px] -translate-1/2 rounded-pill bg-off-white/35" />
-              <span className="block drop-shadow-[0_0_4px_rgb(255_255_255/0.7)]">
-                <span className={cn(STAR, "block size-[19px] bg-white")} />
-              </span>
-            </span>
-          );
-        }
-        return (
-          <span key={x} aria-hidden="true" className="absolute -translate-1/2 drop-shadow-[0_0_2.5px_rgb(236_234_246/0.45)]" style={at(x, y, 299)}>
-            <span className={cn(STAR, "block size-2.5 bg-off-white/70")} />
-          </span>
-        );
-      })}
-      <p aria-live="polite" className="absolute top-2.5 left-3.5 text-caption leading-normal font-semibold text-off-white">
-        {count === STAR_AT.length ? "All stars lit" : `${count} of ${STAR_AT.length} lit`}
-      </p>
+    <Link
+      href={cardPath(application.cardId, "home")}
+      aria-label={`${application.cardName} details`}
+      className="-m-2 flex items-center gap-3 rounded-input p-2 outline-none hover:bg-off-white/60 focus-visible:outline-2 focus-visible:outline-ring"
+    >
+      {children}
+      <ChevronRight aria-hidden="true" width={16} height={16} className="shrink-0 text-indigo-black/70" />
+    </Link>
+  );
+}
+
+// The limit as one big number with Edit (144:1670). Edit opens a field in
+// place: only the limit is saved (PATCH creditLimitCents), never the status.
+function CreditLimit({ application, sample }: { application: Application; sample: boolean }) {
+  const router = useRouter();
+  const [cents, setCents] = useState(application.creditLimitCents);
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  function open() {
+    setValue(centsToField(cents));
+    setError(null);
+    setEditing(true);
+  }
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    const next = limitToCents(value);
+    if (next === undefined) {
+      setError("Enter the limit in dollars, like 500 or 1,500.");
+      return;
+    }
+    if (sample) {
+      setCents(next);
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    const result = await saveCreditLimit(application.id, next);
+    setSaving(false);
+    if (result.kind === "signed-out") {
+      router.replace(signInPath(ROUTES.home));
+      return;
+    }
+    if (result.kind === "failed") {
+      setError(result.message);
+      return;
+    }
+    setCents(next);
+    setEditing(false);
+    router.refresh();
+  }
+
+  if (editing) {
+    return (
+      <form onSubmit={save} className={cn(SENSITIVE, "flex flex-col gap-3")} noValidate>
+        <TextField
+          label="Credit limit"
+          inputMode="decimal"
+          autoComplete="off"
+          autoFocus
+          placeholder="$500"
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          error={error ?? undefined}
+          disabled={saving}
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <Button type="button" variant="outline" disabled={saving} onClick={() => setEditing(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" chevron={false} pending={saving}>
+            Save
+          </Button>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <p className="text-body-s text-indigo-black">Credit limit</p>
+      <div className="flex items-baseline gap-2">
+        {cents === null ? (
+          <p className="flex-1 text-body-m text-indigo-black">Not added</p>
+        ) : (
+          <p className={cn(SENSITIVE, "flex-1 font-number text-[2.25rem] leading-[2.75rem] font-medium text-navy")}>
+            {moneyAmount(cents)}
+          </p>
+        )}
+        {/* A 44px tap area (after:-inset-3) in the frame's 44px row. */}
+        <button
+          type="button"
+          onClick={open}
+          aria-label={cents === null ? "Add credit limit" : "Edit credit limit"}
+          className="relative text-body-s font-medium text-violet underline underline-offset-2 outline-none after:absolute after:-inset-3 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          {cents === null ? "Add" : "Edit"}
+        </button>
+      </div>
     </div>
   );
 }

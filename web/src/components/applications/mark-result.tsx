@@ -40,7 +40,7 @@ export function limitToCents(value: string): number | null | undefined {
   return cents;
 }
 
-function centsToField(cents: number | null): string {
+export function centsToField(cents: number | null): string {
   if (cents === null) return "";
   return Number.isInteger(cents / 100) ? String(cents / 100) : (cents / 100).toFixed(2);
 }
