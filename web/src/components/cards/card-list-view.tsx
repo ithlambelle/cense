@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
-import { buttonVariants } from "@/components/ui/button";
+import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import { SENSITIVE } from "@/lib/analytics";
 import type { Card } from "@/lib/cards/catalog";
@@ -48,6 +48,7 @@ export function CardListView({
           ) : (
             <Link href={ROUTES.quiz} className={buttonVariants()}>
               Take the quiz
+              <ButtonChevron />
             </Link>
           )}
           {signedIn ? null : (

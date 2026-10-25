@@ -10,7 +10,7 @@ import { useState } from "react";
 
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { Notice, OutcomeMark } from "@/components/denied/parts";
-import { buttonVariants } from "@/components/ui/button";
+import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { choiceRowClass } from "@/components/ui/choice-row";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -86,6 +86,7 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
         </Notice>
         <Link href={ROUTES.home} className={buttonVariants()}>
           Return to Home
+          <ButtonChevron />
         </Link>
       </DeniedLayout>
     );
@@ -125,6 +126,7 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
         <div className="flex flex-col gap-2">
           <Link href={deniedPath("reminder", applicationId)} className={buttonVariants()}>
             Set a 6-month reminder
+            <ButtonChevron />
           </Link>
           <Link href={deniedPath("plan", applicationId)} className={buttonVariants({ variant: "secondary" })}>
             Review all 5 steps

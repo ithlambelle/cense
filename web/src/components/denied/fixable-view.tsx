@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { Notice, NumberedSteps } from "@/components/denied/parts";
-import { buttonVariants } from "@/components/ui/button";
+import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { deniedPath } from "@/lib/routes";
 
 // Contact the issuer directly (Figma 397:2276, S25). The frame's "Call issuer
@@ -46,6 +46,7 @@ export function FixableView({ applicationId }: { applicationId: string | null })
       </Notice>
       <Link href={deniedPath("secondLook", applicationId)} className={buttonVariants()}>
         I requested a second look
+        <ButtonChevron />
       </Link>
       <p className="text-center text-body-s text-indigo-black">
         Keep the representative’s name, date, and confirmation number.

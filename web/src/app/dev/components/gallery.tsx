@@ -61,8 +61,13 @@ export function Gallery() {
 
           <Section title="Buttons">
             <Button>Primary</Button>
+            <Button chevron={false}>Primary, no chevron</Button>
             <Button variant="secondary">Secondary</Button>
+            <Button variant="outline">Outline</Button>
             <Button variant="navyOutline">Navy outline</Button>
+            <Button variant="link" className="self-center">
+              Link
+            </Button>
             <Button disabled>Disabled</Button>
             <Button
               pending={pending}
