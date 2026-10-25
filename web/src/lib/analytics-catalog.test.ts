@@ -31,6 +31,11 @@ describe("event catalog", () => {
     expect([...QUIZ_FIELDS]).toEqual(QUESTIONS.map((question) => question.field));
   });
 
+  it("has no Ask Penny outcome that says a student reached the 988 line", () => {
+    // Health-related, and tied to the student's id (audit PEN-06).
+    expect(EVENTS.penny_question_asked.properties.safeParse({ source: "typed", outcome: "crisis" }).success).toBe(false);
+  });
+
   it("has no property that could carry personal data", () => {
     const banned = /email|name|income|denial_reason|limit|password|code|token|phone|address/;
     for (const [name, entry] of Object.entries(EVENTS)) {

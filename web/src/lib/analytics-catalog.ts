@@ -124,7 +124,9 @@ export const EVENTS = {
       // starter: on Learn; topic: on a topic page; suggestion: offered in the
       // chat; typed: asked in words; link: opened from anywhere else.
       source: z.enum(["starter", "topic", "suggestion", "typed", "link"]),
-      outcome: z.enum(["answered", "advice", "off_topic", "unknown", "crisis", "limit", "unavailable", "offline", "signed_out"]),
+      // No outcome for a crisis: a crisis sends no event at all, because
+      // reaching the 988 line is health data and students are identified.
+      outcome: z.enum(["answered", "advice", "off_topic", "unknown", "limit", "unavailable", "offline", "signed_out"]),
       // The checked answer shown, the same id for every student.
       answer_id: z.enum(PENNY_ANSWER_IDS).optional(),
     }),

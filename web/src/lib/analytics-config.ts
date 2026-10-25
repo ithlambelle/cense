@@ -7,6 +7,10 @@ import { TRACKING_PLAN_VERSION } from "@/lib/analytics-catalog";
 
 export const SENSITIVE = "ph-sensitive";
 export const SENSITIVE_SELECTOR = `.${SENSITIVE}`;
+// Stronger: the element is left out of session replay altogether (the
+// recorder's block class, drawn as an empty box) and out of autocapture,
+// rage and dead clicks, href included. For what must leave no trace.
+export const NO_CAPTURE = "ph-no-capture";
 
 export type AnalyticsEnvironment = "production" | "preview" | "development";
 

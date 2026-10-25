@@ -9,7 +9,7 @@ import { PennyComposer } from "@/components/learn/penny-composer";
 import { BackLink } from "@/components/ui/app-header";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { choiceRowClass } from "@/components/ui/choice-row";
-import { SENSITIVE, track } from "@/lib/analytics";
+import { NO_CAPTURE, SENSITIVE, track } from "@/lib/analytics";
 import type { PennyReply } from "@/lib/api/penny";
 import { apiRequest, isUnauthorized, OFFLINE_MESSAGE, type ApiFailure } from "@/lib/api-client/client";
 import {
@@ -45,7 +45,7 @@ type Message =
   | { id: number; from: "penny"; kind: "crisis"; text: string };
 
 type Source = "starter" | "topic" | "suggestion" | "typed" | "link";
-type Outcome = "answered" | "advice" | "off_topic" | "unknown" | "crisis" | "limit" | "unavailable" | "offline" | "signed_out";
+type Outcome = "answered" | "advice" | "off_topic" | "unknown" | "limit" | "unavailable" | "offline" | "signed_out";
 
 // A model answer can take a while; past this, Penny says she is still on it.
 const SLOW_AFTER_MS = 8_000;
@@ -114,8 +114,10 @@ function failureMessage(failure: ApiFailure, question: string): { message: Messa
   };
 }
 
-function outcomeOf(reply: PennyReply): Outcome {
-  return reply.kind === "answer" ? "answered" : reply.reason;
+// Null for a crisis, which is never sent anywhere.
+function outcomeOf(reply: PennyReply): Outcome | null {
+  if (reply.kind === "answer") return "answered";
+  return reply.reason === "crisis" ? null : reply.reason;
 }
 
 function sendEvent(source: Source, outcome: Outcome, answerId?: string) {
@@ -167,7 +169,8 @@ export function PennyChat({ initialAnswerId, from, back }: Props) {
     setSlow(false);
     if (result.ok) {
       setMessages((current) => [...current, replyMessage(result.data)]);
-      sendEvent("typed", outcomeOf(result.data), result.data.kind === "answer" ? result.data.answer.id : undefined);
+      const outcome = outcomeOf(result.data);
+      if (outcome) sendEvent("typed", outcome, result.data.kind === "answer" ? result.data.answer.id : undefined);
       return;
     }
     const { message, outcome } = failureMessage(result, question);
@@ -310,7 +313,13 @@ function MessageView({ message, from, latest, lastRef, onPick, onRetry, busy }: 
   }
 
   return (
-    <article ref={lastRef} aria-label="Penny" className="flex scroll-mb-28 flex-col items-start gap-4">
+    <article
+      ref={lastRef}
+      aria-label="Penny"
+      // The 988 line leaves no trace in PostHog: students are identified,
+      // and reaching it is health data. Replay shows an empty box.
+      className={cn("flex scroll-mb-28 flex-col items-start gap-4", message.kind === "crisis" && NO_CAPTURE)}
+    >
       {/* Lavender in place of the frame's light blue bubble (G3). */}
       <div className="flex max-w-[302px] flex-col gap-1.5 rounded-[20px] bg-off-white px-4 py-2.5">
         {/* Masked too: a typed answer can restate the question. */}

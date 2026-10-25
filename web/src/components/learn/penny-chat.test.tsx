@@ -4,7 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
-import { SENSITIVE_SELECTOR } from "@/lib/analytics-config";
+// The real track(), which checks every event against the catalog, watched.
+const analytics = vi.hoisted(() => ({ track: vi.fn() }));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/analytics")>();
+  analytics.track.mockImplementation(actual.track);
+  return { ...actual, track: analytics.track };
+});
+
+import { NO_CAPTURE, SENSITIVE_SELECTOR } from "@/lib/analytics-config";
 import { findAnswer } from "@/lib/penny/answers";
 import { PENNY_COPY } from "@/lib/penny/copy";
 import { handOffQuestion } from "@/lib/penny/pending-question";
@@ -36,6 +44,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  analytics.track.mockClear();
 });
 
 describe("PennyChat", () => {
@@ -182,5 +191,30 @@ describe("PennyChat in a crisis", () => {
     render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
     await type("Someone is threatening me over money I owe");
     expectCrisisLine(pennyMessages().at(-1)!);
+  });
+});
+
+describe("PennyChat analytics", () => {
+  it("counts a typed answer with only its catalog id", async () => {
+    vi.stubGlobal("fetch", reply(200, { kind: "answer", text: "It’s a soft inquiry.", answer: { ...preapproval } }));
+    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    await type("Does preapproval hurt my score?");
+    expect(analytics.track).toHaveBeenCalledWith("penny_question_asked", { source: "typed", outcome: "answered", answer_id: preapproval.id });
+  });
+
+  it("sends nothing about a crisis, and keeps the 988 line out of replay and autocapture", async () => {
+    // Students are identified by their user id, so a crisis event or a
+    // recorded 988 line would tie a self-harm flag to a person (PEN-06).
+    vi.stubGlobal("fetch", reply(200, { kind: "declined", reason: "crisis", text: PENNY_COPY.crisis, suggestions: [] }));
+    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    await type("kms");
+    await type("Someone is threatening me over money I owe");
+    expect(analytics.track).not.toHaveBeenCalled();
+    const crises = pennyMessages().slice(1);
+    expect(crises).toHaveLength(2);
+    for (const message of crises) {
+      expectCrisisLine(message);
+      expect(message.closest(`.${NO_CAPTURE}`)).not.toBeNull();
+    }
   });
 });
