@@ -9,7 +9,8 @@ import { openToken, parseTokenKey, sealToken, type TokenKey } from "./token-box"
 
 const key = parseTokenKey(randomBytes(32).toString("base64")) as TokenKey;
 const binding = { studentId: "11111111-1111-4111-8111-111111111111", itemId: "item-1" };
-const TOKEN = "access-sandbox-0d1e2f3a-4b5c-6d7e-8f90-a1b2c3d4e5f6";
+// Made up, and not shaped like a real Plaid token, so secret scanners stay quiet.
+const TOKEN = "made-up-access-token-for-this-test";
 
 describe("parseTokenKey", () => {
   it("takes exactly 32 bytes of base64", () => {
@@ -28,7 +29,7 @@ describe("sealToken and openToken", () => {
     const sealed = sealToken(TOKEN, key, binding);
     expect(sealed.startsWith("v1.")).toBe(true);
     expect(sealed).not.toContain(TOKEN);
-    expect(sealed).not.toContain("access-sandbox");
+    expect(sealed).not.toContain("made-up");
     expect(openToken(sealed, key, binding)).toBe(TOKEN);
   });
 
