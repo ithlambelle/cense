@@ -4,11 +4,11 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { BackLink } from "@/components/ui/app-header";
+import { FitSignal } from "@/components/ui/fit-signal";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { FactChip } from "@/components/ui/fact-chip";
 import { NoteLine } from "@/components/ui/note";
-import { StatusPill } from "@/components/ui/status-pill";
 import { TrackOnMount } from "@/components/analytics/track-on-mount";
 import {
   cardDisplayName,
@@ -16,7 +16,6 @@ import {
   NO_CARD_FALLBACK,
   RESULT_DISCLAIMER,
   RESULT_HEADLINES,
-  TIER_LABELS,
 } from "@/lib/copy/results";
 import { SENSITIVE } from "@/lib/analytics";
 import { moneyAmount } from "@/lib/money";
@@ -73,9 +72,9 @@ export function ResultsView({ view }: { view: ResultView }) {
           <div className="flex flex-col gap-[9px]">
             <div className="flex items-center justify-between gap-3">
               <p className="text-body-s text-indigo-black">{cardTypeLabel(card)}</p>
-              {/* The fit tier, in the designers' status pill (white on this
-                  off-white card). Nobody noticed the tier in interviews. */}
-              <StatusPill className={cn(SENSITIVE, "bg-white")}>{TIER_LABELS[fit.tier].toUpperCase()}</StatusPill>
+              {/* The fit tier as the designers' signal bars (G8). Nobody
+                  noticed the tier in interviews. */}
+              <FitSignal tier={fit.tier} className={SENSITIVE} />
             </div>
             <h3 className="font-heading text-h5 font-medium text-navy">{cardDisplayName(card)}</h3>
           </div>
@@ -137,9 +136,9 @@ export function ResultsView({ view }: { view: ResultView }) {
             href={cardPath(alternative.card.id, "results")}
             className="flex flex-col gap-1 rounded-card border-[1.5px] border-violet bg-white p-5 outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            <span className="flex items-start justify-between gap-3">
+            <span className="flex items-start justify-between gap-2">
               <span className="font-heading text-h6 font-medium text-navy">{cardDisplayName(alternative.card)}</span>
-              <StatusPill className={SENSITIVE}>{TIER_LABELS[alternative.fit.tier].toUpperCase()}</StatusPill>
+              <FitSignal tier={alternative.fit.tier} className={SENSITIVE} />
             </span>
             <span className="text-body-s text-indigo-black">{cardTypeLabel(alternative.card)}</span>
             {alternative.fit.reasons[0] ? (

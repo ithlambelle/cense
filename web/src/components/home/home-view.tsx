@@ -13,9 +13,10 @@ import { Greeting } from "@/components/home/greeting";
 import { UpdatedLine } from "@/components/home/updated-line";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { ButtonChevron, buttonVariants } from "@/components/ui/button";
+import { FitSignal } from "@/components/ui/fit-signal";
 import { StatusPill } from "@/components/ui/status-pill";
 import { findCard } from "@/lib/cards/catalog";
-import { cardDisplayName, cardTypeLabel, NO_CARD_FALLBACK, RESULT_HEADLINES, TIER_LABELS } from "@/lib/copy/results";
+import { cardDisplayName, cardTypeLabel, NO_CARD_FALLBACK, RESULT_HEADLINES } from "@/lib/copy/results";
 import { SENSITIVE } from "@/lib/analytics";
 import type { Application } from "@/lib/api/application";
 import { celebrating, type HomeState } from "@/lib/home/state";
@@ -112,7 +113,7 @@ function HomeContent({ state, celebrate, sampleStars }: { state: HomeState; cele
         <StatusCard
           title={cardDisplayName(card)}
           subtitle={cardTypeLabel(card)}
-          pill={TIER_LABELS[fit.tier].toUpperCase()}
+          badge={<FitSignal tier={fit.tier} className={SENSITIVE} />}
           preview={{ name: cardDisplayName(card), kind: previewKind(card) }}
           rows={[{ label: "Annual fee", value: moneyAmount(card.annualFeeCents) }]}
           link={{ href: ROUTES.results, label: "See your match" }}
@@ -186,7 +187,7 @@ function TrackedCard({ application }: { application: Application }) {
     <StatusCard
       title={application.cardName}
       subtitle={<UpdatedLine iso={application.statusUpdatedAt} />}
-      pill={PILLS[application.status]}
+      badge={<StatusPill className={SENSITIVE}>{PILLS[application.status]}</StatusPill>}
       preview={{ name: application.cardName, kind: card ? previewKind(card) : "CREDIT" }}
       rows={rows}
       // A tracked card opens its card page (back returns Home). A card added
@@ -220,18 +221,19 @@ function TrackedNextStep({ application }: { application: Application }) {
 
 type Row = { label: string; value: string };
 
-// The glowing card on Home: name, status pill, card preview and detail rows.
+// The glowing card on Home: name, fit or status, card preview and detail rows.
 function StatusCard({
   title,
   subtitle,
-  pill,
+  badge,
   preview,
   rows,
   link,
 }: {
   title: string;
   subtitle: ReactNode;
-  pill: string;
+  // The fit signal for a match, the status pill for an application (G8).
+  badge: ReactNode;
   preview: { name: string; kind: string };
   rows: Row[];
   // Makes the whole card a link: in interviews students tapped the match card
@@ -251,7 +253,7 @@ function StatusCard({
           <h2 className="font-heading text-h6 font-medium">{title}</h2>
           <p className="text-body-s">{subtitle}</p>
         </div>
-        <StatusPill className={SENSITIVE}>{pill}</StatusPill>
+        {badge}
       </div>
       <div aria-hidden="true" className="flex h-28 flex-col justify-between rounded-input bg-off-white p-4">
         <div className="flex items-start justify-between gap-3">

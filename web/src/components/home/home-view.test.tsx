@@ -47,7 +47,7 @@ describe("HomeView", () => {
     if (state.kind !== "matched") throw new Error("expected a match");
     expect(state.result.fit.tier).toBe("likely_fit");
     render(<HomeView state={state} initial="M" />);
-    expect(screen.getByText("LIKELY FIT")).toBeTruthy();
+    expect(screen.getByText("Likely fit")).toBeTruthy();
     expect(screen.getByText(`${RESULT_HEADLINES.likely_fit}.`)).toBeTruthy();
     expect(link("View card")).toBe(`/cards/${state.result.card.id}?from=home`);
     // The whole match card opens the result (students tapped it in interviews).
@@ -59,11 +59,11 @@ describe("HomeView", () => {
     if (state.kind !== "matched") throw new Error("expected a match");
     expect(state.result.fit.tier).toBe("stretch");
     render(<HomeView state={state} initial="M" />);
-    expect(screen.getByText("STRETCH")).toBeTruthy();
+    expect(screen.getByText("Stretch")).toBeTruthy();
     expect(screen.getByText(`${RESULT_HEADLINES.stretch}.`)).toBeTruthy();
     expect(screen.getByText(state.result.fit.reasons[0])).toBeTruthy();
     expect(link("See why")).toBe("/results");
-    expect(screen.queryByText("LIKELY FIT")).toBeNull();
+    expect(screen.queryByText("Likely fit")).toBeNull();
     expect(screen.queryByText(/match is ready/)).toBeNull();
     expect(screen.queryByText(/does not affect your credit score/)).toBeNull();
   });
