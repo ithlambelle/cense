@@ -96,10 +96,10 @@ export const EVENTS = {
     }),
   },
   denial_letter_answered: {
-    question: "After a denial, can students judge the issuer's letter yet?",
+    question: "After a denial, do students know the reason yet, or think it was a mistake?",
     owner: "Ben",
     addedIn: 1,
-    properties: z.strictObject({ answer: z.enum(["looks_right", "no_letter", "looks_wrong"]) }),
+    properties: z.strictObject({ answer: z.enum(["knows_reason", "waiting_on_letter", "thinks_mistake"]) }),
   },
   denial_plan_viewed: {
     question: "How many denied students open the five-step plan?",
