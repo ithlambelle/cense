@@ -7,7 +7,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { QUESTIONS } from "../src/lib/quiz/questions";
-import { blockExternalRequests, LIKELY_FIT_PICKS, signUp, uniqueEmail } from "./helpers";
+import { axeChecker, blockExternalRequests, LIKELY_FIT_PICKS, signUp, uniqueEmail } from "./helpers";
 
 test.beforeEach(async ({ context }) => {
   await blockExternalRequests(context);
@@ -45,4 +45,23 @@ test("Home's number of questions is the quiz's, from the start and when picking 
   expect(await homeCount(page)).toBe(promised);
   await page.getByRole("link", { name: "Continue the quiz" }).click();
   expect(await quizCount(page)).toEqual({ at: 3, of: promised });
+});
+
+test("Your account, for a student with no card, offers the quiz and adding a card it mentions", async ({ page }) => {
+  const checkA11y = axeChecker(page);
+  await signUp(page, uniqueEmail("empty-account"), async () => {});
+  await page.goto("/settings");
+  const yourCard = page.getByRole("region", { name: "Your card" });
+  await expect(yourCard.getByText("No card tracked yet.")).toBeVisible();
+  await checkA11y("account: no card");
+  for (const [name, path] of [
+    ["Take the quiz", /\/quiz$/],
+    ["Add a card I already have", /\/home\/add-card$/],
+  ] as const) {
+    await page.goto("/settings");
+    const link = yourCard.getByRole("link", { name });
+    expect((await link.boundingBox())!.height, `${name}: tap target`).toBeGreaterThanOrEqual(44);
+    await link.click();
+    await expect(page, name).toHaveURL(path);
+  }
 });

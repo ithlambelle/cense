@@ -29,8 +29,14 @@ describe("AccountView", () => {
     expect(screen.getByRole("button", { name: "Log out" })).toBeTruthy();
   });
 
-  it("invites the student to start when no card is tracked", () => {
+  it("invites the student to start when no card is tracked, with the two ways to", () => {
     render(<AccountView email={null} card={null} />);
-    expect(screen.getByText(/No card tracked yet/)).toBeTruthy();
+    expect(screen.getByText("No card tracked yet.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Take the quiz" }).getAttribute("href")).toBe("/quiz");
+    // The same words as the Account row below it, which does the same thing.
+    expect(screen.getAllByRole("link", { name: "Add a card I already have" }).map((link) => link.getAttribute("href"))).toEqual([
+      "/home/add-card",
+      "/home/add-card",
+    ]);
   });
 });

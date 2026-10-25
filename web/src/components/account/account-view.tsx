@@ -55,9 +55,25 @@ export function AccountView({ email, card }: { email: string | null; card: Appli
                 <ChevronRight aria-hidden="true" width={16} height={16} className="shrink-0 text-violet" />
               </Link>
             ) : (
-              <p className="rounded-input border border-hairline p-4 text-body-s text-indigo-black">
-                No card tracked yet. Take the quiz or add a card you already have.
-              </p>
+              // The two ways to get a card here, as Home offers them: the quiz,
+              // and "I already have a card".
+              <div className="flex flex-col rounded-input border border-hairline px-4 pt-4 pb-1">
+                <p className="text-body-s text-indigo-black">No card tracked yet.</p>
+                <div className="flex flex-wrap gap-x-5">
+                  {[
+                    { href: ROUTES.quiz, label: "Take the quiz" },
+                    { href: ROUTES.addCard, label: "Add a card I already have" },
+                  ].map((action) => (
+                    <Link
+                      key={action.href}
+                      href={action.href}
+                      className="min-h-11 content-center text-body-s text-violet underline underline-offset-2 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
+                    >
+                      {action.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
             )}
           </section>
 
