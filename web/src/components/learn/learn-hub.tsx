@@ -3,11 +3,11 @@ import ChevronRight from "@gravity-ui/icons/ChevronRight";
 import CreditCard from "@gravity-ui/icons/CreditCard";
 import GraduationCap from "@gravity-ui/icons/GraduationCap";
 import Sack from "@gravity-ui/icons/Sack";
-import Image from "next/image";
 import Link from "next/link";
 import type { ComponentType, SVGProps } from "react";
 
 import { PennyComposer } from "@/components/learn/penny-composer";
+import { MascotStill } from "@/components/mascot/mascot";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { choiceRowClass } from "@/components/ui/choice-row";
 import { findAnswer, PENNY_TOPICS, STARTER_IDS, type PennyTopic } from "@/lib/penny/answers";
@@ -36,16 +36,9 @@ export function LearnHub() {
         <main className="stagger flex flex-1 flex-col gap-5 p-6">
           <section aria-labelledby="penny-card" className="flex flex-col gap-3 rounded-card bg-violet p-5">
             <div className="flex items-start gap-3">
-              {/* Penny in an Off-white circle, cropped as in the frame. */}
-              <div className="relative size-[67px] shrink-0 overflow-hidden rounded-pill bg-off-white">
-                <Image
-                  src="/mascot/penny.png"
-                  alt=""
-                  width={67}
-                  height={67}
-                  priority
-                  className="absolute top-[7px] -left-[3px] size-[67px] max-w-none"
-                />
+              {/* Penny, the astro pig since #42, in the frame's Off-white circle. */}
+              <div className="flex size-[67px] shrink-0 items-center justify-center overflow-hidden rounded-pill bg-off-white">
+                <MascotStill pose="happy" size={60} />
               </div>
               <div className="flex flex-col text-white">
                 <h2 id="penny-card" className="font-heading text-[16px] leading-[23px] font-medium">

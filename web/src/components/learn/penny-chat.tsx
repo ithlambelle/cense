@@ -208,7 +208,15 @@ export function PennyChat({ initialAnswerId, from, back }: Props) {
           <div className="flex items-center">
             <BackLink href={back.href} label={back.label} />
             <div className="flex flex-1 items-center gap-[5px]">
-              <Image src="/mascot/penny-chat.png" alt="" width={40} height={40} className="size-10 shrink-0" />
+              {/* Home's avatar of the astro pig (#42), shown at once with the header. */}
+              <Image
+                src="/mascot/astro-pig/avatar.png"
+                alt=""
+                width={40}
+                height={40}
+                priority
+                className="size-10 shrink-0 rounded-pill bg-off-white"
+              />
               <h1 className="font-heading text-h5 font-medium text-navy">Penny</h1>
             </div>
           </div>

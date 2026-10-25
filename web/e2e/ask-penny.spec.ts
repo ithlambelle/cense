@@ -285,6 +285,11 @@ for (const viewport of [
         return Math.max(...items.map((element) => element.getBoundingClientRect().bottom));
       });
       expect(lastBottom, `${path} content under the bottom bar`).toBeLessThanOrEqual(barTop);
+      // Every image loaded: Penny's art moved once already (#42) and a broken
+      // image has no alt text to show for it.
+      await expect.poll(() => page.evaluate(() => [...document.images].filter((image) => !image.complete).length)).toBe(0);
+      const broken = await page.evaluate(() => [...document.images].filter((image) => image.naturalWidth === 0).map((image) => image.currentSrc || image.src));
+      expect(broken, `${path} has images that did not load`).toEqual([]);
     }
   });
 }
