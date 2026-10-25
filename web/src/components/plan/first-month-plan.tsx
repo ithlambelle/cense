@@ -177,7 +177,7 @@ function PlanScreen({
             <div className="flex flex-col gap-2">
               <ErrorMessage>We couldn’t load your saved plan. Your checks won’t be kept.</ErrorMessage>
               {onRetry ? (
-                <Button variant="link" className="self-start text-violet" onClick={onRetry}>
+                <Button variant="link" className="self-start" onClick={onRetry}>
                   Try again
                 </Button>
               ) : null}

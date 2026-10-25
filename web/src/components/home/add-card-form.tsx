@@ -74,7 +74,7 @@ function AddCardForm({ onAdded, onCancel, onSignedOut }: AddCardFormProps) {
       <Button type="submit" pending={pending}>
         Add card
       </Button>
-      <Button type="button" variant="link" className="self-center text-violet" disabled={pending} onClick={onCancel}>
+      <Button type="button" variant="link" className="self-center" disabled={pending} onClick={onCancel}>
         Cancel
       </Button>
     </form>

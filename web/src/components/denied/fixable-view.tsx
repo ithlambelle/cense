@@ -5,7 +5,7 @@ import Link from "next/link";
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { CopyScript } from "@/components/denied/copy-script";
 import { Notice, NumberedSteps } from "@/components/denied/parts";
-import { buttonVariants } from "@/components/ui/button";
+import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { deniedPath } from "@/lib/routes";
 
 // What to say on the call. "Copy script" copies these lines as they read here.
@@ -46,6 +46,7 @@ export function FixableView({ applicationId }: { applicationId: string | null })
       </Notice>
       <Link href={deniedPath("secondLook", applicationId)} className={buttonVariants()}>
         I requested a second look
+        <ButtonChevron />
       </Link>
       <p className="text-center text-body-s text-indigo-black">Note the rep’s name, the date and a confirmation number.</p>
     </DeniedLayout>

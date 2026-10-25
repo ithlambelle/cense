@@ -140,4 +140,12 @@ describe("MarkResult", () => {
     expect((await screen.findByRole("alert")).textContent).toContain("already exists");
     expect(push).not.toHaveBeenCalled();
   });
+
+  it("goes back Home by default, and to the card page when opened from it", () => {
+    const { unmount } = render(<MarkResult application={application} />);
+    expect(screen.getByRole("link", { name: "Back to Home" }).getAttribute("href")).toBe("/home");
+    unmount();
+    render(<MarkResult application={application} back={{ href: "/cards/chime-card", label: "Card details" }} />);
+    expect(screen.getByRole("link", { name: "Back to Card details" }).getAttribute("href")).toBe("/cards/chime-card");
+  });
 });
