@@ -2,6 +2,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import type { Application } from "@/lib/api/application";
 import { findCard } from "@/lib/cards/catalog";
 
 import { CardDetailView } from "./card-detail-view";
@@ -51,5 +52,37 @@ describe("CardDetailView", () => {
   it("goes back to the card list by default", () => {
     render(<CardDetailView card={catalogCard("discover-it-student-cash-back")} signedIn />);
     expect(screen.getByRole("link", { name: "Back to Cards" }).getAttribute("href")).toBe("/cards");
+  });
+
+  describe("the student's status for a tracked card", () => {
+    const ID = "00000000-0000-4000-8000-000000000001";
+    const tracked: Application = {
+      id: ID,
+      cardId: "discover-it-student-cash-back",
+      cardName: "Discover it Student Cash Back",
+      status: "rejected",
+      creditLimitCents: null,
+      appliedAt: null,
+      statusUpdatedAt: "2026-10-16T00:00:00Z",
+    };
+    const card = () => catalogCard("discover-it-student-cash-back");
+
+    it("shows the status pill and opens Mark result with the way back to this card", () => {
+      render(<CardDetailView card={card()} signedIn tracked={tracked} />);
+      const status = screen.getByRole("region", { name: "Your status" });
+      expect(status.textContent).toContain("NOT APPROVED");
+      expect(screen.getByRole("link", { name: "Update status" }).getAttribute("href")).toBe(`/applications/${ID}?from=card`);
+    });
+
+    it("shows nothing new for a card the student does not track", () => {
+      render(<CardDetailView card={card()} signedIn tracked={null} />);
+      expect(screen.queryByRole("region", { name: "Your status" })).toBeNull();
+      expect(screen.queryByRole("link", { name: "Update status" })).toBeNull();
+    });
+
+    it("shows nothing new to a signed-out visitor", () => {
+      render(<CardDetailView card={card()} signedIn={false} tracked={tracked} />);
+      expect(screen.queryByRole("link", { name: "Update status" })).toBeNull();
+    });
   });
 });

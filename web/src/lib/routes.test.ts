@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { allowedNext, cardBackLink, cardPath, deniedPath, googleSignInPath, planPath, signInPath, waitingPath } from "./routes";
+import { allowedNext, applicationBackLink, applicationPath, cardBackLink, cardPath, deniedPath, googleSignInPath, planPath, signInPath, waitingPath } from "./routes";
 
 describe("allowedNext", () => {
   it.each(["/quiz", "/results", "/home", "/cards/discover-cash-back"])("keeps %s", (path) => {
@@ -74,5 +74,22 @@ describe("card pages remember where they were opened from", () => {
     expect(cardBackLink(undefined)).toEqual({ href: "/cards", label: "Cards" });
     expect(cardBackLink("https://evil.example")).toEqual({ href: "/cards", label: "Cards" });
     expect(cardBackLink(["results", "home"])).toEqual({ href: "/cards", label: "Cards" });
+  });
+});
+
+describe("Mark result remembers the card page it was opened from", () => {
+  const ID = "00000000-0000-4000-8000-000000000001";
+
+  it("adds the origin to the address", () => {
+    expect(applicationPath(ID)).toBe(`/applications/${ID}`);
+    expect(applicationPath(ID, "card")).toBe(`/applications/${ID}?from=card`);
+  });
+
+  it("goes back to the card page only from the card page, and Home otherwise", () => {
+    expect(applicationBackLink("card", "chime-card")).toEqual({ href: "/cards/chime-card", label: "Card details" });
+    expect(applicationBackLink("card", null)).toEqual({ href: "/home", label: "Home" });
+    expect(applicationBackLink(undefined, "chime-card")).toEqual({ href: "/home", label: "Home" });
+    expect(applicationBackLink("https://evil.example", "chime-card")).toEqual({ href: "/home", label: "Home" });
+    expect(applicationBackLink(["card", "card"], "chime-card")).toEqual({ href: "/home", label: "Home" });
   });
 });

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button, ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { NoteLine } from "@/components/ui/note";
 import { Sheet } from "@/components/ui/sheet";
@@ -216,6 +216,7 @@ export function IssuerActions({ card, notes, signedIn }: IssuerActionsProps) {
         </p>
         <Link href={ROUTES.home} className={buttonVariants()}>
           Go to Home
+          <ButtonChevron />
         </Link>
       </section>
     );
@@ -249,7 +250,7 @@ export function IssuerActions({ card, notes, signedIn }: IssuerActionsProps) {
           href={stage.url}
           target="_blank"
           rel="noopener noreferrer"
-          className={buttonVariants({ variant: "link", className: "self-center text-violet" })}
+          className={buttonVariants({ variant: "link", className: "self-center" })}
           onClick={() => setStage(stage.kind === "apply" ? { name: "asking" } : { name: "idle" })}
         >
           The new tab didn’t open. Open {card.brand}’s site.
@@ -273,7 +274,7 @@ export function IssuerActions({ card, notes, signedIn }: IssuerActionsProps) {
           </p>
         </div>
         <WhatHappensNext brand={card.brand} form="preapproval form" />
-        <Button pending={opening === "preapproval"} onClick={() => openIssuer("preapproval")}>
+        <Button chevron={false} pending={opening === "preapproval"} onClick={() => openIssuer("preapproval")}>
           Go to preapproval check
           <ArrowUpRightFromSquare aria-hidden="true" width={18} height={18} />
         </Button>
@@ -296,7 +297,7 @@ export function IssuerActions({ card, notes, signedIn }: IssuerActionsProps) {
         </div>
         {card.referralDisclosure !== null ? <NoteLine>{card.referralDisclosure}</NoteLine> : null}
         <WhatHappensNext brand={card.brand} form="application" />
-        <Button pending={opening === "apply"} onClick={() => openIssuer("apply")}>
+        <Button chevron={false} pending={opening === "apply"} onClick={() => openIssuer("apply")}>
           Open {card.brand} application
           <ArrowUpRightFromSquare aria-hidden="true" width={18} height={18} />
         </Button>

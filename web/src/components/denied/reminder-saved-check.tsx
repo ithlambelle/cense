@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { ReminderSavedView } from "@/components/denied/reminder-saved-view";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button, ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { loadReminders as requestReminders, reapplyReminderFor, type Reminder } from "@/lib/api-client/reminders";
 import { formatIsoDate } from "@/lib/dates";
 import { deniedPath, ROUTES, signInPath } from "@/lib/routes";
@@ -62,6 +62,7 @@ export function ReminderSavedCheck({ applicationId }: { applicationId: string })
           </div>
           <Link href={deniedPath("reminder", applicationId)} className={buttonVariants()}>
             Set a reminder
+            <ButtonChevron />
           </Link>
           <Link href={ROUTES.home} className={buttonVariants({ variant: "secondary" })}>
             Go to Home

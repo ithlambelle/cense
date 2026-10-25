@@ -8,7 +8,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 
 import { TrackOnMount } from "@/components/analytics/track-on-mount";
 import { AppHeader } from "@/components/ui/app-header";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button, ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { SENSITIVE } from "@/lib/analytics";
 import { loadDenialReason, type SavedDenialReason } from "@/lib/api-client/denial-reason";
@@ -265,6 +265,7 @@ export function DeniedPlanScreen({
           <div className="flex flex-col gap-2">
             <Link href={deniedPath("reminder", applicationId)} className={buttonVariants()}>
               Set a 6-month reminder
+              <ButtonChevron />
             </Link>
             <p className="text-center text-body-s text-indigo-black">Only saves a reapply reminder.</p>
           </div>

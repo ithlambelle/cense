@@ -1,29 +1,20 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useRef, type ReactNode } from "react";
 
+import { BACK_CONTROL, BackLink } from "@/components/ui/app-header";
 import { ROUTES } from "@/lib/routes";
+import { cn } from "@/lib/utils";
 
-const backControl =
-  "flex h-12 w-12 items-center rounded-pill outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress";
-
+// Auth screens use the app's one back control (G6): arrow only, named for screen readers.
 export function BackLinkHome() {
-  return <BackLinkTo href={ROUTES.welcome} />;
-}
-
-export function BackLinkTo({ href, label = "Back" }: { href: string; label?: string }) {
-  return (
-    <Link href={href} aria-label={label} className={backControl}>
-      <Image src="/icons/arrow-left-dark.svg" alt="" width={48} height={48} />
-    </Link>
-  );
+  return <BackLink href={ROUTES.welcome} label="Welcome" />;
 }
 
 export function BackButton({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
   return (
-    <button type="button" onClick={onClick} disabled={disabled} aria-label="Back" className={backControl}>
+    <button type="button" onClick={onClick} disabled={disabled} aria-label="Back" className={cn(BACK_CONTROL, "focus-visible:outline-ring")}>
       <Image src="/icons/arrow-left-dark.svg" alt="" width={48} height={48} />
     </button>
   );

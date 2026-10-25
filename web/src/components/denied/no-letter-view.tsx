@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { Notice } from "@/components/denied/parts";
-import { buttonVariants } from "@/components/ui/button";
+import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { deniedPath, ROUTES } from "@/lib/routes";
 
 // "No problem" (Figma 144:2322, Flow 2 A1): the student is still waiting on the
@@ -27,6 +27,7 @@ export function NoLetterView({ applicationId }: { applicationId: string | null }
       </Notice>
       <Link href={ROUTES.home} className={buttonVariants()}>
         Back to Home
+        <ButtonChevron />
       </Link>
     </DeniedLayout>
   );

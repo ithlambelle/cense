@@ -58,7 +58,7 @@ export function ResetPassword() {
     return (
       <AuthLayout title="This link has expired" back={<BackLinkHome />}>
         <p className="text-body-m text-indigo-black">Reset links work once and for a short time. Ask for a new one.</p>
-        <Link href={ROUTES.forgotPassword} className={buttonVariants()}>
+        <Link href={ROUTES.forgotPassword} className={buttonVariants({ chevron: false })}>
           Send a new link
         </Link>
       </AuthLayout>
@@ -88,7 +88,7 @@ export function ResetPassword() {
           error={errors.repeat}
           disabled={pending}
         />
-        <Button type="submit" className="mt-1" pending={pending}>
+        <Button type="submit" chevron={false} className="mt-1" pending={pending}>
           Save password
         </Button>
       </form>

@@ -62,6 +62,7 @@
   --color-glow: rgb(236 234 246 / 0.7);
 
   --radius-pill: 62px;
+  --radius-button: 16px;
   --radius-card: 22px;
   --radius-input: 20px;
   --radius-segment: 2px;
@@ -97,6 +98,12 @@
   --text-number-xl--line-height: 2.25rem;
   --text-caption: 0.75rem;
   --text-caption--line-height: 1.125rem;
+  /* Button labels on the Design Edits page (144:1326): Inter SemiBold 17/24
+     for the primary action (144:2030), 15/24 for the secondary (144:2581). */
+  --text-button: 1.0625rem;
+  --text-button--line-height: 1.5rem;
+  --text-button-s: 0.9375rem;
+  --text-button-s--line-height: 1.5rem;
 
   --shadow-glow-form: -5px -3px 8px 3px var(--color-glow), 5px 3px 8px 3px var(--color-violet);
 
@@ -147,6 +154,8 @@
   --animate-fade-up: fade-up 480ms var(--ease-out-soft) backwards;
   --animate-fade-in: fade-in 320ms ease-out backwards;
   --animate-pop: pop 280ms var(--ease-out-soft) backwards;
+  /* Duration and delay are set per star (StarConfetti). */
+  --animate-confetti: confetti-fall 2600ms cubic-bezier(0.25, 0.6, 0.35, 1) both;
 
   @keyframes fade-up {
     from {
@@ -163,6 +172,19 @@
     from {
       opacity: 0;
       transform: scale(0.4);
+    }
+  }
+  @keyframes confetti-fall {
+    from {
+      transform: translate3d(0, 0, 0) rotate(0deg);
+      opacity: 1;
+    }
+    80% {
+      opacity: 1;
+    }
+    to {
+      transform: translate3d(var(--confetti-drift, 0px), 110vh, 0) rotate(var(--confetti-spin, 0deg));
+      opacity: 0;
     }
   }
 }
@@ -190,5 +212,8 @@
   .animate-fade-in,
   .animate-pop {
     animation: none;
+  }
+  .animate-confetti {
+    display: none;
   }
 }

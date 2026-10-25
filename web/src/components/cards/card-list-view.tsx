@@ -3,11 +3,11 @@ import Link from "next/link";
 
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
-import { buttonVariants } from "@/components/ui/button";
-import { StatusPill } from "@/components/ui/status-pill";
+import { ButtonChevron, buttonVariants } from "@/components/ui/button";
+import { FitSignal } from "@/components/ui/fit-signal";
 import { SENSITIVE } from "@/lib/analytics";
 import type { Card } from "@/lib/cards/catalog";
-import { cardDisplayName, cardTypeLabel, TIER_LABELS, type FitTier } from "@/lib/copy/results";
+import { cardDisplayName, cardTypeLabel, type FitTier } from "@/lib/copy/results";
 import { moneyAmount } from "@/lib/money";
 import { cardPath, ROUTES, signInPath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -48,6 +48,7 @@ export function CardListView({
           ) : (
             <Link href={ROUTES.quiz} className={buttonVariants()}>
               Take the quiz
+              <ButtonChevron />
             </Link>
           )}
           {signedIn ? null : (
@@ -131,7 +132,7 @@ function YourMatchRow({ match }: { match: YourMatch }) {
           </span>
         </span>
         {match.name ? (
-          <StatusPill className={cn(SENSITIVE, "bg-white")}>{TIER_LABELS[match.tier].toUpperCase()}</StatusPill>
+          <FitSignal tier={match.tier} className={SENSITIVE} />
         ) : null}
         <ChevronRight aria-hidden="true" width={20} height={20} className="shrink-0 text-violet" />
       </Link>

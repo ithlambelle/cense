@@ -27,14 +27,27 @@ function withApplication(path: string, applicationId: string | null): string {
   return applicationId ? `${path}?application=${encodeURIComponent(applicationId)}` : path;
 }
 
-// Where a student marks what the issuer decided for one tracked card.
-export function applicationPath(applicationId: string): string {
-  return `/applications/${encodeURIComponent(applicationId)}`;
+// Where a student marks what the issuer decided for one tracked card. `from`
+// works like the card page's: "card" means it was opened from that card's page.
+export type ApplicationOrigin = "card";
+
+export function applicationPath(applicationId: string, from?: ApplicationOrigin): string {
+  const path = `/applications/${encodeURIComponent(applicationId)}`;
+  return from ? `${path}?from=${from}` : path;
 }
 
 // "I haven’t heard yet" for one tracked card.
 export function waitingPath(applicationId: string): string {
   return `${applicationPath(applicationId)}/waiting`;
+}
+
+// Home right after Mark result saves a new approval. Home celebrates that
+// card once and drops the flag from the address, so a reload is calm. There
+// is no approved_at column, so this arrival is the only time the date is known.
+export const CELEBRATE_PARAM = "celebrate";
+
+export function celebratePath(applicationId: string): string {
+  return `${ROUTES.home}?${CELEBRATE_PARAM}=${encodeURIComponent(applicationId)}`;
 }
 
 // The first-month plan for one approved card.
@@ -77,6 +90,13 @@ export function cardBackLink(from: string | string[] | undefined): { href: strin
   if (from === "results") return { href: ROUTES.results, label: "Your match" };
   if (from === "home") return { href: ROUTES.home, label: "Home" };
   return { href: ROUTES.cards, label: "Cards" };
+}
+
+// Mark result's back arrow. "card" returns to the tracked card's page, given
+// only when that card is in the catalog. Anything else goes Home.
+export function applicationBackLink(from: string | string[] | undefined, cardId: string | null): { href: string; label: string } {
+  if (from === "card" && cardId) return { href: cardPath(cardId), label: "Card details" };
+  return { href: ROUTES.home, label: "Home" };
 }
 
 const NEXT_ALLOW_LIST: readonly string[] = [ROUTES.quiz, ROUTES.results, ROUTES.home];
