@@ -17,6 +17,8 @@ export default defineConfig({
     channel: "chrome",
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3300",
     viewport: { width: 390, height: 844 },
+    // Entrance animations fade content in; axe would measure contrast mid-fade.
+    contextOptions: { reducedMotion: "reduce" },
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },

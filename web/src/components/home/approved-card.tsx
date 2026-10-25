@@ -1,19 +1,22 @@
 "use client";
 
+import ChevronRight from "@gravity-ui/icons/ChevronRight";
 import StarFill from "@gravity-ui/icons/StarFill";
 import Link from "next/link";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
+import { centsToField, limitToCents } from "@/components/applications/mark-result";
 import { Constellation, STAR } from "@/components/home/constellation";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
+import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE } from "@/lib/analytics";
-import { saveAutopay } from "@/lib/api-client/applications";
+import { saveAutopay, saveCreditLimit } from "@/lib/api-client/applications";
 import { loadPlanSteps, savePlanStep, type PlanStepName } from "@/lib/api-client/plans";
 import type { Application } from "@/lib/api/application";
 import { moneyAmount } from "@/lib/money";
-import { applicationPath, CELEBRATE_PARAM, ROUTES, signInPath } from "@/lib/routes";
+import { cardPath, CELEBRATE_PARAM, ROUTES, signInPath } from "@/lib/routes";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
 import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
@@ -142,7 +145,10 @@ function CardModule({
 
   return (
     <section aria-label={application.cardName} className="flex flex-col gap-3.5 rounded-card border-[1.5px] border-violet bg-white p-5">
-      <div className="flex items-center gap-3">
+      {/* The card's own page (with its status, from #62). The whole title row is the
+          link, with a chevron so it reads as tappable (G4). A card added from outside
+          the catalog has no page, so its row is not a link. */}
+      <TitleRow application={application}>
         <span aria-hidden="true" className="relative h-[38px] w-14 shrink-0 rounded-[6px] bg-navy">
           <span className="absolute top-[9px] left-[7px] h-2 w-[11px] rounded-[2px] bg-amber" />
           <span className="absolute top-[27px] left-[7px] h-[3px] w-[26px] rounded-[2px] bg-white/35" />
@@ -163,28 +169,9 @@ function CardModule({
             </p>
           ) : null}
         </div>
-      </div>
+      </TitleRow>
 
-      <div className="flex flex-col gap-0.5">
-        <p className="text-body-s text-indigo-black">Credit limit</p>
-        <div className="flex items-baseline gap-2">
-          {application.creditLimitCents === null ? (
-            <p className="flex-1 text-body-m text-indigo-black">Not added</p>
-          ) : (
-            <p className={cn(SENSITIVE, "flex-1 font-number text-[2.25rem] leading-[2.75rem] font-medium text-navy")}>
-              {moneyAmount(application.creditLimitCents)}
-            </p>
-          )}
-          {/* Mark result is where the limit is saved. A 44px tap area (after:-inset-3) in the frame's 44px row. */}
-          <Link
-            href={applicationPath(application.id)}
-            aria-label={application.creditLimitCents === null ? "Add credit limit" : "Edit credit limit"}
-            className="relative text-body-s font-medium text-violet underline underline-offset-2 outline-none after:absolute after:-inset-3 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
-          >
-            {application.creditLimitCents === null ? "Add" : "Edit"}
-          </Link>
-        </div>
-      </div>
+      <CreditLimit application={application} sample={sample} />
 
       <div className="h-[1.5px] bg-off-white" />
       <h2 className="font-heading text-h6 font-medium text-navy">Your first month</h2>
@@ -234,6 +221,115 @@ function CardModule({
       ) : null}
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
     </section>
+  );
+}
+
+function TitleRow({ application, children }: { application: Application; children: ReactNode }) {
+  if (!application.cardId) return <div className="flex items-center gap-3">{children}</div>;
+  return (
+    <Link
+      href={cardPath(application.cardId, "home")}
+      aria-label={`${application.cardName} details`}
+      className="-m-2 flex items-center gap-3 rounded-input p-2 outline-none hover:bg-off-white/60 focus-visible:outline-2 focus-visible:outline-ring"
+    >
+      {children}
+      <ChevronRight aria-hidden="true" width={16} height={16} className="shrink-0 text-indigo-black/70" />
+    </Link>
+  );
+}
+
+// The limit as one big number with Edit (144:1670). Edit opens a field in
+// place: only the limit is saved (PATCH creditLimitCents), never the status.
+function CreditLimit({ application, sample }: { application: Application; sample: boolean }) {
+  const router = useRouter();
+  const [cents, setCents] = useState(application.creditLimitCents);
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  function open() {
+    setValue(centsToField(cents));
+    setError(null);
+    setEditing(true);
+  }
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    const next = limitToCents(value);
+    if (next === undefined) {
+      setError("Enter the limit in dollars, like 500 or 1,500.");
+      return;
+    }
+    if (sample) {
+      setCents(next);
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    const result = await saveCreditLimit(application.id, next);
+    setSaving(false);
+    if (result.kind === "signed-out") {
+      router.replace(signInPath(ROUTES.home));
+      return;
+    }
+    if (result.kind === "failed") {
+      setError(result.message);
+      return;
+    }
+    setCents(next);
+    setEditing(false);
+    router.refresh();
+  }
+
+  if (editing) {
+    return (
+      <form onSubmit={save} className={cn(SENSITIVE, "flex flex-col gap-3")} noValidate>
+        <TextField
+          label="Credit limit"
+          inputMode="decimal"
+          autoComplete="off"
+          autoFocus
+          placeholder="$500"
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          error={error ?? undefined}
+          disabled={saving}
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <Button type="button" variant="outline" disabled={saving} onClick={() => setEditing(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" chevron={false} pending={saving}>
+            Save
+          </Button>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <p className="text-body-s text-indigo-black">Credit limit</p>
+      <div className="flex items-baseline gap-2">
+        {cents === null ? (
+          <p className="flex-1 text-body-m text-indigo-black">Not added</p>
+        ) : (
+          <p className={cn(SENSITIVE, "flex-1 font-number text-[2.25rem] leading-[2.75rem] font-medium text-navy")}>
+            {moneyAmount(cents)}
+          </p>
+        )}
+        {/* A 44px tap area (after:-inset-3) in the frame's 44px row. */}
+        <button
+          type="button"
+          onClick={open}
+          aria-label={cents === null ? "Add credit limit" : "Edit credit limit"}
+          className="relative text-body-s font-medium text-violet underline underline-offset-2 outline-none after:absolute after:-inset-3 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          {cents === null ? "Add" : "Edit"}
+        </button>
+      </div>
+    </div>
   );
 }
 

@@ -265,16 +265,44 @@ describe("Home approved card", () => {
     expect(star(/Set a payment reminder/).getAttribute("aria-checked")).toBe("false");
   });
 
-  it("edits the limit on Mark result, and offers to add one when none is saved", async () => {
-    server([{ status: 200, body: plan() }, { status: 200, body: plan() }]);
-    const { unmount } = render(<HomeView state={state} initial="M" />);
-    expect(screen.getByRole("link", { name: "Edit credit limit" }).getAttribute("href")).toBe(`/applications/${ID}`);
+  it("edits the limit in place and saves only the limit", async () => {
+    const fetchFn = server([{ status: 200, body: plan() }, { status: 200, body: { ...approved, creditLimitCents: 125000 } }]);
+    render(<HomeView state={state} initial="M" />);
     await screen.findByText("0 of 3 lit");
-    unmount();
+    fireEvent.click(screen.getByRole("button", { name: "Edit credit limit" }));
+    const field = screen.getByLabelText("Credit limit") as HTMLInputElement;
+    expect(field.value).toBe("500");
+    // A bad amount is refused without a request.
+    fireEvent.change(field, { target: { value: "abc" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(screen.getByText("Enter the limit in dollars, like 500 or 1,500.")).toBeTruthy();
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    fireEvent.change(field, { target: { value: "$1,250" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText("$1,250");
+    const [url, init] = fetchFn.mock.calls[1];
+    expect(String(url)).toContain(`/api/v1/applications/${ID}`);
+    expect(init?.method?.toUpperCase()).toBe("PATCH");
+    expect(JSON.parse(String(init?.body))).toEqual({ creditLimitCents: 125000 });
+  });
+
+  it("offers to add a limit when none is saved, and Cancel leaves it", async () => {
+    server([{ status: 200, body: plan() }]);
     const noLimit = homeState([{ ...approved, creditLimitCents: null }], computeResult(undefined, listCards()), true);
     render(<HomeView state={noLimit} initial="M" />);
-    expect(screen.getByText("Not added")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Add credit limit" }).getAttribute("href")).toBe(`/applications/${ID}`);
     await screen.findByText("0 of 3 lit");
+    expect(screen.getByText("Not added")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Add credit limit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByText("Not added")).toBeTruthy();
+  });
+
+  it("opens the card's own page from its title row", async () => {
+    server([{ status: 200, body: plan() }]);
+    render(<HomeView state={state} initial="M" />);
+    await screen.findByText("0 of 3 lit");
+    expect(screen.getByRole("link", { name: `${approved.cardName} details` }).getAttribute("href")).toBe(
+      `/cards/${approved.cardId}?from=home`,
+    );
   });
 });
