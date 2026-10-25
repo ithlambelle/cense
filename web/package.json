@@ -12,7 +12,6 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "e2e": "playwright test",
-    "quality:report": "node scripts/quality-report.mjs",
     "seed:local": "node scripts/seed-local.mjs",
     "openapi:generate": "tsx scripts/generate-openapi.ts",
     "openapi:check": "npm run openapi:generate && git diff --exit-code -- ../api/openapi.yaml",

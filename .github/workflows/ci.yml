@@ -64,18 +64,6 @@ jobs:
         run: npx playwright test
         env:
           E2E_MAILPIT_URL: http://127.0.0.1:54324
-      # Every screen's screenshot and findings, and the cross-screen style view,
-      # on every run (pass or fail): download "quality-report" and open index.html.
-      - name: Build the quality report
-        if: always()
-        run: npm run quality:report
-      - name: Keep the quality report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: quality-report
-          path: web/test-results/quality
-          retention-days: 14
       - name: Keep the report and traces when a test fails
         if: failure()
         uses: actions/upload-artifact@v4
