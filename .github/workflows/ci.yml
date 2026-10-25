@@ -24,6 +24,57 @@ jobs:
       - run: npm ci
       - run: npm run check
 
+  # Every journey test, as real students on a throwaway local Supabase stack:
+  # sign up by email code, use each control, reload, follow every link. Unit
+  # tests and the build passed while three Home bugs shipped (Oct 24); these
+  # tests are what catch that kind of bug.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: 2.122.0
+      - name: Start the local Supabase stack (migrations applied, Mailpit on 54324)
+        working-directory: .
+        run: supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,studio,postgres-meta
+      - name: Point the app at the local stack
+        working-directory: .
+        run: |
+          eval "$(supabase status -o env)"
+          printf 'NEXT_PUBLIC_SUPABASE_URL=%s\nNEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=%s\n' "$API_URL" "$PUBLISHABLE_KEY" > web/.env.local
+      - run: npm ci
+      # A production build, not next dev: dev recompiles mid-test and made a test flaky.
+      - run: npm run build
+      - name: Start the app on :3300
+        run: |
+          npx next start -p 3300 > next.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:3300/sign-in && exit 0; sleep 1; done
+          cat next.log; exit 1
+      - name: Journey tests
+        run: npx playwright test
+        env:
+          E2E_MAILPIT_URL: http://127.0.0.1:54324
+      - name: Keep the report and traces when a test fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            web/playwright-report
+            web/test-results
+            web/next.log
+          retention-days: 7
+
   api-contract:
     runs-on: ubuntu-latest
     steps:

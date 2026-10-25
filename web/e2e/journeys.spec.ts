@@ -123,10 +123,14 @@ test("student marks an applied card as denied and reaches the five-step plan", a
   await expect(page).toHaveURL(/\/denied\?application=/);
   await expect(page.getByRole("heading", { level: 1, name: "Denial options" })).toBeVisible();
   await checkA11y("denied: options");
-  await page.getByRole("link", { name: "Not yet, I’m waiting on the letter" }).click();
+  await page.getByRole("button", { name: "Yes, I know the reason" }).click();
+  await page.getByRole("button", { name: "Not enough credit history" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
 
+  // The reason is saved, so the plan's note reads it back.
   await expect(page).toHaveURL(/\/denied\/plan\?application=/);
   await expect(page.getByRole("heading", { level: 1, name: "A steady five-step plan" })).toBeVisible();
+  await expect(page.getByText("Reason: no credit history yet")).toBeVisible();
   await expect(page.getByRole("main").getByRole("list").first().getByRole("listitem")).toHaveCount(5);
   await checkA11y("denied: five-step plan");
 });

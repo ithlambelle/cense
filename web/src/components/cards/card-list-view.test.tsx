@@ -9,9 +9,14 @@ import { CardListView } from "./card-list-view";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/cards" }));
 
+// A few cards from both groups are enough here. Rendering all 53 and then
+// querying by role took seconds in jsdom and timed out on a busy machine.
+const all = listCards();
+const cards = [...all.filter((card) => card.catalogRole === "recommend").slice(0, 3), ...all.filter((card) => card.catalogRole === "explore").slice(0, 3)];
+
 describe("CardListView", () => {
   it("puts the student's match on top, one tap from the result, with a way to retake", () => {
-    render(<CardListView cards={listCards()} signedIn yourMatch={{ name: "Discover it Student Cash Back", tier: "likely_fit" }} />);
+    render(<CardListView cards={cards} signedIn yourMatch={{ name: "Discover it Student Cash Back", tier: "likely_fit" }} />);
     const match = screen.getByRole("link", { name: /Your match/ });
     expect(match.getAttribute("href")).toBe(ROUTES.results);
     expect(match.textContent).toContain("Discover it Student Cash Back");
@@ -21,12 +26,12 @@ describe("CardListView", () => {
   });
 
   it("still links to the result when no card fits", () => {
-    render(<CardListView cards={listCards()} signedIn yourMatch={{ name: null, tier: "not_yet" }} />);
+    render(<CardListView cards={cards} signedIn yourMatch={{ name: null, tier: "not_yet" }} />);
     expect(screen.getByRole("link", { name: /Your match/ }).getAttribute("href")).toBe(ROUTES.results);
   });
 
   it("offers the quiz when it is not finished", () => {
-    render(<CardListView cards={listCards()} signedIn yourMatch={null} />);
+    render(<CardListView cards={cards} signedIn yourMatch={null} />);
     expect(screen.getByRole("link", { name: "Take the quiz" }).getAttribute("href")).toBe(ROUTES.quiz);
     expect(screen.queryByRole("link", { name: /Your match/ })).toBeNull();
   });
