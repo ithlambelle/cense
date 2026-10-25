@@ -1,0 +1,127 @@
+// @vitest-environment jsdom
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
+import { findAnswer } from "@/lib/penny/answers";
+import { PENNY_COPY } from "@/lib/penny/copy";
+import { handOffQuestion } from "@/lib/penny/pending-question";
+
+import { PennyChat } from "./penny-chat";
+
+const BACK = { href: "/learn", label: "Learn" };
+const preapproval = findAnswer("preapproval-vs-applying")!;
+
+function reply(status: number, body: unknown) {
+  return vi.fn(async () => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }));
+}
+
+function pennyMessages() {
+  return within(screen.getByRole("log", { name: "Conversation with Penny" })).getAllByRole("article", { name: "Penny" });
+}
+
+async function type(question: string) {
+  fireEvent.change(screen.getByRole("textbox", { name: "Ask Penny" }), { target: { value: question } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+  });
+}
+
+beforeEach(() => {
+  window.matchMedia = vi.fn(() => ({ matches: true }) as unknown as MediaQueryList);
+  Element.prototype.scrollIntoView = vi.fn();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("PennyChat", () => {
+  it("opens with a tapped question's checked answer, its source, and a link into its topic", () => {
+    render(<PennyChat initialAnswerId={preapproval.id} from="learn" back={BACK} />);
+    expect(screen.getByRole("article", { name: "You" }).textContent).toBe("Preapproval vs. applying");
+    const answer = pennyMessages()[0];
+    expect(answer.textContent).toContain(preapproval.answer);
+    const source = within(answer).getByRole("link", { name: "Source: CFPB" });
+    expect(source.getAttribute("href")).toBe(preapproval.source.url);
+    expect(source.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(within(answer).getByRole("link", { name: /More about credit/ }).getAttribute("href")).toBe("/learn/credit");
+    expect(screen.getByText(PENNY_COPY.disclaimer)).toBeTruthy();
+  });
+
+  it("leaves out the topic link when opened from that topic", () => {
+    render(<PennyChat initialAnswerId={preapproval.id} from="credit" back={BACK} />);
+    expect(screen.queryByRole("link", { name: /More about credit/ })).toBeNull();
+  });
+
+  it("greets with two questions when opened with nothing, and a tapped one answers at once", () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    const greeting = pennyMessages()[0];
+    expect(greeting.textContent).toContain(PENNY_COPY.greetingTitle);
+    fireEvent.click(within(greeting).getByRole("button", { name: "How to use a credit card?" }));
+    expect(pennyMessages().at(-1)?.textContent).toContain(findAnswer("using-a-credit-card")!.answer);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("keeps Send off until there is something to send", () => {
+    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    const send = screen.getByRole("button", { name: "Send" }) as HTMLButtonElement;
+    expect(send.disabled).toBe(true);
+    fireEvent.change(screen.getByRole("textbox", { name: "Ask Penny" }), { target: { value: "  " } });
+    expect(send.disabled).toBe(true);
+    fireEvent.change(screen.getByRole("textbox", { name: "Ask Penny" }), { target: { value: "What is APR?" } });
+    expect(send.disabled).toBe(false);
+  });
+
+  it("sends a typed question and shows the reply", async () => {
+    const fetch = reply(200, { kind: "answer", text: "It’s a soft inquiry.", answer: { ...preapproval } });
+    vi.stubGlobal("fetch", fetch);
+    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    await type("Does preapproval hurt my score?");
+    expect(fetch).toHaveBeenCalledWith("/api/v1/penny", expect.objectContaining({ method: "POST", body: JSON.stringify({ question: "Does preapproval hurt my score?" }) }));
+    expect(pennyMessages().at(-1)?.textContent).toContain("It’s a soft inquiry.");
+  });
+
+  it("sends a question typed on Learn on arrival, with no greeting first", async () => {
+    const fetch = reply(200, { kind: "declined", reason: "off_topic", text: PENNY_COPY.offTopic, suggestions: [] });
+    vi.stubGlobal("fetch", fetch);
+    handOffQuestion("What's the weather?");
+    await act(async () => {
+      render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    });
+    expect(screen.getByRole("article", { name: "You" }).textContent).toBe("What's the weather?");
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(pennyMessages()).toHaveLength(1);
+    expect(pennyMessages()[0].textContent).toContain(PENNY_COPY.offTopic);
+  });
+
+  it("says when the daily limit is reached and offers tapped questions", async () => {
+    vi.stubGlobal("fetch", reply(429, { error: { code: "penny_limit", message: "Limit" } }));
+    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    await type("What is APR?");
+    const limit = pennyMessages().at(-1)!;
+    expect(limit.textContent).toContain(PENNY_COPY.limit);
+    expect(within(limit).getAllByRole("button").map((b) => b.textContent)).toEqual(["How to use a credit card?", "How to budget as a student?"]);
+  });
+
+  it("offers Try again when Penny is unavailable, and only on the newest message", async () => {
+    vi.stubGlobal("fetch", reply(503, { error: { code: "penny_unavailable", message: "Down" } }));
+    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    await type("What is APR?");
+    expect(pennyMessages().at(-1)?.textContent).toContain(PENNY_COPY.unavailable);
+    expect(screen.getAllByRole("button", { name: "Try again" })).toHaveLength(1);
+    await type("And a secured card?");
+    expect(screen.getAllByRole("button", { name: "Try again" })).toHaveLength(1);
+  });
+
+  it("asks a signed-out student to sign in again and come back here", async () => {
+    vi.stubGlobal("fetch", reply(401, { error: { code: "unauthorized", message: "Sign in to continue." } }));
+    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    await type("What is APR?");
+    expect(pennyMessages().at(-1)?.textContent).toContain(PENNY_COPY.signedOut);
+    expect(screen.getByRole("link", { name: "Sign in again" }).getAttribute("href")).toBe("/sign-in?next=%2Flearn%2Fpenny");
+  });
+});

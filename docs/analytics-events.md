@@ -2,7 +2,7 @@
 
 # Analytics events
 
-Tracking plan version 1. Every event Cense sends to PostHog, the question it answers and the only properties it may carry. `track()` in `web/src/lib/analytics.ts` rejects anything not listed here, and a lint rule stops code from calling PostHog any other way.
+Tracking plan version 2. Every event Cense sends to PostHog, the question it answers and the only properties it may carry. `track()` in `web/src/lib/analytics.ts` rejects anything not listed here, and a lint rule stops code from calling PostHog any other way.
 
 Sent with every event: `plan_version`, `platform`, `app_version`, `environment`, `is_internal`, `$geoip_disable`. PostHog adds its own (`$current_url` and the like), with everything after "?" or "#" removed before sending. Events marked with a ledger copy a Postgres row; the falsifiers and the D24 numbers are counted from Postgres, and PostHog is checked against it.
 
@@ -18,3 +18,4 @@ Sent with every event: `plan_version`, `platform`, `app_version`, `environment`,
 | `denial_letter_answered` | After a denial, do students know the reason yet, or think it was a mistake? | `answer`: `knows_reason`, `waiting_on_letter`, `thinks_mistake` | PostHog only | Ben | 1 |
 | `denial_plan_viewed` | How many denied students open the five-step plan? | none | PostHog only | Ben | 1 |
 | `card_added` | How many students track a card Cense did not recommend? | `method`: `manual` | PostHog only | Ben | 1 |
+| `penny_question_asked` | S34's cut rule: do students use Ask Penny, how (tapped or typed), and how often does Penny answer rather than decline or fail? Never the question's text. | `source`: `starter`, `topic`, `suggestion`, `typed`, `link`<br>`outcome`: `answered`, `advice`, `off_topic`, `unknown`, `crisis`, `limit`, `unavailable`, `offline`, `signed_out`<br>`answer_id`: `credit-card-basics`, `credit-score`, `preapproval-vs-applying`, `avoid-interest`, `secured-card`, `using-a-credit-card`, `credit-limit-utilization`, `paying-late`, `student-budget`, `fixed-vs-variable`, `needs-vs-wants`, `tracking-spending`, `overdraft-fees`, `buy-now-pay-later`, `emergency-fund`, `fdic-insurance`, `saving-on-small-income`, `savings-vs-checking`, `automatic-saving`, `federal-vs-private-loans`, `subsidized-vs-unsubsidized`, `repayment-start`, `fafsa`, `missed-loan-payment` | PostHog only | Ben | 2 |

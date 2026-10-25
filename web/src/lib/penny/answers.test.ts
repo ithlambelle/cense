@@ -1,0 +1,86 @@
+import { describe, expect, it } from "vitest";
+
+import { listCards } from "@/lib/cards/catalog";
+
+import { findAnswer, PENNY_ANSWERS, PENNY_TOPICS, STARTER_IDS, TOPIC_QUESTIONS, topicAnswers } from "./answers";
+
+// Where a checked answer may come from: US government and regulator sites.
+const OFFICIAL_HOSTS = [
+  "www.consumerfinance.gov",
+  "files.consumerfinance.gov",
+  "consumer.gov",
+  "consumer.ftc.gov",
+  "www.ftc.gov",
+  "www.fdic.gov",
+  "studentaid.gov",
+  "www.federalreserve.gov",
+  "www.investor.gov",
+  "www.annualcreditreport.com",
+];
+
+const words = (text: string) => text.trim().split(/\s+/).length;
+
+describe("Penny's checked answers", () => {
+  it("have unique ids and questions", () => {
+    expect(new Set(PENNY_ANSWERS.map((a) => a.id)).size).toBe(PENNY_ANSWERS.length);
+    expect(new Set(PENNY_ANSWERS.map((a) => a.question)).size).toBe(PENNY_ANSWERS.length);
+  });
+
+  it.each(PENNY_ANSWERS.map((a) => [a.id, a] as const))("%s follows the copy rules", (_id, answer) => {
+    const count = words(answer.answer);
+    expect(count).toBeGreaterThanOrEqual(25);
+    expect(count).toBeLessThanOrEqual(55);
+    for (const text of [answer.question, answer.answer]) {
+      // No dashes, tildes, semicolons, exclamation marks or straight apostrophes.
+      expect(text).not.toMatch(/[–—~;!']/);
+      expect(text).not.toMatch(/ - /);
+    }
+    // How things work, never what to do: no "you should".
+    expect(answer.answer).not.toMatch(/\bshould\b/i);
+  });
+
+  it.each(PENNY_ANSWERS.map((a) => [a.id, a] as const))("%s cites an official https page", (_id, answer) => {
+    const url = new URL(answer.source.url);
+    expect(url.protocol).toBe("https:");
+    expect(OFFICIAL_HOSTS).toContain(url.hostname);
+    expect(answer.source.name.length).toBeGreaterThan(0);
+  });
+
+  it("never names a card, bank or issuer from the catalog", () => {
+    const names = new Set(listCards().flatMap((card) => [card.brand, card.issuingBank, card.name]));
+    for (const answer of PENNY_ANSWERS) {
+      for (const name of names) expect(answer.answer, `${answer.id} names ${name}`).not.toContain(name);
+    }
+  });
+});
+
+describe("topics and starters", () => {
+  it("lists five answers per topic, each from that topic", () => {
+    for (const topic of PENNY_TOPICS) {
+      const answers = topicAnswers(topic.slug);
+      expect(answers, topic.slug).toHaveLength(5);
+      expect(TOPIC_QUESTIONS[topic.slug]).toHaveLength(5);
+      for (const answer of answers) expect(answer.topic).toBe(topic.slug);
+    }
+  });
+
+  it("lists the Credit questions from the frame word for word (144:3285)", () => {
+    expect(topicAnswers("credit").map((a) => a.question)).toEqual([
+      "How does a credit card work?",
+      "What is a credit score?",
+      "Preapproval vs. applying",
+      "How do I avoid paying interest?",
+      "What is a secured card?",
+    ]);
+  });
+
+  it("has the two starters from the Learn frame word for word (144:3071)", () => {
+    expect(STARTER_IDS.map((id) => findAnswer(id)?.question)).toEqual(["How to use a credit card?", "How to budget as a student?"]);
+  });
+
+  it("keeps the frame's preapproval answer: a soft inquiry, while applying is a hard one", () => {
+    const answer = findAnswer("preapproval-vs-applying")?.answer ?? "";
+    expect(answer).toContain("soft inquiry");
+    expect(answer).toContain("Applying is what triggers a hard inquiry.");
+  });
+});

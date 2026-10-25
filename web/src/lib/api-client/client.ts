@@ -41,6 +41,8 @@ type BaseOptions = {
   pathParams?: Record<string, string>;
   // Replaced in tests.
   fetchFn?: typeof fetch;
+  // For the rare call that waits on slow work, such as Penny's model call.
+  timeoutMs?: number;
 };
 
 // A body is required exactly when the contract declares one, and refused otherwise.
@@ -52,12 +54,12 @@ type RequestArgs<Path extends keyof paths, M extends Method> = [RequestBody<Path
 // request cannot leave a button spinning for ever.
 export const REQUEST_TIMEOUT_MS = 15_000;
 
-// Runs a request that is cut off after REQUEST_TIMEOUT_MS. Every browser
-// request goes through this (pending.ts too). Built by hand because older
-// phones lack AbortSignal.timeout.
-export async function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>): Promise<T> {
+// Runs a request that is cut off after REQUEST_TIMEOUT_MS, or the given time.
+// Every browser request goes through this (pending.ts too). Built by hand
+// because older phones lack AbortSignal.timeout.
+export async function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await run(controller.signal);
   } finally {
@@ -91,10 +93,10 @@ export async function apiRequest<Path extends keyof paths, M extends MethodOf<Pa
   path: Path,
   ...[options]: RequestArgs<Path, M>
 ): Promise<ApiResult<SuccessBody<Path, M>>> {
-  const { body, pathParams = {}, fetchFn = fetch } = options ?? {};
+  const { body, pathParams = {}, fetchFn = fetch, timeoutMs } = options ?? {};
 
   const url = `/api/v1${resolvePath(path, pathParams)}`;
-  return withTimeout((signal) => send(fetchFn, url, method, body, signal));
+  return withTimeout((signal) => send(fetchFn, url, method, body, signal), timeoutMs);
 }
 
 async function send<Data>(

@@ -20,6 +20,9 @@ export const ROUTES = {
   forgotPassword: "/forgot-password",
   // Opened from the password reset email.
   resetPassword: "/reset-password",
+  // Penny's starters, the topics and Ask Penny (Flow 5).
+  learn: "/learn",
+  penny: "/learn/penny",
 } as const;
 
 // Keeps the tracked card with the student as they move between screens.
@@ -99,7 +102,25 @@ export function applicationBackLink(from: string | string[] | undefined, cardId:
   return { href: ROUTES.home, label: "Home" };
 }
 
-const NEXT_ALLOW_LIST: readonly string[] = [ROUTES.quiz, ROUTES.results, ROUTES.home];
+// One Learn topic's checked questions (Flow 5, A1).
+export function learnTopicPath(topic: string): string {
+  return `${ROUTES.learn}/${encodeURIComponent(topic)}`;
+}
+
+// Ask Penny, showing one checked answer when `answer` is given. `from` is
+// where it was opened: "learn", or a topic's slug. Its back arrow returns there.
+export function pennyPath(answer?: string, from?: string): string {
+  const params = new URLSearchParams();
+  if (answer) params.set("answer", answer);
+  if (from) params.set("from", from);
+  const query = params.toString();
+  return query ? `${ROUTES.penny}?${query}` : ROUTES.penny;
+}
+
+const NEXT_ALLOW_LIST: readonly string[] = [ROUTES.quiz, ROUTES.results, ROUTES.home, ROUTES.learn, ROUTES.penny];
+
+// A Learn topic page, so a signed-out visitor returns to it after signing in.
+const LEARN_TOPIC_PATH = /^\/learn\/[a-z-]{1,40}$/;
 
 // A card page, for a visitor who pressed an issuer button while signed out.
 const CARD_PATH = /^\/cards\/[a-z0-9-]{1,100}$/;
@@ -112,7 +133,9 @@ const APPLICATION_PATH = /^\/applications\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[
 // from the address bar is attacker-controlled, so anything else is dropped.
 export function allowedNext(value: string | null | undefined): string | null {
   if (!value) return null;
-  if (NEXT_ALLOW_LIST.includes(value) || CARD_PATH.test(value) || APPLICATION_PATH.test(value)) return value;
+  if (NEXT_ALLOW_LIST.includes(value) || CARD_PATH.test(value) || APPLICATION_PATH.test(value) || LEARN_TOPIC_PATH.test(value)) {
+    return value;
+  }
   return null;
 }
 

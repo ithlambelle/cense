@@ -56,6 +56,12 @@ jobs:
       # A production build, not next dev: dev recompiles mid-test and made a test flaky.
       - run: npm run build
       - name: Start the app on :3300
+        # Ask Penny's typed questions go to the stand-in Claude server the
+        # tests start on :3599 (web/e2e/support/fake-claude.ts), never the
+        # real API: no key in CI, no cost. The key is a placeholder.
+        env:
+          ANTHROPIC_API_KEY: e2e-placeholder
+          ANTHROPIC_BASE_URL: http://127.0.0.1:3599
         run: |
           npx next start -p 3300 > next.log 2>&1 &
           for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:3300/sign-in && exit 0; sleep 1; done

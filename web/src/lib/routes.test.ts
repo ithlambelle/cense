@@ -1,9 +1,22 @@
 import { describe, expect, it } from "vitest";
 
-import { allowedNext, applicationBackLink, applicationPath, cardBackLink, cardPath, deniedPath, googleSignInPath, planPath, signInPath, waitingPath } from "./routes";
+import {
+  allowedNext,
+  applicationBackLink,
+  applicationPath,
+  cardBackLink,
+  cardPath,
+  deniedPath,
+  googleSignInPath,
+  learnTopicPath,
+  pennyPath,
+  planPath,
+  signInPath,
+  waitingPath,
+} from "./routes";
 
 describe("allowedNext", () => {
-  it.each(["/quiz", "/results", "/home", "/cards/discover-cash-back"])("keeps %s", (path) => {
+  it.each(["/quiz", "/results", "/home", "/cards/discover-cash-back", "/learn", "/learn/penny", "/learn/student-loans"])("keeps %s", (path) => {
     expect(allowedNext(path)).toBe(path);
   });
 
@@ -19,6 +32,9 @@ describe("allowedNext", () => {
     "/cards/a/b",
     "/cards/UPPER",
     "/settings",
+    "/learn/penny?answer=credit-score",
+    "/learn/Credit",
+    "/learn/a/b",
     "quiz",
     "",
   ])("drops %j", (path) => {
@@ -91,5 +107,14 @@ describe("Mark result remembers the card page it was opened from", () => {
     expect(applicationBackLink(undefined, "chime-card")).toEqual({ href: "/home", label: "Home" });
     expect(applicationBackLink("https://evil.example", "chime-card")).toEqual({ href: "/home", label: "Home" });
     expect(applicationBackLink(["card", "card"], "chime-card")).toEqual({ href: "/home", label: "Home" });
+  });
+});
+
+describe("Learn and Ask Penny paths", () => {
+  it("builds a topic page and Ask Penny with an answer and where it came from", () => {
+    expect(learnTopicPath("student-loans")).toBe("/learn/student-loans");
+    expect(pennyPath()).toBe("/learn/penny");
+    expect(pennyPath("credit-score", "learn")).toBe("/learn/penny?answer=credit-score&from=learn");
+    expect(pennyPath("credit-score")).toBe("/learn/penny?answer=credit-score");
   });
 });

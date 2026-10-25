@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { PENNY_ANSWER_IDS } from "./penny/answers";
+
 // The tracking plan: every analytics event Cense sends, the question it
 // answers, who owns it, the plan version it arrived in, and the only
 // properties it may carry. `track()` in analytics.ts is the only way to send
@@ -15,7 +17,7 @@ import { z } from "zod";
 // the events below that copy them say which table holds the record.
 
 // Bump when an event or property is added, changed or removed.
-export const TRACKING_PLAN_VERSION = 1;
+export const TRACKING_PLAN_VERSION = 2;
 
 const cardId = z.string().regex(/^[a-z0-9-]{1,100}$/);
 const fitTier = z.enum(["likely_fit", "stretch", "not_yet"]);
@@ -112,6 +114,20 @@ export const EVENTS = {
     owner: "Ben",
     addedIn: 1,
     properties: z.strictObject({ method: z.enum(["manual"]) }),
+  },
+  penny_question_asked: {
+    question:
+      "S34's cut rule: do students use Ask Penny, how (tapped or typed), and how often does Penny answer rather than decline or fail? Never the question's text.",
+    owner: "Ben",
+    addedIn: 2,
+    properties: z.strictObject({
+      // starter: on Learn; topic: on a topic page; suggestion: offered in the
+      // chat; typed: asked in words; link: opened from anywhere else.
+      source: z.enum(["starter", "topic", "suggestion", "typed", "link"]),
+      outcome: z.enum(["answered", "advice", "off_topic", "unknown", "crisis", "limit", "unavailable", "offline", "signed_out"]),
+      // The checked answer shown, the same id for every student.
+      answer_id: z.enum(PENNY_ANSWER_IDS).optional(),
+    }),
   },
 } satisfies Record<string, CatalogEntry>;
 

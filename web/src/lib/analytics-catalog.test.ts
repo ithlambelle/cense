@@ -7,7 +7,7 @@ import { EVENTS, QUIZ_FIELDS, TRACKING_PLAN_VERSION } from "./analytics-catalog"
 describe("event catalog", () => {
   it("names every event in snake_case, object then past-tense verb", () => {
     for (const name of Object.keys(EVENTS)) {
-      expect(name, name).toMatch(/^[a-z]+(_[a-z]+)*_(started|completed|viewed|clicked|reported|answered|added)$/);
+      expect(name, name).toMatch(/^[a-z]+(_[a-z]+)*_(started|completed|viewed|clicked|reported|answered|added|asked)$/);
     }
   });
 
