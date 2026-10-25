@@ -207,7 +207,7 @@ Learn (`/learn`) has Penny's starter questions, four topic pages and Ask Penny (
 Before typed questions work in production:
 
 - Yunho applies `supabase/migrations/20261025160000_penny_asks.sql` in the Supabase SQL editor.
-- Ben adds `ANTHROPIC_API_KEY` on Vercel (Project Settings, Environment Variables, Production and Preview), then redeploys, and sets a monthly spend limit for the key's workspace in the Anthropic Console. Until then typed questions say Penny is unavailable and tapped ones work.
+- Ben adds `ANTHROPIC_API_KEY` on Vercel (Project Settings, Environment Variables, Production, and Preview only if pull request previews should answer typed questions too), then redeploys, and sets a monthly spend limit for the key's workspace in the Anthropic Console. Until then typed questions say Penny is unavailable and tapped ones work.
 
 ## Quality checks
 
