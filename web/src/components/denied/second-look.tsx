@@ -77,7 +77,7 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
           </div>
         </div>
         <dl className="flex flex-col gap-3 rounded-card border-[1.5px] border-violet p-5 text-body-s">
-          <div className="flex justify-between gap-3 bg-green/35 text-indigo-black">
+          <div className="flex justify-between gap-3 text-indigo-black">
             <dt>Application</dt>
             <dd className="font-semibold">Approved</dd>
           </div>
