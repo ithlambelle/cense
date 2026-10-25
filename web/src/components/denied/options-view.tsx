@@ -79,6 +79,9 @@ export function DeniedOptionsView({ applicationId, preview }: { applicationId: s
         setError({ answer, message: result.message });
         return;
       }
+      // Home shows the reason from its server render: refresh it, or Back
+      // restores the cached Home saying "not added".
+      router.refresh();
     }
     if (answer === "no-letter") track("denial_letter_answered", { answer: "waiting_on_letter" });
     router.push(deniedPath(next, applicationId));

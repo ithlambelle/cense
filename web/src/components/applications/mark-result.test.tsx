@@ -67,7 +67,7 @@ describe("MarkResult", () => {
     fireEvent.click(screen.getByRole("button", { name: "I was denied" }));
     expect(fetchFn).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Yes, mark as denied" }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith(`/denied?application=${ID}`));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(`/denied?application=${ID}`));
     expect(fetchFn.mock.calls[0][0]).toBe(`/api/v1/applications/${ID}`);
     expect(sent(fetchFn)).toEqual({ status: "rejected", creditLimitCents: null });
   });
@@ -78,7 +78,7 @@ describe("MarkResult", () => {
     fireEvent.click(screen.getByRole("button", { name: "I was approved" }));
     fireEvent.change(screen.getByLabelText("Credit limit (optional)"), { target: { value: "$500" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith(`/home?celebrate=${ID}`));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(`/home?celebrate=${ID}`));
     expect(sent(fetchFn)).toEqual({ status: "approved", creditLimitCents: 50000 });
     // The status only: the credit limit never reaches analytics.
     expect(track).toHaveBeenCalledExactlyOnceWith("outcome_reported", { outcome: "approved", source: "mark_result" });
@@ -90,7 +90,7 @@ describe("MarkResult", () => {
     fireEvent.click(screen.getByRole("button", { name: "I was approved" }));
     expect((screen.getByLabelText("Credit limit (optional)") as HTMLInputElement).value).toBe("500");
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/home"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
     expect(sent(fetchFn)).toEqual({ status: "approved", creditLimitCents: 50000 });
   });
 
@@ -114,7 +114,7 @@ describe("MarkResult", () => {
     const fetchFn = server(200, saved);
     render(<MarkResult application={application} />);
     fireEvent.click(screen.getByRole("button", { name: "I haven’t heard yet" }));
-    expect(push).toHaveBeenCalledWith(`/applications/${ID}/waiting`);
+    expect(replace).toHaveBeenCalledWith(`/applications/${ID}/waiting`);
     expect(fetchFn).not.toHaveBeenCalled();
   });
 

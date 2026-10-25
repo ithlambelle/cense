@@ -5,7 +5,7 @@ import { HomeView } from "@/components/home/home-view";
 import { listCards } from "@/lib/cards/catalog";
 import { devPagesEnabled } from "@/lib/dev-only";
 import type { Application } from "@/lib/api/application";
-import { homeState } from "@/lib/home/state";
+import { homeState, type CardDetail } from "@/lib/home/state";
 import { computeResult } from "@/lib/results/compute";
 
 export const metadata: Metadata = { title: "Home preview", robots: { index: false } };
@@ -27,14 +27,24 @@ function app(status: Application["status"], extra: Partial<Application> = {}): A
   };
 }
 
+// The leading card's denial reason and autopay for each sample.
+const DETAILS: Record<string, CardDetail> = {
+  rejected: { denialReason: null, denialReasonNote: null, autopayStatus: "unknown", paymentDueDay: null },
+  denied: { denialReason: "no_credit_history", denialReasonNote: null, autopayStatus: "unknown", paymentDueDay: null },
+  waiting: { denialReason: "no_letter_yet", denialReasonNote: null, autopayStatus: "unknown", paymentDueDay: null },
+};
+
 // Every Home state on sample data, without signing in.
-// ?state=no_quiz (default), started, matched, stretch, no_card, applied, rejected, approved, several.
-// Add &celebrate=1 to approved for the arrival from Mark result, and &lit=0 to 3
-// for that many stars. The approved card uses sample stars and saves nothing.
+// ?state=no_quiz (default), started, matched, stretch, no_card, applied,
+// rejected (no reason yet), denied (with a reason), waiting (no letter yet),
+// approved, several.
+// Add &celebrate=1 to approved for the arrival from Mark result, and &lit=
+// for that many stars (0 to 3 approved, 0 to 5 denied). The approved and
+// denied cards use sample stars and save nothing.
 export default async function HomePreviewPage({ searchParams }: { searchParams: Promise<{ state?: string; celebrate?: string; lit?: string }> }) {
   if (!devPagesEnabled()) notFound();
   const { state = "no_quiz", celebrate, lit } = await searchParams;
-  const sampleStars = Math.min(3, Math.max(0, Number.parseInt(lit ?? "0", 10) || 0));
+  const sampleStars = Math.min(5, Math.max(0, Number.parseInt(lit ?? "0", 10) || 0));
   const cards = listCards();
   const none = computeResult(undefined, cards);
   const views = {
@@ -45,6 +55,8 @@ export default async function HomePreviewPage({ searchParams }: { searchParams: 
     no_card: homeState([], computeResult({ ...ALL_SIX, incomeBand: "none" }, cards), true),
     applied: homeState([app("applied")], none, true),
     rejected: homeState([app("rejected")], none, true),
+    denied: homeState([app("rejected")], none, true),
+    waiting: homeState([app("rejected")], none, true),
     approved: homeState([app("approved", { creditLimitCents: 50000 })], none, true),
     several: homeState(
       [
@@ -60,6 +72,7 @@ export default async function HomePreviewPage({ searchParams }: { searchParams: 
     <HomeView
       state={Object.hasOwn(views, state) ? views[state as keyof typeof views] : views.no_quiz}
       initial="M"
+      detail={Object.hasOwn(DETAILS, state) ? DETAILS[state] : null}
       celebrateId={celebrate ? SAMPLE_ID : null}
       sampleStars={sampleStars}
     />

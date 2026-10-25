@@ -77,26 +77,43 @@ describe("FirstMonthPlan", () => {
   it("loads saved steps and lights or puts out each one", async () => {
     const fetchFn = server([
       { status: 200, body: plan("planned_purchase") },
-      { status: 201, body: saved("payment_reminder") },
       { status: 204, body: null },
+      { status: 201, body: saved("planned_purchase") },
     ]);
     render(<FirstMonthPlan application={application} />);
     expect(await screen.findByText("1 of 3 done")).toBeTruthy();
     expect(fetchFn.mock.calls[0][0]).toBe(PLAN_URL);
 
-    fireEvent.click(screen.getByRole("checkbox", { name: /Set a payment reminder/ }));
-    await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(2));
-    expect(fetchFn.mock.calls[1][0]).toBe(`${PLAN_URL}/steps/payment_reminder`);
-    expect(fetchFn.mock.calls[1][1]?.method).toBe("PUT");
-    expect(screen.getByText("2 of 3 done")).toBeTruthy();
-
     const purchase = screen.getByRole("checkbox", { name: /Choose one planned purchase/ });
     await waitFor(() => expect(purchase.hasAttribute("disabled")).toBe(false));
     fireEvent.click(purchase);
+    await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(2));
+    expect(fetchFn.mock.calls[1][0]).toBe(`${PLAN_URL}/steps/planned_purchase`);
+    expect(fetchFn.mock.calls[1][1]?.method).toBe("DELETE");
+    await waitFor(() => expect(screen.getByText("0 of 3 done")).toBeTruthy());
+
+    await waitFor(() => expect(purchase.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(purchase);
     await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(3));
-    expect(fetchFn.mock.calls[2][0]).toBe(`${PLAN_URL}/steps/planned_purchase`);
-    expect(fetchFn.mock.calls[2][1]?.method).toBe("DELETE");
+    expect(fetchFn.mock.calls[2][1]?.method).toBe("PUT");
     await waitFor(() => expect(screen.getByText("1 of 3 done")).toBeTruthy());
+  });
+
+  it("opens the reminder screen from the reminder action, done only once its days are saved", async () => {
+    const fetchFn = server([{ status: 200, body: plan("payment_reminder") }, { status: 200, body: plan("payment_reminder") }]);
+    const { unmount } = render(<FirstMonthPlan application={application} />);
+    // A step ticked here before, with no days saved, is not a reminder.
+    expect(await screen.findByText("0 of 3 done")).toBeTruthy();
+    expect(screen.queryByRole("checkbox", { name: /Set a payment reminder/ })).toBeNull();
+    const link = screen.getByRole("link", { name: /^Set a payment reminder/ });
+    expect(link.getAttribute("href")).toBe(`/applications/${application.id}/reminders`);
+    fireEvent.click(link);
+    expect(fetchFn).toHaveBeenCalledOnce();
+    unmount();
+
+    render(<FirstMonthPlan application={application} reminderDaysSaved />);
+    expect(await screen.findByText("1 of 3 done")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /^Set a payment reminder\s*, done/ })).toBeTruthy();
   });
 
   it("keeps autopay on the page only, since it is not a saved step", async () => {
@@ -126,21 +143,21 @@ describe("FirstMonthPlan", () => {
     const fetchFn = vi.fn<typeof fetch>(async (url, init) => {
       if (!init?.method || init.method === "GET") return Response.json(plan(), { status: 200 });
       if (String(url).endsWith("planned_purchase")) return new Promise<Response>((resolve) => { failPurchase = resolve; });
-      return Response.json(saved("payment_reminder"), { status: 201 });
+      return Response.json({}, { status: 500 });
     });
     vi.stubGlobal("fetch", fetchFn);
     render(<FirstMonthPlan application={application} />);
     await screen.findByText("0 of 3 done");
     const purchase = screen.getByRole("checkbox", { name: /Choose one planned purchase/ });
-    const reminder = screen.getByRole("checkbox", { name: /Set a payment reminder/ });
+    const autopay = screen.getByRole("checkbox", { name: /Turn on autopay/ });
     fireEvent.click(purchase);
     expect(purchase.hasAttribute("disabled")).toBe(true);
-    fireEvent.click(reminder);
-    await waitFor(() => expect(reminder.getAttribute("aria-checked")).toBe("true"));
+    fireEvent.click(autopay);
+    await waitFor(() => expect(autopay.getAttribute("aria-checked")).toBe("true"));
     failPurchase(Response.json({}, { status: 500 }));
     await screen.findByRole("alert");
     expect(purchase.getAttribute("aria-checked")).toBe("false");
-    expect(reminder.getAttribute("aria-checked")).toBe("true");
+    expect(autopay.getAttribute("aria-checked")).toBe("true");
   });
 
   it("never stays on loading when the load itself throws, and offers to try again", async () => {

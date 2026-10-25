@@ -9,7 +9,7 @@ import { applicationParam } from "@/lib/denied";
 import { planApplication } from "@/lib/home/state";
 import { ROUTES } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
-import { loadStudentSnapshot } from "@/lib/student-data";
+import { loadApplicationDetail, loadStudentSnapshot } from "@/lib/student-data";
 
 export const metadata: Metadata = { title: "Your first-month plan | CENSE" };
 
@@ -19,7 +19,10 @@ export default async function PlanPage({ searchParams }: PageProps<"/plan">) {
   const student = await requireStudent(ROUTES.home);
   const { applications } = await loadStudentSnapshot(student);
   const approved = planApplication(applications, applicationParam((await searchParams).application));
-  if (approved) return <FirstMonthPlan application={approved} />;
+  if (approved) {
+    const detail = await loadApplicationDetail(student, approved.id);
+    return <FirstMonthPlan application={approved} reminderDaysSaved={detail?.paymentDueDay != null} />;
+  }
 
   return (
     <div className="flex min-h-dvh justify-center bg-background">

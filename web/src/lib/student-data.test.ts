@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { loadStudentSnapshot } from "./student-data";
+import { loadApplicationDetail, loadStudentSnapshot } from "./student-data";
 
 // "server-only" refuses to load outside a server build; this test is the server.
 vi.mock("server-only", () => ({}));
@@ -56,5 +56,43 @@ describe("loadStudentSnapshot", () => {
   it("is not started when nothing is saved", async () => {
     const snapshot = await loadStudentSnapshot(studentWithDraft(undefined));
     expect(snapshot).toEqual({ applications: [], quiz: { kind: "quiz_unfinished" }, quizStarted: false });
+  });
+});
+
+describe("loadApplicationDetail", () => {
+  const ROW = {
+    id: "00000000-0000-4000-8000-000000000001",
+    card_id: null,
+    card_name: "Student Cash Card",
+    status: "rejected",
+    credit_limit_cents: null,
+    applied_at: null,
+    updated_at: "2026-10-22T00:00:00Z",
+    denial_reason: "no_letter_yet",
+    denial_reason_note: null,
+    autopay_status: "unknown",
+    statement_closing_day: null,
+    payment_due_day: null,
+  };
+
+  function studentWithRow(row: unknown) {
+    const select = vi.fn(() => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: row, error: null }) }) }) }));
+    const supabase = { from: () => ({ select }) };
+    const student = { supabase, studentId: "00000000-0000-4000-8000-0000000000ff", email: null } as unknown as Parameters<
+      typeof loadApplicationDetail
+    >[0];
+    return { student, select };
+  }
+
+  it("reads the card with the fields GET /applications/{id} reads", async () => {
+    const { student, select } = studentWithRow(ROW);
+    const detail = await loadApplicationDetail(student, ROW.id);
+    expect(select).toHaveBeenCalledWith(expect.stringContaining("denial_reason_note, autopay_status"));
+    expect(detail).toMatchObject({ id: ROW.id, status: "rejected", denialReason: "no_letter_yet", autopayStatus: "unknown" });
+  });
+
+  it("is null for a card that is not the student's", async () => {
+    const { student } = studentWithRow(null);
+    expect(await loadApplicationDetail(student, ROW.id)).toBeNull();
   });
 });

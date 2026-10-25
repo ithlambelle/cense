@@ -56,20 +56,50 @@ function useTyping(): boolean {
     const check = () => setTyping(isTextField(document.activeElement))
     check()
     let timer: ReturnType<typeof setTimeout> | undefined
-    const onFocusIn = (event: FocusEvent) => setTyping(isTextField(event.target))
+    // True while a finger or mouse button is down. Pressing a button below a
+    // field moves focus off the field on press, but the click lands on
+    // release: if the bar came back in between, the release fell on the bar
+    // and the button never fired (found Oct 24: "Continue" on the denial
+    // reason did nothing). So the bar waits for the press to end.
+    let pressing = false
+    const recheck = () => {
+      clearTimeout(timer)
+      timer = setTimeout(check, 0)
+    }
+    const onFocusIn = (event: FocusEvent) => {
+      if (isTextField(event.target)) setTyping(true)
+      // Focus moving to a button during a press: wait for the release. With
+      // a finger, Chrome sends pointerup before the mousedown that moves
+      // focus, so `pressing` is already false here; the click still follows
+      // in the same task. Re-reading after this task keeps the bar away until
+      // the click has landed.
+      else if (!pressing) recheck()
+    }
     // Re-read once the move has settled (after the next focusin), so moving
     // from one field to the next never flashes the bar, and focus leaving the
     // window is read from what actually holds focus.
     const onFocusOut = () => {
-      clearTimeout(timer)
-      timer = setTimeout(check, 0)
+      if (!pressing) recheck()
+    }
+    const onPointerDown = () => {
+      pressing = true
+    }
+    const onPointerUp = () => {
+      pressing = false
+      recheck()
     }
     document.addEventListener("focusin", onFocusIn)
     document.addEventListener("focusout", onFocusOut)
+    document.addEventListener("pointerdown", onPointerDown, true)
+    document.addEventListener("pointerup", onPointerUp, true)
+    document.addEventListener("pointercancel", onPointerUp, true)
     return () => {
       clearTimeout(timer)
       document.removeEventListener("focusin", onFocusIn)
       document.removeEventListener("focusout", onFocusOut)
+      document.removeEventListener("pointerdown", onPointerDown, true)
+      document.removeEventListener("pointerup", onPointerUp, true)
+      document.removeEventListener("pointercancel", onPointerUp, true)
     }
   }, [])
   return typing

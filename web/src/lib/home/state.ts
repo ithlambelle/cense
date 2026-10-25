@@ -1,4 +1,4 @@
-import type { Application } from "../api/application";
+import type { Application, ApplicationDetail } from "../api/application";
 import type { ResultView } from "../results/compute";
 
 export type HomeState =
@@ -10,6 +10,15 @@ export type HomeState =
   | { kind: "no_card"; reason: string | null }
   // At least one tracked card. `primary` sets the next step; `others` are listed below.
   | { kind: "tracking"; primary: Application; others: Application[] };
+
+// The leading card's own fields Home reads beyond the list: the denial reason
+// and note for a denied card, autopay and the saved due day for an approved one.
+export type CardDetail = Pick<ApplicationDetail, "denialReason" | "denialReasonNote" | "autopayStatus" | "paymentDueDay">;
+
+// Only an approved or denied leading card needs them.
+export function needsDetail(state: HomeState): state is Extract<HomeState, { kind: "tracking" }> {
+  return state.kind === "tracking" && state.primary.status !== "applied";
+}
 
 // What Home shows (plan default P-2, 2026-10-16). Tracked cards always win
 // over the quiz: once a student has applied or added a card, that is their
