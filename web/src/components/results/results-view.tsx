@@ -14,6 +14,7 @@ import {
   cardDisplayName,
   cardTypeLabel,
   NO_CARD_FALLBACK,
+  NOT_YET_NEXT_STEPS,
   RESULT_DISCLAIMER,
   RESULT_HEADLINES,
 } from "@/lib/copy/results";
@@ -48,6 +49,18 @@ export function ResultsView({ view }: { view: ResultView }) {
         <div className="rounded-card bg-off-white p-5">
           <p className={cn(SENSITIVE, "text-body-m text-navy")}>{view.reason ?? NO_CARD_FALLBACK}</p>
         </div>
+        {/* No frame for this: built as "While you wait" on Still waiting, the
+            bordered box with a violet-dot list. */}
+        <section aria-labelledby="not-yet-next" className="mt-4 flex flex-col gap-3 rounded-card border border-hairline p-5">
+          <h2 id="not-yet-next" className="font-heading text-h6 font-medium text-navy">
+            {NOT_YET_NEXT_STEPS.title}
+          </h2>
+          <ul className="flex list-disc flex-col gap-1 pl-5 text-body-s text-indigo-black marker:text-violet">
+            <li>{NOT_YET_NEXT_STEPS.authorizedUser}</li>
+            {/* Only when the reason was income: otherwise more income is not the answer. */}
+            {view.ruleId ? <li>{NOT_YET_NEXT_STEPS.ownIncome}</li> : null}
+          </ul>
+        </section>
       </ResultLayout>
     );
   }

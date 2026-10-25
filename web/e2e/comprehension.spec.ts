@@ -7,7 +7,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { QUESTIONS } from "../src/lib/quiz/questions";
-import { axeChecker, blockExternalRequests, LIKELY_FIT_PICKS, signUp, uniqueEmail } from "./helpers";
+import { axeChecker, blockExternalRequests, LIKELY_FIT_PICKS, signUp, takeQuiz, uniqueEmail } from "./helpers";
 
 test.beforeEach(async ({ context }) => {
   await blockExternalRequests(context);
@@ -64,4 +64,18 @@ test("Your account, for a student with no card, offers the quiz and adding a car
     await link.click();
     await expect(page, name).toHaveURL(path);
   }
+});
+
+test("a result with no card that fits gives a next step", async ({ page }) => {
+  const checkA11y = axeChecker(page);
+  await signUp(page, uniqueEmail("not-yet-next"), async () => {});
+  await page.getByRole("link", { name: "Start the quiz" }).click();
+  await takeQuiz(page, { ...LIKELY_FIT_PICKS, incomeBand: "None" }, async () => {});
+  await expect(page.getByRole("heading", { level: 1, name: "Not quite yet" })).toBeVisible();
+  const next = page.getByRole("region", { name: "What you can do now" });
+  await expect(next).toBeVisible();
+  await expect(next.getByRole("listitem")).toHaveCount(2);
+  await expect(next).toContainText("authorized user");
+  await expect(next).toContainText("income or savings of your own");
+  await checkA11y("results: not yet, with a next step");
 });

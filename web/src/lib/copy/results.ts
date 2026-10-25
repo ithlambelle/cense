@@ -16,6 +16,20 @@ export const RESULT_DISCLAIMER = "Recommendations are educational, not financial
 // Shown when no listed card fits and the rules gave no reason of their own.
 export const NO_CARD_FALLBACK = "None of the cards we list fits what you told us yet.";
 
+// The next step on a result with no card ("Not quite yet"). The first is the
+// authorized-user option from the denial plan's "Build credit another way",
+// the only one there that needs no income of the student's own; Capital One,
+// "Do authorized users build credit?", checked 2026-10-25: it "may help you
+// build credit", if the issuer reports it, and late payments by the cardholder
+// can hurt (https://www.capitalone.com/learn-grow/money-management/do-authorized-users-build-credit/).
+// The second follows the income rules (G1, G2): their own income or savings.
+export const NOT_YET_NEXT_STEPS = {
+  title: "What you can do now",
+  authorizedUser:
+    "Ask a family member to add you as an authorized user on their card. If the issuer reports it and they pay on time, it can start your credit history.",
+  ownIncome: "When you have income or savings of your own, take the quiz again.",
+} as const;
+
 // Source: Notion "Fit Tier Rules v1.2", section 1.
 export const TIER_LABELS: Record<FitTier, string> = {
   likely_fit: "Likely fit",

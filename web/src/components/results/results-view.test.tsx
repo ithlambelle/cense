@@ -3,7 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { listCards } from "@/lib/cards/catalog";
-import { RESULT_DISCLAIMER, RESULT_HEADLINES, TIER_LABELS } from "@/lib/copy/results";
+import { NOT_YET_NEXT_STEPS, RESULT_DISCLAIMER, RESULT_HEADLINES, TIER_LABELS } from "@/lib/copy/results";
 import { QUIZ_STEP_COUNT } from "@/lib/quiz/spending";
 import { computeResult } from "@/lib/results/compute";
 import { cardPath, ROUTES } from "@/lib/routes";
@@ -19,6 +19,19 @@ describe("ResultsView", () => {
     render(<ResultsView view={{ kind: "quiz_unfinished" }} />);
     expect(screen.getByRole("link", { name: "Take the quiz" }).getAttribute("href")).toBe(ROUTES.quiz);
     expect(screen.getByText(`Answer ${QUIZ_STEP_COUNT} short questions to see one`)).toBeTruthy();
+  });
+
+  it("gives a next step when no card fits: an authorized user, and the quiz again once there is income", () => {
+    const { unmount } = render(<ResultsView view={{ kind: "no_card", ruleId: "G1", reason: "Issuers need income of your own." }} />);
+    const next = screen.getByRole("region", { name: NOT_YET_NEXT_STEPS.title });
+    expect(within(next).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      NOT_YET_NEXT_STEPS.authorizedUser,
+      NOT_YET_NEXT_STEPS.ownIncome,
+    ]);
+    unmount();
+    // No income reason: more income is not the answer, so only the first.
+    render(<ResultsView view={{ kind: "no_card", ruleId: null, reason: null }} />);
+    expect(within(screen.getByRole("region", { name: NOT_YET_NEXT_STEPS.title })).getAllByRole("listitem")).toHaveLength(1);
   });
 
   it("goes back Home, never into the finished quiz", () => {
