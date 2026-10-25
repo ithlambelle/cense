@@ -47,6 +47,16 @@ export function planApplication(applications: Application[], requestedId: string
   return approved.find((application) => application.id === requestedId) ?? approved[0] ?? null;
 }
 
+// The tracked card a card's page shows the status of: the most recently
+// changed one for that card still open to update (applied or approved), or
+// else the most recent. Null when the student does not track that card.
+export function cardApplication(applications: Application[], cardId: string): Application | null {
+  const forCard = applications
+    .filter((application) => application.cardId === cardId)
+    .sort((a, b) => Date.parse(b.statusUpdatedAt) - Date.parse(a.statusUpdatedAt));
+  return forCard.find((application) => application.status !== "rejected") ?? forCard[0] ?? null;
+}
+
 // Home celebrates a card once, on the arrival from Mark result that just
 // approved it (?celebrate=<id>). Any other id, or a card that is not the one
 // Home leads with, is ignored.

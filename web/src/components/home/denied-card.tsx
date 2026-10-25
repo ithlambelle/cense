@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useMemo, type ReactNode } from "react";
 
 import { Constellation } from "@/components/home/constellation";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button, ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { StatusPill } from "@/components/ui/status-pill";
 import { SENSITIVE } from "@/lib/analytics";
@@ -178,9 +178,9 @@ function WaitingCard({ application }: { application: Application }) {
         Waiting on the issuer’s letter
       </p>
       <p className="text-body-s text-indigo-black">When it comes, tell us the reason and we’ll set up your next steps.</p>
-      <Link href={deniedPath("options", application.id)} className={cn(buttonVariants(), "justify-between pr-[18px] pl-5")}>
+      <Link href={deniedPath("options", application.id)} className={buttonVariants()}>
         I got my letter
-        <ChevronRight aria-hidden="true" width={16} height={16} />
+        <ButtonChevron />
       </Link>
     </Module>
   );

@@ -47,4 +47,11 @@ describe("SecondLook", () => {
     fireEvent.click(screen.getByRole("button", { name: "They approved it" }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/sign-in?next=%2Fhome"));
   });
+
+  it("leads a not-approved student into the plan, or Home", () => {
+    render(<SecondLook applicationId={ID} initialView="not-approved" />);
+    expect(screen.getByText("That’s a bummer, but we can still start building toward better credit now.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "See your 5-step plan" }).getAttribute("href")).toBe(`/denied/plan?application=${ID}`);
+    expect(screen.getByRole("link", { name: "Go to Home" }).getAttribute("href")).toBe("/home");
+  });
 });

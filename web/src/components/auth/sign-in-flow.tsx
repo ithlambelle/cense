@@ -243,11 +243,11 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
         ) : null}
         <form method="post" onSubmit={submitCode} className="flex flex-col gap-4 py-5" noValidate>
           <CodeInput value={code} onChange={setCode} error={error ?? undefined} disabled={pending} />
-          <Button type="submit" pending={pending}>
+          <Button type="submit" chevron={false} pending={pending}>
             Verify
           </Button>
         </form>
-        <Button variant="link" className="self-center text-violet" disabled={cooldown > 0 || pending} onClick={resend}>
+        <Button variant="link" className="self-center" disabled={cooldown > 0 || pending} onClick={resend}>
           {cooldown > 0 ? `Resend email in ${cooldown}s` : "Resend email"}
         </Button>
         <p aria-live="polite" className="text-center text-body-s text-indigo-black/70">
@@ -275,11 +275,11 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
           error={error ?? undefined}
           disabled={pending}
         />
-        <Button type="submit" disabled={cooldown > 0} pending={pending}>
+        <Button type="submit" chevron={false} disabled={cooldown > 0} pending={pending}>
           {cooldown > 0 ? `Email me a code in ${cooldown}s` : "Email me a code"}
         </Button>
       </form>
-      <Button variant="link" className="self-center text-violet" onClick={() => goTo("password")}>
+      <Button variant="link" className="self-center" onClick={() => goTo("password")}>
         Use a password instead
       </Button>
       <p className="flex min-h-11 items-center justify-center gap-1 text-body-s text-indigo-black">
@@ -421,7 +421,7 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnc
             disabled={pending}
           />
         ) : null}
-        <Button type="submit" className="mt-1" pending={pending}>
+        <Button type="submit" chevron={false} className="mt-1" pending={pending}>
           {signUp ? "Sign up" : "Log in"}
         </Button>
       </form>
@@ -434,7 +434,7 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnc
         </Link>
       )}
       {errors.form ? <ErrorMessage>{errors.form}</ErrorMessage> : null}
-      <Button variant="link" className="self-center text-violet" disabled={pending} onClick={onUseCode}>
+      <Button variant="link" className="self-center" disabled={pending} onClick={onUseCode}>
         Email me a code instead
       </Button>
     </AuthLayout>

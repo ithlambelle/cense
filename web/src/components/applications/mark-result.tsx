@@ -48,7 +48,14 @@ function centsToField(cents: number | null): string {
 // Mark what the issuer decided for one tracked card (S18), from the Updates
 // card's Approved / Denied choice (Figma 416:409) and Home's "I was denied".
 // "I haven't heard yet" saves nothing: there is no such status (plan P-3).
-export function MarkResult({ application }: { application: Application }) {
+// `back` is where the back arrow goes: Home, or the card's page it was opened from.
+export function MarkResult({
+  application,
+  back = { href: ROUTES.home, label: "Home" },
+}: {
+  application: Application;
+  back?: { href: string; label: string };
+}) {
   const router = useRouter();
   const isMounted = useIsMounted();
   const [choice, setChoice] = useState<Choice | null>(null);
@@ -113,7 +120,7 @@ export function MarkResult({ application }: { application: Application }) {
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
-        <AppHeader backHref={ROUTES.home} backLabel="Home" />
+        <AppHeader backHref={back.href} backLabel={back.label} />
         <main className="stagger flex flex-1 flex-col gap-4 px-6 pt-4 pb-6">
           <div className="flex flex-col gap-2">
             <h1 className="font-heading text-h2 font-medium text-navy">What did the issuer decide?</h1>

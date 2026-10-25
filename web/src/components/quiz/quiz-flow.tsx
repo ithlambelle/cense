@@ -1,21 +1,24 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { QuizScreen } from "@/components/quiz/quiz-screen";
+import { SpendingScreen } from "@/components/quiz/spending-screen";
 import { FailedScreen, LoadingScreen } from "@/components/shell/status-screens";
 import { track } from "@/lib/analytics";
 import type { QuizField } from "@/lib/analytics-catalog";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import { firstUnanswered, helpText, QUESTIONS, savedChoiceId, withChoice } from "@/lib/quiz/questions";
 import type { QuizAnswers } from "@/lib/quiz/questions";
+import { NO_SPENDING, QUIZ_STEP_COUNT, type SpendingAnswer } from "@/lib/quiz/spending";
 import { ROUTES, signInPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
 
 type Draft = {
   answers: QuizAnswers;
+  // QUESTIONS.length is the spending screen, after the last question.
   index: number;
   choiceIds: Record<string, string>;
   // True when the quiz was already complete when opened. A retake holds its
@@ -67,6 +70,11 @@ function QuizSteps({ saved }: { saved: Draft }) {
   const [draft, setDraft] = useState<Draft>(saved);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // Held here only, never saved or sent (see lib/quiz/spending.ts).
+  const [spending, setSpending] = useState<SpendingAnswer>(NO_SPENDING);
+  // Going back from the spending screen can save the last answer again; the
+  // quiz still counts as completed once.
+  const completed = useRef(false);
 
   const { answers, index, choiceIds, retake } = draft;
   const question = QUESTIONS[index];
@@ -108,16 +116,22 @@ function QuizSteps({ saved }: { saved: Draft }) {
     if (!retake && Object.keys(answers).length === 0) track("quiz_started");
     // The answer itself is never sent, only which question was answered.
     track("quiz_step_completed", { step: index + 1, field: question.field as QuizField, retake });
-    if (isLast) {
+    // The six answers are saved, so the quiz counts as done here, once. The
+    // spending screen comes next and is optional.
+    if (isLast && !completed.current) {
+      completed.current = true;
       track("quiz_completed", { retake });
-      // Stays locked while the result screen loads. Replace, not push: the
-      // browser's back button must not land on the finished quiz, which
-      // restarts from the first question (solution interviews, 2026-10-17).
-      router.replace(ROUTES.results);
-      return;
     }
     setSaving(false);
     setDraft({ answers: nextAnswers, choiceIds: nextChoiceIds, retake, index: index + 1 });
+  }
+
+  function finish() {
+    setSaving(true);
+    // Stays locked while the result screen loads. Replace, not push: the
+    // browser's back button must not land on the finished quiz, which
+    // restarts from the first question (solution interviews, 2026-10-17).
+    router.replace(ROUTES.results);
   }
 
   function back() {
@@ -129,11 +143,26 @@ function QuizSteps({ saved }: { saved: Draft }) {
     setDraft({ answers, choiceIds, retake, index: index - 1 });
   }
 
+  if (index === QUESTIONS.length) {
+    return (
+      <SpendingScreen
+        step={index + 1}
+        total={QUIZ_STEP_COUNT}
+        value={spending}
+        onChange={setSpending}
+        onContinue={finish}
+        onBack={back}
+        onClose={() => router.push(ROUTES.home)}
+        pending={saving}
+      />
+    );
+  }
+
   return (
     <QuizScreen
       question={question}
       step={index + 1}
-      total={QUESTIONS.length}
+      total={QUIZ_STEP_COUNT}
       help={helpText(question, answers)}
       selectedChoiceId={choiceIds[question.field] ?? savedChoiceId(question, answers)}
       onChoose={choose}
