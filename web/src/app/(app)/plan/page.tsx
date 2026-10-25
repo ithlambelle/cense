@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FirstMonthPlan } from "@/components/plan/first-month-plan";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
-import { buttonVariants } from "@/components/ui/button";
+import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { applicationParam } from "@/lib/denied";
 import { planApplication } from "@/lib/home/state";
 import { ROUTES } from "@/lib/routes";
@@ -30,6 +30,7 @@ export default async function PlanPage({ searchParams }: PageProps<"/plan">) {
           <p className="text-body-m text-indigo-black">Your first-month plan starts when a card is approved. Update a card on Home when you hear back.</p>
           <Link href={ROUTES.home} className={buttonVariants()}>
             Go to Home
+            <ButtonChevron />
           </Link>
         </main>
         <div className="sticky bottom-0">

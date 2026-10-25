@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
-import { buttonVariants } from "@/components/ui/button";
+import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import type { Application } from "@/lib/api/application";
 import { applicationPath, ROUTES } from "@/lib/routes";
 
@@ -44,6 +44,7 @@ export function WaitingView({ application }: { application: Application }) {
           <div className="mt-auto flex flex-col gap-3">
             <Link href={ROUTES.home} className={buttonVariants()}>
               Go to Home
+              <ButtonChevron />
             </Link>
             <Link href={applicationPath(id)} className={buttonVariants({ variant: "secondary" })}>
               I heard back

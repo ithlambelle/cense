@@ -15,7 +15,7 @@ describe("CardListView", () => {
     const match = screen.getByRole("link", { name: /Your match/ });
     expect(match.getAttribute("href")).toBe(ROUTES.results);
     expect(match.textContent).toContain("Discover it Student Cash Back");
-    expect(match.textContent).toContain("LIKELY FIT");
+    expect(match.textContent).toContain("Fit: Likely fit");
     expect(screen.getByRole("link", { name: "Retake quiz" }).getAttribute("href")).toBe(ROUTES.quiz);
     expect(screen.queryByRole("link", { name: "Take the quiz" })).toBeNull();
   });

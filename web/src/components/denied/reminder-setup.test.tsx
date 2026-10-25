@@ -44,6 +44,12 @@ describe("ReminderSetup", () => {
     expect(screen.getByText("April 17, 2027")).toBeTruthy();
   });
 
+  it("links the before-you-reapply card to this card's plan", () => {
+    server(404, "<html>404</html>");
+    render(<ReminderSetup applicationId={ID} />);
+    expect(screen.getByRole("link", { name: "See the 5-step plan" }).getAttribute("href")).toBe(`/denied/plan?application=${ID}`);
+  });
+
   it("refuses today, and saves nothing", () => {
     const fetchFn = server(404, "<html>404</html>");
     render(<ReminderSetup applicationId={ID} />);

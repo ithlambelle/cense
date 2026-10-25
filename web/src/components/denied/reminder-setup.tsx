@@ -1,14 +1,13 @@
 "use client";
 
-import BellSlash from "@gravity-ui/icons/BellSlash";
 import Calendar from "@gravity-ui/icons/Calendar";
+import ChevronRight from "@gravity-ui/icons/ChevronRight";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { DeniedLayout } from "@/components/denied/denied-layout";
-import { Notice } from "@/components/denied/parts";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button, ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { SelectionMark } from "@/components/ui/selection-mark";
 import { pendingRequest } from "@/lib/api-client/pending";
@@ -19,7 +18,7 @@ import { useNow } from "@/lib/use-now";
 
 type Choice = "six-months" | "custom";
 
-// Choose when to check in (Figma 397:2362, S23). Saves a reapply reminder
+// Choose when to check in (Figma 144:2145, was 397:2362, S23). Saves a reapply reminder
 // email (spec C2). Until the backend route exists the screen says so and shows
 // the date to note down; it never claims a reminder was saved.
 export function ReminderSetup({ applicationId }: { applicationId: string | null }) {
@@ -79,9 +78,7 @@ export function ReminderSetup({ applicationId }: { applicationId: string | null 
     <DeniedLayout backHref={deniedPath("plan", applicationId)} backLabel="Plan">
       <div className="flex flex-col gap-2">
         <h1 className="font-heading text-h1 font-medium text-navy">Choose when to check in</h1>
-        <p className="text-body-m text-indigo-black">
-          A reminder email can help you wait while you build history, without another application today.
-        </p>
+        <p className="text-body-m text-indigo-black">We’ll remind you when it’s time. No new application today.</p>
       </div>
 
       <div role="group" aria-label="When to remind you" className="flex flex-col gap-6">
@@ -113,24 +110,22 @@ export function ReminderSetup({ applicationId }: { applicationId: string | null 
         </label>
       ) : null}
 
-      <section className="flex flex-col gap-3 rounded-card border-[1.5px] border-violet p-5">
+      <section className="relative flex flex-col gap-3 rounded-card bg-off-white p-5 text-indigo-black">
         <div className="flex items-center gap-2">
           <Calendar aria-hidden="true" width={22} height={22} className="text-violet" />
-          <h2 className="font-heading text-h6 font-medium text-indigo-black">Before you reapply</h2>
+          <h2 className="font-heading text-h6 font-medium">Before you reapply</h2>
         </div>
-        <ul className="flex flex-col text-body-s text-indigo-black">
-          {["Check your credit reports again", "Look for on-time history", "Use preapproval before a full application"].map((item) => (
-            <li key={item}>
-              <span aria-hidden="true">• </span>
-              {item}
-            </li>
-          ))}
-        </ul>
+        <p className="text-body-s">Your 5-step plan covers what to do until then.</p>
+        {/* The link's box covers the whole card (after:inset-0), so a tap anywhere opens the plan
+            and the row can keep the frame's 20px height (275:2144). */}
+        <Link
+          href={deniedPath("plan", applicationId)}
+          className="flex items-center justify-between text-body-s font-semibold text-violet outline-none after:absolute after:inset-0 after:rounded-card hover:text-violet-hover focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-ring"
+        >
+          See the 5-step plan
+          <ChevronRight aria-hidden="true" width={14} height={14} />
+        </Link>
       </section>
-
-      <Notice icon={BellSlash} title="Only this reminder will be saved">
-        The rejected card’s first-month plan and card reminders stay off.
-      </Notice>
 
       {unavailable ? (
         <section role="status" className="flex flex-col gap-2 rounded-input border border-hairline p-4">
@@ -151,6 +146,7 @@ export function ReminderSetup({ applicationId }: { applicationId: string | null 
           <p className="text-body-s text-indigo-black">Open this from your card on Home to set a reminder for it.</p>
           <Link href={ROUTES.home} className={buttonVariants()}>
             Go to Home
+            <ButtonChevron />
           </Link>
         </div>
       )}

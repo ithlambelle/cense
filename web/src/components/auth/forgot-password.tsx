@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
-import { AuthLayout, BackLinkTo } from "@/components/auth/auth-layout";
+import { AuthLayout } from "@/components/auth/auth-layout";
+import { BackLink } from "@/components/ui/app-header";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { TextField } from "@/components/ui/text-field";
@@ -53,7 +54,7 @@ export function ForgotPassword() {
   }
 
   return (
-    <AuthLayout title="Forgot password?" back={<BackLinkTo href={ROUTES.signIn} label="Back to log in" />}>
+    <AuthLayout title="Forgot password?" back={<BackLink href={ROUTES.signIn} label="log in" />}>
       {sent ? (
         <p ref={sentRef} tabIndex={-1} role="status" className="text-body-m text-indigo-black outline-none">
           If an account uses {email.trim()}, we sent it a link to set a new password. The link opens this app.
@@ -72,7 +73,7 @@ export function ForgotPassword() {
             error={error ?? undefined}
             disabled={pending}
           />
-          <Button type="submit" pending={pending}>
+          <Button type="submit" chevron={false} pending={pending}>
             Send link
           </Button>
         </form>

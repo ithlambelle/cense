@@ -1,20 +1,37 @@
 import CircleInfo from "@gravity-ui/icons/CircleInfo";
 import Image from "next/image";
+import Link from "next/link";
 
 import { IssuerActions } from "@/components/cards/issuer-actions";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
+import { buttonVariants } from "@/components/ui/button";
 import { FactChip } from "@/components/ui/fact-chip";
+import { StatusPill } from "@/components/ui/status-pill";
+import { SENSITIVE } from "@/lib/analytics";
+import type { Application } from "@/lib/api/application";
 import type { Card } from "@/lib/cards/catalog";
+import { STATUS_LABELS } from "@/lib/copy/applications";
 import { cardDisplayName, cardTypeLabel } from "@/lib/copy/results";
 import { moneyAmount } from "@/lib/money";
-import { cardBackLink } from "@/lib/routes";
+import { applicationPath, cardBackLink } from "@/lib/routes";
 import { cardNotes } from "@/lib/rules/fit-tier";
 
 // A card's page (S14). There is no hi-fi frame yet: built from the result
 // card's parts (type line, card symbol, fact chips) and the lo-fi hand-off
 // board (219:909), and proposed to design.
-export function CardDetailView({ card, signedIn, from }: { card: Card; signedIn: boolean; from?: string | string[] }) {
+export function CardDetailView({
+  card,
+  signedIn,
+  from,
+  tracked = null,
+}: {
+  card: Card;
+  signedIn: boolean;
+  from?: string | string[];
+  // The student's tracked application for this card, if any.
+  tracked?: Application | null;
+}) {
   const back = cardBackLink(from);
   const approval = card.conditions.filter((condition) => condition.affects === "approval");
   return (
@@ -30,6 +47,8 @@ export function CardDetailView({ card, signedIn, from }: { card: Card; signedIn:
             <h1 className="font-heading text-h3 font-medium text-navy">{cardDisplayName(card)}</h1>
             <p className="text-body-s text-indigo-black/70">{card.brand}</p>
           </div>
+
+          {signedIn && tracked ? <TrackedStatus application={tracked} /> : null}
 
           <dl className="flex flex-wrap gap-3">
             <FactChip label="Annual fee" value={moneyAmount(card.annualFeeCents)} />
@@ -76,5 +95,30 @@ export function CardDetailView({ card, signedIn, from }: { card: Card; signedIn:
         ) : null}
       </div>
     </div>
+  );
+}
+
+// The student's status for a card they track, with the way to change it
+// (US-05). No frame yet: the box is the card page's white bordered box ("What
+// the issuer looks for", 144:2936: 1.5px off-white border, radius 22, 20/16
+// padding), with the status pill and the outline button ("Compare side by
+// side", 144:2785) full width below. Mark result's back returns here.
+function TrackedStatus({ application }: { application: Application }) {
+  return (
+    <section
+      aria-labelledby="your-status"
+      className="flex flex-col gap-3 rounded-card border-[1.5px] border-off-white bg-white px-5 py-4"
+    >
+      <div className="flex items-center justify-between gap-3">
+        {/* The card page's section heading style, as "What the issuer says about approval". */}
+        <h2 id="your-status" className="font-heading text-h6 font-medium text-navy">
+          Your status
+        </h2>
+        <StatusPill className={SENSITIVE}>{STATUS_LABELS[application.status].toUpperCase()}</StatusPill>
+      </div>
+      <Link href={applicationPath(application.id, "card")} className={buttonVariants({ variant: "outline" })}>
+        Update status
+      </Link>
+    </section>
   );
 }
