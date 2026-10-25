@@ -55,7 +55,9 @@ export const PENNY_TEST_SET: readonly TestQuestion[] = [
   // Paying late
   { question: "What happens if I pay my credit card late?", expect: answer("paying-late") },
   { question: "is there a fee if i miss my card payment", expect: answer("paying-late") },
-  { question: "can a late payment end my intro rate", expect: answer("paying-late") },
+  // No checked answer covers intro rates since the Oct 25 audit (PEN-03):
+  // one late payment cannot move an existing balance (Reg Z 1026.55).
+  { question: "can a late payment end my intro rate", expect: unknown },
   { question: "what counts as paying on time", expect: answer("paying-late") },
   // Budgeting
   { question: "How do I make a budget as a student?", expect: answer("student-budget") },

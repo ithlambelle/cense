@@ -108,6 +108,9 @@ describe("askPenny", () => {
     expect(request.model).toBe(PENNY_MODEL);
     expect(PENNY_MODEL).toBe("claude-sonnet-5-5");
     expect(request.output_config.effort).toBe("low");
+    // The first real run's longest reply was 58 output tokens (Oct 25 2026):
+    // 256 leaves room and caps a runaway reply's cost.
+    expect(request.max_tokens).toBe(256);
     expect(request.system).toEqual([{ type: "text", text: PENNY_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }]);
     expect(request.messages).toEqual([{ role: "user", content: "Student question: What is a credit score?" }]);
     expect(sdk.options[0]).toMatchObject({ timeout: 15_000, maxRetries: 1 });

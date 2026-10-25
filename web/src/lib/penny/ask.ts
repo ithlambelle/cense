@@ -130,7 +130,11 @@ export function replyFrom(model: ModelReply, mode: TypedAnswers = TYPED_ANSWERS)
 export async function askPenny(question: string, mode: TypedAnswers = TYPED_ANSWERS): Promise<PennyReply> {
   const response = await anthropic().messages.parse({
     model: PENNY_MODEL,
-    max_tokens: 2048,
+    // The first real run's longest reply was 58 output tokens (Oct 25 2026,
+    // checked). A reply cut off here does not parse and the student sees
+    // "unavailable", so check penny:eval's token counts before raising
+    // effort or switching to "rephrased".
+    max_tokens: 256,
     system: [{ type: "text", text: SYSTEM_PROMPTS[mode], cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content: `Student question: ${question}` }],
     output_config: { effort: "low", format: OUTPUT_FORMATS[mode] },
