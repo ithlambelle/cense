@@ -1,5 +1,6 @@
 import type { Application, ApplicationDetail } from "../api/application";
 import type { ReminderSettings } from "../api/reminders";
+import { addDays } from "../reminders/schedule";
 import type { ResultView } from "../results/compute";
 
 export type HomeState =
@@ -28,6 +29,36 @@ export const ALL_REMINDERS_ON: StarSettings = { paymentDue: true, emailsOn: true
 // turning it back on lights it again, as the step is still saved.
 export function paymentReminderOn(detail: Pick<ApplicationDetail, "paymentDueDay"> | null, settings: StarSettings): boolean {
   return detail?.paymentDueDay != null && settings.paymentDue && settings.emailsOn;
+}
+
+// The card's first-statement email (check_autopay) as scheduled, if it is.
+export type FirstStatementEmail = { occurrence: string; sentAt: string | null; attempts: number };
+
+// Whether that one email is still to come, so the setup screen can name it.
+// Only for a card the student just got (source "application"), with the email
+// on and autopay not on; then either the card's days are not saved yet (it is
+// scheduled when they are), or it is scheduled, not sent, has tries left and
+// is inside its window: 3 days after the first statement closed, the
+// database's rule. Once it has gone, or its window has passed, the screen no
+// longer promises it. `today` is the student's calendar date (YYYY-MM-DD).
+export function firstStatementEmailUpcoming({
+  source,
+  autopayStatus,
+  statementClosingDay,
+  checkAutopay,
+  scheduled,
+  today,
+}: {
+  source: "application" | "added";
+  autopayStatus: string;
+  statementClosingDay: number | null;
+  checkAutopay: boolean;
+  scheduled: FirstStatementEmail | null;
+  today: string;
+}): boolean {
+  if (source !== "application" || !checkAutopay || autopayStatus === "on") return false;
+  if (statementClosingDay === null) return true;
+  return scheduled !== null && scheduled.sentAt === null && scheduled.attempts < 3 && addDays(scheduled.occurrence, 3) >= today;
 }
 
 // What an approved card's page says about its payment reminders: not set

@@ -16,7 +16,7 @@ import { STATUS_LABELS } from "@/lib/copy/applications";
 import { cardDisplayName, cardTypeLabel } from "@/lib/copy/results";
 import type { ReminderStatus } from "@/lib/home/state";
 import { moneyAmount } from "@/lib/money";
-import { applicationPath, cardBackLink, paymentRemindersPath } from "@/lib/routes";
+import { applicationPath, cardBackLink, cardOrigin, paymentRemindersPath, type CardOrigin } from "@/lib/routes";
 import { cardNotes } from "@/lib/rules/fit-tier";
 
 // A card's page (S14). There is no hi-fi frame yet: built from the result
@@ -53,7 +53,7 @@ export function CardDetailView({
             <p className="text-body-s text-indigo-black/70">{card.brand}</p>
           </div>
 
-          {signedIn && tracked ? <TrackedStatus application={tracked} reminders={reminders} /> : null}
+          {signedIn && tracked ? <TrackedStatus application={tracked} reminders={reminders} from={cardOrigin(from)} /> : null}
 
           <dl className="flex flex-wrap gap-3">
             <FactChip label="Annual fee" value={moneyAmount(card.annualFeeCents)} />
@@ -117,7 +117,16 @@ const REMINDER_STATUS: Record<ReminderStatus, string> = {
 // side", 144:2785) full width below. Mark result's back returns here. An
 // approved card adds its payment reminders as Home's List row, Tinted
 // (273:2196), which opens the reminder screen; its Back and Save return here.
-function TrackedStatus({ application, reminders }: { application: Application; reminders: ReminderStatus | null }) {
+function TrackedStatus({
+  application,
+  reminders,
+  from,
+}: {
+  application: Application;
+  reminders: ReminderStatus | null;
+  // Where this card page was opened from, kept for the reminder screen's Back.
+  from: CardOrigin | undefined;
+}) {
   return (
     <section
       aria-labelledby="your-status"
@@ -135,7 +144,7 @@ function TrackedStatus({ application, reminders }: { application: Application; r
       </Link>
       {application.status === "approved" && reminders ? (
         <Link
-          href={paymentRemindersPath(application.id, "card")}
+          href={paymentRemindersPath(application.id, "card", from)}
           className="flex min-h-11 items-center gap-3 rounded-[14px] bg-off-white px-3.5 py-3 text-indigo-black hover:bg-selected-outline/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           <span className="flex min-w-0 flex-1 flex-col gap-[3px] leading-[normal]">

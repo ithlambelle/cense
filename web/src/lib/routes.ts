@@ -56,9 +56,14 @@ export function celebratePath(applicationId: string): string {
 // Payment reminders for one approved card (US-08): its closing and due days
 // and the reminder emails. Home's "Set a payment reminder" row opens it, and
 // the card's own page with `from` "card", so Back and Save return there.
-export function paymentRemindersPath(applicationId: string, from?: ApplicationOrigin): string {
+// `cardFrom` is where that card page was itself opened from, so its Back
+// still goes there afterwards (Home, not the card list).
+export function paymentRemindersPath(applicationId: string, from?: ApplicationOrigin, cardFrom?: CardOrigin): string {
   const path = `${applicationPath(applicationId)}/reminders`;
-  return from ? `${path}?from=${from}` : path;
+  if (!from) return path;
+  const params = new URLSearchParams({ from });
+  if (cardFrom) params.set("card_from", cardFrom);
+  return `${path}?${params}`;
 }
 
 // The reminder kinds an email can be about (reminders.kind).
@@ -112,12 +117,29 @@ export function cardPath(cardId: string, from?: CardOrigin): string {
   return from ? `${path}?from=${from}` : path;
 }
 
+// A card page's origin read back from an address: only the ones above.
+export function cardOrigin(value: string | string[] | undefined): CardOrigin | undefined {
+  return value === "results" || value === "home" ? value : undefined;
+}
+
 // The card page's back arrow for each origin. Anything else, including a
 // hand-typed value, falls back to the card list.
 export function cardBackLink(from: string | string[] | undefined): { href: string; label: string } {
   if (from === "results") return { href: ROUTES.results, label: "Your match" };
   if (from === "home") return { href: ROUTES.home, label: "Home" };
   return { href: ROUTES.cards, label: "Cards" };
+}
+
+// The payment reminder screen's back arrow, and where a save goes. Opened from
+// the card's page ("card"), it returns to that page as it was opened, with its
+// own origin; anything else goes Home, where the reminder star is.
+export function remindersBackLink(
+  from: string | string[] | undefined,
+  cardFrom: string | string[] | undefined,
+  cardId: string | null,
+): { href: string; label: string } {
+  if (from === "card" && cardId) return { href: cardPath(cardId, cardOrigin(cardFrom)), label: "Card details" };
+  return { href: ROUTES.home, label: "Home" };
 }
 
 // Mark result's back arrow. "card" returns to the tracked card's page, given

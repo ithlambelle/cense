@@ -67,13 +67,16 @@ export async function POST(request: Request): Promise<Response> {
   if (!studentId) return brokenLink();
 
   const supabase = createServiceClient(config.settings.serviceRoleKey);
-  const { error } = await supabase.rpc("unsubscribe_reminders", { p_student_id: studentId });
+  // True only when this click turned emails off (not on a second click).
+  const { data: turnedOff, error } = await supabase.rpc("unsubscribe_reminders", { p_student_id: studentId });
   if (error) {
     console.error(JSON.stringify({ event: "database_error", operation: "reminder_unsubscribe", code: error.code }));
     return page(503, "Something went wrong", `<p>Please try again in a minute, or use ${settingsLink}.</p>`);
   }
-  await captureServer([
-    { event: "reminder_settings_changed", studentId, properties: { setting: "emails", on: false, source: "email_link" } },
-  ]);
+  if (turnedOff === true) {
+    await captureServer([
+      { event: "reminder_settings_changed", studentId, properties: { setting: "emails", on: false, source: "email_link" } },
+    ]);
+  }
   return page(200, "You're unsubscribed", `<p>No more reminder emails. Changed your mind? Turn them back on in ${settingsLink}.</p>`);
 }

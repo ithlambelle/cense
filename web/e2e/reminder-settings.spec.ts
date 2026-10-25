@@ -180,16 +180,21 @@ test("a second approved card reaches its reminders from its own page, and Back a
   await expect(row).toContainText("Not set yet");
   await checkA11y("card page: reminders not set");
   await row.click();
-  await expect(page).toHaveURL(new RegExp(`/applications/${discover}/reminders\\?from=card$`));
+  await expect(page).toHaveURL(new RegExp(`/applications/${discover}/reminders\\?from=card&card_from=home$`));
 
-  // Back returns to the card's page.
+  // Back returns to the card's page as it was opened from Home, so its own
+  // Back still goes Home (not to the card list).
   await page.getByRole("link", { name: "Back to Card details" }).click();
-  await expect(page).toHaveURL(new RegExp(`/cards/${DISCOVER.id}$`));
+  await expect(page).toHaveURL(new RegExp(`/cards/${DISCOVER.id}\\?from=home$`));
+  await page.getByRole("link", { name: "Back to Home" }).click();
+  await expect(page).toHaveURL(/\/home$/);
+  await page.getByRole("link", { name: new RegExp(`^${DISCOVER.name}`) }).click();
 
   // Saving returns there too, now on, and it survives a reload.
   await page.getByRole("link", { name: /^Payment reminders/ }).click();
   await saveDays(page, "20", "15");
-  await expect(page).toHaveURL(new RegExp(`/cards/${DISCOVER.id}$`));
+  await expect(page).toHaveURL(new RegExp(`/cards/${DISCOVER.id}\\?from=home$`));
+  await page.getByRole("link", { name: "Back to Home" }).waitFor();
   await expect(page.getByRole("link", { name: /^Payment reminders/ })).toContainText("On");
   await page.reload();
   await expect(page.getByRole("link", { name: /^Payment reminders/ })).toContainText("On");
@@ -218,6 +223,12 @@ test("the setup screen names the first-statement email only for a card the stude
   const approved = await page.request.patch(`/api/v1/applications/${applied}`, { data: { status: "approved", creditLimitCents: 30000 } });
   expect(approved.status(), await approved.text()).toBe(200);
   await page.goto(`/applications/${applied}/reminders`);
+  await expect(page.getByText(FIRST_STATEMENT)).toBeVisible();
+  // Saved, it is scheduled and still to come: the screen still names it.
+  await saveDays(page, "20", "15");
+  await expect(page).toHaveURL(/\/home$/);
+  await page.goto(`/applications/${applied}/reminders`);
+  await expect(page.getByLabel("Statement closes on day")).toHaveValue("20");
   await expect(page.getByText(FIRST_STATEMENT)).toBeVisible();
 
   // With that email off in Reminder settings, it is not promised.

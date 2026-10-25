@@ -16,7 +16,8 @@ import { isInternalStudent } from "@/lib/internal-students";
 // Never an email, a name, a card or a key in an event, and none in a log.
 
 export const POSTHOG_BATCH_URL = "https://us.i.posthog.com/batch/";
-const TIMEOUT_MS = 3_000;
+// Short: the reminder job sends these at the end of its run (job.ts budget).
+const TIMEOUT_MS = 2_000;
 
 export type ServerEvent<E extends AnalyticsEvent = AnalyticsEvent> = {
   event: E;

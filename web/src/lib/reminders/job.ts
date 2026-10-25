@@ -49,7 +49,10 @@ export type ReminderJobOptions = {
 // Vercel's function time limit at Resend's default rate of 2 requests a second
 export const CLAIM_LIMIT = 50;
 const SEND_INTERVAL_MS = 550;
-const TIME_BUDGET_MS = 50_000;
+// No new email starts after this. The worst case still ends inside Vercel's
+// 60 seconds: 45 here, Resend's 10-second timeout on the last email, then the
+// analytics copy (2 s, analytics-server.ts) and the heartbeat (2 s).
+const TIME_BUDGET_MS = 45_000;
 const RESEND_TIMEOUT_MS = 10_000;
 
 export type ClaimedReminderRow = {

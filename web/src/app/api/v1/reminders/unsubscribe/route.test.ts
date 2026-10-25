@@ -13,7 +13,7 @@ const STUDENT = "00000000-0000-4000-8000-0000000000aa";
 const TOKEN = unsubscribeToken(STUDENT, SECRET);
 const url = (token: string | null = TOKEN) => `https://app.test/api/v1/reminders/unsubscribe${token === null ? "" : `?token=${token}`}`;
 
-function database(result: { error: { code?: string; message: string } | null } = { error: null }) {
+function database(result: { data?: boolean; error: { code?: string; message: string } | null } = { error: null }) {
   const calls: { name: string; args: unknown }[] = [];
   service.createServiceClient.mockReturnValue({
     rpc: async (name: string, args: unknown) => { calls.push({ name, args }); return { data: true, ...result }; },
@@ -66,6 +66,12 @@ describe("/reminders/unsubscribe", () => {
     const [event] = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).batch;
     expect(event.event).toBe("reminder_settings_changed");
     expect(event.properties).toMatchObject({ setting: "emails", on: false, source: "email_link", distinct_id: STUDENT });
+
+    // A second click: still "You're unsubscribed", but not counted again.
+    database({ data: false, error: null });
+    const again = await POST(new Request(url(), { method: "POST", body: "List-Unsubscribe=One-Click" }));
+    expect(await again.text()).toContain("You're unsubscribed");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     vi.unstubAllGlobals();
   });
 

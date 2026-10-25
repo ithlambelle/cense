@@ -37,8 +37,11 @@ describe("CardDetailView", () => {
     expect(row.getAttribute("href")).toBe(`/applications/${TRACKED.id}/reminders?from=card`);
     expect(row.textContent).toContain("Not set yet");
     unmount();
-    render(<CardDetailView card={card} signedIn tracked={TRACKED} reminders="on" />);
-    expect(screen.getByRole("link", { name: /^Payment reminders/ }).textContent).toContain("On");
+    render(<CardDetailView card={card} signedIn tracked={TRACKED} reminders="on" from="home" />);
+    const opened = screen.getByRole("link", { name: /^Payment reminders/ });
+    expect(opened.textContent).toContain("On");
+    // the page's own origin goes along, so Back from the reminder screen keeps it
+    expect(opened.getAttribute("href")).toBe(`/applications/${TRACKED.id}/reminders?from=card&card_from=home`);
   });
 
   it("has no reminder row for a card that is not approved", () => {

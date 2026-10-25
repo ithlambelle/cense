@@ -10,11 +10,13 @@ import "server-only";
 //
 // With the variable unset nothing is pinged and nothing alerts. The body is
 // the run's counts or the error's name, never anything about a student. The
-// address itself is never logged: anyone who has it can ping the check.
+// address itself is never logged: anyone who has it can ping the check. Each
+// ping gives up after 2 seconds, so the alarm can never use up the job's time
+// (Vercel stops the function at 60 seconds).
 
 export type HeartbeatSignal = "start" | "success" | "fail";
 
-const TIMEOUT_MS = 5_000;
+export const HEARTBEAT_TIMEOUT_MS = 2_000;
 
 function log(fields: Record<string, unknown>): void {
   console.error(JSON.stringify({ event: "reminder_heartbeat_failed", ...fields }));
@@ -37,7 +39,7 @@ export async function pingHeartbeat(
       // Healthchecks keeps the body with the ping and shows it in the alert.
       headers: { "Content-Type": "text/plain" },
       body: body ? JSON.stringify(body) : "",
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(HEARTBEAT_TIMEOUT_MS),
     });
     if (!response.ok) log({ signal, status: response.status });
   } catch (error) {

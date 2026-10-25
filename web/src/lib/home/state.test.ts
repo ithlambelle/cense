@@ -6,6 +6,7 @@ import { computeResult } from "../results/compute";
 import {
   cardApplication,
   celebrating,
+  firstStatementEmailUpcoming,
   homeState,
   needsDetail,
   paymentReminderOn,
@@ -146,5 +147,38 @@ describe("reminderStatus", () => {
     expect(reminderStatus({ statementClosingDay: 14, paymentDueDay: 9 }, { ...all, paymentDue: false })).toBe("on");
     expect(reminderStatus({ statementClosingDay: 14, paymentDueDay: 9 }, { ...all, paymentDue: false, statementClosing: false })).toBe("off");
     expect(reminderStatus({ statementClosingDay: 14, paymentDueDay: 9 }, { ...all, emailsOn: false })).toBe("off");
+  });
+});
+
+describe("firstStatementEmailUpcoming", () => {
+  const base = {
+    source: "application" as const,
+    autopayStatus: "unknown",
+    statementClosingDay: 12,
+    checkAutopay: true,
+    scheduled: { occurrence: "2026-11-12", sentAt: null, attempts: 0 },
+    today: "2026-10-25",
+  };
+
+  it("is upcoming for a new card while its email is scheduled and not sent", () => {
+    expect(firstStatementEmailUpcoming(base)).toBe(true);
+    // days not saved yet: it is scheduled once they are
+    expect(firstStatementEmailUpcoming({ ...base, statementClosingDay: null, scheduled: null })).toBe(true);
+  });
+
+  it("is not once it has gone, after its last try, or past its window", () => {
+    expect(firstStatementEmailUpcoming({ ...base, scheduled: { ...base.scheduled, sentAt: "2026-11-13T13:05:00Z" } })).toBe(false);
+    expect(firstStatementEmailUpcoming({ ...base, scheduled: { ...base.scheduled, attempts: 3 } })).toBe(false);
+    // closed Oct 21: still on Oct 24, not on Oct 25
+    expect(firstStatementEmailUpcoming({ ...base, scheduled: { ...base.scheduled, occurrence: "2026-10-21" }, today: "2026-10-24" })).toBe(true);
+    expect(firstStatementEmailUpcoming({ ...base, scheduled: { ...base.scheduled, occurrence: "2026-10-21" } })).toBe(false);
+    // days saved but nothing scheduled (window passed when they were saved, or emails off)
+    expect(firstStatementEmailUpcoming({ ...base, scheduled: null })).toBe(false);
+  });
+
+  it("is never for a card the student already had, with the email off, or with autopay on", () => {
+    expect(firstStatementEmailUpcoming({ ...base, source: "added" })).toBe(false);
+    expect(firstStatementEmailUpcoming({ ...base, checkAutopay: false })).toBe(false);
+    expect(firstStatementEmailUpcoming({ ...base, autopayStatus: "on" })).toBe(false);
   });
 });

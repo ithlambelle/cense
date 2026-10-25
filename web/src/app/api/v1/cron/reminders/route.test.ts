@@ -246,6 +246,36 @@ describe("GET /cron/reminders", () => {
       expect(others).toEqual([]);
     });
 
+    it("pings fail for a run that only gave up on a reminder (out of time on its third try)", async () => {
+      database({ claim_due_reminders: [{ data: [claimed()], error: null }], release_reminder_claim: [{ data: true, error: null }] });
+      resend();
+      // the clock is past the sending budget before the first email
+      const now = vi.spyOn(Date, "now");
+      now.mockReturnValueOnce(0).mockReturnValue(46_000);
+      const body = await (await cron()).json();
+      now.mockRestore();
+      expect(body).toMatchObject({ failed: 0, deferred: 1, abandoned: 1 });
+      expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, `${HEARTBEAT}/fail`]);
+    });
+
+    it("runs the job while the start ping is still on its way, and finishes with start then end", async () => {
+      const calls = database({ claim_due_reminders: [{ data: [], error: null }] });
+      let answerStart: () => void = () => {};
+      const order: string[] = [];
+      vi.stubGlobal("fetch", vi.fn(async (url: string | URL | Request) => {
+        order.push(String(url));
+        if (String(url).endsWith("/start")) await new Promise<void>((resolve) => (answerStart = resolve));
+        return new Response("OK");
+      }));
+      const response = cron();
+      // the job reached the database before the start ping answered
+      await vi.waitFor(() => expect(calls.map((call) => call.name)).toContain("claim_due_reminders"));
+      expect(order).toEqual([`${HEARTBEAT}/start`]);
+      answerStart();
+      expect((await response).status).toBe(200);
+      expect(order).toEqual([`${HEARTBEAT}/start`, HEARTBEAT]);
+    });
+
     it("still answers when the check cannot be reached", async () => {
       database({ claim_due_reminders: [{ data: [], error: null }] });
       vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("fetch failed"); }));
