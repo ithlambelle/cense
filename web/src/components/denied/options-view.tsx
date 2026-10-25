@@ -1,11 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { TrackedLink } from "@/components/analytics/tracked-link";
 import { DeniedLayout } from "@/components/denied/denied-layout";
+import { Mascot } from "@/components/mascot/mascot";
 import { Button } from "@/components/ui/button";
 import { choiceRowClass } from "@/components/ui/choice-row";
 import { ErrorMessage } from "@/components/ui/error-message";
@@ -105,7 +105,7 @@ export function DeniedOptionsView({ applicationId, preview }: { applicationId: s
     <DeniedLayout backHref={ROUTES.home} backLabel="Home" contentClassName="gap-4">
       <h1 className="text-center font-heading text-h1 font-medium text-navy">Denial options</h1>
       <div className="flex justify-center">
-        <Image src="/mascot/penny.png" alt="" width={190} height={190} priority />
+        <Mascot pose="sad" size={190} priority />
       </div>
       <p className="text-body-m text-indigo-black">
         A common reason first applications are denied is that lenders can’t see enough history yet. We’ll help you check the
