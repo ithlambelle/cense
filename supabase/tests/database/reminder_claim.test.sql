@@ -10,7 +10,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(27);
+select plan(30);
 
 create temp table students (name text primary key, id uuid);
 insert into students values
@@ -179,6 +179,15 @@ select is_empty($$select pg_temp.claimed('claim5', 'retry')$$,
 -- Marked sent once.
 select is(public.mark_reminder_sent((select id from rows where name = 'fresh')), true, 'a claimed reminder is marked sent');
 select is(public.mark_reminder_sent((select id from rows where name = 'fresh')), false, 'and only once');
+
+-- The unsubscribe link: true only when it turns emails off, and the first
+-- time is kept.
+select is(public.unsubscribe_reminders(pg_temp.student('fresh')), true, 'unsubscribing turns reminder emails off');
+create temp table first_off as
+  select reminders_unsubscribed_at as at from public.profiles where student_id = pg_temp.student('fresh');
+select is(public.unsubscribe_reminders(pg_temp.student('fresh')), false, 'a second unsubscribe changes nothing and says so');
+select is((select reminders_unsubscribed_at from public.profiles where student_id = pg_temp.student('fresh')),
+          (select at from first_off), 'the first unsubscribe time is kept');
 
 -- Who can run the sender: the service role only.
 select ok(has_function_privilege('service_role', 'public.release_reminder_claim(uuid)', 'execute'),

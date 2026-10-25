@@ -177,7 +177,7 @@ Vercel Cron calls `GET /api/v1/cron/reminders` once a day at 13:00 UTC (`web/ver
 
 Before it can run:
 
-- Yunho applies `supabase/migrations/20261024220000_reminder_sender.sql` by hand in the Supabase SQL editor, after the reminders migration, then `20261025200000_reminder_fixes.sql`.
+- Yunho applies `supabase/migrations/20261024220000_reminder_sender.sql` by hand in the Supabase SQL editor, after the reminders migration, then `20261025200000_reminder_fixes.sql`. To undo the last one, run `supabase/rollbacks/20261025200000_reminder_fixes.down.sql` the same way (`supabase/rollbacks` is never run on its own).
 - Ben or Mabelle adds these on Vercel (Project Settings, Environment Variables, Production), then redeploys:
 
 | Variable | Where it comes from |

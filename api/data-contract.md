@@ -90,7 +90,7 @@ The functions, all service role only (`supabase/migrations/20261024220000_remind
 | `claim_due_reminders(p_limit)` | Reminders whose day has come on the student's calendar, unsent, at most one per student a day (none for a student who had one sent today or has one being sent), never to an unsubscribed student or for a kind turned off, only while the card still fits, never about a closing or due date already passed, the first-statement email (`check_autopay`) only for a new card (`source` `application`) and at most 3 days after its first close, at most one attempt a day and 3 in all. When two are due, the one whose date runs out first goes. Sets `claimed_at`, `attempted_at` and `attempts` and returns the email, card, credit limit, autopay status, due day and time zone. One claimer at a time. |
 | `mark_reminder_sent(id)` | Sets `sent_at` once. |
 | `release_reminder_claim(id)` | After a failed send: claimable again on the student's next day, attempts kept. True when that was the last attempt (the job reports it as abandoned). |
-| `unsubscribe_reminders(student_id)` | Sets `reminders_unsubscribed_at` once. |
+| `unsubscribe_reminders(student_id)` | Sets `reminders_unsubscribed_at` once. True only when this call turned emails off, so a second click is not counted again. |
 
 The API route owner will implement a route only when its underlying dataset or
 table is available. No route will claim a successful recommendation based on an
