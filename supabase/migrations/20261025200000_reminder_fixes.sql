@@ -1,5 +1,5 @@
 -- Reminder fixes before real students (US-08, Reminders audit Oct 25: R-05,
--- R-07, R-13, and the claim's speed). Four changes to the functions in
+-- R-07, R-13, and the claim's speed). Five changes to the functions in
 -- 20261023200000_reminders_and_plan_steps.sql and 20261024220000_reminder_sender.sql:
 --
 -- 1. The first-statement email (check_autopay) goes only to a card the
@@ -26,6 +26,11 @@
 --    saved zone), reminder_safe_tz skips the list for an empty zone (every
 --    student today: nothing saves one yet), and refresh_reminders checks the
 --    zone once per card. The rule itself is unchanged.
+-- 5. unsubscribe_reminders() answers true only when it turned emails off,
+--    not when they were off already (a second click, or the inbox's one-click
+--    after the button), so the app counts each unsubscribe once.
+--
+-- To back it out: supabase/rollbacks/20261025200000_reminder_fixes.down.sql.
 --
 -- Applied by hand in the Supabase SQL editor, after 20261024220000_reminder_sender.sql.
 -- Safe to run again.
@@ -294,3 +299,20 @@ where a.id = r.card_application_id
   and a.source = 'added'
   and r.sent_at is null
   and (r.claimed_at is null or r.claimed_at < now() - interval '15 minutes');
+
+-- 5. The unsubscribe link: true only when this call turned emails off. The
+-- first time is kept, as before: a student already unsubscribed is left as is.
+create or replace function public.unsubscribe_reminders(p_student_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = ''
+as $$
+  with updated as (
+    update public.profiles
+    set reminders_unsubscribed_at = now()
+    where student_id = p_student_id and reminders_unsubscribed_at is null
+    returning 1
+  )
+  select exists (select 1 from updated);
+$$;
