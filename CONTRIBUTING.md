@@ -7,7 +7,7 @@ How a piece of work goes from the Notion board to merged code.
 1. Pick a sub-task from the Notion board.
 2. Make a branch from `main`, named for the story and the sub-task: `us06/click-tracking`.
 3. Make the change. Keep it to that one sub-task.
-4. Run the checks on your laptop: `cd web && npm run check`.
+4. Run the checks on your laptop: `cd web && npm run check`, and for a change a student would see, the journey tests (see Testing a screen change).
 5. Push the branch and open a pull request into `main`. Fill in the template.
 6. Wait for the checks to go green and for one teammate to approve.
 7. Merge it yourself with "Squash and merge", then delete the branch.
@@ -30,11 +30,24 @@ How a piece of work goes from the Notion board to merged code.
 ## Review and merge
 
 - One approval from a teammate who is not the author.
-- All checks green: `web`, `api-contract`, `secret-scan` and `ios`.
+- All checks green: `web`, `e2e`, `api-contract`, `secret-scan` and `ios`.
 - The author merges after approval and watches that `main` stays green.
 - Use "Squash and merge", so each pull request lands on `main` as a single commit.
 
 `main` will be protected so GitHub enforces these rules (a pull request, one approval, passing checks). That is free on a public repository like this one; only a private repository would need GitHub Pro, which the GitHub Student Developer Pack includes. Until it is switched on, follow the rules anyway: no direct pushes to `main`.
+
+## Testing a screen change
+
+Unit tests and a green build do not show that a screen works. On Oct 24 three Home bugs shipped with every check green: a star that did not stay lit after a reload, an "Edit" that opened the wrong screen, and a card that no longer opened its page. Each one shows up only when you use the app as a student. So a change a student would see is done when:
+
+1. **You used it as a student on the local stack** (see the README: `npx supabase start`, the app on :3300). Sign up a fresh account, get it to the state the screen needs, and walk the flow at phone size (390 by 844).
+2. **Every control you touched was used, then the page reloaded,** and the result was still there. A save is not done until it survives a reload.
+3. **Every link and button you touched was followed** to the screen it should open, and Back returned where the student came from.
+4. **The edges were tried:** an empty or bad value, a failed save (offline), a slow load, Back after a save, a second card, a signed-out visit, another student's id.
+5. **A journey test in `web/e2e` does what you did,** so CI repeats it on every pull request. It fails on the code before your fix.
+6. **The pull request shows the evidence:** what you walked, and screenshots of the screens it changed.
+
+Agents follow the same list. An agent never reports a screen as working because it compiled or matched a Figma frame; it reports what it did as a student and what it saw.
 
 ## AI use
 
