@@ -34,6 +34,9 @@ export function axeChecker(page: Page) {
   return async function checkA11y(screen: string) {
     if (seen.has(screen)) return;
     seen.add(screen);
+    // After a client-side navigation Next.js sets the new page's <title> a
+    // moment later; on a fast runner axe could look in between (CI, Oct 25).
+    await expect(page).toHaveTitle(/\S/);
     // Scrolled to the end first: content under the fixed bottom bar at the
     // current scroll counts as an obscured touch target, though a student only
     // ever taps it after scrolling it clear.
