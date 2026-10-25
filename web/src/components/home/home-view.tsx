@@ -13,6 +13,7 @@ import { DeniedCard } from "@/components/home/denied-card";
 import { Greeting } from "@/components/home/greeting";
 import { UpdatedLine } from "@/components/home/updated-line";
 import { MascotStill } from "@/components/mascot/mascot";
+import { SafeToSpendHome } from "@/components/safe-to-spend/home-card";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { FitSignal } from "@/components/ui/fit-signal";
@@ -21,6 +22,7 @@ import { findCard } from "@/lib/cards/catalog";
 import { cardDisplayName, cardTypeLabel, NO_CARD_FALLBACK, RESULT_HEADLINES } from "@/lib/copy/results";
 import { SENSITIVE } from "@/lib/analytics";
 import type { Application } from "@/lib/api/application";
+import type { SafeToSpend } from "@/lib/api/safe-to-spend";
 import { celebrating, type CardDetail, type HomeState } from "@/lib/home/state";
 import { moneyAmount } from "@/lib/money";
 import { QUESTIONS } from "@/lib/quiz/questions";
@@ -38,19 +40,22 @@ type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 // `celebrateId` is the card Mark result just approved (?celebrate=),
 // celebrated once. `sampleStars` is for the dev gallery only: the approved or
 // denied card shows these stars and never calls the API (its sample card does
-// not exist there).
+// not exist there). `safeToSpend` is the student's sandbox bank link (null:
+// none yet); left out when safe to spend is off.
 export function HomeView({
   state,
   initial,
   detail = null,
   celebrateId = null,
   sampleStars,
+  safeToSpend,
 }: {
   state: HomeState;
   initial: string;
   detail?: CardDetail | null;
   celebrateId?: string | null;
   sampleStars?: number;
+  safeToSpend?: SafeToSpend | null;
 }) {
   const celebrate = celebrating(state, celebrateId);
   return (
@@ -68,6 +73,9 @@ export function HomeView({
         </header>
         <main className="stagger flex flex-1 flex-col gap-[18px] px-6 pt-4 pb-6">
           <HomeContent state={state} detail={detail} celebrate={celebrate} sampleStars={sampleStars} />
+          {/* Under the card module, which carries MVP2's reminders; design's
+              Home/Today (Figma 222:2211) puts it on top once that is built. */}
+          {safeToSpend !== undefined ? <SafeToSpendHome safeToSpend={safeToSpend} /> : null}
         </main>
         {celebrate ? <StarConfetti /> : null}
         <div className="sticky bottom-0">

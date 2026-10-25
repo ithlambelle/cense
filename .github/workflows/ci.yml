@@ -34,6 +34,14 @@ jobs:
     defaults:
       run:
         working-directory: web
+    # Safe to spend talks to the stand-in Plaid the tests start on :3598
+    # (web/e2e/support/fake-plaid.ts), never Plaid itself: no keys in CI.
+    # These two values are placeholders, not credentials.
+    env:
+      PLAID_CLIENT_ID: e2e-client
+      PLAID_SECRET: e2e-placeholder
+      PLAID_ENV: sandbox
+      PLAID_BASE_URL: http://127.0.0.1:3598
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -52,6 +60,8 @@ jobs:
         run: |
           eval "$(supabase status -o env)"
           printf 'NEXT_PUBLIC_SUPABASE_URL=%s\nNEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=%s\n' "$API_URL" "$PUBLISHABLE_KEY" > web/.env.local
+          # A fresh key for sealing the stand-in's access tokens, each run.
+          printf 'PLAID_TOKEN_KEY=%s\n' "$(openssl rand -base64 32)" >> web/.env.local
       - run: npm ci
       # A production build, not next dev: dev recompiles mid-test and made a test flaky.
       - run: npm run build

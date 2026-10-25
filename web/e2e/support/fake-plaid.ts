@@ -93,9 +93,12 @@ function answer(path: string, body: Record<string, unknown>): { status: number; 
     case "/item/public_token/exchange": {
       if (body.public_token === "public-sandbox-expired") return plaidError(400, "INVALID_INPUT", "INVALID_PUBLIC_TOKEN");
       if (body.public_token !== "public-sandbox-good") return plaidError(400, "INVALID_INPUT", "INVALID_PUBLIC_TOKEN");
-      const accessToken = `access-sandbox-fake-${++counter}-${Math.random().toString(36).slice(2, 10)}`;
+      // Random parts: the database keeps Items from earlier runs, and a
+      // restarted worker starts counting again.
+      const unique = `${++counter}-${Math.random().toString(36).slice(2, 10)}`;
+      const accessToken = `access-sandbox-fake-${unique}`;
       issuedAccessTokens.push(accessToken);
-      return { status: 200, body: { access_token: accessToken, item_id: `item-fake-${counter}`, request_id: requestId() } };
+      return { status: 200, body: { access_token: accessToken, item_id: `item-fake-${unique}`, request_id: requestId() } };
     }
     case "/accounts/get": {
       if (!issuedAccessTokens.includes(String(body.access_token)) || removedAccessTokens.includes(String(body.access_token))) {

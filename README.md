@@ -104,7 +104,7 @@ flowchart TB
 | Google OAuth | "Sign in with Google" through Supabase Auth | MVP1 |
 | Card issuer websites | Links out to each issuer's own preapproval check and application. No API; Cense never submits an application. | MVP1 |
 | GitHub Actions | CI checks on every pull request | MVP1 |
-| Plaid | Linked bank data | MVP2 |
+| Plaid | Linked bank balances for safe to spend, sandbox only (no real bank data) | MVP2 |
 | Apple Push Notification service | iOS notifications | MVP2 |
 | An AI model (provider not chosen) | Routing questions to vetted content. It never makes the recommendation. | By Dec 11 |
 
@@ -189,6 +189,28 @@ Before it can run:
 | `APP_BASE_URL` | The app's public address, for the links in the emails: `https://censefinance.com`. |
 
 To run it by hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/v1/cron/reminders`. It answers with counts only.
+
+## Safe to spend (Plaid sandbox)
+
+A preview for MVP2 (US-12): a student links a bank through Plaid Link in Plaid's sandbox, says who covers rent, phone, tuition, groceries and car (me, family, split, not applicable) and how much to keep aside, and Home shows one number: (cash in checking - card balances - bills they pay - set aside) / 30 days. "How we got this" shows each step. Sandbox only: real bank sign-ins do not work there, and any `PLAID_ENV` other than `sandbox` turns the feature off.
+
+What is kept: the access token, encrypted with AES-256-GCM in the app before it is stored (key in `PLAID_TOKEN_KEY`, never in the database), in the `plaid` schema the Data API does not serve; each account's name, last 4 digits and balance; the student's answers. Never transactions, account or routing numbers, or a Plaid response. The browser never receives the access token. Disconnecting removes the Item at Plaid first, then deletes all of it. Schema: `supabase/migrations/20261025210000_bank_link_safe_to_spend.sql`.
+
+Before it can run:
+
+- Yunho applies `supabase/migrations/20261025210000_bank_link_safe_to_spend.sql` by hand in the Supabase SQL editor, after the reminder sender migration. It is safe to run again.
+- Ben or Mabelle adds these on Vercel (Project Settings, Environment Variables), then redeploys. Until all four are set, safe to spend is hidden and its API answers 503.
+
+| Variable | Where it comes from |
+| --- | --- |
+| `PLAID_CLIENT_ID` | Plaid dashboard, Developers, Keys. |
+| `PLAID_SECRET` | The same page, the Sandbox secret. Mark it Sensitive. |
+| `PLAID_ENV` | `sandbox` |
+| `PLAID_TOKEN_KEY` | `openssl rand -base64 32`, a different one per environment. Mark it Sensitive and keep a copy in the team password manager: changing or losing it makes every stored token unreadable (students link again). |
+
+To try it: Home, "See what's safe to spend", Connect (Preview), pick First Platypus Bank, sign in with `user_good` / `pass_good`. That user has $100 in checking and $410 on a card, so safe to spend is $0 and "How we got this" says why.
+
+Locally and in CI the journey tests (`web/e2e/safe-to-spend.spec.ts`) never call Plaid: they start a stand-in on :3598 (`web/e2e/support/fake-plaid.ts`) and answer Link's script in the browser. Start the app for them with `PLAID_CLIENT_ID=e2e-client PLAID_SECRET=e2e-placeholder PLAID_ENV=sandbox PLAID_BASE_URL=http://127.0.0.1:3598` and a `PLAID_TOKEN_KEY` in `web/.env.local`, as the `e2e` job does.
 
 ## Quality checks
 

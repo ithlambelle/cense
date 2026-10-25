@@ -62,7 +62,7 @@ async function answerWhoCovers(page: Page, checkA11y?: (screen: string) => Promi
     if (index === 0 && checkA11y) {
       // Continue with nothing picked asks for a pick and stays.
       await page.getByRole("button", { name: "Continue" }).click();
-      await expect(page.getByRole("alert")).toContainText("Pick who covers your rent.");
+      await expect(page.getByRole("main").getByRole("alert")).toContainText("Pick who covers your rent.");
       await checkA11y("safe to spend: who covers");
     }
     await page.getByRole("group", { name: step.title }).getByRole("button", { name: step.pick, exact: true }).click();
@@ -71,7 +71,7 @@ async function answerWhoCovers(page: Page, checkA11y?: (screen: string) => Promi
       if (index === 0) {
         // An amount is needed for "Me": empty is refused.
         await page.getByRole("button", { name: "Continue" }).click();
-        await expect(page.getByRole("alert")).toContainText("Enter an amount");
+        await expect(page.getByRole("main").getByRole("alert")).toContainText("Enter an amount");
       }
       await field.fill(step.amount.value);
     }
@@ -96,7 +96,8 @@ async function linkedStudent(page: Page, journey: string) {
   return checkA11y;
 }
 
-const safeToSpendCard = (page: Page) => page.getByRole("region", { name: "Safe to spend" });
+// Exact: the invite's region is "See what’s safe to spend".
+const safeToSpendCard = (page: Page) => page.getByRole("region", { name: "Safe to spend", exact: true });
 
 async function apiStatus(page: Page) {
   return (await page.request.get("/api/v1/safe-to-spend")).status();
@@ -167,17 +168,24 @@ test("a student links the sandbox bank, says who covers what, and sees safe to s
   await checkA11y("safe to spend: how we got this");
 
   // Change an answer: tuition becomes mine at $100, so 90 left, $3 a day.
+  // The saved answers are already picked, so Continue moves straight on.
   await page.getByRole("link", { name: "Change your answers" }).click();
-  for (let step = 0; step < 2; step++) {
-    await expect(page.getByRole("button", { name: "Continue" })).toBeEnabled();
+  const continueTo = async (title: string) => {
     await page.getByRole("button", { name: "Continue" }).click();
-  }
+    await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+  };
+  await expect(page.getByRole("heading", { level: 1, name: "Who covers your rent?" })).toBeVisible();
+  await expect(page.getByLabel("Your rent each month")).toHaveValue("650");
+  await continueTo("Who covers your phone?");
+  await continueTo("Who covers your tuition?");
   await page.getByRole("group", { name: "Who covers your tuition?" }).getByRole("button", { name: "Me", exact: true }).click();
   await page.getByLabel("Your tuition each month").fill("100");
-  for (let step = 0; step < 3; step++) await page.getByRole("button", { name: "Continue" }).click();
+  await continueTo("Who covers your groceries?");
+  await continueTo("Who covers your car?");
+  await continueTo("Anything to keep aside each month?");
   await expect(page.getByLabel("Set aside each month")).toHaveValue("50");
   await page.getByRole("button", { name: "See safe to spend" }).click();
-  await expect(safeToSpendCard(page)).toContainText("$3");
+  await expect(safeToSpendCard(page)).toContainText("$3 a day");
 
   // Back from How we got this returns Home.
   await safeToSpendCard(page).getByRole("link", { name: "How we got this" }).click();
@@ -206,13 +214,13 @@ test("Link cancelled, a bank error and an expired connection leave nothing linke
 
   await setLinkOutcome(page, "bank_error");
   await connect.click();
-  await expect(page.getByRole("alert")).toContainText("The bank connection didn’t finish.");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("The bank connection didn’t finish.");
   await checkA11y("safe to spend: connect error");
   expect(await apiStatus(page)).toBe(404);
 
   await setLinkOutcome(page, "expired");
   await connect.click();
-  await expect(page.getByRole("alert")).toContainText("That connection expired.");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("That connection expired.");
   expect(await apiStatus(page)).toBe(404);
 
   await setLinkOutcome(page, "success");
@@ -252,6 +260,7 @@ test("when the bank needs a new sign-in, the student reconnects and safe to spen
   // Link opens in update mode (the same Item), then balances are read again.
   behavior.accounts = "ok";
   await page.getByRole("button", { name: "Reconnect your bank" }).click();
+  await expect(page.getByText("Your bank needs you to sign in again.")).toHaveCount(0);
   await expect(page.getByRole("list", { name: "The sum" })).toContainText(DAILY);
   const opened = await page.evaluate(() => (window as unknown as { __fakePlaidOpened: { token: string }[] }).__fakePlaidOpened);
   expect(opened.at(-1)?.token).toContain("update");
@@ -279,7 +288,7 @@ test("disconnecting removes the bank at Plaid and deletes every balance and answ
   await sheet.getByRole("button", { name: "Disconnect" }).click();
   await expect(page).toHaveURL(/\/home$/);
   await expect(page.getByRole("region", { name: "See what’s safe to spend" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Safe to spend" })).toHaveCount(0);
+  await expect(safeToSpendCard(page)).toHaveCount(0);
   expect(removedAccessTokens).toContain(token);
   expect(await apiStatus(page)).toBe(404);
   for (const table of ["bank_links", "bank_balances", "bill_coverage"]) {
