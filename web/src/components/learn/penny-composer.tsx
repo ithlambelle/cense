@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { MAX_QUESTION_LENGTH } from "@/lib/api/penny";
+import { PENNY_COPY } from "@/lib/penny/copy";
 import { handOffQuestion } from "@/lib/penny/pending-question";
 import { ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -56,7 +57,7 @@ export function PennyComposer({ variant, onAsk, busy = false }: Props) {
       <input
         type="text"
         aria-label="Ask Penny"
-        placeholder={learn ? "Ask Penny anything..." : "Ask about cards or credit"}
+        placeholder={PENNY_COPY.placeholder}
         value={question}
         onChange={(event) => setQuestion(event.target.value)}
         maxLength={MAX_QUESTION_LENGTH}

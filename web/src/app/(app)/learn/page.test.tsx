@@ -39,7 +39,7 @@ describe("Learn and Ask Penny without the Anthropic key", () => {
     expect(screen.getByRole("link", { name: "Student loans" })).toBeTruthy();
     // Nothing invites a typed question there is no field for.
     expect(screen.getByText("Tap a question for a checked answer.")).toBeTruthy();
-    expect(screen.queryByText(/Got a money question/)).toBeNull();
+    expect(screen.queryByText(/Ask me about/)).toBeNull();
   });
 
   it("Ask Penny hides its field and still greets with two questions", async () => {
@@ -51,14 +51,14 @@ describe("Learn and Ask Penny without the Anthropic key", () => {
     // Checked answers involve no AI, so no AI line either.
     expect(screen.getByText("Educational, not financial advice.")).toBeTruthy();
     expect(screen.queryByText(/Penny uses AI/)).toBeNull();
-    expect(screen.queryByText(/Got a money question/)).toBeNull();
+    expect(screen.queryByText(/Ask me about/)).toBeNull();
   });
 
   it("shows both fields once the key is set", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "test-key-not-real");
     render(screenOf(await LearnPage()));
     expect(screen.getByRole("textbox", { name: "Ask Penny" })).toBeTruthy();
-    expect(screen.getByText("Got a money question? I’m here to help.")).toBeTruthy();
+    expect(screen.getByText("Ask me about credit, budgeting, saving and student loans.")).toBeTruthy();
     cleanup();
     render(screenOf(await penny()));
     expect(screen.getByRole("textbox", { name: "Ask Penny" })).toBeTruthy();

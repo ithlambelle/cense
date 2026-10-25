@@ -77,7 +77,7 @@ test("student opens Learn from the bottom bar and gets checked answers to tapped
   await expect(page.getByRole("heading", { level: 1, name: "Learn" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "Learn" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByText("Hi! I’m Penny.")).toBeVisible();
-  await expect(page.getByText("Got a money question? I’m here to help.")).toBeVisible();
+  await expect(page.getByText("Ask me about credit, budgeting, saving and student loans.")).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: "Browse by topic" })).toBeVisible();
   await expect(page.getByRole("link", { name: /^(Credit|Budgeting|Saving|Student loans)$/ })).toHaveText([
     "Credit",
@@ -148,7 +148,7 @@ test("student types questions: an AI answer with its source, advice and off-topi
 
   // Empty or blank input cannot be sent.
   const hubField = page.getByRole("textbox", { name: "Ask Penny" });
-  await expect(hubField).toHaveAttribute("placeholder", "Ask Penny anything...");
+  await expect(hubField).toHaveAttribute("placeholder", "Ask Penny a question");
   await expect(page.getByRole("button", { name: "Send" })).toBeDisabled();
   await hubField.fill("   ");
   await expect(page.getByRole("button", { name: "Send" })).toBeDisabled();
@@ -179,7 +179,7 @@ test("student types questions: an AI answer with its source, advice and off-topi
   // Advice: the fixed reply from the frame, and two questions Penny can answer.
   await ask(page, "Should I put my savings into crypto?");
   await expect(lastPennyMessage(page)).toContainText(
-    "I can explain how cards and credit work, but I can’t tell you what to do with your money. Here’s what might help:",
+    "I can explain credit, budgeting, saving and student loans, but I can’t tell you what to do with your money. Here’s what might help:",
   );
   const suggestions = lastPennyMessage(page).getByRole("button");
   await expect(suggestions).toHaveCount(2);
@@ -192,7 +192,7 @@ test("student types questions: an AI answer with its source, advice and off-topi
 
   // Off topic, and a money question with no checked answer.
   await ask(page, "What's the weather in Boston?");
-  await expect(lastPennyMessage(page)).toContainText("I only know money basics");
+  await expect(lastPennyMessage(page)).toContainText("I only know credit, budgeting, saving and student loans.");
   await ask(page, "How do mortgage points work?");
   await expect(lastPennyMessage(page)).toContainText("I don’t have a checked answer for that yet.");
 
