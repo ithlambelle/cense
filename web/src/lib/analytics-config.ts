@@ -108,6 +108,10 @@ export function posthogConfig(): Partial<PostHogConfig> {
     capture_performance: { network_timing: true, web_vitals: false },
     // Error tracking is its own piece of work (S51).
     capture_exceptions: false,
+    // A browser that sends Global Privacy Control (or the older Do Not
+    // Track) is opted out of events and recordings, whatever it chose before
+    // (privacy policy, "Your choices and rights").
+    respect_dnt: true,
     disable_surveys: true,
     // No feature flags. The /flags request would also carry the first page's
     // full address as a person property, which before_send never sees.

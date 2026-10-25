@@ -1,7 +1,7 @@
 import posthog from "posthog-js";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { identify, resetAnalytics, track } from "./analytics";
+import { applyAnalyticsChoice, browserAsksNotToTrack, identify, resetAnalytics, track } from "./analytics";
 
 const STUDENT = "00000000-0000-4000-8000-000000000001";
 const CLICK = "00000000-0000-4000-8000-0000000000c1";
@@ -77,7 +77,15 @@ describe("track", () => {
   });
 });
 
+// PostHog's consent, as a browser that never chose: capturing, nothing explicit.
+function consent(status: "granted" | "denied" | "pending", optedOut = status === "denied") {
+  vi.spyOn(posthog, "get_explicit_consent_status").mockReturnValue(status);
+  vi.spyOn(posthog, "has_opted_out_capturing").mockReturnValue(optedOut);
+}
+
 describe("identify", () => {
+  beforeEach(() => consent("pending"));
+
   it("identifies a new student and marks whether the account is the team's", () => {
     posthog.__loaded = true;
     vi.spyOn(posthog, "get_distinct_id").mockReturnValue("anonymous-device-id");
@@ -110,6 +118,93 @@ describe("identify", () => {
     vi.spyOn(posthog, "register").mockImplementation(() => undefined);
     identify(STUDENT, false);
     expect(order).toEqual(["reset", "identify"]);
+  });
+});
+
+describe("identify with the student's Analytics switch", () => {
+  beforeEach(() => {
+    posthog.__loaded = true;
+    vi.spyOn(posthog, "get_distinct_id").mockReturnValue("anonymous-device-id");
+    vi.spyOn(posthog, "_isIdentified").mockReturnValue(false);
+    vi.spyOn(posthog, "register").mockImplementation(() => undefined);
+  });
+
+  it("off: opts this browser out, which stops events and recordings, and never links it", () => {
+    consent("pending", false);
+    const optOut = vi.spyOn(posthog, "opt_out_capturing").mockImplementation(() => undefined);
+    const identifySpy = vi.spyOn(posthog, "identify").mockImplementation(() => undefined);
+    identify(STUDENT, false, false);
+    expect(optOut).toHaveBeenCalledOnce();
+    expect(identifySpy).not.toHaveBeenCalled();
+  });
+
+  it("on again, from another device: opts back in without an event, then identifies", () => {
+    consent("denied");
+    const order: string[] = [];
+    vi.spyOn(posthog, "opt_in_capturing").mockImplementation((options) => void order.push(`opt in ${JSON.stringify(options)}`));
+    vi.spyOn(posthog, "has_opted_out_capturing").mockImplementation(() => !order.some((step) => step.startsWith("opt in")));
+    vi.spyOn(posthog, "identify").mockImplementation(() => void order.push("identify"));
+    identify(STUDENT, false, true);
+    expect(order).toEqual(['opt in {"captureEventName":false}', "identify"]);
+  });
+
+  it("on, but the browser sends Global Privacy Control: stays out and unlinked", () => {
+    vi.stubGlobal("navigator", { globalPrivacyControl: true });
+    consent("denied");
+    const optIn = vi.spyOn(posthog, "opt_in_capturing").mockImplementation(() => undefined);
+    const identifySpy = vi.spyOn(posthog, "identify").mockImplementation(() => undefined);
+    identify(STUDENT, false, true);
+    expect(optIn).not.toHaveBeenCalled();
+    expect(identifySpy).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("unknown (the profile could not be read): changes nothing, and a browser that is out stays unlinked", () => {
+    consent("denied");
+    const optIn = vi.spyOn(posthog, "opt_in_capturing").mockImplementation(() => undefined);
+    const optOut = vi.spyOn(posthog, "opt_out_capturing").mockImplementation(() => undefined);
+    const identifySpy = vi.spyOn(posthog, "identify").mockImplementation(() => undefined);
+    identify(STUDENT, false, null);
+    expect(optIn).not.toHaveBeenCalled();
+    expect(optOut).not.toHaveBeenCalled();
+    expect(identifySpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("browserAsksNotToTrack", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("reads Global Privacy Control and Do Not Track, as PostHog does", () => {
+    vi.stubGlobal("navigator", {});
+    expect(browserAsksNotToTrack()).toBe(false);
+    vi.stubGlobal("navigator", { globalPrivacyControl: true });
+    expect(browserAsksNotToTrack()).toBe(true);
+    vi.stubGlobal("navigator", { doNotTrack: "1" });
+    expect(browserAsksNotToTrack()).toBe(true);
+    vi.stubGlobal("navigator", { doNotTrack: "0", globalPrivacyControl: false });
+    expect(browserAsksNotToTrack()).toBe(false);
+  });
+});
+
+describe("applyAnalyticsChoice", () => {
+  it("off opts out; on identifies again", () => {
+    posthog.__loaded = true;
+    consent("pending");
+    const optOut = vi.spyOn(posthog, "opt_out_capturing").mockImplementation(() => undefined);
+    applyAnalyticsChoice(false, STUDENT, false);
+    expect(optOut).toHaveBeenCalledOnce();
+    vi.spyOn(posthog, "get_distinct_id").mockReturnValue("anonymous-device-id");
+    vi.spyOn(posthog, "_isIdentified").mockReturnValue(false);
+    vi.spyOn(posthog, "register").mockImplementation(() => undefined);
+    const identifySpy = vi.spyOn(posthog, "identify").mockImplementation(() => undefined);
+    applyAnalyticsChoice(true, STUDENT, false);
+    expect(identifySpy).toHaveBeenCalledExactlyOnceWith(STUDENT);
+  });
+
+  it("does nothing while PostHog is not loaded", () => {
+    const optOut = vi.spyOn(posthog, "opt_out_capturing");
+    applyAnalyticsChoice(false, STUDENT, false);
+    expect(optOut).not.toHaveBeenCalled();
   });
 });
 

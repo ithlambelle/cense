@@ -50,13 +50,38 @@ export function track<E extends AnalyticsEvent>(event: E, ...[props, options]: T
   }
 }
 
+// True when the browser asks sites not to track: Global Privacy Control, or
+// the older Do Not Track. PostHog then captures nothing (respect_dnt in
+// analytics-config.ts); this mirrors its check, so a screen can say why.
+export function browserAsksNotToTrack(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const signals: unknown[] = [
+    (navigator as Navigator & { globalPrivacyControl?: unknown }).globalPrivacyControl,
+    navigator.doNotTrack,
+    typeof window !== "undefined" ? (window as Window & { doNotTrack?: unknown }).doNotTrack : undefined,
+  ];
+  return signals.some((signal) => signal === true || signal === 1 || signal === "1" || signal === "yes");
+}
+
 // The signed-in student, by Supabase user id only (S36), on every signed-in
 // page load in every context (S48). A different student on the same browser
 // starts from a reset, because PostHog cannot move an identified browser to a
-// new id.
-export function identify(studentId: string, isInternal: boolean): void {
+// new id. `analyticsOn` is the student's Analytics switch from their profile
+// (null when it could not be read): off opts this browser out with PostHog's
+// own opt-out, which stops events and recordings, and a browser that is opted
+// out is never linked to the student.
+export function identify(studentId: string, isInternal: boolean, analyticsOn: boolean | null = null): void {
   try {
     if (!posthog.__loaded) return;
+    if (analyticsOn === false) {
+      if (!posthog.has_opted_out_capturing()) posthog.opt_out_capturing();
+      return;
+    }
+    // Turned back on, maybe on another device: this browser follows.
+    if (analyticsOn === true && posthog.get_explicit_consent_status() === "denied" && !browserAsksNotToTrack()) {
+      posthog.opt_in_capturing({ captureEventName: false });
+    }
+    if (posthog.has_opted_out_capturing()) return;
     if (posthog.get_distinct_id() !== studentId) {
       if (posthog._isIdentified()) resetAnalytics();
       posthog.identify(studentId);
@@ -76,6 +101,20 @@ export function resetAnalytics(): void {
     posthog.register(baseProperties());
   } catch {
     report("analytics_reset_failed", null);
+  }
+}
+
+// The Analytics switch, once the profile has saved it.
+export function applyAnalyticsChoice(analyticsOn: boolean, studentId: string, isInternal: boolean): void {
+  try {
+    if (!posthog.__loaded) return;
+    if (!analyticsOn) {
+      posthog.opt_out_capturing();
+      return;
+    }
+    identify(studentId, isInternal, true);
+  } catch {
+    report("analytics_choice_failed", null);
   }
 }
 

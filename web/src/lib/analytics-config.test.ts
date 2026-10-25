@@ -97,6 +97,11 @@ describe("posthogConfig", () => {
     }
   });
 
+  // Global Privacy Control (and Do Not Track) opts the browser out (privacy policy).
+  it("honors the browser's request not to be tracked", () => {
+    expect(config.respect_dnt).toBe(true);
+  });
+
   it("uses the proxy, no cookie, the query filter, and no feature flag requests", () => {
     expect(config.advanced_disable_feature_flags).toBe(true);
     expect(config.api_host).toBe("/rx");

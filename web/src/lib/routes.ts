@@ -20,6 +20,9 @@ export const ROUTES = {
   forgotPassword: "/forgot-password",
   // Opened from the password reset email.
   resetPassword: "/reset-password",
+  // Security and privacy (the "Soon" row of Profile, Figma 222:2282): the
+  // Analytics switch.
+  privacy: "/settings/privacy",
 } as const;
 
 // Keeps the tracked card with the student as they move between screens.

@@ -1070,6 +1070,96 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /me/privacy:
+    get:
+      operationId: getPrivacySettings
+      summary: Read the Analytics switch
+      security:
+        - studentSession: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  analyticsOn:
+                    type: boolean
+                required:
+                  - analyticsOn
+                additionalProperties: false
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    patch:
+      operationId: updatePrivacySettings
+      summary: Turn analytics and session recordings on or off
+      security:
+        - studentSession: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                analyticsOn:
+                  type: boolean
+              required:
+                - analyticsOn
+              additionalProperties: false
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  analyticsOn:
+                    type: boolean
+                required:
+                  - analyticsOn
+                additionalProperties: false
+        "400":
+          description: Invalid setting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /cards:
     get:
       operationId: listCards
