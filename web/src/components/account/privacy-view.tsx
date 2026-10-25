@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useId, useState, useSyncExternalStore } from "react";
 
+import { DeleteAccount } from "@/components/account/delete-account";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { ErrorMessage } from "@/components/ui/error-message";
@@ -90,6 +91,8 @@ export function PrivacyView({ analyticsOn: initial, studentId, isInternal }: Pro
           </div>
           {error ? <ErrorMessage>{error}</ErrorMessage> : null}
 
+          <div className="flex-1" />
+          <DeleteAccount />
         </main>
         <div className="sticky bottom-0">
           <BottomNav />

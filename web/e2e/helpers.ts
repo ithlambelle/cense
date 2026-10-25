@@ -167,3 +167,8 @@ export async function expireAccessToken(context: BrowserContext) {
   const size = Math.ceil(value.length / chunks.length);
   await context.addCookies(chunks.map((cookie, index) => ({ ...cookie, value: value.slice(index * size, (index + 1) * size) })));
 }
+
+// The signed-in student's current access token, as the browser holds it.
+export async function accessToken(context: BrowserContext): Promise<string> {
+  return (await sessionCookies(context)).session.access_token;
+}

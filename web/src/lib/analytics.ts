@@ -1,7 +1,7 @@
 import posthog from "posthog-js";
 
 import { EVENTS, type AnalyticsEvent, type EventProperties, type HasNoProperties } from "@/lib/analytics-catalog";
-import { analyticsEnvironment, baseProperties } from "@/lib/analytics-config";
+import { analyticsEnvironment, baseProperties, EVENT_SEND_INTERVAL_MS } from "@/lib/analytics-config";
 
 // The only door to PostHog (a lint rule bans importing posthog-js elsewhere).
 // Every event is checked against the catalog in analytics-catalog.ts.
@@ -115,6 +115,43 @@ export function applyAnalyticsChoice(analyticsOn: boolean, studentId: string, is
     identify(studentId, isInternal, true);
   } catch {
     report("analytics_choice_failed", null);
+  }
+}
+
+// Delete my account: nothing new is captured, then one send interval passes,
+// so every event already captured under the student's id has reached PostHog
+// before PostHog is asked to delete them (an event arriving later would not
+// be deleted). Resolves with how to undo the pause if the deletion fails.
+export async function pauseAnalytics(): Promise<() => void> {
+  try {
+    if (!posthog.__loaded) return () => {};
+    const before = posthog.get_explicit_consent_status();
+    const wasCapturing = !posthog.has_opted_out_capturing();
+    posthog.opt_out_capturing();
+    if (wasCapturing) await new Promise((resolve) => setTimeout(resolve, EVENT_SEND_INTERVAL_MS + 500));
+    return () => {
+      try {
+        if (before === "granted") posthog.opt_in_capturing({ captureEventName: false });
+        else if (before === "pending") posthog.clear_opt_in_out_capturing();
+      } catch {
+        report("analytics_resume_failed", null);
+      }
+    };
+  } catch {
+    report("analytics_pause_failed", null);
+    return () => {};
+  }
+}
+
+// After the account is deleted: this browser drops the student's id and stays
+// opted out. Signing up again with analytics on opts it back in.
+export function forgetDeletedStudent(): void {
+  try {
+    if (!posthog.__loaded) return;
+    posthog.reset();
+    posthog.opt_out_capturing();
+  } catch {
+    report("analytics_reset_failed", null);
   }
 }
 

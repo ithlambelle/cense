@@ -52,6 +52,9 @@ jobs:
         run: |
           eval "$(supabase status -o env)"
           printf 'NEXT_PUBLIC_SUPABASE_URL=%s\nNEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=%s\n' "$API_URL" "$PUBLISHABLE_KEY" > web/.env.local
+          # The local stack's own service role key, for Delete my account
+          # (e2e/delete-account.spec.ts).
+          printf 'SUPABASE_SERVICE_ROLE_KEY=%s\n' "$SERVICE_ROLE_KEY" >> web/.env.local
       - run: npm ci
       # A production build, not next dev: dev recompiles mid-test and made a test flaky.
       - run: npm run build

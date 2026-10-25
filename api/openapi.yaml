@@ -1070,6 +1070,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteMe
+      summary: Delete my account
+      description: Deletes the student's PostHog person with its events and recordings
+        (where analytics runs), then the account, which deletes every row tied
+        to it, then signs out. A failure deletes nothing of the account.
+      security:
+        - studentSession: []
+      responses:
+        "204":
+          description: Deleted and signed out
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: Deletion failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Deletion not available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /me/privacy:
     get:
       operationId: getPrivacySettings

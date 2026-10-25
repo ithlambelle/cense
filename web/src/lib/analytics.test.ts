@@ -1,7 +1,8 @@
 import posthog from "posthog-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { applyAnalyticsChoice, browserAsksNotToTrack, identify, resetAnalytics, track } from "./analytics";
+import { EVENT_SEND_INTERVAL_MS } from "./analytics-config";
+import { applyAnalyticsChoice, browserAsksNotToTrack, forgetDeletedStudent, identify, pauseAnalytics, resetAnalytics, track } from "./analytics";
 
 const STUDENT = "00000000-0000-4000-8000-000000000001";
 const CLICK = "00000000-0000-4000-8000-0000000000c1";
@@ -205,6 +206,57 @@ describe("applyAnalyticsChoice", () => {
     const optOut = vi.spyOn(posthog, "opt_out_capturing");
     applyAnalyticsChoice(false, STUDENT, false);
     expect(optOut).not.toHaveBeenCalled();
+  });
+});
+
+describe("pauseAnalytics and forgetDeletedStudent", () => {
+  it("stops capture, waits one send interval for the queue, and puts back what the browser had if it fails", async () => {
+    vi.useFakeTimers();
+    posthog.__loaded = true;
+    const optOut = vi.spyOn(posthog, "opt_out_capturing").mockImplementation(() => undefined);
+    const optIn = vi.spyOn(posthog, "opt_in_capturing").mockImplementation(() => undefined);
+    const clear = vi.spyOn(posthog, "clear_opt_in_out_capturing").mockImplementation(() => undefined);
+    consent("granted", false);
+    let paused = false;
+    const pausing = pauseAnalytics().then((resume) => {
+      paused = true;
+      return resume;
+    });
+    await vi.advanceTimersByTimeAsync(EVENT_SEND_INTERVAL_MS);
+    expect(optOut).toHaveBeenCalledOnce();
+    expect(paused).toBe(false);
+    await vi.advanceTimersByTimeAsync(500);
+    (await pausing)();
+    expect(optIn).toHaveBeenCalledExactlyOnceWith({ captureEventName: false });
+    consent("pending", false);
+    const pending = pauseAnalytics();
+    await vi.advanceTimersByTimeAsync(EVENT_SEND_INTERVAL_MS + 500);
+    (await pending)();
+    expect(clear).toHaveBeenCalledOnce();
+    // Already out (the switch, or the browser's signal): nothing to wait for or undo.
+    consent("denied");
+    (await pauseAnalytics())();
+    expect(optIn).toHaveBeenCalledOnce();
+    expect(clear).toHaveBeenCalledOnce();
+    vi.useRealTimers();
+  });
+
+  it("after the deletion, drops the student's id and keeps this browser out", () => {
+    posthog.__loaded = true;
+    const order: string[] = [];
+    vi.spyOn(posthog, "reset").mockImplementation(() => void order.push("reset"));
+    vi.spyOn(posthog, "opt_out_capturing").mockImplementation(() => void order.push("opt out"));
+    forgetDeletedStudent();
+    expect(order).toEqual(["reset", "opt out"]);
+  });
+
+  it("does nothing while PostHog is not loaded", async () => {
+    const optOut = vi.spyOn(posthog, "opt_out_capturing");
+    const reset = vi.spyOn(posthog, "reset");
+    (await pauseAnalytics())();
+    forgetDeletedStudent();
+    expect(optOut).not.toHaveBeenCalled();
+    expect(reset).not.toHaveBeenCalled();
   });
 });
 

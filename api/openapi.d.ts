@@ -225,7 +225,11 @@ export interface paths {
         get: operations["getMe"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete my account
+         * @description Deletes the student's PostHog person with its events and recordings (where analytics runs), then the account, which deletes every row tied to it, then signs out. A failure deletes nothing of the account.
+         */
+        delete: operations["deleteMe"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1222,6 +1226,51 @@ export interface operations {
             };
             /** @description Sign-in required */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    deleteMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted and signed out */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Deletion failed */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Deletion not available */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

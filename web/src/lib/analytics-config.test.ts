@@ -1,7 +1,7 @@
 import type { CaptureResult } from "posthog-js";
 import { describe, expect, it } from "vitest";
 
-import { analyticsEnvironment, baseProperties, posthogConfig, stripQuery, stripQueryStrings } from "./analytics-config";
+import { analyticsEnvironment, baseProperties, EVENT_SEND_INTERVAL_MS, posthogConfig, stripQuery, stripQueryStrings } from "./analytics-config";
 
 const event = (overrides: Partial<CaptureResult>): CaptureResult => ({ uuid: "u", event: "$pageview", properties: {}, ...overrides });
 
@@ -100,6 +100,10 @@ describe("posthogConfig", () => {
   // Global Privacy Control (and Do Not Track) opts the browser out (privacy policy).
   it("honors the browser's request not to be tracked", () => {
     expect(config.respect_dnt).toBe(true);
+  });
+
+  it("sends queued events on the interval Delete my account waits for", () => {
+    expect(config.request_queue_config).toEqual({ flush_interval_ms: EVENT_SEND_INTERVAL_MS });
   });
 
   it("uses the proxy, no cookie, the query filter, and no feature flag requests", () => {

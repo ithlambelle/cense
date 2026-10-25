@@ -172,6 +172,10 @@ Product analytics (PostHog) is off unless `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` is
 
 A student can turn analytics and session recordings off with the Analytics switch on Security and privacy (`/settings/privacy`). It is saved to their profile (`profiles.analytics_opted_out_at`), so it follows them to every device, and applied with PostHog's own opt-out; a browser that sends Global Privacy Control or Do Not Track is opted out whatever the switch says (`respect_dnt`).
 
+## Deleting an account
+
+Delete my account on Security and privacy deletes, at once: the student's PostHog person with its events and recordings (`DELETE_ANALYTICS_HISTORY` in `web/src/lib/account-deletion.ts`, decision S28; PostHog removes the events in its weekly batch, inside the 30 days the privacy policy promises), then their sign-in record, which deletes every row tied to them through `on delete cascade`, then their session. If a setting is missing or a step fails, nothing of the account is deleted and the student can try again. On Vercel Production it needs `SUPABASE_SERVICE_ROLE_KEY`, `POSTHOG_PERSONAL_API_KEY` (only the `person:write` scope) and `POSTHOG_PROJECT_ID` (see `web/.env.example`).
+
 ## Reminder emails
 
 Vercel Cron calls `GET /api/v1/cron/reminders` once a day at 13:00 UTC (`web/vercel.json`; the Hobby plan runs it at some point in that hour, so 8:00 to 10:00 Eastern). The job schedules every card's next reminders, claims the ones due today, at most one per student, sends each through Resend's API and marks it sent. A student sees a reminder in the app only once its email has gone. Every email has an unsubscribe link and the one-click `List-Unsubscribe` headers. Rules and functions: [api/data-contract.md](api/data-contract.md).
