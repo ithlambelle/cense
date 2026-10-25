@@ -58,10 +58,24 @@ jobs:
         run: |
           eval "$(supabase status -o env)"
           printf 'NEXT_PUBLIC_SUPABASE_URL=%s\nNEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=%s\n' "$API_URL" "$PUBLISHABLE_KEY" > web/.env.local
+          # The local stack's own service role key, for the reminder job test.
+          printf 'SUPABASE_SERVICE_ROLE_KEY=%s\n' "$SERVICE_ROLE_KEY" >> web/.env.local
       - run: npm ci
       # A production build, not next dev: dev recompiles mid-test and made a test flaky.
       - run: npm run build
       - name: Start the app on :3300
+        # The reminder job's variables, for its journey test
+        # (e2e/reminder-job.spec.ts): Resend and the heartbeat check are the
+        # stand-in server the test starts on :3598, never the real Resend API.
+        # Every value is a placeholder.
+        env:
+          CRON_SECRET: e2e-cron-secret
+          RESEND_API_KEY: e2e-placeholder
+          RESEND_BASE_URL: http://127.0.0.1:3598
+          REMINDER_FROM_EMAIL: Cense <reminders@example.test>
+          APP_BASE_URL: http://localhost:3300
+          REMINDER_UNSUBSCRIBE_SECRET: e2e-unsubscribe-secret
+          REMINDER_HEARTBEAT_URL: http://127.0.0.1:3598/heartbeat
         run: |
           npx next start -p 3300 > next.log 2>&1 &
           for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:3300/sign-in && exit 0; sleep 1; done
@@ -70,6 +84,7 @@ jobs:
         run: npx playwright test
         env:
           E2E_MAILPIT_URL: http://127.0.0.1:54324
+          E2E_CRON_SECRET: e2e-cron-secret
       - name: Keep the report and traces when a test fails
         if: failure()
         uses: actions/upload-artifact@v4

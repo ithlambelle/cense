@@ -1,14 +1,17 @@
 import "server-only";
 
+import { captureServer, type ServerEvent } from "@/lib/analytics-server";
 import type { ServiceClient } from "@/lib/supabase/service";
 
+import { RESEND_EMAILS_URL } from "./config";
 import { buildReminderEmail, type ReminderEmailKind } from "./email";
 import { unsubscribeToken } from "./unsubscribe-token";
 
 // The daily reminder job: schedule, claim, send, mark sent. The database
 // decides what is due and enforces the rules (at most one email a day per
-// student, unsubscribed and turned-off kinds skipped, retries capped at 3);
-// this sends exactly what claim_due_reminders returns.
+// student, unsubscribed and turned-off kinds skipped, one attempt a day and 3
+// in all); this sends exactly what claim_due_reminders returns. Each one
+// marked sent is copied to analytics as reminder_sent.
 //
 // Logs carry counts, HTTP statuses and error codes only: never an email
 // address, a name, a card or a key.
@@ -18,6 +21,8 @@ export type ReminderJobConfig = {
   fromEmail: string;
   appUrl: string;
   unsubscribeSecret: string;
+  // Resend's send endpoint; a stand-in only in the journey tests (config.ts).
+  resendUrl?: string;
 };
 
 export type ReminderJobResult = {
@@ -29,12 +34,15 @@ export type ReminderJobResult = {
   unconfirmed: number;
   // claimed but not attempted because the run ran out of time; released
   deferred: number;
+  // released for the last time (its third attempt): never tried again
+  abandoned: number;
 };
 
 export type ReminderJobOptions = {
   fetch?: typeof fetch;
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
+  capture?: (events: ServerEvent[]) => Promise<void>;
 };
 
 // claim_due_reminders returns at most this many, so a run fits well inside
@@ -43,7 +51,6 @@ export const CLAIM_LIMIT = 50;
 const SEND_INTERVAL_MS = 550;
 const TIME_BUDGET_MS = 50_000;
 const RESEND_TIMEOUT_MS = 10_000;
-export const RESEND_URL = "https://api.resend.com/emails";
 
 export type ClaimedReminderRow = {
   reminder_id: string;
@@ -84,7 +91,7 @@ async function sendEmail(row: ClaimedReminderRow, config: ReminderJobConfig, fet
 
   let response: Response;
   try {
-    response = await fetchImpl(RESEND_URL, {
+    response = await fetchImpl(config.resendUrl ?? RESEND_EMAILS_URL, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${config.resendApiKey}`,
@@ -125,7 +132,7 @@ export class ReminderJobError extends Error {
 export async function runReminderJob(
   supabase: ServiceClient,
   config: ReminderJobConfig,
-  { fetch: fetchImpl = fetch, sleep = defaultSleep, now = Date.now }: ReminderJobOptions = {},
+  { fetch: fetchImpl = fetch, sleep = defaultSleep, now = Date.now, capture = captureServer }: ReminderJobOptions = {},
 ): Promise<ReminderJobResult> {
   const started = now();
 
@@ -138,11 +145,24 @@ export async function runReminderJob(
   if (claim.error) throw new ReminderJobError("reminder_claim", claim.error.code);
   const rows = (claim.data ?? []) as ClaimedReminderRow[];
 
-  const result: ReminderJobResult = { claimed: rows.length, sent: 0, failed: 0, unconfirmed: 0, deferred: 0 };
+  const result: ReminderJobResult = { claimed: rows.length, sent: 0, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0 };
+  const sent: ServerEvent<"reminder_sent">[] = [];
+
+  // Claimable again on the student's next day. True from the database means
+  // that was the reminder's last attempt.
+  async function release(row: ClaimedReminderRow): Promise<void> {
+    const released = await supabase.rpc("release_reminder_claim", { p_reminder_id: row.reminder_id });
+    if (released.error) {
+      log("database_error", { operation: "reminder_release", code: released.error.code }, "error");
+    } else if (released.data === true) {
+      result.abandoned += 1;
+      log("reminder_abandoned", { kind: row.kind }, "error");
+    }
+  }
 
   for (const [index, row] of rows.entries()) {
     if (now() - started > TIME_BUDGET_MS) {
-      await supabase.rpc("release_reminder_claim", { p_reminder_id: row.reminder_id });
+      await release(row);
       result.deferred += 1;
       continue;
     }
@@ -158,8 +178,7 @@ export async function runReminderJob(
 
     if (!outcome.ok) {
       log("reminder_send_failed", { kind: row.kind, status: outcome.status, code: outcome.code }, "error");
-      const release = await supabase.rpc("release_reminder_claim", { p_reminder_id: row.reminder_id });
-      if (release.error) log("database_error", { operation: "reminder_release", code: release.error.code }, "error");
+      await release(row);
       result.failed += 1;
       continue;
     }
@@ -173,8 +192,11 @@ export async function runReminderJob(
       continue;
     }
     result.sent += 1;
+    // A copy of the row now marked sent (S46): the row id is the event id.
+    sent.push({ event: "reminder_sent", studentId: row.student_id, properties: { kind: row.kind }, uuid: row.reminder_id });
   }
 
+  await capture(sent);
   log("reminder_job", { ...result });
   return result;
 }

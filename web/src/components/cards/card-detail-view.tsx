@@ -1,3 +1,4 @@
+import ChevronRight from "@gravity-ui/icons/ChevronRight";
 import CircleInfo from "@gravity-ui/icons/CircleInfo";
 import Image from "next/image";
 import Link from "next/link";
@@ -13,8 +14,9 @@ import type { Application } from "@/lib/api/application";
 import type { Card } from "@/lib/cards/catalog";
 import { STATUS_LABELS } from "@/lib/copy/applications";
 import { cardDisplayName, cardTypeLabel } from "@/lib/copy/results";
+import type { ReminderStatus } from "@/lib/home/state";
 import { moneyAmount } from "@/lib/money";
-import { applicationPath, cardBackLink } from "@/lib/routes";
+import { applicationPath, cardBackLink, paymentRemindersPath } from "@/lib/routes";
 import { cardNotes } from "@/lib/rules/fit-tier";
 
 // A card's page (S14). There is no hi-fi frame yet: built from the result
@@ -25,12 +27,15 @@ export function CardDetailView({
   signedIn,
   from,
   tracked = null,
+  reminders = null,
 }: {
   card: Card;
   signedIn: boolean;
   from?: string | string[];
   // The student's tracked application for this card, if any.
   tracked?: Application | null;
+  // For an approved tracked card: its payment reminders.
+  reminders?: ReminderStatus | null;
 }) {
   const back = cardBackLink(from);
   const approval = card.conditions.filter((condition) => condition.affects === "approval");
@@ -48,7 +53,7 @@ export function CardDetailView({
             <p className="text-body-s text-indigo-black/70">{card.brand}</p>
           </div>
 
-          {signedIn && tracked ? <TrackedStatus application={tracked} /> : null}
+          {signedIn && tracked ? <TrackedStatus application={tracked} reminders={reminders} /> : null}
 
           <dl className="flex flex-wrap gap-3">
             <FactChip label="Annual fee" value={moneyAmount(card.annualFeeCents)} />
@@ -99,12 +104,20 @@ export function CardDetailView({
   );
 }
 
+const REMINDER_STATUS: Record<ReminderStatus, string> = {
+  on: "On",
+  off: "Off",
+  not_set: "Not set yet",
+};
+
 // The student's status for a card they track, with the way to change it
 // (US-05). No frame yet: the box is the card page's white bordered box ("What
 // the issuer looks for", 144:2936: 1.5px off-white border, radius 22, 20/16
 // padding), with the status pill and the outline button ("Compare side by
-// side", 144:2785) full width below. Mark result's back returns here.
-function TrackedStatus({ application }: { application: Application }) {
+// side", 144:2785) full width below. Mark result's back returns here. An
+// approved card adds its payment reminders as Home's List row, Tinted
+// (273:2196), which opens the reminder screen; its Back and Save return here.
+function TrackedStatus({ application, reminders }: { application: Application; reminders: ReminderStatus | null }) {
   return (
     <section
       aria-labelledby="your-status"
@@ -120,6 +133,18 @@ function TrackedStatus({ application }: { application: Application }) {
       <Link href={applicationPath(application.id, "card")} className={buttonVariants({ variant: "outline" })}>
         Update status
       </Link>
+      {application.status === "approved" && reminders ? (
+        <Link
+          href={paymentRemindersPath(application.id, "card")}
+          className="flex min-h-11 items-center gap-3 rounded-[14px] bg-off-white px-3.5 py-3 text-indigo-black hover:bg-selected-outline/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          <span className="flex min-w-0 flex-1 flex-col gap-[3px] leading-[normal]">
+            <span className="text-body-m leading-[normal] font-medium">Payment reminders</span>
+            <span className="text-body-s leading-[normal] text-indigo-black/70">{REMINDER_STATUS[reminders]}</span>
+          </span>
+          <ChevronRight aria-hidden="true" width={16} height={16} className="shrink-0 text-indigo-black/70" />
+        </Link>
+      ) : null}
     </section>
   );
 }

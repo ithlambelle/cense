@@ -96,31 +96,47 @@ export async function loadApplicationDetail(student: Student, applicationId: str
   return data ? applicationDetailFromRow(data as ApplicationDetailRow) : null;
 }
 
+// The student's reminder settings, read as GET /me/reminder-settings reads
+// them. A student without a profile row yet gets the database defaults: every
+// reminder on.
+export async function loadReminderSettings(student: Student): Promise<ReminderSettings> {
+  const { data, error } = await student.supabase
+    .from("profiles")
+    .select(REMINDER_SETTINGS_FIELDS)
+    .eq("student_id", student.studentId)
+    .maybeSingle();
+  if (error) throw new Error("Could not read the student's reminder settings.");
+  return data
+    ? reminderSettingsFromRow(data as ReminderSettingsRow)
+    : { emailsOn: true, statementClosing: true, paymentDue: true, checkAutopay: true };
+}
+
 // What the payment reminder screen starts from: one card with its closing and
-// due days, and the student's reminder settings (the same reads as GET
-// /applications/{id} and GET /me/reminder-settings). Null when the card is
-// not theirs. A student without a profile row yet gets the database defaults:
-// every reminder on.
+// due days, the student's reminder settings (the same reads as GET
+// /applications/{id} and GET /me/reminder-settings), and whether this card
+// gets the one first-statement email: only a card the student just got, not
+// one they already had (source "added"), with that email on and autopay not
+// on. Null when the card is not theirs.
 export async function loadReminderSetup(
   student: Student,
   applicationId: string,
-): Promise<{ application: ApplicationDetail; settings: ReminderSettings } | null> {
-  const [application, profile] = await Promise.all([
+): Promise<{ application: ApplicationDetail; settings: ReminderSettings; firstStatementEmail: boolean } | null> {
+  const [application, settings] = await Promise.all([
     student.supabase
       .from("card_applications")
-      .select(APPLICATION_DETAIL_FIELDS)
+      .select(`${APPLICATION_DETAIL_FIELDS}, source`)
       .eq("id", applicationId)
       .eq("student_id", student.studentId)
       .maybeSingle(),
-    student.supabase.from("profiles").select(REMINDER_SETTINGS_FIELDS).eq("student_id", student.studentId).maybeSingle(),
+    loadReminderSettings(student),
   ]);
   if (application.error) throw new Error("Could not read the student's card.");
-  if (profile.error) throw new Error("Could not read the student's reminder settings.");
   if (!application.data) return null;
+  const row = application.data as ApplicationDetailRow & { source: "application" | "added" };
+  const detail = applicationDetailFromRow(row);
   return {
-    application: applicationDetailFromRow(application.data as ApplicationDetailRow),
-    settings: profile.data
-      ? reminderSettingsFromRow(profile.data as ReminderSettingsRow)
-      : { emailsOn: true, statementClosing: true, paymentDue: true, checkAutopay: true },
+    application: detail,
+    settings,
+    firstStatementEmail: row.source === "application" && settings.checkAutopay && detail.autopayStatus !== "on",
   };
 }

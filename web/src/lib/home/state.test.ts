@@ -3,7 +3,16 @@ import { describe, expect, it } from "vitest";
 import type { Application } from "../api/application";
 import { listCards } from "../cards/catalog";
 import { computeResult } from "../results/compute";
-import { cardApplication, celebrating, homeState, needsDetail, planApplication, profileInitial } from "./state";
+import {
+  cardApplication,
+  celebrating,
+  homeState,
+  needsDetail,
+  paymentReminderOn,
+  planApplication,
+  profileInitial,
+  reminderStatus,
+} from "./state";
 
 const ALL_SIX = { under21: true, incomeBand: "under_5k", student: true, standing: "none", recentDenial: false, canDeposit: true };
 const cards = listCards();
@@ -115,5 +124,27 @@ describe("needsDetail", () => {
     expect(needsDetail(homeState([app("2", "rejected", "2026-10-01T00:00:00Z")], none, true))).toBe(true);
     expect(needsDetail(homeState([app("3", "applied", "2026-10-01T00:00:00Z")], none, true))).toBe(false);
     expect(needsDetail(homeState([], none, false))).toBe(false);
+  });
+});
+
+describe("paymentReminderOn", () => {
+  it("needs the due day saved, the due-date email on and emails not off", () => {
+    const on = { paymentDue: true, emailsOn: true };
+    expect(paymentReminderOn({ paymentDueDay: 9 }, on)).toBe(true);
+    expect(paymentReminderOn({ paymentDueDay: null }, on)).toBe(false);
+    expect(paymentReminderOn(null, on)).toBe(false);
+    expect(paymentReminderOn({ paymentDueDay: 9 }, { ...on, paymentDue: false })).toBe(false);
+    expect(paymentReminderOn({ paymentDueDay: 9 }, { ...on, emailsOn: false })).toBe(false);
+  });
+});
+
+describe("reminderStatus", () => {
+  const all = { emailsOn: true, statementClosing: true, paymentDue: true };
+  it("is not set until both days are saved, then on while either email is", () => {
+    expect(reminderStatus({ statementClosingDay: null, paymentDueDay: 9 }, all)).toBe("not_set");
+    expect(reminderStatus({ statementClosingDay: 14, paymentDueDay: 9 }, all)).toBe("on");
+    expect(reminderStatus({ statementClosingDay: 14, paymentDueDay: 9 }, { ...all, paymentDue: false })).toBe("on");
+    expect(reminderStatus({ statementClosingDay: 14, paymentDueDay: 9 }, { ...all, paymentDue: false, statementClosing: false })).toBe("off");
+    expect(reminderStatus({ statementClosingDay: 14, paymentDueDay: 9 }, { ...all, emailsOn: false })).toBe("off");
   });
 });

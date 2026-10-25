@@ -15,7 +15,16 @@ import {
 } from "./routes";
 
 describe("allowedNext", () => {
-  it.each(["/quiz", "/results", "/home", "/cards/discover-cash-back"])("keeps %s", (path) => {
+  it.each([
+    "/quiz",
+    "/results",
+    "/home",
+    "/cards/discover-cash-back",
+    "/settings",
+    "/settings/reminders",
+    "/home?reminder=statement_closing",
+    "/home?reminder=reapply",
+  ])("keeps %s", (path) => {
     expect(allowedNext(path)).toBe(path);
   });
 
@@ -30,7 +39,9 @@ describe("allowedNext", () => {
     "/cards/../settings",
     "/cards/a/b",
     "/cards/UPPER",
-    "/settings",
+    "/settings/x",
+    "/home?reminder=other",
+    "/home?reminder=payment_due&x=1",
     "quiz",
     "",
   ])("drops %j", (path) => {
@@ -74,6 +85,7 @@ describe("tracked card paths", () => {
 
   it("builds the payment reminders screen for one card, allowed after sign-in", () => {
     expect(paymentRemindersPath(ID)).toBe(`/applications/${ID}/reminders`);
+    expect(paymentRemindersPath(ID, "card")).toBe(`/applications/${ID}/reminders?from=card`);
     expect(allowedNext(paymentRemindersPath(ID))).toBe(paymentRemindersPath(ID));
     expect(allowedNext(`/applications/${ID}/reminders/x`)).toBeNull();
   });

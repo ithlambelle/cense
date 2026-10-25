@@ -9,6 +9,9 @@ export const ROUTES = {
   results: "/results",
   home: "/home",
   settings: "/settings",
+  // Reminder settings (Figma 222:2344): reminder emails on or off, and each
+  // kind. Opened from Your account and from the footer of every reminder email.
+  reminderSettings: "/settings/reminders",
   // Decides where a student lands after signing in.
   start: "/start",
   // The rejection guide (Figma Denial Overview frames).
@@ -51,9 +54,28 @@ export function celebratePath(applicationId: string): string {
 }
 
 // Payment reminders for one approved card (US-08): its closing and due days
-// and the reminder emails. Home's "Set a payment reminder" row opens it.
-export function paymentRemindersPath(applicationId: string): string {
-  return `${applicationPath(applicationId)}/reminders`;
+// and the reminder emails. Home's "Set a payment reminder" row opens it, and
+// the card's own page with `from` "card", so Back and Save return there.
+export function paymentRemindersPath(applicationId: string, from?: ApplicationOrigin): string {
+  const path = `${applicationPath(applicationId)}/reminders`;
+  return from ? `${path}?from=${from}` : path;
+}
+
+// The reminder kinds an email can be about (reminders.kind).
+export const REMINDER_KINDS = ["statement_closing", "payment_due", "check_autopay", "reapply"] as const;
+export type ReminderKind = (typeof REMINDER_KINDS)[number];
+
+// Where a reminder email's button goes: Home, marked with the email's kind so
+// Home can count the visit (reminder_email_clicked) and then drop the mark.
+// Nothing about the student is in the link.
+export const REMINDER_PARAM = "reminder";
+
+export function reminderArrivalPath(kind: ReminderKind): string {
+  return `${ROUTES.home}?${REMINDER_PARAM}=${kind}`;
+}
+
+export function reminderKindParam(value: string | string[] | undefined): ReminderKind | null {
+  return typeof value === "string" && (REMINDER_KINDS as readonly string[]).includes(value) ? (value as ReminderKind) : null;
 }
 
 // The first-month plan for one approved card.
@@ -105,7 +127,15 @@ export function applicationBackLink(from: string | string[] | undefined, cardId:
   return { href: ROUTES.home, label: "Home" };
 }
 
-const NEXT_ALLOW_LIST: readonly string[] = [ROUTES.quiz, ROUTES.results, ROUTES.home];
+const NEXT_ALLOW_LIST: readonly string[] = [
+  ROUTES.quiz,
+  ROUTES.results,
+  ROUTES.home,
+  ROUTES.settings,
+  ROUTES.reminderSettings,
+  // A reminder email's button, opened while signed out: Home still counts the visit.
+  ...REMINDER_KINDS.map(reminderArrivalPath),
+];
 
 // A card page, for a visitor who pressed an issuer button while signed out.
 const CARD_PATH = /^\/cards\/[a-z0-9-]{1,100}$/;

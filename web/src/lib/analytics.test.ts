@@ -2,6 +2,7 @@ import posthog from "posthog-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { identify, resetAnalytics, track } from "./analytics";
+import { TRACKING_PLAN_VERSION } from "./analytics-catalog";
 
 const STUDENT = "00000000-0000-4000-8000-000000000001";
 const CLICK = "00000000-0000-4000-8000-0000000000c1";
@@ -120,6 +121,6 @@ describe("resetAnalytics", () => {
     const register = vi.spyOn(posthog, "register").mockImplementation(() => undefined);
     resetAnalytics();
     expect(reset).toHaveBeenCalledOnce();
-    expect(register).toHaveBeenCalledWith(expect.objectContaining({ plan_version: 1, is_internal: false }));
+    expect(register).toHaveBeenCalledWith(expect.objectContaining({ plan_version: TRACKING_PLAN_VERSION, is_internal: false }));
   });
 });

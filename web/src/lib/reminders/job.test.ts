@@ -29,8 +29,32 @@ describe("runReminderJob", () => {
     const fetchMock = vi.fn(async () => { clock += 30_000; return Response.json({ id: "x" }); });
 
     const result = await runReminderJob(supabase, config, { fetch: fetchMock as unknown as typeof fetch, sleep, now: () => clock });
-    expect(result).toEqual({ claimed: 3, sent: 2, failed: 0, unconfirmed: 0, deferred: 1 });
+    expect(result).toEqual({ claimed: 3, sent: 2, failed: 0, unconfirmed: 0, deferred: 1, abandoned: 0 });
     expect(sleep).toHaveBeenCalledWith(550);
     expect(calls.filter((name) => name === "release_reminder_claim")).toHaveLength(1);
+  });
+
+  it("copies each reminder marked sent to analytics, with its row id, and nothing about the student but the id", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const marked = [true, null];
+    const supabase = {
+      rpc: async (name: string) => {
+        if (name === "claim_due_reminders") return { data: [row(1), row(2), row(3)], error: null };
+        if (name === "mark_reminder_sent") return { data: marked.shift() ?? null, error: null };
+        return { data: null, error: null };
+      },
+    } as unknown as ServiceClient;
+    // the first two go out, the third fails
+    const answers = [Response.json({ id: "a" }), Response.json({ id: "b" }), Response.json({ name: "application_error" }, { status: 500 })];
+    const fetchMock = vi.fn(async () => answers.shift()!);
+    const capture = vi.fn(async () => {});
+
+    const result = await runReminderJob(supabase, config, { fetch: fetchMock as unknown as typeof fetch, sleep: async () => {}, capture });
+    // the second was sent but could not be marked: not a sent row yet, so not copied
+    expect(result).toMatchObject({ sent: 1, unconfirmed: 1, failed: 1 });
+    expect(capture).toHaveBeenCalledWith([
+      { event: "reminder_sent", studentId: row(1).student_id, properties: { kind: "payment_due" }, uuid: row(1).reminder_id },
+    ]);
   });
 });

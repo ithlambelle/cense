@@ -1,4 +1,5 @@
 import type { Application, ApplicationDetail } from "../api/application";
+import type { ReminderSettings } from "../api/reminders";
 import type { ResultView } from "../results/compute";
 
 export type HomeState =
@@ -14,6 +15,32 @@ export type HomeState =
 // The leading card's own fields Home reads beyond the list: the denial reason
 // and note for a denied card, autopay and the saved due day for an approved one.
 export type CardDetail = Pick<ApplicationDetail, "denialReason" | "denialReasonNote" | "autopayStatus" | "paymentDueDay">;
+
+// The two reminder settings the reminder star depends on.
+export type StarSettings = Pick<ReminderSettings, "paymentDue" | "emailsOn">;
+export const ALL_REMINDERS_ON: StarSettings = { paymentDue: true, emailsOn: true };
+
+// Whether a card's payment reminder is really on: its due day is saved, the
+// due-date email is on and reminder emails are not off. The reminder star on
+// Home and on the plan needs this as well as its saved step. The settings
+// cover every card, so turning the due-date email off from another card, or
+// in Reminder settings, puts this card's star out too (Reminders audit R-08);
+// turning it back on lights it again, as the step is still saved.
+export function paymentReminderOn(detail: Pick<ApplicationDetail, "paymentDueDay"> | null, settings: StarSettings): boolean {
+  return detail?.paymentDueDay != null && settings.paymentDue && settings.emailsOn;
+}
+
+// What an approved card's page says about its payment reminders: not set
+// until its days are saved, then on while any of its two emails is on.
+export type ReminderStatus = "on" | "off" | "not_set";
+
+export function reminderStatus(
+  detail: Pick<ApplicationDetail, "statementClosingDay" | "paymentDueDay">,
+  settings: Pick<ReminderSettings, "emailsOn" | "statementClosing" | "paymentDue">,
+): ReminderStatus {
+  if (detail.statementClosingDay === null || detail.paymentDueDay === null) return "not_set";
+  return settings.emailsOn && (settings.paymentDue || settings.statementClosing) ? "on" : "off";
+}
 
 // Only an approved or denied leading card needs them.
 export function needsDetail(state: HomeState): state is Extract<HomeState, { kind: "tracking" }> {

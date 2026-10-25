@@ -26,6 +26,7 @@ describe("AccountView", () => {
     expect(screen.getByText("Approved, $500 limit")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Card quiz results" }).getAttribute("href")).toBe("/results");
     expect(screen.getByRole("link", { name: "Add a card I already have" }).getAttribute("href")).toBe("/home/add-card");
+    expect(screen.getByRole("link", { name: "Reminder settings" }).getAttribute("href")).toBe("/settings/reminders");
     expect(screen.getByRole("button", { name: "Log out" })).toBeTruthy();
   });
 

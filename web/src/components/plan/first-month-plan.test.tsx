@@ -111,7 +111,7 @@ describe("FirstMonthPlan", () => {
     expect(fetchFn).toHaveBeenCalledOnce();
     unmount();
 
-    render(<FirstMonthPlan application={application} reminderDaysSaved />);
+    render(<FirstMonthPlan application={application} paymentReminderOn />);
     expect(await screen.findByText("1 of 3 done")).toBeTruthy();
     expect(screen.getByRole("link", { name: /^Set a payment reminder\s*, done/ })).toBeTruthy();
   });

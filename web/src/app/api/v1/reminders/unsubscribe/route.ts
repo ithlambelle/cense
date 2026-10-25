@@ -1,3 +1,4 @@
+import { captureServer } from "@/lib/analytics-server";
 import { reminderSettings } from "@/lib/reminders/config";
 import { verifyUnsubscribeToken } from "@/lib/reminders/unsubscribe-token";
 import { ROUTES } from "@/lib/routes";
@@ -30,7 +31,7 @@ function page(status: number, title: string, body: string): Response {
 }
 
 const BUTTON = "padding:10px 18px;border:0;border-radius:999px;background:#1a1a1a;color:#fff;font-size:16px;font-weight:600;cursor:pointer;";
-const settingsLink = `<a href="${ROUTES.settings}" style="color:#1a1a1a;">Reminder settings</a>`;
+const settingsLink = `<a href="${ROUTES.reminderSettings}" style="color:#1a1a1a;">Reminder settings</a>`;
 
 const brokenLink = () => page(400, "This link doesn't work", `<p>Turn reminder emails off in ${settingsLink} instead.</p>`);
 
@@ -71,5 +72,8 @@ export async function POST(request: Request): Promise<Response> {
     console.error(JSON.stringify({ event: "database_error", operation: "reminder_unsubscribe", code: error.code }));
     return page(503, "Something went wrong", `<p>Please try again in a minute, or use ${settingsLink}.</p>`);
   }
+  await captureServer([
+    { event: "reminder_settings_changed", studentId, properties: { setting: "emails", on: false, source: "email_link" } },
+  ]);
   return page(200, "You're unsubscribed", `<p>No more reminder emails. Changed your mind? Turn them back on in ${settingsLink}.</p>`);
 }

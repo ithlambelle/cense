@@ -10,6 +10,7 @@ import type { ComponentType, ReactNode, SVGProps } from "react";
 
 import { ApprovalHeading, ApprovedCard, StarConfetti } from "@/components/home/approved-card";
 import { DeniedCard } from "@/components/home/denied-card";
+import { ReminderArrival } from "@/components/home/reminder-arrival";
 import { Greeting } from "@/components/home/greeting";
 import { UpdatedLine } from "@/components/home/updated-line";
 import { MascotStill } from "@/components/mascot/mascot";
@@ -21,10 +22,10 @@ import { findCard } from "@/lib/cards/catalog";
 import { cardDisplayName, cardTypeLabel, NO_CARD_FALLBACK, RESULT_HEADLINES } from "@/lib/copy/results";
 import { SENSITIVE } from "@/lib/analytics";
 import type { Application } from "@/lib/api/application";
-import { celebrating, type CardDetail, type HomeState } from "@/lib/home/state";
+import { ALL_REMINDERS_ON, celebrating, paymentReminderOn, type CardDetail, type HomeState, type StarSettings } from "@/lib/home/state";
 import { moneyAmount } from "@/lib/money";
 import { QUESTIONS } from "@/lib/quiz/questions";
-import { applicationPath, cardPath, deniedPath, planPath, ROUTES } from "@/lib/routes";
+import { applicationPath, cardPath, deniedPath, planPath, ROUTES, type ReminderKind } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
@@ -35,6 +36,8 @@ type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 // card" (Figma 224:2675) and are proposed to design.
 // `initial` is the student's initial for the profile circle. `detail` is the
 // leading card's denial reason and autopay, read on the server with it.
+// `reminderSettings` are the student's (the reminder star needs them).
+// `fromReminder` is the kind of reminder email whose button opened Home.
 // `celebrateId` is the card Mark result just approved (?celebrate=),
 // celebrated once. `sampleStars` is for the dev gallery only: the approved or
 // denied card shows these stars and never calls the API (its sample card does
@@ -43,13 +46,17 @@ export function HomeView({
   state,
   initial,
   detail = null,
+  reminderSettings = ALL_REMINDERS_ON,
   celebrateId = null,
+  fromReminder = null,
   sampleStars,
 }: {
   state: HomeState;
   initial: string;
   detail?: CardDetail | null;
+  reminderSettings?: StarSettings;
   celebrateId?: string | null;
+  fromReminder?: ReminderKind | null;
   sampleStars?: number;
 }) {
   const celebrate = celebrating(state, celebrateId);
@@ -67,9 +74,10 @@ export function HomeView({
           </Link>
         </header>
         <main className="stagger flex flex-1 flex-col gap-[18px] px-6 pt-4 pb-6">
-          <HomeContent state={state} detail={detail} celebrate={celebrate} sampleStars={sampleStars} />
+          <HomeContent state={state} detail={detail} reminderSettings={reminderSettings} celebrate={celebrate} sampleStars={sampleStars} />
         </main>
         {celebrate ? <StarConfetti /> : null}
+        {fromReminder ? <ReminderArrival kind={fromReminder} /> : null}
         <div className="sticky bottom-0">
           <BottomNav />
         </div>
@@ -81,11 +89,13 @@ export function HomeView({
 function HomeContent({
   state,
   detail,
+  reminderSettings,
   celebrate,
   sampleStars,
 }: {
   state: HomeState;
   detail: CardDetail | null;
+  reminderSettings: StarSettings;
   celebrate: boolean;
   sampleStars?: number;
 }) {
@@ -169,7 +179,7 @@ function HomeContent({
         <ApprovedCard
           application={primary}
           autopayOn={detail?.autopayStatus === "on"}
-          reminderDaysSaved={detail?.paymentDueDay != null}
+          paymentReminderOn={paymentReminderOn(detail, reminderSettings)}
           celebrate={celebrate}
           sampleStars={sampleStars}
         />

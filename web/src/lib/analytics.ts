@@ -1,6 +1,6 @@
 import posthog from "posthog-js";
 
-import { EVENTS, type AnalyticsEvent, type EventProperties, type HasNoProperties } from "@/lib/analytics-catalog";
+import { EVENTS, sentFrom, type AnalyticsEvent, type EventProperties, type HasNoProperties } from "@/lib/analytics-catalog";
 import { analyticsEnvironment, baseProperties } from "@/lib/analytics-config";
 
 // The only door to PostHog (a lint rule bans importing posthog-js elsewhere).
@@ -31,8 +31,10 @@ export type EventProps<E extends AnalyticsEvent> = { event: E } & (HasNoProperti
 // because analytics must never interrupt a student.
 export function track<E extends AnalyticsEvent>(event: E, ...[props, options]: TrackArgs<E>): void {
   const parsed = EVENTS[event].properties.safeParse(props ?? {});
-  if (!parsed.success) {
-    const message = `analytics: "${event}" does not match the catalog: ${parsed.error.message}`;
+  if (!parsed.success || !sentFrom(event).browser) {
+    const message = parsed.success
+      ? `analytics: "${event}" is sent by the server only`
+      : `analytics: "${event}" does not match the catalog: ${parsed.error.message}`;
     if (process.env.NODE_ENV !== "production") throw new Error(message);
     report("analytics_event_invalid", event);
     return;

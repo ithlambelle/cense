@@ -1,14 +1,17 @@
 import { findCard } from "@/lib/cards/catalog";
 import { moneyAmount } from "@/lib/money";
-import { ROUTES } from "@/lib/routes";
+import { reminderArrivalPath, ROUTES } from "@/lib/routes";
 
 import { addDays, nextOnDay, payDownTargetCents } from "./schedule";
 
 // The reminder emails, one per kind, from the reminder copy (draft 2, Oct 24).
 // Short on purpose. No live balance anywhere: Cense does not have one yet.
-// Every email ends with the reminder settings and unsubscribe links. Buttons
-// open the app, where the same reminder waits with its actions; no link
-// carries anything about the student except the signed unsubscribe token.
+// Every email ends with the reminder settings and unsubscribe links. The one
+// button says "Open Cense" and opens Home: there is no screen yet that shows
+// the reminder or records "I paid it", so no button promises that (Reminders
+// audit R-02). Its link carries the email's kind, so Home can count the visit,
+// and nothing about the student; only the unsubscribe link carries a signed
+// token.
 
 export type ReminderEmailKind = "statement_closing" | "payment_due" | "check_autopay" | "reapply";
 
@@ -39,7 +42,7 @@ const SIGN_OFF = "Penny ;)";
 const WHY: Record<ReminderEmailKind, string> = {
   statement_closing: "statement reminders are on",
   payment_due: "payment reminders are on",
-  check_autopay: "autopay reminders are on",
+  check_autopay: "the autopay check is on",
   reapply: "you set a reapply reminder",
 };
 
@@ -62,7 +65,10 @@ function escapeHtml(value: string): string {
 type Part =
   | { type: "p"; text: string; html: string }
   | { type: "list"; items: { text: string; html: string }[] }
-  | { type: "buttons"; labels: string[] };
+  | { type: "button" };
+
+const BUTTON_LABEL = "Open Cense";
+const button: Part = { type: "button" };
 
 const p = (text: string, html = escapeHtml(text)): Part => ({ type: "p", text, html });
 const b = (value: string) => `<strong>${escapeHtml(value)}</strong>`;
@@ -95,7 +101,7 @@ function content(input: ReminderEmailInput): Content {
                 `So pay it down to ${b(`${target} or less`)} in ${escapeHtml(issuerApp)} before then. ${escapeHtml(tail)}`,
               )
             : p(`So pay it down in ${issuerApp} before then. ${tail}`),
-          { type: "buttons", labels: ["I paid it down"] },
+          button,
         ],
       };
     }
@@ -106,7 +112,7 @@ function content(input: ReminderEmailInput): Content {
           preview: "Just make sure checking can cover it.",
           parts: [
             p(`Your ${card} payment is due ${date}. Autopay pays the full balance, so just make sure checking can cover it. Autopay with an empty account is a vending machine with no snacks.`),
-            { type: "buttons", labels: ["Looks good"] },
+            button,
           ],
         };
       }
@@ -115,7 +121,7 @@ function content(input: ReminderEmailInput): Content {
         preview: "Pay the full statement balance and interest gets $0.",
         parts: [
           p(`Your ${card} payment is due ${date}. Pay the full statement balance and interest gets $0. Short this month? Pay at least the minimum to dodge the late fee.`),
-          { type: "buttons", labels: ["I paid it", "Turn on autopay"] },
+          button,
         ],
       };
     }
@@ -137,7 +143,7 @@ function content(input: ReminderEmailInput): Content {
             ],
           },
           p("Is autopay set to the full statement balance?"),
-          { type: "buttons", labels: ["Yep", "Not yet"] },
+          button,
         ],
       };
     }
@@ -148,7 +154,7 @@ function content(input: ReminderEmailInput): Content {
         preview: "Check your plan first. It takes a minute.",
         parts: [
           p(`You asked us to check in today about reapplying for ${card}. Check your plan first. It takes a minute.`),
-          { type: "buttons", labels: ["Open my plan"] },
+          button,
         ],
       };
   }
@@ -163,14 +169,14 @@ const STYLE = {
 
 export function buildReminderEmail(input: ReminderEmailInput, links: ReminderEmailLinks): ReminderEmail {
   const { subject, preview, parts } = content(input);
-  const appLink = `${links.appUrl}${ROUTES.home}`;
-  const settingsLink = `${links.appUrl}${ROUTES.settings}`;
+  const appLink = `${links.appUrl}${reminderArrivalPath(input.kind)}`;
+  const settingsLink = `${links.appUrl}${ROUTES.reminderSettings}`;
   const footerText = `You're getting this because ${WHY[input.kind]}.`;
 
   const textParts = parts.map((part) => {
     if (part.type === "p") return part.text;
     if (part.type === "list") return part.items.map((item) => `- ${item.text}`).join("\n");
-    return part.labels.map((label) => `${label}: ${appLink}`).join("\n");
+    return `${BUTTON_LABEL}: ${appLink}`;
   });
   const text = [
     ...textParts,
@@ -181,7 +187,7 @@ export function buildReminderEmail(input: ReminderEmailInput, links: ReminderEma
   const htmlParts = parts.map((part) => {
     if (part.type === "p") return `<p>${part.html}</p>`;
     if (part.type === "list") return `<ul>${part.items.map((item) => `<li>${item.html}</li>`).join("")}</ul>`;
-    return `<p>${part.labels.map((label) => `<a href="${escapeHtml(appLink)}" style="${STYLE.button}">${escapeHtml(label)}</a>`).join("")}</p>`;
+    return `<p><a href="${escapeHtml(appLink)}" style="${STYLE.button}">${escapeHtml(BUTTON_LABEL)}</a></p>`;
   });
   const html = [
     `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(subject)}</title></head>`,

@@ -2,19 +2,23 @@
 
 # Analytics events
 
-Tracking plan version 1. Every event Cense sends to PostHog, the question it answers and the only properties it may carry. `track()` in `web/src/lib/analytics.ts` rejects anything not listed here, and a lint rule stops code from calling PostHog any other way.
+Tracking plan version 2. Every event Cense sends to PostHog, the question it answers and the only properties it may carry. `track()` in `web/src/lib/analytics.ts` (the browser) and `captureServer()` in `web/src/lib/analytics-server.ts` (the server, for moments with no browser open) reject anything not listed here, and a lint rule stops code from calling PostHog any other way.
 
 Sent with every event: `plan_version`, `platform`, `app_version`, `environment`, `is_internal`, `$geoip_disable`. PostHog adds its own (`$current_url` and the like), with everything after "?" or "#" removed before sending. Events marked with a ledger copy a Postgres row; the falsifiers and the D24 numbers are counted from Postgres, and PostHog is checked against it.
 
-| Event | Question it answers | Properties | Ledger | Owner | Added in plan |
-|---|---|---|---|---|---|
-| `quiz_started` | How many students begin the quiz? | none | PostHog only | Ben | 1 |
-| `quiz_step_completed` | Where in the quiz do students stop? Read the last step each student reached. | `step`: integer 1 to 6<br>`field`: `under21`, `incomeBand`, `student`, `standing`, `recentDenial`, `canDeposit`<br>`retake`: boolean | PostHog only | Ben | 1 |
-| `quiz_completed` | How many students finish the quiz, first time or retake? | `retake`: boolean | PostHog only | Ben | 1 |
-| `recommendation_viewed` | Which approval-fit tiers do students see? card_id is null when no card fits yet. | `tier`: `likely_fit`, `stretch`, `not_yet`<br>`card_id`: catalog id or null<br>`has_alternative`: boolean | PostHog only | Ben | 1 |
-| `card_details_viewed` | Which cards do visitors open, and are they signed in? | `card_id`: catalog id<br>`signed_in`: boolean | PostHog only | Ben | 1 |
-| `issuer_link_clicked` | D24 number one and falsifier F1: did the student trust Cense enough to go to the issuer? | `click_id`: uuid<br>`card_id`: catalog id<br>`link_type`: `preapproval`, `apply` | issuer_clicks (the event uuid and click_id are the row id) | Ben | 1 |
-| `outcome_reported` | D24 number two: what do students tell us happened? applied and didnt_apply come from the did-you-apply prompt, approved, denied and pending from marking a result. | `outcome`: `applied`, `didnt_apply`, `approved`, `denied`, `pending`<br>`source`: `did_you_apply`, `mark_result` | card_applications (applied, approved, denied); pending and didnt_apply are not stored | Ben | 1 |
-| `denial_letter_answered` | After a denial, do students know the reason yet, or think it was a mistake? | `answer`: `knows_reason`, `waiting_on_letter`, `thinks_mistake` | PostHog only | Ben | 1 |
-| `denial_plan_viewed` | How many denied students open the five-step plan? | none | PostHog only | Ben | 1 |
-| `card_added` | How many students track a card Cense did not recommend? | `method`: `manual` | PostHog only | Ben | 1 |
+| Event | Question it answers | Properties | Sent from | Ledger | Owner | Added in plan |
+|---|---|---|---|---|---|---|
+| `quiz_started` | How many students begin the quiz? | none | browser | PostHog only | Ben | 1 |
+| `quiz_step_completed` | Where in the quiz do students stop? Read the last step each student reached. | `step`: integer 1 to 6<br>`field`: `under21`, `incomeBand`, `student`, `standing`, `recentDenial`, `canDeposit`<br>`retake`: boolean | browser | PostHog only | Ben | 1 |
+| `quiz_completed` | How many students finish the quiz, first time or retake? | `retake`: boolean | browser | PostHog only | Ben | 1 |
+| `recommendation_viewed` | Which approval-fit tiers do students see? card_id is null when no card fits yet. | `tier`: `likely_fit`, `stretch`, `not_yet`<br>`card_id`: catalog id or null<br>`has_alternative`: boolean | browser | PostHog only | Ben | 1 |
+| `card_details_viewed` | Which cards do visitors open, and are they signed in? | `card_id`: catalog id<br>`signed_in`: boolean | browser | PostHog only | Ben | 1 |
+| `issuer_link_clicked` | D24 number one and falsifier F1: did the student trust Cense enough to go to the issuer? | `click_id`: uuid<br>`card_id`: catalog id<br>`link_type`: `preapproval`, `apply` | browser | issuer_clicks (the event uuid and click_id are the row id) | Ben | 1 |
+| `outcome_reported` | D24 number two: what do students tell us happened? applied and didnt_apply come from the did-you-apply prompt, approved, denied and pending from marking a result. | `outcome`: `applied`, `didnt_apply`, `approved`, `denied`, `pending`<br>`source`: `did_you_apply`, `mark_result` | browser | card_applications (applied, approved, denied); pending and didnt_apply are not stored | Ben | 1 |
+| `denial_letter_answered` | After a denial, do students know the reason yet, or think it was a mistake? | `answer`: `knows_reason`, `waiting_on_letter`, `thinks_mistake` | browser | PostHog only | Ben | 1 |
+| `denial_plan_viewed` | How many denied students open the five-step plan? | none | browser | PostHog only | Ben | 1 |
+| `card_added` | How many students track a card Cense did not recommend? | `method`: `manual` | browser | PostHog only | Ben | 1 |
+| `reminder_setup_saved` | US-08: how many students with an approved card save payment reminders, and which of the two emails they keep on? | `payment_due`: boolean<br>`statement_closing`: boolean | browser | card_applications (the days) and profiles (the settings) | Ben | 2 |
+| `reminder_sent` | MVP2's headline: how many reminder emails go out, and of which kind? Sent by the daily job once an email is marked sent. | `kind`: `statement_closing`, `payment_due`, `check_autopay`, `reapply` | server | reminders (sent_at; the event uuid is the row id) | Ben | 2 |
+| `reminder_email_clicked` | Do reminder emails bring students back? Counted when a signed-in student lands on Home from an email's Open Cense button. Email opens are not tracked. | `kind`: `statement_closing`, `payment_due`, `check_autopay`, `reapply` | browser | PostHog only | Ben | 2 |
+| `reminder_settings_changed` | Which reminder emails do students turn off or back on, and where: Reminder settings or an email's unsubscribe link? | `setting`: `emails`, `statement_closing`, `payment_due`, `check_autopay`<br>`on`: boolean<br>`source`: `settings`, `email_link` | browser and server | profiles (the settings) | Ben | 2 |

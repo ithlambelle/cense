@@ -15,6 +15,7 @@ vi.mock("@/lib/student-data", () => ({
   loadStudentSnapshot: async () => ({ applications, quiz: { kind: "quiz_unfinished" }, quizStarted: false }),
   // No reminder days saved yet.
   loadApplicationDetail: async () => ({ paymentDueDay: null }),
+  loadReminderSettings: async () => ({ emailsOn: true, statementClosing: true, paymentDue: true, checkAutopay: true }),
 }));
 
 function app(id: string, status: Application["status"], statusUpdatedAt: string): Application {

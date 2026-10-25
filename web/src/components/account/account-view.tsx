@@ -11,8 +11,9 @@ import { moneyAmount } from "@/lib/money";
 import { ROUTES } from "@/lib/routes";
 
 // Your account (S28): the MVP1 subset of the Profile frame (416:342), in the
-// system's colors (the frame is an earlier draft in other hexes). Updates,
-// notification settings and security screens are not in MVP1.
+// system's colors (the frame is an earlier draft in other hexes), with the
+// Reminder settings row from the MVP2 Profile frame (222:2282). Updates and
+// security screens are not built yet.
 export function AccountView({ email, card }: { email: string | null; card: Application | null }) {
   const initial = email?.trim()[0]?.toUpperCase() ?? "?";
   return (
@@ -69,6 +70,7 @@ export function AccountView({ email, card }: { email: string | null; card: Appli
               {[
                 { href: ROUTES.results, label: "Card quiz results" },
                 { href: ROUTES.addCard, label: "Add a card I already have" },
+                { href: ROUTES.reminderSettings, label: "Reminder settings" },
                 { href: ROUTES.cards, label: "Browse cards" },
               ].map((row, index) => (
                 <li key={row.href} className={index > 0 ? "border-t border-hairline" : undefined}>
