@@ -55,10 +55,28 @@ export function axeChecker(page: Page) {
 
 type MailpitList = { messages?: { ID: string; Snippet?: string }[] };
 
-async function mailIds(email: string): Promise<Set<string>> {
+// The messages already in Mailpit for `email`, so a later poll can wait for a new one.
+export async function mailIds(email: string): Promise<Set<string>> {
   const response = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`);
   const list = (await response.json()) as MailpitList;
   return new Set((list.messages ?? []).map((m) => m.ID));
+}
+
+// Polls Mailpit for a new message to `email` (one not in `seen`) and returns
+// its subject and every link in its HTML, as the student's mail app shows them.
+export async function newEmail(email: string, seen: Set<string>): Promise<{ subject: string; links: string[] }> {
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const response = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`);
+    const list = (await response.json()) as MailpitList;
+    const message = list.messages?.find((m) => !seen.has(m.ID));
+    if (message) {
+      const full = (await (await fetch(`${MAILPIT}/api/v1/message/${message.ID}`)).json()) as { Subject: string; HTML: string };
+      const links = [...full.HTML.matchAll(/href="([^"]+)"/g)].map((match) => match[1].replaceAll("&amp;", "&"));
+      return { subject: full.Subject, links };
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error(`No email arrived in Mailpit for ${email}`);
 }
 
 // Polls Mailpit for a 6-digit code in a message to `email` that was not there

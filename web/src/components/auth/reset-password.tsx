@@ -8,7 +8,7 @@ import { AuthLayout, BackLinkHome } from "@/components/auth/auth-layout";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { PasswordField } from "@/components/ui/password-field";
-import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
+import { apiRequest, failureMessage } from "@/lib/api-client/client";
 import { PASSWORD_MIN, passwordProblem } from "@/lib/auth/password";
 import { ROUTES } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
@@ -42,7 +42,10 @@ export function ResetPassword() {
       return;
     }
     setPending(false);
-    if (isUnauthorized(result)) return setExpired(true);
+    // No reset session in this browser (401 sign_in_required), or one that is
+    // not from a reset link opened in the last hour (403 recovery_required).
+    // Either way the way on is a new link.
+    if (result.kind === "api" && (result.status === 401 || result.code === "recovery_required")) return setExpired(true);
     setErrors({ form: failureMessage(result) });
   }
 

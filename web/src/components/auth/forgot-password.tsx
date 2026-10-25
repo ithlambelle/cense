@@ -16,7 +16,9 @@ import { cn } from "@/lib/utils";
 
 // Forgot password? (Figma 397:1888, 213:1304). The answer is the same whether
 // or not an account uses the email, so the screen never reveals who has one.
-export function ForgotPassword() {
+// `linkExpired`: the student came from a reset link that was used or too old
+// (the verify route sends them here with ?error=invalid_link).
+export function ForgotPassword({ linkExpired = false }: { linkExpired?: boolean }) {
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -57,6 +59,7 @@ export function ForgotPassword() {
         </p>
       ) : (
         <form method="post" onSubmit={submit} className="flex flex-col gap-4" noValidate>
+          {linkExpired ? <ErrorMessage>That link has expired or was already used. Ask for a new one below.</ErrorMessage> : null}
           <TextField
             label="Email"
             type="email"

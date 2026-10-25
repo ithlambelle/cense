@@ -186,6 +186,11 @@ describe("password sign-up and log-in", () => {
 });
 
 describe("ForgotPassword", () => {
+  it("says why when a used or expired reset link sent the student here", () => {
+    render(<ForgotPassword linkExpired />);
+    expect(screen.getByRole("alert").textContent).toBe("That link has expired or was already used. Ask for a new one below.");
+    expect(screen.getByRole("button", { name: "Send link" })).toBeTruthy();
+  });
 
   it("gives the same answer whether or not an account uses the email", async () => {
     server(200, { status: "check_email" });

@@ -44,19 +44,29 @@ describe("ResetPassword", () => {
     expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toEqual({ password: "long enough" });
   });
 
+  // The route's own answer (reset/confirm/route.ts). The screen used to wait
+  // for code "unauthorized", which this route never sends.
   it("says the link has expired when the recovery session is gone", async () => {
-    server(() => Response.json({ error: { code: "unauthorized", message: "Sign in to continue." } }, { status: 401 }));
+    server(() => Response.json({ error: { code: "sign_in_required", message: "A valid reset session is required." } }, { status: 401 }));
     render(<ResetPassword />);
     submit("long enough", "long enough");
     expect(await screen.findByRole("heading", { level: 1, name: "This link has expired" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Send a new link" }).getAttribute("href")).toBe("/forgot-password");
   });
 
-  it("shows the API's message when it refuses the password, and stays put", async () => {
+  it("says the link has expired when the session is not from a recent reset link", async () => {
     server(() => Response.json({ error: { code: "recovery_required", message: "Open a password reset link before setting a new password." } }, { status: 403 }));
     render(<ResetPassword />);
     submit("long enough", "long enough");
-    expect((await screen.findByRole("alert")).textContent).toBe("Open a password reset link before setting a new password.");
+    expect(await screen.findByRole("heading", { level: 1, name: "This link has expired" })).toBeTruthy();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("shows the API's message when it refuses the password, and stays put", async () => {
+    server(() => Response.json({ error: { code: "invalid_password", message: "Use a password of 72 bytes or fewer." } }, { status: 400 }));
+    render(<ResetPassword />);
+    submit("long enough", "long enough");
+    expect((await screen.findByRole("alert")).textContent).toBe("Use a password of 72 bytes or fewer.");
     expect(replace).not.toHaveBeenCalled();
   });
 });
