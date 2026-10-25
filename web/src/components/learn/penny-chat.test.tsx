@@ -195,6 +195,17 @@ describe("PennyChat in a crisis", () => {
 });
 
 describe("PennyChat analytics", () => {
+  it("blocks the whole conversation from replay, so a crisis leaves no box of its own", async () => {
+    vi.stubGlobal("fetch", reply(503, { error: { code: "penny_unavailable", message: "Down" } }));
+    render(<PennyChat canType initialAnswerId={preapproval.id} from="learn" back={BACK} />);
+    const log = screen.getByRole("log", { name: "Conversation with Penny" });
+    expect(log.classList.contains(NO_CAPTURE)).toBe(true);
+    await type("kms");
+    expectCrisisLine(pennyMessages().at(-1)!);
+    // One blocked box, the same for every conversation.
+    expect([...document.querySelectorAll(`.${NO_CAPTURE}`)]).toEqual([log]);
+  });
+
   it("counts a typed answer with only its catalog id", async () => {
     vi.stubGlobal("fetch", reply(200, { kind: "answer", text: "It’s a soft inquiry.", answer: { ...preapproval } }));
     render(<PennyChat canType initialAnswerId={null} from={null} back={BACK} />);

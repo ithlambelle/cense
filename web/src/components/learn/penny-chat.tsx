@@ -246,7 +246,10 @@ export function PennyChat({ initialAnswerId, from, back, canType }: Props) {
         </header>
 
         <main className="flex flex-1 flex-col px-6 pt-4 pb-4">
-          <div role="log" aria-label="Conversation with Penny" className="flex flex-col gap-4">
+          {/* Blocked from session replay as a whole (an empty box), and kept
+              out of autocapture: what a student asks, and whether they
+              reached the 988 line, leave no trace. Students are identified. */}
+          <div role="log" aria-label="Conversation with Penny" className={cn(NO_CAPTURE, "flex flex-col gap-4")}>
             {messages.map((message, index) => (
               <MessageView
                 key={message.id}
@@ -318,13 +321,7 @@ function MessageView({ message, from, latest, lastRef, onPick, onRetry, busy }: 
   }
 
   return (
-    <article
-      ref={lastRef}
-      aria-label="Penny"
-      // The 988 line leaves no trace in PostHog: students are identified,
-      // and reaching it is health data. Replay shows an empty box.
-      className={cn("flex scroll-mb-28 flex-col items-start gap-4", message.kind === "crisis" && NO_CAPTURE)}
-    >
+    <article ref={lastRef} aria-label="Penny" className="flex scroll-mb-28 flex-col items-start gap-4">
       {/* Lavender in place of the frame's light blue bubble (G3). */}
       <div className="flex max-w-[302px] flex-col gap-1.5 rounded-[20px] bg-off-white px-4 py-2.5">
         {/* Masked too: a typed answer can restate the question. */}
