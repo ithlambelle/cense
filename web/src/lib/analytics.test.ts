@@ -1,7 +1,7 @@
 import posthog from "posthog-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { identify, resetAnalytics, track } from "./analytics";
+import { captureError, identify, resetAnalytics, track } from "./analytics";
 
 const STUDENT = "00000000-0000-4000-8000-000000000001";
 const CLICK = "00000000-0000-4000-8000-0000000000c1";
@@ -121,5 +121,31 @@ describe("resetAnalytics", () => {
     resetAnalytics();
     expect(reset).toHaveBeenCalledOnce();
     expect(register).toHaveBeenCalledWith(expect.objectContaining({ plan_version: 1, is_internal: false }));
+  });
+});
+
+describe("captureError", () => {
+  it("sends nothing while PostHog is not loaded (no token set)", () => {
+    const captureException = vi.spyOn(posthog, "captureException");
+    captureError("page", new Error("boom"));
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it("sends the error to error tracking with where it happened", () => {
+    posthog.__loaded = true;
+    const captureException = vi.spyOn(posthog, "captureException").mockImplementation(() => undefined);
+    const error = new Error("boom");
+    captureError("page", error);
+    expect(captureException).toHaveBeenCalledWith(error, { where: "page" });
+  });
+
+  it("never throws when PostHog does", () => {
+    posthog.__loaded = true;
+    vi.spyOn(posthog, "captureException").mockImplementation(() => {
+      throw new Error("posthog down");
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    expect(() => captureError("page", new Error("boom"))).not.toThrow();
+    expect(warn).toHaveBeenCalledWith(JSON.stringify({ event: "analytics_exception_failed", analyticsEvent: null }));
   });
 });
