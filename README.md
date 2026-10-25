@@ -171,7 +171,7 @@ Every pull request that changes a screen adds or updates a journey test that doe
 
 `.env.local` needs `NEXT_PUBLIC_SUPABASE_URL` (the API URL, `http://127.0.0.1:54321`) and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. The optional variables the tests and seed script read are listed in `.env.example`.
 
-Set the two `ANTHROPIC_` variables on the command line as above. They also work in `.env.local`, but a value already in your shell wins over that file (an AI coding tool's shell may set `ANTHROPIC_BASE_URL`), and then Penny's questions go to the real API with a fake key. Without them Penny's tapped questions still work and typed ones say Penny is unavailable, so the Ask Penny journeys fail.
+Set the two `ANTHROPIC_` variables on the command line as above. They also work in `.env.local`, but a value already in your shell wins over that file (an AI coding tool's shell may set `ANTHROPIC_BASE_URL`), and then Penny's questions go to the real API with a fake key. Without them Penny's tapped questions still work but there is no field to type a question, so the Ask Penny journeys fail.
 
 Product analytics (PostHog) is off unless `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` is set, so local runs, tests and CI send nothing. With it set, the browser sends events to `/rx` on the app's own origin, which `web/next.config.ts` forwards to PostHog (US region); `web/src/proxy.ts` passes on only an allowlist of headers, so session cookies never leave. Every event is defined in `web/src/lib/analytics-catalog.ts` and sent with `track()` from `web/src/lib/analytics.ts`, which rejects anything not in the catalog; the readable tracking plan is [docs/analytics-events.md](docs/analytics-events.md), generated with `npm run analytics:docs`. Addresses lose everything after "?" before sending, and text that restates a student's answers or card status carries the `ph-sensitive` class, which masks it in session replay and keeps it out of autocapture. Team accounts listed in `INTERNAL_STUDENT_IDS` are marked `is_internal`.
 
@@ -207,7 +207,7 @@ Learn (`/learn`) has Penny's starter questions, four topic pages and Ask Penny (
 Before typed questions work in production:
 
 - Yunho applies `supabase/migrations/20261025160000_penny_asks.sql` in the Supabase SQL editor.
-- Ben adds `ANTHROPIC_API_KEY` on Vercel (Project Settings, Environment Variables, Production, and Preview only if pull request previews should answer typed questions too), then redeploys, and sets a monthly spend limit for the key's workspace in the Anthropic Console. Until then typed questions say Penny is unavailable and tapped ones work.
+- Ben adds `ANTHROPIC_API_KEY` on Vercel (Project Settings, Environment Variables, Production, and Preview only if pull request previews should answer typed questions too), then redeploys, and sets a monthly spend limit for the key's workspace in the Anthropic Console. Until then Learn and Ask Penny show no field to type a question (it could only say Penny is unavailable); starters, topic pages and tapped answers work.
 
 ## Quality checks
 

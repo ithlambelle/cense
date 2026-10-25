@@ -24,9 +24,11 @@ const TOPIC_ICONS: Record<PennyTopic, ComponentType<SVGProps<SVGSVGElement>>> = 
 
 // Learn (Flow 5 step 1, 144:3059; C18): Penny's card with the two starter
 // questions and a field to type one, then the four topics. Everything here
-// that looks tappable leads somewhere real. The frame's "Credit basics"
-// progress card waits for lessons (C22), which are not built yet.
-export function LearnHub() {
+// that looks tappable leads somewhere real, so the field shows only when the
+// server can answer typed questions (canType: ANTHROPIC_API_KEY is set). The
+// frame's "Credit basics" progress card waits for lessons (C22), which are
+// not built yet.
+export function LearnHub({ canType }: { canType: boolean }) {
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
@@ -60,7 +62,7 @@ export function LearnHub() {
                 );
               })}
             </ul>
-            <PennyComposer variant="learn" />
+            {canType ? <PennyComposer variant="learn" /> : null}
           </section>
 
           <section aria-labelledby="browse-topics" className="flex flex-col gap-5">

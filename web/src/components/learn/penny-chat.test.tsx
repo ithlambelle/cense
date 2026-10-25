@@ -49,7 +49,7 @@ afterEach(() => {
 
 describe("PennyChat", () => {
   it("opens with a tapped question's checked answer, its source, and a link into its topic", () => {
-    render(<PennyChat initialAnswerId={preapproval.id} from="learn" back={BACK} />);
+    render(<PennyChat canType initialAnswerId={preapproval.id} from="learn" back={BACK} />);
     expect(screen.getByRole("article", { name: "You" }).textContent).toBe("Preapproval vs. applying");
     const answer = pennyMessages()[0];
     expect(answer.textContent).toContain(preapproval.answer);
@@ -61,13 +61,13 @@ describe("PennyChat", () => {
   });
 
   it("leaves out the topic link when opened from that topic", () => {
-    render(<PennyChat initialAnswerId={preapproval.id} from="credit" back={BACK} />);
+    render(<PennyChat canType initialAnswerId={preapproval.id} from="credit" back={BACK} />);
     expect(screen.queryByRole("link", { name: /More about credit/ })).toBeNull();
   });
 
   it("masks what the student typed, and Penny's reply, in session replay", async () => {
     vi.stubGlobal("fetch", reply(200, { kind: "answer", text: "It’s a soft inquiry.", answer: { ...preapproval } }));
-    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    render(<PennyChat canType initialAnswerId={null} from={null} back={BACK} />);
     await type("I'm jordan@bu.edu, does preapproval hurt my score?");
     // The question shows the moment Send is tapped, before any scrubbing.
     expect(screen.getByText("I'm jordan@bu.edu, does preapproval hurt my score?").closest(SENSITIVE_SELECTOR)).not.toBeNull();
@@ -77,7 +77,7 @@ describe("PennyChat", () => {
   it("greets with two questions when opened with nothing, and a tapped one answers at once", () => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
-    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    render(<PennyChat canType initialAnswerId={null} from={null} back={BACK} />);
     const greeting = pennyMessages()[0];
     expect(greeting.textContent).toContain(PENNY_COPY.greetingTitle);
     fireEvent.click(within(greeting).getByRole("button", { name: "How to use a credit card?" }));
@@ -86,7 +86,7 @@ describe("PennyChat", () => {
   });
 
   it("keeps Send off until there is something to send", () => {
-    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    render(<PennyChat canType initialAnswerId={null} from={null} back={BACK} />);
     const send = screen.getByRole("button", { name: "Send" }) as HTMLButtonElement;
     expect(send.disabled).toBe(true);
     fireEvent.change(screen.getByRole("textbox", { name: "Ask Penny" }), { target: { value: "  " } });
@@ -98,7 +98,7 @@ describe("PennyChat", () => {
   it("sends a typed question and shows the reply", async () => {
     const fetch = reply(200, { kind: "answer", text: "It’s a soft inquiry.", answer: { ...preapproval } });
     vi.stubGlobal("fetch", fetch);
-    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    render(<PennyChat canType initialAnswerId={null} from={null} back={BACK} />);
     await type("Does preapproval hurt my score?");
     expect(fetch).toHaveBeenCalledWith("/api/v1/penny", expect.objectContaining({ method: "POST", body: JSON.stringify({ question: "Does preapproval hurt my score?" }) }));
     expect(pennyMessages().at(-1)?.textContent).toContain("It’s a soft inquiry.");
@@ -109,7 +109,7 @@ describe("PennyChat", () => {
     vi.stubGlobal("fetch", fetch);
     handOffQuestion("What's the weather?");
     await act(async () => {
-      render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+      render(<PennyChat canType initialAnswerId={null} from={null} back={BACK} />);
     });
     expect(screen.getByRole("article", { name: "You" }).textContent).toBe("What's the weather?");
     expect(fetch).toHaveBeenCalledTimes(1);
@@ -119,7 +119,7 @@ describe("PennyChat", () => {
 
   it("says when the daily limit is reached and offers tapped questions", async () => {
     vi.stubGlobal("fetch", reply(429, { error: { code: "penny_limit", message: "Limit" } }));
-    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    render(<PennyChat canType initialAnswerId={null} from={null} back={BACK} />);
     await type("What is APR?");
     const limit = pennyMessages().at(-1)!;
     expect(limit.textContent).toContain(PENNY_COPY.limit);
@@ -128,7 +128,7 @@ describe("PennyChat", () => {
 
   it("offers Try again when Penny is unavailable, and only on the newest message", async () => {
     vi.stubGlobal("fetch", reply(503, { error: { code: "penny_unavailable", message: "Down" } }));
-    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    render(<PennyChat canType initialAnswerId={null} from={null} back={BACK} />);
     await type("What is APR?");
     expect(pennyMessages().at(-1)?.textContent).toContain(PENNY_COPY.unavailable);
     expect(screen.getAllByRole("button", { name: "Try again" })).toHaveLength(1);
@@ -138,7 +138,7 @@ describe("PennyChat", () => {
 
   it("asks a signed-out student to sign in again and come back here", async () => {
     vi.stubGlobal("fetch", reply(401, { error: { code: "unauthorized", message: "Sign in to continue." } }));
-    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    render(<PennyChat canType initialAnswerId={null} from={null} back={BACK} />);
     await type("What is APR?");
     expect(pennyMessages().at(-1)?.textContent).toContain(PENNY_COPY.signedOut);
     expect(screen.getByRole("link", { name: "Sign in again" }).getAttribute("href")).toBe("/sign-in?next=%2Flearn%2Fpenny");
@@ -167,7 +167,7 @@ describe("PennyChat in a crisis", () => {
   ])("shows the 988 line %s, before anything is sent", async (_state, server) => {
     const fetch = server();
     vi.stubGlobal("fetch", fetch);
-    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    render(<PennyChat canType initialAnswerId={null} from={null} back={BACK} />);
     await type("im going to kill my self");
     expect(fetch).not.toHaveBeenCalled();
     expectCrisisLine(pennyMessages().at(-1)!);
@@ -179,7 +179,7 @@ describe("PennyChat in a crisis", () => {
     vi.stubGlobal("fetch", fetch);
     handOffQuestion("kms");
     await act(async () => {
-      render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+      render(<PennyChat canType initialAnswerId={null} from={null} back={BACK} />);
     });
     expect(fetch).not.toHaveBeenCalled();
     expect(pennyMessages()).toHaveLength(1);
@@ -188,7 +188,7 @@ describe("PennyChat in a crisis", () => {
 
   it("shows the same tappable line when the model flags a crisis the check missed", async () => {
     vi.stubGlobal("fetch", reply(200, { kind: "declined", reason: "crisis", text: PENNY_COPY.crisis, suggestions: [] }));
-    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    render(<PennyChat canType initialAnswerId={null} from={null} back={BACK} />);
     await type("Someone is threatening me over money I owe");
     expectCrisisLine(pennyMessages().at(-1)!);
   });
@@ -197,7 +197,7 @@ describe("PennyChat in a crisis", () => {
 describe("PennyChat analytics", () => {
   it("counts a typed answer with only its catalog id", async () => {
     vi.stubGlobal("fetch", reply(200, { kind: "answer", text: "It’s a soft inquiry.", answer: { ...preapproval } }));
-    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    render(<PennyChat canType initialAnswerId={null} from={null} back={BACK} />);
     await type("Does preapproval hurt my score?");
     expect(analytics.track).toHaveBeenCalledWith("penny_question_asked", { source: "typed", outcome: "answered", answer_id: preapproval.id });
   });
@@ -206,7 +206,7 @@ describe("PennyChat analytics", () => {
     // Students are identified by their user id, so a crisis event or a
     // recorded 988 line would tie a self-harm flag to a person (PEN-06).
     vi.stubGlobal("fetch", reply(200, { kind: "declined", reason: "crisis", text: PENNY_COPY.crisis, suggestions: [] }));
-    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    render(<PennyChat canType initialAnswerId={null} from={null} back={BACK} />);
     await type("kms");
     await type("Someone is threatening me over money I owe");
     expect(analytics.track).not.toHaveBeenCalled();

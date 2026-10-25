@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { PennyChat } from "@/components/learn/penny-chat";
 import { findAnswer } from "@/lib/penny/answers";
+import { pennyConfigured } from "@/lib/penny/ask";
 import { pennyBackLink } from "@/lib/penny/navigation";
 import { ROUTES } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
@@ -21,6 +22,7 @@ export default async function PennyPage({ searchParams }: PageProps<"/learn/penn
       initialAnswerId={initialAnswerId}
       from={typeof from === "string" ? from : null}
       back={pennyBackLink(from)}
+      canType={pennyConfigured()}
     />
   );
 }

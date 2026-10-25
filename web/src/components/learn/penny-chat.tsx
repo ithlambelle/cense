@@ -132,13 +132,16 @@ type Props = {
   // Where the chat was opened: "learn" or a topic's slug (?from=).
   from: string | null;
   back: { href: string; label: string };
+  // Whether the server can answer typed questions (ANTHROPIC_API_KEY is
+  // set). Without it there is no field: it could only say "unavailable".
+  canType: boolean;
 };
 
 // Ask Penny (Flow 5 steps 2 and 3, 144:3149 and 144:3221; C19, C20). A tapped
 // question shows its checked answer at once, with no model call. A typed one
 // goes to POST /penny. Nothing is kept: leaving the screen ends the
 // conversation (S34, no memory).
-export function PennyChat({ initialAnswerId, from, back }: Props) {
+export function PennyChat({ initialAnswerId, from, back, canType }: Props) {
   // A question typed on Learn arrives with its bubble and the typing dots
   // already showing; it is sent once the screen is up.
   const [messages, setMessages] = useState<Message[]>(() => {
@@ -280,9 +283,11 @@ export function PennyChat({ initialAnswerId, from, back }: Props) {
           ) : null}
         </main>
 
-        <footer className="sticky bottom-0 bg-white px-6 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-          <PennyComposer variant="chat" busy={pending} onAsk={(question) => ask(question)} />
-        </footer>
+        {canType ? (
+          <footer className="sticky bottom-0 bg-white px-6 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+            <PennyComposer variant="chat" busy={pending} onAsk={(question) => ask(question)} />
+          </footer>
+        ) : null}
       </div>
     </div>
   );
