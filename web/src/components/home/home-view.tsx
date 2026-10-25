@@ -23,7 +23,7 @@ import { SENSITIVE } from "@/lib/analytics";
 import type { Application } from "@/lib/api/application";
 import { celebrating, type CardDetail, type HomeState } from "@/lib/home/state";
 import { moneyAmount } from "@/lib/money";
-import { QUESTIONS } from "@/lib/quiz/questions";
+import { QUIZ_STEP_COUNT } from "@/lib/quiz/spending";
 import { applicationPath, cardPath, deniedPath, planPath, ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -343,15 +343,17 @@ function NextStep({
   );
 }
 
-// "6 questions to your first card" (Figma 407:442, drawn as a pop-up over the
-// MVP2 home). Shown inline on the MVP1 home with the system's type.
+// "N questions to your first card" (Figma 407:442, drawn as a pop-up over the
+// MVP2 home). Shown inline on the MVP1 home with the system's type. The count
+// and the stars are the quiz's own (QUIZ_STEP_COUNT): the frame's 6 predates
+// the spending question, and the quiz says "Question 1 of 7".
 function QuizPrompt({ started }: { started: boolean }) {
   return (
     <section aria-labelledby="quiz-prompt" className="flex flex-col rounded-card bg-off-white p-5">
       <ol aria-hidden="true" className="flex items-center gap-1.5">
-        {QUESTIONS.map((question, index) => (
+        {Array.from({ length: QUIZ_STEP_COUNT }, (_, index) => (
           <li
-            key={question.field}
+            key={index}
             className={cn(
               "flex size-[22px] items-center justify-center rounded-full",
               index === 0 ? "bg-navy" : "border-[1.5px] border-indigo-black/70",
@@ -362,7 +364,7 @@ function QuizPrompt({ started }: { started: boolean }) {
         ))}
       </ol>
       <h2 id="quiz-prompt" className="pt-6 font-heading text-h3 font-medium text-indigo-black">
-        {QUESTIONS.length} questions to your first card
+        {QUIZ_STEP_COUNT} questions to your first card
       </h2>
       <p className="pt-3 text-body-s text-indigo-black/70">
         Light up each star and we’ll match you with cards built for where you are.

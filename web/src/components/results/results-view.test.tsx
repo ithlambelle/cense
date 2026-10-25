@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { listCards } from "@/lib/cards/catalog";
 import { RESULT_DISCLAIMER, RESULT_HEADLINES, TIER_LABELS } from "@/lib/copy/results";
+import { QUIZ_STEP_COUNT } from "@/lib/quiz/spending";
 import { computeResult } from "@/lib/results/compute";
 import { cardPath, ROUTES } from "@/lib/routes";
 
@@ -14,9 +15,10 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/results" }));
 const ALL_SIX = { under21: true, incomeBand: "under_5k", student: true, standing: "none", recentDenial: false, canDeposit: true };
 
 describe("ResultsView", () => {
-  it("sends an unfinished quiz back to the quiz", () => {
+  it("sends an unfinished quiz back to the quiz, counting its questions as the quiz does", () => {
     render(<ResultsView view={{ kind: "quiz_unfinished" }} />);
     expect(screen.getByRole("link", { name: "Take the quiz" }).getAttribute("href")).toBe(ROUTES.quiz);
+    expect(screen.getByText(`Answer ${QUIZ_STEP_COUNT} short questions to see one`)).toBeTruthy();
   });
 
   it("goes back Home, never into the finished quiz", () => {

@@ -6,6 +6,7 @@ import { listCards } from "@/lib/cards/catalog";
 import { RESULT_HEADLINES } from "@/lib/copy/results";
 import type { Application } from "@/lib/api/application";
 import { homeState } from "@/lib/home/state";
+import { QUIZ_STEP_COUNT } from "@/lib/quiz/spending";
 import { computeResult } from "@/lib/results/compute";
 
 import { HomeView } from "./home-view";
@@ -36,7 +37,7 @@ const link = (name: string) => screen.getByRole("link", { name }).getAttribute("
 describe("HomeView", () => {
   it("offers the quiz when nothing is saved, and to continue it when started", () => {
     const { unmount } = render(<HomeView state={homeState([], NONE, false)} initial="M" />);
-    expect(screen.getByRole("heading", { name: "6 questions to your first card" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: `${QUIZ_STEP_COUNT} questions to your first card` })).toBeTruthy();
     expect(link("Start the quiz")).toBe("/quiz");
     unmount();
     render(<HomeView state={homeState([], computeResult({ under21: true }, cards), true)} initial="M" />);

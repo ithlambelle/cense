@@ -19,7 +19,7 @@ import {
 } from "@/lib/copy/results";
 import { SENSITIVE } from "@/lib/analytics";
 import { moneyAmount } from "@/lib/money";
-import { QUESTIONS } from "@/lib/quiz/questions";
+import { QUIZ_STEP_COUNT } from "@/lib/quiz/spending";
 import type { ResultView } from "@/lib/results/compute";
 import { cardPath, ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 export function ResultsView({ view }: { view: ResultView }) {
   if (view.kind === "quiz_unfinished") {
     return (
-      <ResultLayout title="No card match yet" subtitle={`Answer ${QUESTIONS.length} short questions to see one`}>
+      <ResultLayout title="No card match yet" subtitle={`Answer ${QUIZ_STEP_COUNT} short questions to see one`}>
         <p className="text-body-m text-navy">
           We’ll show a card to start with and the reasons it fits what you told us.
         </p>
