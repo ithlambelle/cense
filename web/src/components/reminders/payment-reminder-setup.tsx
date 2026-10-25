@@ -20,6 +20,9 @@ import { useIsMounted } from "@/lib/use-is-mounted";
 import { cn } from "@/lib/utils";
 
 const DAY_ERROR = "Enter a day from 1 to 31.";
+// Where to find the two days, app first: a new card has no statement yet. On
+// the first field, so a screen reader reads it there; "Both" covers the second.
+const DAY_HINT = "Both are in your card’s app or on your statement.";
 
 // The fields as drawn: white fill, off-white 1.5px edge, 20px corners, 16px
 // sides and 14px top and bottom (Figma 144:1828). The padding is on the input,
@@ -134,6 +137,7 @@ export function PaymentReminderSetup({
 
           <TextField
             label="Statement closes on day"
+            hint={DAY_HINT}
             inputMode="numeric"
             autoComplete="off"
             maxLength={2}

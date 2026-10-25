@@ -215,6 +215,8 @@ test("the setup screen names the first-statement email only for a card the stude
   const added = await track(page, DISCOVER);
   await page.goto(`/applications/${added}/reminders`);
   await expect(page.getByText("We’ll email you before your statement closes and before your bill is due.")).toBeVisible();
+  // Where to find the two days, read out with the first field.
+  await expect(page.getByLabel("Statement closes on day")).toHaveAccessibleDescription("Both are in your card’s app or on your statement.");
   await expect(page.getByText(FIRST_STATEMENT)).toHaveCount(0);
   await expect(page.getByText("Applies to all your cards.")).toBeVisible();
 

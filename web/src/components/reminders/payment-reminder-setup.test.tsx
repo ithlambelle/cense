@@ -55,6 +55,12 @@ afterEach(() => {
 });
 
 describe("PaymentReminderSetup", () => {
+  it("says where to find both days, read out with the first field", () => {
+    renderSetup();
+    const hint = screen.getByText("Both are in your card’s app or on your statement.");
+    expect(closingField().getAttribute("aria-describedby")).toBe(hint.id);
+  });
+
   it("says the settings cover every card, and names the first-statement email only for a card that gets it", () => {
     renderSetup();
     expect(screen.getByText("Applies to all your cards.")).toBeTruthy();
