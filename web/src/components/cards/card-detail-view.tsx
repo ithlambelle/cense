@@ -11,6 +11,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { SENSITIVE } from "@/lib/analytics";
 import type { Application } from "@/lib/api/application";
 import type { Card } from "@/lib/cards/catalog";
+import { depositLine } from "@/lib/cards/deposit";
 import { STATUS_LABELS } from "@/lib/copy/applications";
 import { cardDisplayName, cardTypeLabel } from "@/lib/copy/results";
 import { moneyAmount } from "@/lib/money";
@@ -34,6 +35,7 @@ export function CardDetailView({
 }) {
   const back = cardBackLink(from);
   const approval = card.conditions.filter((condition) => condition.affects === "approval");
+  const deposit = depositLine(card);
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
@@ -58,6 +60,8 @@ export function CardDetailView({
             <FactChip label="Credit check" value={card.runsCreditCheck ? "Yes" : "No"} />
             <FactChip label="Foreign fee" value={`${card.foreignTransactionFeePercent}%`} />
           </dl>
+          {/* What "secured" means for this card: the result frame's line (397:847), Inter 14/20 at 65%. */}
+          {deposit ? <p className="-mt-3 text-body-s text-indigo-black/65">{deposit}</p> : null}
 
           {approval.length > 0 ? (
             <section aria-labelledby="what-to-know" className="flex flex-col gap-3 rounded-card bg-off-white p-5">

@@ -79,3 +79,21 @@ test("a result with no card that fits gives a next step", async ({ page }) => {
   await expect(next).toContainText("income or savings of your own");
   await checkA11y("results: not yet, with a next step");
 });
+
+test("a secured card's page says what the deposit is, and calls it refundable only where the issuer does", async ({ page }) => {
+  // The issuer says the deposit is refundable.
+  await page.goto("/cards/capital-one-platinum-secured");
+  await expect(page.getByText("A refundable deposit backs the card.", { exact: false })).toBeVisible();
+  await expect(page.getByText(/close the account and pay the balance in full/)).toBeVisible();
+  await axeChecker(page)("card page: secured");
+  // Bank of America only says it may return the deposit after a review.
+  await page.goto("/cards/bofa-bankamericard-secured");
+  await expect(page.getByText("A deposit backs the card.", { exact: false })).toBeVisible();
+  await expect(page.getByText(/refundable/i)).toHaveCount(0);
+  // No deposit (Chime) and unsecured cards say nothing about one.
+  for (const id of ["chime-card", "discover-it-student-cash-back"]) {
+    await page.goto(`/cards/${id}`);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(page.getByText(/deposit backs the card/)).toHaveCount(0);
+  }
+});
