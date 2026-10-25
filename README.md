@@ -208,7 +208,7 @@ Before it can run:
 | `PLAID_ENV` | `sandbox` |
 | `PLAID_TOKEN_KEY` | `openssl rand -base64 32`, a different one per environment. Mark it Sensitive and keep a copy in the team password manager: changing or losing it makes every stored token unreadable (students link again). |
 
-To try it: Home, "See what's safe to spend", Connect (Preview), pick First Platypus Bank, sign in with `user_good` / `pass_good`. That user has $100 in checking and $410 on a card, so safe to spend is $0 and "How we got this" says why.
+To try it: Home, "See what's safe to spend", Connect (Preview), pick First Platypus Bank, sign in with `user_good` / `pass_good`.
 
 Locally and in CI the journey tests (`web/e2e/safe-to-spend.spec.ts`) never call Plaid: they start a stand-in on :3598 (`web/e2e/support/fake-plaid.ts`) and answer Link's script in the browser. Start the app for them with `PLAID_CLIENT_ID=e2e-client PLAID_SECRET=e2e-placeholder PLAID_ENV=sandbox PLAID_BASE_URL=http://127.0.0.1:3598` and a `PLAID_TOKEN_KEY` in `web/.env.local`, as the `e2e` job does.
 
