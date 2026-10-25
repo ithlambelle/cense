@@ -41,6 +41,15 @@ export function waitingPath(applicationId: string): string {
   return `${applicationPath(applicationId)}/waiting`;
 }
 
+// Home right after Mark result saves a new approval. Home celebrates that
+// card once and drops the flag from the address, so a reload is calm. There
+// is no approved_at column, so this arrival is the only time the date is known.
+export const CELEBRATE_PARAM = "celebrate";
+
+export function celebratePath(applicationId: string): string {
+  return `${ROUTES.home}?${CELEBRATE_PARAM}=${encodeURIComponent(applicationId)}`;
+}
+
 // The first-month plan for one approved card.
 export function planPath(applicationId: string): string {
   return withApplication(ROUTES.plan, applicationId);

@@ -34,10 +34,13 @@ const GROUPS: { title: string; entries: Entry[] }[] = [
   },
   {
     title: "Home",
-    entries: ["no_quiz", "started", "matched", "no_card", "applied", "rejected", "approved", "several"].map((state) => ({
-      label: `Home: ${state.replace("_", " ")}`,
-      href: `/dev/home?state=${state}`,
-    })),
+    entries: [
+      ...["no_quiz", "started", "matched", "no_card", "applied", "rejected", "approved", "several"].map((state) => ({
+        label: `Home: ${state.replace("_", " ")}`,
+        href: `/dev/home?state=${state}`,
+      })),
+      { label: "Home: just approved (from Mark result)", href: "/dev/home?state=approved&celebrate=1" },
+    ],
   },
   {
     title: "Account and other",

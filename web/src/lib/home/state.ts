@@ -47,3 +47,16 @@ export function cardApplication(applications: Application[], cardId: string): Ap
     .sort((a, b) => Date.parse(b.statusUpdatedAt) - Date.parse(a.statusUpdatedAt));
   return forCard.find((application) => application.status !== "rejected") ?? forCard[0] ?? null;
 }
+
+// Home celebrates a card once, on the arrival from Mark result that just
+// approved it (?celebrate=<id>). Any other id, or a card that is not the one
+// Home leads with, is ignored.
+export function celebrating(state: HomeState, celebrateId: string | null): boolean {
+  return state.kind === "tracking" && state.primary.status === "approved" && state.primary.id === celebrateId;
+}
+
+// The letter in the profile circle. There is no saved name yet (display_name
+// arrives with #41), so it is the first letter of the email for now.
+export function profileInitial(email: string | null): string {
+  return email?.trim().charAt(0).toUpperCase() ?? "";
+}
