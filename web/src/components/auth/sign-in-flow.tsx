@@ -11,11 +11,13 @@ import { CODE_LENGTH, CodeInput } from "@/components/ui/code-input";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { PasswordField } from "@/components/ui/password-field";
 import { TextField } from "@/components/ui/text-field";
+import { SENSITIVE } from "@/lib/analytics";
 import { apiRequest, FALLBACK_MESSAGE, failureMessage } from "@/lib/api-client/client";
 import { pendingRequest } from "@/lib/api-client/pending";
 import { looksLikeEmail, passwordProblem } from "@/lib/auth/password";
 import { googleSignInPath, ROUTES, signInPath, signUpPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
+import { cn } from "@/lib/utils";
 
 // Seconds before a new code can be sent. Supabase allows one code request per
 // 60 seconds by default (https://supabase.com/docs/guides/auth/auth-email-passwordless),
@@ -231,7 +233,8 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
           />
         }
       >
-        <p className="text-body-s text-indigo-black/70">
+        {/* The email is the student's own: masked in session replay. */}
+        <p className={cn("text-body-s text-indigo-black/70", SENSITIVE)}>
           {confirming
             ? `We sent a ${CODE_LENGTH}-digit code to ${email.trim()} to confirm your account.`
             : `We sent a ${CODE_LENGTH}-digit code to ${email.trim()}.`}

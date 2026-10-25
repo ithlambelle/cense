@@ -8,10 +8,12 @@ import { BackLink } from "@/components/ui/app-header";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { TextField } from "@/components/ui/text-field";
+import { SENSITIVE } from "@/lib/analytics";
 import { FALLBACK_MESSAGE } from "@/lib/api-client/client";
 import { pendingRequest } from "@/lib/api-client/pending";
 import { looksLikeEmail } from "@/lib/auth/password";
 import { ROUTES } from "@/lib/routes";
+import { cn } from "@/lib/utils";
 
 // Forgot password? (Figma 397:1888, 213:1304). The answer is the same whether
 // or not an account uses the email, so the screen never reveals who has one.
@@ -56,7 +58,8 @@ export function ForgotPassword() {
   return (
     <AuthLayout title="Forgot password?" back={<BackLink href={ROUTES.signIn} label="log in" />}>
       {sent ? (
-        <p ref={sentRef} tabIndex={-1} role="status" className="text-body-m text-indigo-black outline-none">
+        // The email is the student's own: masked in session replay.
+        <p ref={sentRef} tabIndex={-1} role="status" className={cn("text-body-m text-indigo-black outline-none", SENSITIVE)}>
           If an account uses {email.trim()}, we sent it a link to set a new password. The link opens this app.
         </p>
       ) : (
