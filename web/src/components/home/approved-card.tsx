@@ -134,7 +134,12 @@ function CardModule({
       next.delete(key);
       return next;
     });
-    if (result.kind === "ok") return;
+    if (result.kind === "ok") {
+      // Autopay reaches Home in the server render: refresh it, or Back from
+      // another screen restores the cached Home with the old star.
+      if (!step) router.refresh();
+      return;
+    }
     // Undo only this star, so other saves in flight are not overwritten.
     setLit((current) => ({ ...current, [key]: !value }));
     if (result.kind === "signed-out") router.replace(signInPath(ROUTES.home));

@@ -110,6 +110,45 @@ test("approved student: the card opens its details page and comes back", async (
   await expect(page).toHaveURL(/\/home$/);
 });
 
+test("approved student: autopay shows what was saved after Back from the card page", async ({ page }) => {
+  const { card } = await approvedStudent(page, "autopay-back");
+  for (const lit of [true, false]) {
+    const autopay = card.getByRole("checkbox", { name: /Turn on autopay/ });
+    await expect(autopay).toBeEnabled();
+    const write = nextWrite(page);
+    await autopay.click();
+    expect((await write).ok()).toBe(true);
+    await card.getByRole("link", { name: `${DISCOVER.name} details` }).click();
+    await expect(page).toHaveURL(new RegExp(`/cards/${DISCOVER.id}`));
+    // The browser's Back, not the in-app arrow: it restores the cached Home.
+    await page.goBack();
+    await expect(page).toHaveURL(/\/home$/);
+    await expect(card.getByRole("checkbox", { name: /Turn on autopay/ })).toHaveAttribute("aria-checked", String(lit));
+  }
+});
+
+test("denied student: a reason saved from Home shows on Home after Back", async ({ page }) => {
+  await signUp(page, uniqueEmail("reason-back"), async () => {});
+  const created = await page.request.post("/api/v1/applications", {
+    data: { cardId: DISCOVER.id, cardName: DISCOVER.name, status: "rejected", creditLimitCents: null },
+  });
+  expect(created.status()).toBe(201);
+  await page.goto("/home");
+  await expect(page.getByText("Reason: not added")).toBeVisible();
+  await page.getByRole("link", { name: "Add the reason" }).click();
+  await page.getByRole("button", { name: "Yes, I know the reason" }).click();
+  await page.getByRole("button", { name: "Not enough credit history" }).click();
+  const write = nextWrite(page);
+  await page.getByRole("button", { name: "Continue" }).click();
+  expect((await write).ok()).toBe(true);
+  await page.waitForURL((url) => url.pathname !== "/denied");
+  await page.goBack();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/home$/);
+  await expect(page.getByText("Reason: not added")).toHaveCount(0);
+  await expect(page.getByText(/^Reason: /)).toBeVisible();
+});
+
 test("approved student: every link on Home leads somewhere real", async ({ page }) => {
   await approvedStudent(page, "links");
   const hrefs = await page.locator("a[href]").evaluateAll((links) =>
