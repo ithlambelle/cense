@@ -1,9 +1,9 @@
 import FileText from "@gravity-ui/icons/FileText";
-import Image from "next/image";
 import Link from "next/link";
 
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { Notice } from "@/components/denied/parts";
+import { MascotStill } from "@/components/mascot/mascot";
 import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { deniedPath, ROUTES } from "@/lib/routes";
 
@@ -14,7 +14,7 @@ export function NoLetterView({ applicationId }: { applicationId: string | null }
   return (
     <DeniedLayout backHref={deniedPath("options", applicationId)} backLabel="Denial options">
       <div className="flex justify-center">
-        <Image src="/mascot/penny.png" alt="" width={170} height={170} priority />
+        <MascotStill pose="sad" size={170} />
       </div>
       <div className="flex flex-col gap-2">
         <h1 className="font-heading text-h1 font-semibold text-navy">No problem</h1>

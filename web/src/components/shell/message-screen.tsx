@@ -27,7 +27,7 @@ export function MessageScreen({ title, body, children, bottomNav = false }: Mess
           )}
         >
           <div className="stagger flex flex-1 flex-col items-center justify-center gap-5 text-center">
-            <Mascot pose="idle" size={140} />
+            <Mascot pose="idle" size={140} priority />
             <h1 className="font-heading text-h2 font-medium text-navy">{title}</h1>
             <p className="text-body-m text-indigo-black">{body}</p>
           </div>
