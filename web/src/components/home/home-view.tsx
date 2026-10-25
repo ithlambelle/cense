@@ -165,6 +165,7 @@ function HomeContent({
         <ApprovedCard
           application={primary}
           autopayOn={detail?.autopayStatus === "on"}
+          reminderDaysSaved={detail?.paymentDueDay != null}
           celebrate={celebrate}
           sampleStars={sampleStars}
         />

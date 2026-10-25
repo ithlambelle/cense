@@ -13,6 +13,8 @@ vi.mock("@/lib/api/auth", () => ({ authenticatedStudent: async () => ({ studentI
 let applications: Application[] = [];
 vi.mock("@/lib/student-data", () => ({
   loadStudentSnapshot: async () => ({ applications, quiz: { kind: "quiz_unfinished" }, quizStarted: false }),
+  // No reminder days saved yet.
+  loadApplicationDetail: async () => ({ paymentDueDay: null }),
 }));
 
 function app(id: string, status: Application["status"], statusUpdatedAt: string): Application {

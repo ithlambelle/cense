@@ -26,7 +26,9 @@ const approved: Application = {
   statusUpdatedAt: new Date().toISOString(),
 };
 const state = homeState([approved], computeResult(undefined, listCards()), true);
-const NO_DETAIL = { denialReason: null, denialReasonNote: null, autopayStatus: "unknown" } as const;
+const NO_DETAIL = { denialReason: null, denialReasonNote: null, autopayStatus: "unknown", paymentDueDay: null } as const;
+// The card's reminder days are saved, so a done payment_reminder step lights its star.
+const DAYS_SAVED = { ...NO_DETAIL, paymentDueDay: 9 };
 
 const PLAN_URL = `/api/v1/applications/${ID}/plans/first_month`;
 const plan = (...steps: string[]) => ({
@@ -119,27 +121,47 @@ describe("Home approved card", () => {
 
   it("loads the saved stars and lights or puts out each one", async () => {
     const fetchFn = server([
-      { status: 200, body: plan("planned_purchase") },
-      { status: 201, body: saved("payment_reminder") },
+      { status: 200, body: plan("payment_reminder") },
+      { status: 201, body: saved("planned_purchase") },
       { status: 204, body: null },
     ]);
-    render(<HomeView state={state} initial="M" />);
+    render(<HomeView state={state} initial="M" detail={DAYS_SAVED} />);
     expect(await screen.findByText("1 of 3 lit")).toBeTruthy();
     expect(fetchFn.mock.calls[0][0]).toBe(PLAN_URL);
-    expect(star(/Plan one purchase/).getAttribute("aria-checked")).toBe("true");
+    expect(star(/Plan one purchase/).getAttribute("aria-checked")).toBe("false");
 
-    fireEvent.click(star(/Set a payment reminder/));
+    const purchase = star(/Plan one purchase/);
+    await waitFor(() => expect(purchase.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(purchase);
     await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(2));
-    expect(fetchFn.mock.calls[1][0]).toBe(`${PLAN_URL}/steps/payment_reminder`);
+    expect(fetchFn.mock.calls[1][0]).toBe(`${PLAN_URL}/steps/planned_purchase`);
     expect(fetchFn.mock.calls[1][1]?.method).toBe("PUT");
     expect(screen.getByText("2 of 3 lit")).toBeTruthy();
 
-    const purchase = star(/Plan one purchase/);
     await waitFor(() => expect(purchase.hasAttribute("disabled")).toBe(false));
     fireEvent.click(purchase);
     await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(3));
     expect(fetchFn.mock.calls[2][1]?.method).toBe("DELETE");
     await waitFor(() => expect(screen.getByText("1 of 3 lit")).toBeTruthy());
+  });
+
+  it("opens the reminder screen from the payment reminder row instead of ticking it, lit or not", async () => {
+    const fetchFn = server([{ status: 200, body: plan() }, { status: 200, body: plan("payment_reminder") }]);
+    const { unmount } = render(<HomeView state={state} initial="M" />);
+    await screen.findByText("0 of 3 lit");
+    expect(screen.queryByRole("checkbox", { name: /Set a payment reminder/ })).toBeNull();
+    const row = screen.getByRole("link", { name: /^Set a payment reminder/ });
+    expect(row.getAttribute("href")).toBe(`/applications/${ID}/reminders`);
+    expect(row.textContent).not.toContain("done");
+    fireEvent.click(row);
+    // Nothing is saved from Home: the reminder screen lights the star when it saves.
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    unmount();
+
+    render(<HomeView state={state} initial="M" detail={DAYS_SAVED} />);
+    await screen.findByText("1 of 3 lit");
+    const lit = screen.getByRole("link", { name: /^Set a payment reminder\s*, done/ });
+    expect(lit.getAttribute("href")).toBe(`/applications/${ID}/reminders`);
   });
 
   it("shows all stars lit once the three are done, saving autopay on the card", async () => {
@@ -148,7 +170,7 @@ describe("Home approved card", () => {
       { status: 200, body: { ...approved, autopayStatus: "on" } },
       { status: 200, body: { ...approved, autopayStatus: "off" } },
     ]);
-    render(<HomeView state={state} initial="M" />);
+    render(<HomeView state={state} initial="M" detail={DAYS_SAVED} />);
     await screen.findByText("2 of 3 lit");
     expect(screen.queryByText(/All three stars lit/)).toBeNull();
     fireEvent.click(star(/Turn on autopay/));
@@ -165,6 +187,13 @@ describe("Home approved card", () => {
     await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(3));
     expect(JSON.parse(String(fetchFn.mock.calls[2][1]?.body))).toEqual({ autopayStatus: "off" });
     await waitFor(() => expect(screen.getByText("2 of 3 lit")).toBeTruthy());
+  });
+
+  it("leaves the reminder star out when the step is done but no days are saved", async () => {
+    server([{ status: 200, body: plan("payment_reminder") }]);
+    render(<HomeView state={state} initial="M" detail={NO_DETAIL} />);
+    expect(await screen.findByText("0 of 3 lit")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /^Set a payment reminder/ }).textContent).not.toContain("done");
   });
 
   it("lights the autopay star when the card's autopay is on, and only then", async () => {
@@ -220,19 +249,19 @@ describe("Home approved card", () => {
     const fetchFn = vi.fn<typeof fetch>(async (url, init) => {
       if (!init?.method || init.method === "GET") return Response.json(plan(), { status: 200 });
       if (String(url).endsWith("planned_purchase")) return new Promise<Response>((resolve) => { failPurchase = resolve; });
-      return Response.json(saved("payment_reminder"), { status: 201 });
+      return Response.json({ ...approved, autopayStatus: "on" }, { status: 200 });
     });
     vi.stubGlobal("fetch", fetchFn);
     render(<HomeView state={state} initial="M" />);
     await screen.findByText("0 of 3 lit");
     fireEvent.click(star(/Plan one purchase/));
     expect(star(/Plan one purchase/).hasAttribute("disabled")).toBe(true);
-    fireEvent.click(star(/Set a payment reminder/));
-    await waitFor(() => expect(star(/Set a payment reminder/).getAttribute("aria-checked")).toBe("true"));
+    fireEvent.click(star(/Turn on autopay/));
+    await waitFor(() => expect(star(/Turn on autopay/).getAttribute("aria-checked")).toBe("true"));
     failPurchase(Response.json({ error: { code: "internal_error", message: "Something broke." } }, { status: 500 }));
     expect((await screen.findByRole("alert")).textContent).toContain("Something broke.");
     expect(star(/Plan one purchase/).getAttribute("aria-checked")).toBe("false");
-    expect(star(/Set a payment reminder/).getAttribute("aria-checked")).toBe("true");
+    expect(star(/Turn on autopay/).getAttribute("aria-checked")).toBe("true");
   });
 
   it("shows a failed load with a retry, and keeps the stars locked until it loads", async () => {
@@ -260,9 +289,9 @@ describe("Home approved card", () => {
     ]);
     render(<HomeView state={state} initial="M" />);
     await screen.findByText("0 of 3 lit");
-    fireEvent.click(star(/Set a payment reminder/));
+    fireEvent.click(star(/Turn on autopay/));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/sign-in?next=%2Fhome"));
-    expect(star(/Set a payment reminder/).getAttribute("aria-checked")).toBe("false");
+    expect(star(/Turn on autopay/).getAttribute("aria-checked")).toBe("false");
   });
 
   it("edits the limit in place and saves only the limit", async () => {

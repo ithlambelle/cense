@@ -12,7 +12,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusPill } from "@/components/ui/status-pill";
 import { loadPlanSteps, savePlanStep, type PlanStepName } from "@/lib/api-client/plans";
 import type { Application } from "@/lib/api/application";
-import { ROUTES, signInPath } from "@/lib/routes";
+import { paymentRemindersPath, ROUTES, signInPath } from "@/lib/routes";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
 import { cn } from "@/lib/utils";
 
@@ -33,13 +33,18 @@ const ACTIONS: { key: ActionKey; title: string; detail: string }[] = [
   { key: "paymentReminder", title: "Set a payment reminder", detail: "Use the due date on your card statement." },
 ];
 
+const ACTION_ROW =
+  "flex w-full items-start gap-3 rounded-input border-[1.5px] border-violet bg-white p-4 text-left outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+
 const NONE_DONE: PlanActions = { autopay: false, plannedPurchase: false, paymentReminder: false };
 
 type SaveState = "loading" | "saved" | "failed";
 
 type SavedPlan = { actions: PlanActions; state: "saved" };
 
-function loadPlan(applicationId: string) {
+// The reminder action opens the reminder screen, which saves the card's days and
+// then the step; a step without saved days (ticked here before) is not done.
+function loadPlan(applicationId: string, reminderDaysSaved: boolean) {
   return async (): Promise<LoadOutcome<SavedPlan>> => {
     const result = await loadPlanSteps(applicationId, "first_month");
     if (result.kind === "ok") {
@@ -49,7 +54,7 @@ function loadPlan(applicationId: string) {
           actions: {
             autopay: false,
             plannedPurchase: result.done.has("planned_purchase"),
-            paymentReminder: result.done.has("payment_reminder"),
+            paymentReminder: reminderDaysSaved && result.done.has("payment_reminder"),
           },
           state: "saved",
         },
@@ -63,9 +68,9 @@ function loadPlan(applicationId: string) {
 // Your first-month plan (S20), from the lo-fi board 219:2. Progress is saved
 // as plan steps. The lo-fi's "suggested monthly spending limit" is left out: there is
 // no sourced, rules-approved way to work one out yet.
-export function FirstMonthPlan({ application }: { application: Application }) {
+export function FirstMonthPlan({ application, reminderDaysSaved = false }: { application: Application; reminderDaysSaved?: boolean }) {
   // useLoaded needs a load with one identity per application.
-  const load = useMemo(() => loadPlan(application.id), [application.id]);
+  const load = useMemo(() => loadPlan(application.id, reminderDaysSaved), [application.id, reminderDaysSaved]);
   // The return-path allow-list does not include this page, so Home it is.
   const { loaded, retry } = useLoaded(load, signInPath(ROUTES.home));
   const start: { actions: PlanActions; state: SaveState } =
@@ -144,16 +149,9 @@ function PlanScreen({
             </div>
             <ProgressBar current={done} total={ACTIONS.length} />
             <ul className="flex flex-col gap-3">
-              {ACTIONS.map((action) => (
-                <li key={action.key}>
-                  <button
-                    type="button"
-                    role="checkbox"
-                    aria-checked={actions[action.key]}
-                    disabled={state === "loading" || saving.has(action.key)}
-                    onClick={() => toggle(action.key)}
-                    className="flex w-full items-start gap-3 rounded-input border-[1.5px] border-violet bg-white p-4 text-left outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress"
-                  >
+              {ACTIONS.map((action) => {
+                const content = (
+                  <>
                     <span
                       aria-hidden="true"
                       className={cn(
@@ -164,12 +162,36 @@ function PlanScreen({
                       {actions[action.key] ? <Check width={14} height={14} /> : null}
                     </span>
                     <span className="flex flex-col gap-0.5 text-indigo-black">
-                      <span className="font-heading text-h6 font-medium">{action.title}</span>
+                      <span className="font-heading text-h6 font-medium">
+                        {action.title}
+                        {action.key === "paymentReminder" && actions[action.key] ? <span className="sr-only">, done</span> : null}
+                      </span>
                       <span className="text-body-s">{action.detail}</span>
                     </span>
-                  </button>
-                </li>
-              ))}
+                  </>
+                );
+                return (
+                  <li key={action.key}>
+                    {action.key === "paymentReminder" ? (
+                      // Opens the reminder screen instead of ticking (US-08), as on Home.
+                      <Link href={paymentRemindersPath(application.id)} className={ACTION_ROW}>
+                        {content}
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={actions[action.key]}
+                        disabled={state === "loading" || saving.has(action.key)}
+                        onClick={() => toggle(action.key)}
+                        className={cn(ACTION_ROW, "disabled:cursor-progress")}
+                      >
+                        {content}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </section>
 

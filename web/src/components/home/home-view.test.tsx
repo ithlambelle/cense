@@ -109,7 +109,9 @@ describe("HomeView", () => {
     render(<HomeView state={homeState([app("approved", { creditLimitCents: 50000 })], NONE, true)} initial="M" />);
     expect(screen.getByText("$500")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Your first month" })).toBeTruthy();
-    expect(screen.getAllByRole("checkbox")).toHaveLength(3);
+    // Two steps tick here; the payment reminder opens its own screen.
+    expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+    expect(screen.getByRole("link", { name: /^Set a payment reminder/ })).toBeTruthy();
     expect(screen.queryByText("APPROVED")).toBeNull();
     expect(await screen.findByText("0 of 3 lit")).toBeTruthy();
   });

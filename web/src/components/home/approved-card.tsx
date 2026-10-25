@@ -16,7 +16,7 @@ import { saveAutopay, saveCreditLimit } from "@/lib/api-client/applications";
 import { loadPlanSteps, savePlanStep, type PlanStepName } from "@/lib/api-client/plans";
 import type { Application } from "@/lib/api/application";
 import { moneyAmount } from "@/lib/money";
-import { cardPath, CELEBRATE_PARAM, ROUTES, signInPath } from "@/lib/routes";
+import { cardPath, CELEBRATE_PARAM, paymentRemindersPath, ROUTES, signInPath } from "@/lib/routes";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
 import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
@@ -29,23 +29,31 @@ type Lit = Record<StepKey, boolean>;
 
 // Copy from the frames. Autopay is not a plan step: it is the card's own
 // autopay status, read on the server with the card and saved with PATCH
-// /applications/{id}.
-const STEPS: { key: StepKey; step: PlanStepName | null; title: string; detail: string }[] = [
+// /applications/{id}. The payment reminder is not ticked here: its row opens
+// the reminder screen (US-08), which lights the star when it saves, so the
+// star is never lit without a reminder behind it.
+const STEPS: { key: StepKey; step: PlanStepName | null; title: string; detail: string; opensReminders?: true }[] = [
   { key: "autopay", step: null, title: "Turn on autopay", detail: "Statement balance, every month" },
   { key: "plannedPurchase", step: "planned_purchase", title: "Plan one purchase", detail: "A small cost you already budget for" },
-  { key: "paymentReminder", step: "payment_reminder", title: "Set a payment reminder", detail: "Use the due date on your statement" },
+  { key: "paymentReminder", step: "payment_reminder", title: "Set a payment reminder", detail: "Use the due date on your statement", opensReminders: true },
 ];
+
+// List row, Tinted (273:2196), shared by the tick rows and the reminder link.
+const ROW =
+  "flex w-full items-center gap-3 rounded-[14px] bg-off-white px-3.5 py-3 text-left text-indigo-black outline-none hover:bg-selected-outline/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 const NONE_LIT: Lit = { autopay: false, plannedPurchase: false, paymentReminder: false };
 
-function loadLit(applicationId: string, autopay: boolean) {
+// The reminder star needs the step and the card's saved days: the old first-month
+// page ticked the step on its own, so a step without days is not a reminder.
+function loadLit(applicationId: string, autopay: boolean, reminderDaysSaved: boolean) {
   return async (): Promise<LoadOutcome<Lit>> => {
     const result = await loadPlanSteps(applicationId, "first_month");
     if (result.kind === "signed-out") return "signed-out";
     if (result.kind === "failed") return { status: "failed", message: result.message };
     return {
       status: "ready",
-      data: { autopay, plannedPurchase: result.done.has("planned_purchase"), paymentReminder: result.done.has("payment_reminder") },
+      data: { autopay, plannedPurchase: result.done.has("planned_purchase"), paymentReminder: reminderDaysSaved && result.done.has("payment_reminder") },
     };
   };
 }
@@ -53,12 +61,15 @@ function loadLit(applicationId: string, autopay: boolean) {
 export function ApprovedCard({
   application,
   autopayOn,
+  reminderDaysSaved = false,
   celebrate,
   sampleStars,
 }: {
   application: Application;
   // The saved autopay status is "on" (off and unknown leave the star out).
   autopayOn: boolean;
+  // The card has a saved payment due day (set on the reminder screen).
+  reminderDaysSaved?: boolean;
   celebrate: boolean;
   // Dev gallery only: this many stars lit, in order, with nothing loaded or saved.
   sampleStars?: number;
@@ -72,11 +83,21 @@ export function ApprovedCard({
       </>
     );
   }
-  return <SavedCard application={application} autopayOn={autopayOn} celebrate={celebrate} />;
+  return <SavedCard application={application} autopayOn={autopayOn} reminderDaysSaved={reminderDaysSaved} celebrate={celebrate} />;
 }
 
-function SavedCard({ application, autopayOn, celebrate }: { application: Application; autopayOn: boolean; celebrate: boolean }) {
-  const load = useMemo(() => loadLit(application.id, autopayOn), [application.id, autopayOn]);
+function SavedCard({
+  application,
+  autopayOn,
+  reminderDaysSaved,
+  celebrate,
+}: {
+  application: Application;
+  autopayOn: boolean;
+  reminderDaysSaved: boolean;
+  celebrate: boolean;
+}) {
+  const load = useMemo(() => loadLit(application.id, autopayOn, reminderDaysSaved), [application.id, autopayOn, reminderDaysSaved]);
   const { loaded, retry } = useLoaded(load, signInPath(ROUTES.home));
   // A key per load state, so the stars start again from what was loaded.
   // The arrival effects sit outside it, so they run once.
@@ -185,27 +206,23 @@ function CardModule({
       <ul className="flex flex-col gap-3.5">
         {STEPS.map((step) => (
           <li key={step.key}>
-            <button
-              type="button"
-              role="checkbox"
-              aria-checked={lit[step.key]}
-              disabled={!ready || saving.has(step.key)}
-              onClick={() => toggle(step.key, step.step)}
-              className="flex w-full items-center gap-3 rounded-[14px] bg-off-white px-3.5 py-3 text-left text-indigo-black outline-none hover:bg-selected-outline/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress"
-            >
-              {lit[step.key] ? (
-                <span aria-hidden="true" className="flex size-6 shrink-0 animate-pop items-center justify-center rounded-pill bg-amber text-white">
-                  <StarFill width={13} height={13} />
-                </span>
-              ) : (
-                <span aria-hidden="true" className="size-6 shrink-0 rounded-pill border-[1.5px] border-indigo-black" />
-              )}
-              {/* List row, Tinted (273:2196): a done step's title goes quiet. */}
-              <span className="flex flex-col gap-[3px] leading-[normal]">
-                <span className={cn("text-body-m leading-[normal]", lit[step.key] ? "text-indigo-black/70" : "font-medium")}>{step.title}</span>
-                <span className="text-body-s leading-[normal] text-indigo-black/70">{step.detail}</span>
-              </span>
-            </button>
+            {step.opensReminders ? (
+              // Lit or not, it opens the screen, so the student can change the days.
+              <Link href={paymentRemindersPath(application.id)} className={ROW}>
+                <StepRowContent title={step.title} detail={step.detail} lit={lit[step.key]} saysDone />
+              </Link>
+            ) : (
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={lit[step.key]}
+                disabled={!ready || saving.has(step.key)}
+                onClick={() => toggle(step.key, step.step)}
+                className={cn(ROW, "disabled:cursor-progress")}
+              >
+                <StepRowContent title={step.title} detail={step.detail} lit={lit[step.key]} />
+              </button>
+            )}
           </li>
         ))}
       </ul>
@@ -226,6 +243,29 @@ function CardModule({
       ) : null}
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
     </section>
+  );
+}
+
+// List row, Tinted (273:2196): a done step's star lights and its title goes
+// quiet. A link has no checked state, so it says "done" to screen readers.
+function StepRowContent({ title, detail, lit, saysDone = false }: { title: string; detail: string; lit: boolean; saysDone?: boolean }) {
+  return (
+    <>
+      {lit ? (
+        <span aria-hidden="true" className="flex size-6 shrink-0 animate-pop items-center justify-center rounded-pill bg-amber text-white">
+          <StarFill width={13} height={13} />
+        </span>
+      ) : (
+        <span aria-hidden="true" className="size-6 shrink-0 rounded-pill border-[1.5px] border-indigo-black" />
+      )}
+      <span className="flex flex-col gap-[3px] leading-[normal]">
+        <span className={cn("text-body-m leading-[normal]", lit ? "text-indigo-black/70" : "font-medium")}>
+          {title}
+          {lit && saysDone ? <span className="sr-only">, done</span> : null}
+        </span>
+        <span className="text-body-s leading-[normal] text-indigo-black/70">{detail}</span>
+      </span>
+    </>
   );
 }
 

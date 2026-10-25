@@ -26,6 +26,7 @@ export default async function HomePage({ searchParams }: PageProps<"/home">) {
           denialReason: detail.denialReason,
           denialReasonNote: detail.denialReasonNote,
           autopayStatus: detail.autopayStatus,
+          paymentDueDay: detail.paymentDueDay,
         }
       }
       celebrateId={typeof celebrateId === "string" ? celebrateId : null}

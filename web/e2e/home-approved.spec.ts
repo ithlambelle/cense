@@ -9,7 +9,9 @@ import { expect, test, type Page } from "@playwright/test";
 import { axeChecker, blockExternalRequests, signUp, uniqueEmail } from "./helpers";
 
 const DISCOVER = { id: "discover-it-student-cash-back", name: "Discover it Student Cash Back" };
-const STARS = ["Turn on autopay", "Plan one purchase", "Set a payment reminder"] as const;
+// The stars ticked on Home. "Set a payment reminder" opens the reminder screen
+// instead (home-reminder.spec.ts).
+const STARS = ["Turn on autopay", "Plan one purchase"] as const;
 
 test.beforeEach(async ({ context }) => {
   await blockExternalRequests(context);
@@ -34,7 +36,7 @@ function nextWrite(page: Page) {
   return page.waitForResponse((r) => r.url().includes("/api/v1/") && r.request().method() !== "GET", { timeout: 10_000 });
 }
 
-test("approved student: every first-month star stays lit after a reload, and unlights", async ({ page }) => {
+test("approved student: every star ticked on Home stays lit after a reload, and unlights", async ({ page }) => {
   const { card, checkA11y } = await approvedStudent(page, "stars");
   await checkA11y("home: approved");
 
@@ -47,7 +49,7 @@ test("approved student: every first-month star stays lit after a reload, and unl
     expect((await write).ok(), `${title} save`).toBe(true);
     await expect(star).toHaveAttribute("aria-checked", "true");
   }
-  await expect(card.getByText("All three stars lit.", { exact: false })).toBeVisible();
+  await expect(card.getByText("2 of 3 lit")).toBeVisible();
 
   await page.reload();
   for (const title of STARS) {
