@@ -364,7 +364,11 @@ function OtherCards({ applications }: { applications: Application[] }) {
                   ? applicationPath(application.id)
                   : application.status === "rejected"
                     ? deniedPath("options", application.id)
-                    : planPath(application.id)
+                    : // An approved card opens its own page (status and Update
+                      // status). The old first-month page could not save autopay.
+                      application.cardId
+                      ? cardPath(application.cardId, "home")
+                      : planPath(application.id)
               }
               className="flex items-center justify-between gap-3 rounded-card border border-hairline bg-white px-5 py-4 outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >

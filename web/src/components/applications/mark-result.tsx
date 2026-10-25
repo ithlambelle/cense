@@ -91,7 +91,9 @@ export function MarkResult({
     let next: string = ROUTES.home;
     if (status === "rejected") next = deniedPath("options", application.id);
     else if (application.status !== "approved") next = celebratePath(application.id);
-    router.push(next);
+    // Replace, not push: Back from where this lands goes to where the student
+    // came from, never to this form again for a card that is already decided.
+    router.replace(next);
     router.refresh();
   }
 
@@ -99,7 +101,7 @@ export function MarkResult({
     setError(null);
     if (next === "waiting") {
       track("outcome_reported", { outcome: "pending", source: "mark_result" });
-      router.push(waitingPath(application.id));
+      router.replace(waitingPath(application.id));
       return;
     }
     setChoice(next);

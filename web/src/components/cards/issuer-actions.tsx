@@ -77,13 +77,15 @@ type IssuerActionsProps = {
   // False when the page knows the visitor is signed out. Then a tap goes
   // straight to sign-in, returning to this card.
   signedIn: boolean;
+  // The signed-in student already tracks this card (any status).
+  tracked?: boolean;
 };
 
 // Check preapproval and Apply, each through a sheet that says what happens
 // next before the student leaves Cense (lo-fi 219:909, screens 02 and 04).
 // The click is saved first; the API answers with the address to open. Cense
 // never submits an application.
-export function IssuerActions({ card, notes, signedIn }: IssuerActionsProps) {
+export function IssuerActions({ card, notes, signedIn, tracked = false }: IssuerActionsProps) {
   const router = useRouter();
   const isMounted = useIsMounted();
   const [chosenStage, setChosenStage] = useState<Stage | null>(null);
@@ -224,6 +226,12 @@ export function IssuerActions({ card, notes, signedIn }: IssuerActionsProps) {
 
   const opening = stage.name === "opening" ? stage.kind : null;
   const sheetKind = stage.name === "sheet" || stage.name === "opening" ? stage.kind : null;
+
+  // A card the student already tracks shows its status on the page instead:
+  // no preapproval check or apply hand-off for a card they applied for, got,
+  // or were denied. The question and confirmation above still show, so
+  // "Saved as applied" stays after the save makes the card tracked.
+  if (tracked) return null;
 
   return (
     <div className="flex flex-col gap-3">
