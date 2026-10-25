@@ -43,6 +43,22 @@ function lastPennyMessage(page: Page): Locator {
   return page.getByRole("log", { name: "Conversation with Penny" }).getByRole("article", { name: "Penny" }).last();
 }
 
+// The questions the page sent to Penny's API.
+function pennyRequests(page: Page): string[] {
+  const sent: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/v1/penny")) sent.push(request.postData() ?? "");
+  });
+  return sent;
+}
+
+// The 988 line, with a call and a text one tap away.
+async function expectCrisisLine(page: Page) {
+  await expect(lastPennyMessage(page)).toContainText("Call or text 988");
+  await expect(lastPennyMessage(page).getByRole("link", { name: "Call 988" })).toHaveAttribute("href", "tel:988");
+  await expect(lastPennyMessage(page).getByRole("link", { name: "Text 988" })).toHaveAttribute("href", "sms:988");
+}
+
 async function ask(page: Page, question: string) {
   const field = page.getByRole("textbox", { name: "Ask Penny" });
   await field.fill(question);
@@ -182,11 +198,17 @@ test("student types questions: an AI answer with its source, advice and off-topi
   await expect(lastPennyMessage(page)).toContainText(preapproval.answer);
   await expect(lastPennyMessage(page)).not.toContainText("90%");
 
-  // A crisis gets the 988 line at once, and the model is never asked.
+  // A crisis gets the 988 line at once, checked on the phone: nothing is
+  // sent, so the model is never asked.
   const beforeCrisis = received.length;
+  const sentToPenny = pennyRequests(page);
   await ask(page, "my debt is so bad I want to die");
-  await expect(lastPennyMessage(page)).toContainText("Call or text 988");
+  await expectCrisisLine(page);
+  await ask(page, "im going to kill my self");
+  await expectCrisisLine(page);
   expect(received.length).toBe(beforeCrisis);
+  expect(sentToPenny).toEqual([]);
+  await checkA11y("penny: crisis");
 
   // Back goes to Learn.
   await page.getByRole("link", { name: "Back to Learn" }).click();
@@ -195,6 +217,15 @@ test("student types questions: an AI answer with its source, advice and off-topi
 
 test("Penny's slow, failed and offline answers each say what happened and offer a way on", async ({ page, context }) => {
   await signUp(page, uniqueEmail("penny-edges"), async () => {});
+  const sentToPenny = pennyRequests(page);
+
+  // A crisis typed on Learn gets the 988 line in the chat, with nothing sent.
+  await page.goto("/learn");
+  await ask(page, "I'd be better off dead");
+  await expect(page).toHaveURL(/\/learn\/penny$/);
+  await expectCrisisLine(page);
+  expect(sentToPenny).toEqual([]);
+
   await page.goto("/learn/penny");
 
   // Opened with nothing asked: a greeting and two questions, never a blank page.
@@ -220,6 +251,14 @@ test("Penny's slow, failed and offline answers each say what happened and offer 
   await context.setOffline(false);
   await lastPennyMessage(page).getByRole("button", { name: "Try again" }).click();
   await expect(lastPennyMessage(page)).toContainText("soft inquiry");
+
+  // Offline, a crisis still gets the 988 line.
+  const sentBefore = sentToPenny.length;
+  await context.setOffline(true);
+  await ask(page, "I want to take my own life");
+  await expectCrisisLine(page);
+  expect(sentToPenny).toHaveLength(sentBefore);
+  await context.setOffline(false);
 });
 
 test("after 20 typed questions in a day Penny stops answering typed ones, and tapped ones still work", async ({ page }) => {
@@ -250,6 +289,10 @@ test("a signed-out visitor is sent to sign in, and a session that ends mid-chat 
     "href",
     "/sign-in?next=%2Flearn%2Fpenny",
   );
+
+  // Signed out, a crisis still gets the 988 line.
+  await ask(page, "kms");
+  await expectCrisisLine(page);
 });
 
 for (const viewport of [

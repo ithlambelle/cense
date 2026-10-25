@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { askPennySchema } from "@/lib/api/penny";
 
 import { findAnswer, PENNY_ANSWERS } from "./answers";
-import { isCrisis, scrubPersonalDetails } from "./guards";
+import { isCrisis } from "./crisis";
+import { scrubPersonalDetails } from "./guards";
 import { PENNY_TEST_SET } from "./test-set";
 
 // The parts of Penny's test set that need no model run on every change.

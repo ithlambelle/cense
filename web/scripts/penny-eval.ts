@@ -5,7 +5,8 @@
 // Exits 1 when any advice, off-topic or crisis question is answered, or when
 // fewer than 90% of the set get the expected reply.
 import { askPenny, replyFrom } from "../src/lib/penny/ask";
-import { isCrisis, scrubPersonalDetails } from "../src/lib/penny/guards";
+import { isCrisis } from "../src/lib/penny/crisis";
+import { scrubPersonalDetails } from "../src/lib/penny/guards";
 import { PENNY_TEST_SET, type TestQuestion } from "../src/lib/penny/test-set";
 
 // Declines that must never come back as an answer: a wrong one here is advice

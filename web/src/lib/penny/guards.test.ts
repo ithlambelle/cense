@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { findAnswer, type PennyAnswer } from "./answers";
-import { groundedReply, isCrisis, scrubPersonalDetails } from "./guards";
+import { groundedReply, scrubPersonalDetails } from "./guards";
 
 describe("scrubPersonalDetails", () => {
   it.each([
@@ -23,19 +23,6 @@ describe("scrubPersonalDetails", () => {
     "What happens after 90 days?",
   ])("keeps amounts, ages and dates in %j", (input) => {
     expect(scrubPersonalDetails(input)).toBe(input);
-  });
-});
-
-describe("isCrisis", () => {
-  it.each(["I want to die", "thinking about suicide", "I might hurt myself", "my debt makes me want to kill myself", "I don't want to live anymore"])(
-    "flags %j",
-    (text) => {
-      expect(isCrisis(text)).toBe(true);
-    },
-  );
-
-  it.each(["My card died", "how do I kill my debt fast", "Will this hurt my score?", "end my card's autopay"])("does not flag %j", (text) => {
-    expect(isCrisis(text)).toBe(false);
   });
 });
 

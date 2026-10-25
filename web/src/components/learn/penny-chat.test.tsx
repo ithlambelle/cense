@@ -135,3 +135,52 @@ describe("PennyChat", () => {
     expect(screen.getByRole("link", { name: "Sign in again" }).getAttribute("href")).toBe("/sign-in?next=%2Flearn%2Fpenny");
   });
 });
+
+// The 988 line, one tap from a call or a text.
+function expectCrisisLine(message: HTMLElement) {
+  expect(message.textContent).toContain(PENNY_COPY.crisis);
+  expect(within(message).getByRole("link", { name: "Call 988" }).getAttribute("href")).toBe("tel:988");
+  expect(within(message).getByRole("link", { name: "Text 988" }).getAttribute("href")).toBe("sms:988");
+}
+
+describe("PennyChat in a crisis", () => {
+  it.each([
+    ["with Penny unavailable", () => reply(503, { error: { code: "penny_unavailable", message: "Down" } })],
+    ["at the daily limit", () => reply(429, { error: { code: "penny_limit", message: "Limit" } })],
+    ["signed out", () => reply(401, { error: { code: "unauthorized", message: "Sign in to continue." } })],
+    [
+      "offline",
+      () =>
+        vi.fn(async () => {
+          throw new TypeError("Failed to fetch");
+        }),
+    ],
+  ])("shows the 988 line %s, before anything is sent", async (_state, server) => {
+    const fetch = server();
+    vi.stubGlobal("fetch", fetch);
+    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    await type("im going to kill my self");
+    expect(fetch).not.toHaveBeenCalled();
+    expectCrisisLine(pennyMessages().at(-1)!);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("shows it for a question typed on Learn, on arrival, with nothing sent", async () => {
+    const fetch = reply(503, { error: { code: "penny_unavailable", message: "Down" } });
+    vi.stubGlobal("fetch", fetch);
+    handOffQuestion("kms");
+    await act(async () => {
+      render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    });
+    expect(fetch).not.toHaveBeenCalled();
+    expect(pennyMessages()).toHaveLength(1);
+    expectCrisisLine(pennyMessages()[0]);
+  });
+
+  it("shows the same tappable line when the model flags a crisis the check missed", async () => {
+    vi.stubGlobal("fetch", reply(200, { kind: "declined", reason: "crisis", text: PENNY_COPY.crisis, suggestions: [] }));
+    render(<PennyChat initialAnswerId={null} from={null} back={BACK} />);
+    await type("Someone is threatening me over money I owe");
+    expectCrisisLine(pennyMessages().at(-1)!);
+  });
+});

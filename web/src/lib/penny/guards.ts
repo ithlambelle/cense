@@ -16,15 +16,6 @@ export function scrubPersonalDetails(question: string): string {
   return question.replace(EMAIL, REMOVED).replace(LONG_NUMBER, REMOVED).replace(SSN, REMOVED);
 }
 
-// A student in danger gets the 988 line straight away, before any model call
-// or limit. The model is also told to flag it, for wording this misses.
-const CRISIS =
-  /\b(suicid\w*|kill(ing)? (myself|me)|end(ing)? (my life|it all)|want(ed)? to die|self[- ]?harm|hurt(ing)? myself|don[’']?t want to (live|be alive))\b/i;
-
-export function isCrisis(question: string): boolean {
-  return CRISIS.test(question);
-}
-
 // Card and issuer names from the catalog. Penny never names one (S34 and D11:
 // a card mentioned would need the affiliate disclosure beside it).
 function catalogNames(): string[] {

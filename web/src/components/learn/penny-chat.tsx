@@ -22,6 +22,7 @@ import {
   type PennyTopic,
 } from "@/lib/penny/answers";
 import { PENNY_COPY } from "@/lib/penny/copy";
+import { isCrisis } from "@/lib/penny/crisis";
 import { peekHandedOffQuestion, takeHandedOffQuestion } from "@/lib/penny/pending-question";
 import { learnTopicPath, ROUTES, signInPath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -39,7 +40,9 @@ type Message =
       text: string;
       suggestions: QuestionRef[];
       action?: { kind: "retry"; question: string } | { kind: "sign-in" };
-    };
+    }
+  // The 988 line, with a call and a text one tap away.
+  | { id: number; from: "penny"; kind: "crisis"; text: string };
 
 type Source = "starter" | "topic" | "suggestion" | "typed" | "link";
 type Outcome = "answered" | "advice" | "off_topic" | "unknown" | "crisis" | "limit" | "unavailable" | "offline" | "signed_out";
@@ -75,7 +78,12 @@ function greeting(): Message {
   };
 }
 
+function crisisMessage(): Message {
+  return { id: newId(), from: "penny", kind: "crisis", text: PENNY_COPY.crisis };
+}
+
 function replyMessage(reply: PennyReply): Message {
+  if (reply.kind === "declined" && reply.reason === "crisis") return crisisMessage();
   if (reply.kind === "answer") return { id: newId(), from: "penny", kind: "answer", text: reply.text, answer: reply.answer };
   return { id: newId(), from: "penny", kind: "note", text: reply.text, suggestions: reply.suggestions };
 }
@@ -144,6 +152,14 @@ export function PennyChat({ initialAnswerId, from, back }: Props) {
 
   // Sends a question whose bubble is already on screen, and adds Penny's reply.
   async function send(question: string) {
+    // A crisis is answered here, before anything is sent, so the 988 line
+    // shows offline, signed out, at the limit or with Penny unavailable.
+    if (isCrisis(question)) {
+      setPending(false);
+      setSlow(false);
+      setMessages((current) => [...current, crisisMessage()]);
+      return;
+    }
     const timer = setTimeout(() => setSlow(true), SLOW_AFTER_MS);
     const result = await apiRequest("post", "/penny", { body: { question }, timeoutMs: PENNY_TIMEOUT_MS });
     clearTimeout(timer);
@@ -312,6 +328,17 @@ function MessageView({ message, from, latest, lastRef, onPick, onRetry, busy }: 
       </div>
 
       {message.kind === "answer" && message.answer.topic !== from ? <TopicCard topic={message.answer.topic} /> : null}
+
+      {message.kind === "crisis" ? (
+        <div className="grid w-full grid-cols-2 gap-3">
+          <a href="tel:988" className={buttonVariants({ chevron: false })}>
+            Call 988
+          </a>
+          <a href="sms:988" className={buttonVariants({ variant: "outline" })}>
+            Text 988
+          </a>
+        </div>
+      ) : null}
 
       {message.kind === "note" && message.suggestions.length > 0 ? (
         <ul className="flex w-full flex-col gap-3">

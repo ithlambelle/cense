@@ -5,7 +5,8 @@ import { databaseError } from "@/lib/api/database";
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { askPennySchema } from "@/lib/api/penny";
 import { askPenny, declined, pennyConfigured } from "@/lib/penny/ask";
-import { isCrisis, scrubPersonalDetails } from "@/lib/penny/guards";
+import { isCrisis } from "@/lib/penny/crisis";
+import { scrubPersonalDetails } from "@/lib/penny/guards";
 
 // A model call can take a while, with one retry: room for the slowest answer.
 export const maxDuration = 60;
