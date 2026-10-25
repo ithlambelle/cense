@@ -24,7 +24,7 @@ describe("POST /auth/email", () => {
     expect(response.status).toBe(200);
     expect(auth.signInWithOtp).toHaveBeenCalledWith({
       email: "student@example.org",
-      options: { emailRedirectTo: "https://cense-preview.vercel.app/api/v1/auth/callback" },
+      options: { emailRedirectTo: "https://cense-preview.vercel.app/api/v1/auth/callback?next=%2Fstart" },
     });
   });
 });

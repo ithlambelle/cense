@@ -54,7 +54,9 @@ URL allowed in Auth redirect settings, and an email template using
 SMTP to send codes to addresses outside the Supabase project team.
 Email requests now pass the requesting deployment's callback URL so any
 remaining magic links return to that deployment; allowlist preview callback
-URLs in Supabase Auth redirect settings before testing them. Set
+URLs in Supabase Auth redirect settings before testing them. List each exact
+preview URL; do not allowlist a broad `https://*.vercel.app/**` pattern that
+could send sign-in links to another project's site. Set
 `NEXT_PUBLIC_SUPABASE_URL` and either `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 or the existing `NEXT_PUBLIC_SUPABASE_ANON_KEY` in local and Vercel settings.
 Only the dev project should be used by local and preview environments.
