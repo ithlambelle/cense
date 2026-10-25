@@ -365,5 +365,19 @@ for (const viewport of [
       const broken = await page.evaluate(() => [...document.images].filter((image) => image.naturalWidth === 0).map((image) => image.currentSrc || image.src));
       expect(broken, `${path} has images that did not load`).toEqual([]);
     }
+
+    // A slow answer: "Still thinking" shows above the question box's white
+    // bar, not under it, in a chat long enough to scroll at every size.
+    await page.goto("/learn/penny?answer=credit-score&from=learn");
+    for (const question of ["What is preapproval?", "Is a soft inquiry bad?"]) {
+      await ask(page, question);
+      await expect(page.getByRole("status")).toHaveCount(0);
+    }
+    await ask(page, "slow: what is a credit score?");
+    const still = page.getByText("Still thinking, almost there.");
+    await expect(still).toBeVisible({ timeout: 12_000 });
+    const line = await still.boundingBox();
+    const bar = await page.locator("footer").boundingBox();
+    expect((line?.y ?? 0) + (line?.height ?? 0), "Still thinking under the question box").toBeLessThanOrEqual(bar?.y ?? 0);
   });
 }

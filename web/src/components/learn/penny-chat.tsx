@@ -216,12 +216,13 @@ export function PennyChat({ initialAnswerId, from, back, canType }: Props) {
     arrive();
   }, []);
 
-  // Each new message, or the typing dots, scrolls into view above the field.
+  // Each new message, the typing dots, and "Still thinking" under them
+  // scroll into view above the field.
   const lastId = messages.at(-1)?.id;
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     lastRef.current?.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
-  }, [lastId, pending]);
+  }, [lastId, pending, slow]);
 
   return (
     <div className="flex min-h-dvh justify-center bg-background">
