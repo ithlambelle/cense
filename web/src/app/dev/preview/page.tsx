@@ -35,10 +35,17 @@ const SAMPLE_APPLICATION: Application = {
 // would save for the visitor, so the page is off outside local development.
 const SCREENS = {
   "mark-result": () => <MarkResult application={SAMPLE_APPLICATION} />,
+  "mark-result-from-card": () => (
+    <MarkResult application={SAMPLE_APPLICATION} back={{ href: "/cards/discover-it-student-cash-back", label: "Card details" }} />
+  ),
   waiting: () => <WaitingView application={SAMPLE_APPLICATION} />,
   "card-signed-in": () => {
     const card = findCard("discover-it-student-cash-back");
     return card ? <CardDetailView card={card} signedIn /> : null;
+  },
+  "card-tracked": () => {
+    const card = findCard("discover-it-student-cash-back");
+    return card ? <CardDetailView card={card} signedIn tracked={SAMPLE_APPLICATION} /> : null;
   },
   denied: () => <DeniedOptionsView applicationId={SAMPLE_ID} />,
   // Shown on sample stars rather than loaded, so no session is needed.

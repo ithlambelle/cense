@@ -72,7 +72,7 @@ export function ForgotPassword() {
             error={error ?? undefined}
             disabled={pending}
           />
-          <Button type="submit" pending={pending}>
+          <Button type="submit" chevron={false} pending={pending}>
             Send link
           </Button>
         </form>

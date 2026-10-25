@@ -12,7 +12,7 @@ import { ApprovalHeading, ApprovedCard, StarConfetti } from "@/components/home/a
 import { Greeting } from "@/components/home/greeting";
 import { UpdatedLine } from "@/components/home/updated-line";
 import { BottomNav } from "@/components/ui/bottom-nav";
-import { buttonVariants } from "@/components/ui/button";
+import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import { findCard } from "@/lib/cards/catalog";
 import { cardDisplayName, cardTypeLabel, NO_CARD_FALLBACK, RESULT_HEADLINES, TIER_LABELS } from "@/lib/copy/results";
@@ -310,6 +310,7 @@ function NextStep({
       </div>
       <Link href={action.href} className={buttonVariants()}>
         {action.label}
+        <ButtonChevron />
       </Link>
     </section>
   );
@@ -339,7 +340,7 @@ function QuizPrompt({ started }: { started: boolean }) {
       <p className="pt-3 text-body-s text-indigo-black/70">
         Light up each star and we’ll match you with cards built for where you are.
       </p>
-      <Link href={ROUTES.quiz} className={cn(buttonVariants(), "mt-10")}>
+      <Link href={ROUTES.quiz} className={cn(buttonVariants({ chevron: false }), "mt-10")}>
         {started ? "Continue the quiz" : "Start the quiz"}
       </Link>
     </section>

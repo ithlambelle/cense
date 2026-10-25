@@ -15,6 +15,6 @@ Sent with every event: `plan_version`, `platform`, `app_version`, `environment`,
 | `card_details_viewed` | Which cards do visitors open, and are they signed in? | `card_id`: catalog id<br>`signed_in`: boolean | PostHog only | Ben | 1 |
 | `issuer_link_clicked` | D24 number one and falsifier F1: did the student trust Cense enough to go to the issuer? | `click_id`: uuid<br>`card_id`: catalog id<br>`link_type`: `preapproval`, `apply` | issuer_clicks (the event uuid and click_id are the row id) | Ben | 1 |
 | `outcome_reported` | D24 number two: what do students tell us happened? applied and didnt_apply come from the did-you-apply prompt, approved, denied and pending from marking a result. | `outcome`: `applied`, `didnt_apply`, `approved`, `denied`, `pending`<br>`source`: `did_you_apply`, `mark_result` | card_applications (applied, approved, denied); pending and didnt_apply are not stored | Ben | 1 |
-| `denial_letter_answered` | After a denial, can students judge the issuer's letter yet? | `answer`: `looks_right`, `no_letter`, `looks_wrong` | PostHog only | Ben | 1 |
+| `denial_letter_answered` | After a denial, do students know the reason yet, or think it was a mistake? | `answer`: `knows_reason`, `waiting_on_letter`, `thinks_mistake` | PostHog only | Ben | 1 |
 | `denial_plan_viewed` | How many denied students open the five-step plan? | none | PostHog only | Ben | 1 |
 | `card_added` | How many students track a card Cense did not recommend? | `method`: `manual` | PostHog only | Ben | 1 |
