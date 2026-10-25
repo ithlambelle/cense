@@ -199,7 +199,7 @@ export function DeniedOptionsView({ applicationId, preview }: { applicationId: s
                 placeholder="Too many recent applications"
                 onChange={(event) => setNote(event.target.value)}
                 className={cn(
-                  "h-20 resize-none rounded-input border-[1.5px] border-violet bg-white px-4 py-3.5 text-body-m text-navy caret-violet outline-none placeholder:text-indigo-black/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                  "h-20 resize-none rounded-input border-[1.5px] border-violet bg-white px-4 py-3.5 text-body-m text-navy caret-violet placeholder:text-indigo-black/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                   SENSITIVE,
                 )}
               />

@@ -81,7 +81,7 @@ export function ForgotPassword() {
       {formError ? <ErrorMessage>{formError}</ErrorMessage> : null}
       <Link
         href={ROUTES.signIn}
-        className="min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 outline-none focus-visible:outline-2 focus-visible:outline-ring"
+        className="min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-ring"
       >
         Back to log in
       </Link>

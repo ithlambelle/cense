@@ -286,7 +286,7 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
         {copy.switchText}
         <Link
           href={mode === "sign-up" ? signInPath(next) : signUpPath(next)}
-          className="text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="text-violet underline underline-offset-2 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           {copy.switchLink}
         </Link>
@@ -428,7 +428,7 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnc
       {signUp ? null : (
         <Link
           href={ROUTES.forgotPassword}
-          className="min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 outline-none focus-visible:outline-2 focus-visible:outline-ring"
+          className="min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-ring"
         >
           Forgot password?
         </Link>
