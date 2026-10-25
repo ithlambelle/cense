@@ -314,7 +314,7 @@ function ReasonNote({ reason }: { reason: SavedDenialReason }) {
     <section aria-label="Denial reason" className="flex flex-col gap-1 rounded-input bg-off-white px-4 py-3 text-indigo-black">
       <div className="flex items-center gap-3">
         <FileText aria-hidden="true" width={22} height={22} className="shrink-0 text-violet" />
-        <p className={cn("min-w-0 flex-1 font-heading text-body-s leading-[22px] font-semibold break-words", SENSITIVE)}>{line}</p>
+        <p className={cn("min-w-0 flex-1 font-heading text-body-s leading-[22px] font-medium break-words", SENSITIVE)}>{line}</p>
         {why ? (
           <button
             type="button"
