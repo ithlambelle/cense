@@ -6,6 +6,10 @@ export const PENNY_COPY = {
   disclaimer: "Penny uses AI. Educational, not financial advice.",
   greetingTitle: "Hi! I’m Penny.",
   greeting: "Got a money question? I’m here to help.",
+  // Until typed questions are on (no ANTHROPIC_API_KEY): only checked
+  // answers, so no invitation to ask and no AI line.
+  greetingTapOnly: "Tap a question for a checked answer.",
+  disclaimerTapOnly: "Educational, not financial advice.",
   advice: "I can explain how cards and credit work, but I can’t tell you what to do with your money. Here’s what might help:",
   offTopic: "I only know money basics like cards, credit, budgeting, saving and student loans. Here’s what I can answer:",
   unknown: "I don’t have a checked answer for that yet. Here’s what I can answer:",

@@ -46,7 +46,7 @@ export function LearnHub({ canType }: { canType: boolean }) {
                 <h2 id="penny-card" className="font-heading text-[16px] leading-[23px] font-medium">
                   {PENNY_COPY.greetingTitle}
                 </h2>
-                <p className="text-body-s">{PENNY_COPY.greeting}</p>
+                <p className="text-body-s">{canType ? PENNY_COPY.greeting : PENNY_COPY.greetingTapOnly}</p>
               </div>
             </div>
             <ul className="flex flex-col gap-3">

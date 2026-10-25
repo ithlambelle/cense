@@ -68,12 +68,12 @@ function checkedAnswerMessages(answer: PennyAnswer): Message[] {
   ];
 }
 
-function greeting(): Message {
+function greeting(canType: boolean): Message {
   return {
     id: newId(),
     from: "penny",
     kind: "note",
-    text: `${PENNY_COPY.greetingTitle} ${PENNY_COPY.greeting}`,
+    text: `${PENNY_COPY.greetingTitle} ${canType ? PENNY_COPY.greeting : PENNY_COPY.greetingTapOnly}`,
     suggestions: STARTERS,
   };
 }
@@ -148,7 +148,7 @@ export function PennyChat({ initialAnswerId, from, back, canType }: Props) {
     const answer = initialAnswerId ? findAnswer(initialAnswerId) : undefined;
     if (answer) return checkedAnswerMessages(answer);
     const handedOff = peekHandedOffQuestion();
-    return handedOff ? [{ id: newId(), from: "student", text: handedOff }] : [greeting()];
+    return handedOff ? [{ id: newId(), from: "student", text: handedOff }] : [greeting(canType)];
   });
   const [pending, setPending] = useState(() => !initialAnswerId && peekHandedOffQuestion() !== null);
   const [slow, setSlow] = useState(false);
@@ -242,7 +242,9 @@ export function PennyChat({ initialAnswerId, from, back, canType }: Props) {
               <h1 className="font-heading text-h5 font-medium text-navy">Penny</h1>
             </div>
           </div>
-          <p className="text-center text-caption text-indigo-black/70">{PENNY_COPY.disclaimer}</p>
+          <p className="text-center text-caption text-indigo-black/70">
+            {canType ? PENNY_COPY.disclaimer : PENNY_COPY.disclaimerTapOnly}
+          </p>
         </header>
 
         <main className="flex flex-1 flex-col px-6 pt-4 pb-4">
