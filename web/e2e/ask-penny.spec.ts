@@ -298,6 +298,34 @@ test("a signed-out visitor is sent to sign in, and a session that ends mid-chat 
   await expectCrisisLine(page);
 });
 
+test("Learn's and Penny's own controls show a focus ring from the keyboard", async ({ page }) => {
+  await signUp(page, uniqueEmail("penny-focus"), async () => {});
+
+  // Focus moved after a key press counts as keyboard focus, so the ring the
+  // browser draws is the one a keyboard user sees.
+  async function expectRing(control: Locator, name: string) {
+    await page.keyboard.press("Tab");
+    await control.focus();
+    const ring = await control.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { keyboard: element.matches(":focus-visible"), style: style.outlineStyle, width: parseFloat(style.outlineWidth) };
+    });
+    expect(ring.keyboard, `${name} has keyboard focus`).toBe(true);
+    expect(ring.style, `${name} draws no ring`).not.toBe("none");
+    expect(ring.width, `${name} ring width`).toBeGreaterThanOrEqual(2);
+  }
+
+  await page.goto("/learn");
+  await expectRing(page.getByRole("link", { name: "Credit", exact: true }), "Learn's topic button");
+  await page.goto("/learn/penny?answer=credit-score&from=learn");
+  await expectRing(lastPennyMessage(page).getByRole("link", { name: /^Source:/ }), "the source link");
+  await expectRing(page.getByRole("link", { name: /More about credit/ }), "the topic card");
+  const field = page.getByRole("textbox", { name: "Ask Penny" });
+  await expectRing(field, "the chat's question field");
+  await field.fill("What is a secured card?");
+  await expectRing(page.getByRole("button", { name: "Send" }), "Send");
+});
+
 for (const viewport of [
   { width: 320, height: 568 },
   { width: 390, height: 844 },

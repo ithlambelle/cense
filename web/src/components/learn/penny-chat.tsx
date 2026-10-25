@@ -334,7 +334,7 @@ function MessageView({ message, from, latest, lastRef, onPick, onRetry, busy }: 
             href={message.answer.source.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="-my-3 flex min-h-11 items-center self-start text-caption text-indigo-black/65 underline-offset-2 outline-none hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+            className="-my-3 flex min-h-11 items-center self-start text-caption text-indigo-black/65 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
           >
             Source: {message.answer.source.name}
           </a>
@@ -397,7 +397,7 @@ function TopicCard({ topic }: { topic: string }) {
   return (
     <Link
       href={learnTopicPath(found.slug)}
-      className="flex w-full flex-col gap-1 rounded-card border-[1.5px] border-violet bg-white px-5 py-4 outline-none transition-colors hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="flex w-full flex-col gap-1 rounded-card border-[1.5px] border-violet bg-white px-5 py-4 transition-colors hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       <span className="text-caption text-indigo-black/65">TOPIC · {count} ANSWERS</span>
       <span className="flex items-center gap-2">

@@ -63,9 +63,12 @@ export function PennyComposer({ variant, onAsk, busy = false }: Props) {
         autoComplete="off"
         enterKeyHint="send"
         className={cn(
-          "min-w-0 flex-1 text-navy outline-none",
+          "min-w-0 flex-1 text-navy",
+          // outline-none would also cancel a focus-visible ring (Tailwind 4
+          // sets the ring's style from the same variable), so only the Learn
+          // field, whose ring is drawn on the form, turns its own outline off.
           learn
-            ? "h-11 bg-transparent text-body-m placeholder:text-indigo-black/70"
+            ? "h-11 bg-transparent text-body-m outline-none placeholder:text-indigo-black/70"
             : "h-12 rounded-input bg-off-white px-4 text-body-s placeholder:text-indigo-black/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
         )}
       />
@@ -74,7 +77,7 @@ export function PennyComposer({ variant, onAsk, busy = false }: Props) {
         aria-label="Send"
         disabled={!canSend}
         className={cn(
-          "flex size-11 shrink-0 items-center justify-center rounded-pill outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-40",
+          "flex size-11 shrink-0 items-center justify-center rounded-pill focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-40",
           learn ? "" : "size-12 bg-violet text-white enabled:hover:bg-violet-hover enabled:active:bg-violet-pressed",
         )}
       >
