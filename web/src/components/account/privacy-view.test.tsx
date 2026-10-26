@@ -16,6 +16,9 @@ import { PrivacyView } from "./privacy-view";
 
 const STUDENT = "00000000-0000-4000-8000-000000000001";
 
+// Delete ignores taps for its first 600 ms (the tap that opened the sheet).
+const pastGuard = () => new Promise((resolve) => setTimeout(resolve, 650));
+
 function server(answer: () => Response | Promise<Response>) {
   const fetchFn = vi.fn<typeof fetch>(async () => answer());
   vi.stubGlobal("fetch", fetchFn);
@@ -74,7 +77,16 @@ describe("Delete my account", () => {
     render(<PrivacyView analyticsOn={true} studentId={STUDENT} isInternal={false} />);
     fireEvent.click(screen.getByRole("button", { name: "Delete my account" }));
     const sheet = await screen.findByRole("dialog", { name: "Delete your account?" });
-    expect(sheet.querySelectorAll("li")).toHaveLength(3);
+    // PostHog queues the analytics deletion (the policy's 30 days); "cards you
+    // track", so no one fears their real card is closed.
+    expect([...sheet.querySelectorAll("li")].map((li) => li.textContent)).toEqual([
+      "Cards you track, quiz answers, plans and reminders are deleted now.",
+      "Your analytics and screen recordings follow within 30 days.",
+      "This can’t be undone.",
+    ]);
+    // Keeping the account is the first and main button.
+    const buttons = [...sheet.querySelectorAll("button")].map((b) => b.textContent).filter((t) => t !== "");
+    expect(buttons).toEqual(["Keep my account", "Delete my account"]);
     fireEvent.click(screen.getByRole("button", { name: "Keep my account" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(fetchFn).not.toHaveBeenCalled();
@@ -95,6 +107,7 @@ describe("Delete my account", () => {
     render(<PrivacyView analyticsOn={true} studentId={STUDENT} isInternal={false} />);
     fireEvent.click(screen.getByRole("button", { name: "Delete my account" }));
     const sheet = await screen.findByRole("dialog", { name: "Delete your account?" });
+    await pastGuard();
     fireEvent.click(sheet.querySelector("button.ph-no-capture")!);
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/account-deleted"));
     expect(order).toEqual(["pause", "delete", "forget"]);
@@ -110,10 +123,27 @@ describe("Delete my account", () => {
     render(<PrivacyView analyticsOn={true} studentId={STUDENT} isInternal={false} />);
     fireEvent.click(screen.getByRole("button", { name: "Delete my account" }));
     const sheet = await screen.findByRole("dialog", { name: "Delete your account?" });
+    await pastGuard();
     fireEvent.click(sheet.querySelector("button.ph-no-capture")!);
     expect((await screen.findByRole("alert")).textContent).toBe("We couldn’t delete your account. Please try again.");
+    expect(screen.getByRole("link", { name: "privacy@censefinance.com" }).getAttribute("href")).toBe("mailto:privacy@censefinance.com");
     expect(resume).toHaveBeenCalledOnce();
     expect(analytics.forgetDeletedStudent).not.toHaveBeenCalled();
     expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it("ignores a tap on Delete in the first moment after the sheet opens", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const fetchFn = server(() => new Response(null, { status: 204 }));
+    render(<PrivacyView analyticsOn={true} studentId={STUDENT} isInternal={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "Delete my account" }));
+    const sheet = await screen.findByRole("dialog", { name: "Delete your account?" });
+    fireEvent.click(sheet.querySelector("button.ph-no-capture")!);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(fetchFn).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(700);
+    fireEvent.click(sheet.querySelector("button.ph-no-capture")!);
+    await waitFor(() => expect(fetchFn).toHaveBeenCalledOnce());
+    vi.useRealTimers();
   });
 });

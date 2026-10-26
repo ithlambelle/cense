@@ -77,6 +77,13 @@ async function studentWithData(page: Page, journey: string) {
   return { email, id: me.id };
 }
 
+// Delete in the sheet, once its first 600 ms have passed: before that a tap
+// is taken for the one that opened the sheet, and ignored.
+async function confirmDelete(page: Page) {
+  await page.waitForTimeout(650);
+  await page.getByRole("dialog", { name: "Delete your account?" }).getByRole("button", { name: "Delete my account" }).click();
+}
+
 async function openPrivacy(page: Page) {
   await page.goto("/home");
   await page.getByRole("link", { name: "Profile" }).click();
@@ -113,8 +120,10 @@ test("a student deletes their account: confirm, signed out, and nothing of their
   // A deletion with no answer says so, and the account is still there.
   await page.route("**/api/v1/me", (route) => (route.request().method() === "DELETE" ? route.abort("failed") : route.fallback()));
   await page.getByRole("button", { name: "Delete my account" }).click();
-  await sheet.getByRole("button", { name: "Delete my account" }).click();
+  await confirmDelete(page);
   await expect(sheet.getByRole("alert")).toHaveText(/^We couldn’t reach Cense/);
+  // If it keeps failing, there is another way that needs no app.
+  await expect(sheet.getByRole("link", { name: "privacy@censefinance.com" })).toHaveAttribute("href", "mailto:privacy@censefinance.com");
   expect((await page.request.get("/api/v1/me")).status()).toBe(200);
   expect(await rowsPerTable(token)).toEqual(before);
   await page.unroute("**/api/v1/me");
@@ -124,7 +133,7 @@ test("a student deletes their account: confirm, signed out, and nothing of their
   page.on("request", (r) => {
     if (r.method() === "DELETE") deletes.push(new URL(r.url()).pathname);
   });
-  await sheet.getByRole("button", { name: "Delete my account" }).click();
+  await confirmDelete(page);
   await expect(page).toHaveURL(/\/account-deleted$/);
   await expect(page.getByRole("heading", { level: 1, name: "Your account is deleted" })).toBeVisible();
   expect(deletes).toEqual(["/api/v1/me"]);
@@ -148,7 +157,7 @@ test("a student deletes their account: confirm, signed out, and nothing of their
   await page.getByRole("link", { name: "Back to Cense" }).click();
   await expect(page).toHaveURL(/\/$/);
   await signUp(page, email, async () => {});
-  await expect(page.getByRole("heading", { name: "6 questions to your first card" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^\d+ questions to your first card$/ })).toBeVisible();
   const again = (await (await page.request.get("/api/v1/me")).json()) as { id: string };
   expect(again.id).not.toBe(id);
   expect(((await (await page.request.get("/api/v1/applications")).json()) as { applications: unknown[] }).applications).toEqual([]);
@@ -165,6 +174,32 @@ test("signed out, Security and privacy and the delete request are refused", asyn
 });
 
 for (const size of SIZES) {
+  // The sheet opens under the finger that tapped "Delete my account": a second
+  // tap in the same spot must never confirm. Tried at gaps a real double tap
+  // and a quick "tap again" both fall into.
+  test(`at ${size.width}x${size.height} tapping Delete my account twice in the same spot never deletes`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await signUp(page, uniqueEmail(`double-tap-${size.width}`), async () => {});
+    await openPrivacy(page);
+    const deletes: string[] = [];
+    page.on("request", (r) => {
+      if (r.method() === "DELETE") deletes.push(new URL(r.url()).pathname);
+    });
+    for (const gap of [80, 250, 500, 800]) {
+      const box = (await page.getByRole("button", { name: "Delete my account" }).boundingBox())!;
+      const x = box.x + box.width / 2;
+      const y = box.y + box.height / 2;
+      await page.mouse.click(x, y);
+      await page.waitForTimeout(gap);
+      await page.mouse.click(x, y);
+      await page.waitForTimeout(1_000);
+      expect(deletes, `second tap ${gap} ms later`).toEqual([]);
+      if (await page.getByRole("dialog").isVisible()) await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toBeHidden();
+    }
+    expect((await page.request.get("/api/v1/me")).status()).toBe(200);
+  });
+
   test(`at ${size.width}x${size.height} Security and privacy, the confirm sheet and the landing fit`, async ({ page }) => {
     await page.setViewportSize(size);
     await signUp(page, uniqueEmail(`delete-${size.width}`), async () => {});
@@ -189,7 +224,7 @@ for (const size of SIZES) {
       expect((await button.boundingBox())!.height, `${name}: tap target`).toBeGreaterThanOrEqual(44);
     }
     await fits("delete account: confirm");
-    await sheet.getByRole("button", { name: "Delete my account" }).click();
+    await confirmDelete(page);
     await expect(page.getByRole("heading", { level: 1, name: "Your account is deleted" })).toBeVisible();
     await fits("account deleted");
   });

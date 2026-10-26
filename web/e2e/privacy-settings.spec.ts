@@ -63,8 +63,10 @@ test("the Analytics switch saves, survives a reload and follows the student to a
   await openPrivacy(laptop);
   await expect(laptop.getByRole("switch", ANALYTICS)).not.toBeChecked();
 
-  // On again there, and here after a reload.
+  // On again there, and here after a reload. Read back once the save answers.
+  const savedOn = laptop.waitForResponse((r) => r.url().endsWith("/api/v1/me/privacy") && r.request().method() === "PATCH");
   await laptop.getByRole("switch", ANALYTICS).click();
+  expect((await savedOn).status()).toBe(200);
   await expect(laptop.getByRole("switch", ANALYTICS)).toBeChecked();
   expect(await savedAnalyticsOn(laptop)).toBe(true);
   await page.reload();
