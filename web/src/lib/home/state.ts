@@ -2,8 +2,9 @@ import type { Application, ApplicationDetail } from "../api/application";
 import type { ResultView } from "../results/compute";
 
 export type HomeState =
-  // No complete quiz and nothing tracked. `started` is true when some answers are saved.
-  | { kind: "no_quiz"; started: boolean }
+  // No complete quiz and nothing tracked. `answered` is how many questions are
+  // answered (0 before starting); the quiz reopens on the next one.
+  | { kind: "no_quiz"; answered: number }
   // A complete quiz with a match, and nothing tracked yet.
   | { kind: "matched"; result: Extract<ResultView, { kind: "match" }> }
   // A complete quiz where no listed card fits, and nothing tracked yet.
@@ -24,7 +25,7 @@ export function needsDetail(state: HomeState): state is Extract<HomeState, { kin
 // over the quiz: once a student has applied or added a card, that is their
 // next step. Among tracked cards the most recently changed one leads, so the
 // newest decision is what Home talks about. Ties keep the API's order.
-export function homeState(applications: Application[], quiz: ResultView, quizStarted: boolean): HomeState {
+export function homeState(applications: Application[], quiz: ResultView, quizAnswered: number): HomeState {
   if (applications.length > 0) {
     const sorted = [...applications].sort(
       (a, b) => Date.parse(b.statusUpdatedAt) - Date.parse(a.statusUpdatedAt),
@@ -34,7 +35,7 @@ export function homeState(applications: Application[], quiz: ResultView, quizSta
   }
   if (quiz.kind === "match") return { kind: "matched", result: quiz };
   if (quiz.kind === "no_card") return { kind: "no_card", reason: quiz.reason };
-  return { kind: "no_quiz", started: quizStarted };
+  return { kind: "no_quiz", answered: quizAnswered };
 }
 
 // Which approved card the first-month plan is for: the one asked for (from

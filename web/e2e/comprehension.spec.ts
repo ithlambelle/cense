@@ -1,6 +1,7 @@
 // Four things a student reading the screens could not make sense of (the QA
 // suite's student-comprehension pass on main, Oct 25): Home promised one
-// number of questions and the quiz counted another; Your account told a new
+// number of questions and the quiz counted another, and after a few answers
+// still promised them all; Your account told a new
 // student to take the quiz or add a card and offered neither; a result with no
 // card gave no next step; and a secured card's page never said what the
 // deposit is.
@@ -13,11 +14,17 @@ test.beforeEach(async ({ context }) => {
   await blockExternalRequests(context);
 });
 
-// The number in Home's "N questions to your first card".
-async function homeCount(page: Page): Promise<number> {
-  const heading = page.getByRole("heading", { name: /^\d+ questions to your first card$/ });
+// Home's quiz card: how many questions it says are left, and how many stars
+// are lit. "N questions" before starting, "N more questions" once started.
+async function homePrompt(page: Page): Promise<{ left: number; lit: number; stars: number }> {
+  const heading = page.getByRole("heading", { name: /^\d+ (more )?questions? to your first card$/ });
   await expect(heading).toBeVisible();
-  return Number((await heading.textContent())!.split(" ")[0]);
+  const card = page.getByRole("region", { name: (await heading.textContent())!.trim() });
+  return {
+    left: Number((await heading.textContent())!.split(" ")[0]),
+    lit: await card.locator("ol li img").count(),
+    stars: await card.locator("ol li").count(),
+  };
 }
 
 // The quiz's own count, "Question i of N".
@@ -28,23 +35,27 @@ async function quizCount(page: Page): Promise<{ at: number; of: number }> {
   return { at: Number(at), of: Number(of) };
 }
 
-test("Home's number of questions is the quiz's, from the start and when picking it back up", async ({ page }) => {
+test("Home counts the questions the quiz has left, for a new student and one picking it back up", async ({ page }) => {
   await signUp(page, uniqueEmail("count"), async () => {});
-  const promised = await homeCount(page);
-  // One star per question on the card, too.
-  await expect(page.getByRole("region", { name: `${promised} questions to your first card` }).locator("ol li")).toHaveCount(promised);
+  // New: all of them, one star per question, the first lit as drawn.
+  const fresh = await homePrompt(page);
   await page.getByRole("link", { name: "Start the quiz" }).click();
-  expect(await quizCount(page)).toEqual({ at: 1, of: promised });
+  const start = await quizCount(page);
+  expect(start.at).toBe(1);
+  expect(fresh).toEqual({ left: start.of, lit: 1, stars: start.of });
 
-  // Two answers, then Home and back: the same total, two further on.
+  // Two answers, then Home: what is left from question 3, and two stars lit.
   for (const question of QUESTIONS.slice(0, 2)) {
     await page.getByRole("group", { name: question.title }).getByRole("button", { name: LIKELY_FIT_PICKS[question.field]!, exact: true }).click();
     await expect(page.getByRole("heading", { level: 1, name: question.title })).toBeHidden();
   }
   await page.goto("/home");
-  expect(await homeCount(page)).toBe(promised);
+  const resumed = await homePrompt(page);
+  await expect(page.getByRole("heading", { name: `${start.of - 2} more questions to your first card` })).toBeVisible();
   await page.getByRole("link", { name: "Continue the quiz" }).click();
-  expect(await quizCount(page)).toEqual({ at: 3, of: promised });
+  const back = await quizCount(page);
+  expect(back).toEqual({ at: 3, of: start.of });
+  expect(resumed).toEqual({ left: back.of - back.at + 1, lit: 2, stars: back.of });
 });
 
 test("Your account, for a student with no card, offers the quiz and adding a card it mentions", async ({ page }) => {

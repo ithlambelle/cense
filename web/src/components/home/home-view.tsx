@@ -96,7 +96,7 @@ function HomeContent({
           <Greeting subtitle="Let’s find your first card." />
           <MascotStill pose="idle" size={72} className="shrink-0" />
         </div>
-        <QuizPrompt started={state.started} />
+        <QuizPrompt answered={state.answered} />
         <Link
           href={ROUTES.addCard}
           className="min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
@@ -346,8 +346,17 @@ function NextStep({
 // "N questions to your first card" (Figma 407:442, drawn as a pop-up over the
 // MVP2 home). Shown inline on the MVP1 home with the system's type. The count
 // and the stars are the quiz's own (QUIZ_STEP_COUNT): the frame's 6 predates
-// the spending question, and the quiz says "Question 1 of 7".
-function QuizPrompt({ started }: { started: boolean }) {
+// the spending question, and the quiz says "Question 1 of 7". Once started it
+// counts what is left, as the quiz reopens on "Question 3 of 7" after two
+// answers ("5 more questions"), and one star is lit per answer; before that,
+// the first star is lit, as drawn.
+function QuizPrompt({ answered }: { answered: number }) {
+  const left = QUIZ_STEP_COUNT - answered;
+  const heading =
+    answered === 0
+      ? `${QUIZ_STEP_COUNT} questions to your first card`
+      : `${left} more ${left === 1 ? "question" : "questions"} to your first card`;
+  const lit = (index: number) => (answered === 0 ? index === 0 : index < answered);
   return (
     <section aria-labelledby="quiz-prompt" className="flex flex-col rounded-card bg-off-white p-5">
       <ol aria-hidden="true" className="flex items-center gap-1.5">
@@ -356,21 +365,21 @@ function QuizPrompt({ started }: { started: boolean }) {
             key={index}
             className={cn(
               "flex size-[22px] items-center justify-center rounded-full",
-              index === 0 ? "bg-navy" : "border-[1.5px] border-indigo-black/70",
+              lit(index) ? "bg-navy" : "border-[1.5px] border-indigo-black/70",
             )}
           >
-            {index === 0 ? <Image src="/decor/star-large.svg" alt="" width={13} height={12} /> : null}
+            {lit(index) ? <Image src="/decor/star-large.svg" alt="" width={13} height={12} /> : null}
           </li>
         ))}
       </ol>
       <h2 id="quiz-prompt" className="pt-6 font-heading text-h3 font-medium text-indigo-black">
-        {QUIZ_STEP_COUNT} questions to your first card
+        {heading}
       </h2>
       <p className="pt-3 text-body-s text-indigo-black/70">
         Light up each star and we’ll match you with cards built for where you are.
       </p>
       <Link href={ROUTES.quiz} className={cn(buttonVariants({ chevron: false }), "mt-10")}>
-        {started ? "Continue the quiz" : "Start the quiz"}
+        {answered > 0 ? "Continue the quiz" : "Start the quiz"}
       </Link>
     </section>
   );
