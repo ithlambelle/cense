@@ -20,22 +20,25 @@ import {
 } from "@/lib/copy/results";
 import { SENSITIVE } from "@/lib/analytics";
 import { moneyAmount } from "@/lib/money";
-import { QUIZ_STEP_COUNT } from "@/lib/quiz/spending";
+import { quizProgress } from "@/lib/quiz/progress";
 import type { ResultView } from "@/lib/results/compute";
 import { cardPath, ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 // The result screen, drawn from Figma 397:822 (Wireframes Prototyping page).
 // Everything shown comes from computeResult (rules v1.2); nothing here decides fit.
-export function ResultsView({ view }: { view: ResultView }) {
+// `answered`: how many questions are answered, for a quiz not finished yet.
+export function ResultsView({ view, answered = 0 }: { view: ResultView; answered?: number }) {
   if (view.kind === "quiz_unfinished") {
+    // The same count and words as Home's quiz card (quizProgress).
+    const progress = quizProgress(answered);
     return (
-      <ResultLayout title="No card match yet" subtitle={`Answer ${QUIZ_STEP_COUNT} short questions to see one`}>
+      <ResultLayout title="No card match yet" subtitle={`Answer ${progress.questions} to see one`}>
         <p className="text-body-m text-navy">
           We’ll show a card to start with and the reasons it fits what you told us.
         </p>
         <Link href={ROUTES.quiz} className={cn(buttonVariants(), "mt-6")}>
-          Take the quiz
+          {progress.action}
           <ButtonChevron />
         </Link>
       </ResultLayout>
@@ -58,7 +61,18 @@ export function ResultsView({ view }: { view: ResultView }) {
           <ul className="flex list-disc flex-col gap-1 pl-5 text-body-s text-indigo-black marker:text-violet">
             <li>{NOT_YET_NEXT_STEPS.authorizedUser}</li>
             {/* Only when the reason was income: otherwise more income is not the answer. */}
-            {view.ruleId ? <li>{NOT_YET_NEXT_STEPS.ownIncome}</li> : null}
+            {view.ruleId ? (
+              <li>
+                {NOT_YET_NEXT_STEPS.ownIncome}
+                <Link
+                  href={ROUTES.quiz}
+                  className="text-violet underline underline-offset-2 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
+                >
+                  {NOT_YET_NEXT_STEPS.ownIncomeLink}
+                </Link>
+                .
+              </li>
+            ) : null}
           </ul>
         </section>
       </ResultLayout>

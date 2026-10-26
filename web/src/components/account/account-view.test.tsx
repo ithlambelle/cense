@@ -29,14 +29,14 @@ describe("AccountView", () => {
     expect(screen.getByRole("button", { name: "Log out" })).toBeTruthy();
   });
 
-  it("invites the student to start when no card is tracked, with the two ways to", () => {
-    render(<AccountView email={null} card={null} />);
+  it("invites the student to start when no card is tracked, in Home's words, without repeating a row", () => {
+    const { unmount } = render(<AccountView email={null} card={null} />);
     expect(screen.getByText("No card tracked yet.")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Take the quiz" }).getAttribute("href")).toBe("/quiz");
-    // The same words as the Account row below it, which does the same thing.
-    expect(screen.getAllByRole("link", { name: "Add a card I already have" }).map((link) => link.getAttribute("href"))).toEqual([
-      "/home/add-card",
-      "/home/add-card",
-    ]);
+    expect(screen.getByRole("link", { name: "Start the quiz" }).getAttribute("href")).toBe("/quiz");
+    // Adding a card is the Account row, once.
+    expect(screen.getAllByRole("link", { name: "Add a card I already have" })).toHaveLength(1);
+    unmount();
+    render(<AccountView email={null} card={null} quizAnswered={2} />);
+    expect(screen.getByRole("link", { name: "Continue the quiz" }).getAttribute("href")).toBe("/quiz");
   });
 });

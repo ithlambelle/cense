@@ -27,7 +27,9 @@ export const NOT_YET_NEXT_STEPS = {
   title: "What you can do now",
   authorizedUser:
     "Ask a family member to add you as an authorized user on their card. If the issuer reports it and they pay on time, it can start your credit history.",
-  ownIncome: "When you have income or savings of your own, take the quiz again.",
+  // Before and as the link to the quiz.
+  ownIncome: "When you have income or savings of your own, ",
+  ownIncomeLink: "take the quiz again",
 } as const;
 
 // Source: Notion "Fit Tier Rules v1.2", section 1.

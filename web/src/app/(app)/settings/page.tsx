@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Your account | CENSE" };
 
 export default async function AccountPage() {
   const student = await requireStudent(ROUTES.home);
-  const { applications } = await loadStudentSnapshot(student);
+  const { applications, quizAnswered } = await loadStudentSnapshot(student);
   const card = applications.find((application) => application.status === "approved") ?? applications[0] ?? null;
-  return <AccountView email={student.email} card={card} />;
+  return <AccountView email={student.email} card={card} quizAnswered={quizAnswered} />;
 }

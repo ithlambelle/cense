@@ -23,6 +23,7 @@ import { SENSITIVE } from "@/lib/analytics";
 import type { Application } from "@/lib/api/application";
 import { celebrating, type CardDetail, type HomeState } from "@/lib/home/state";
 import { moneyAmount } from "@/lib/money";
+import { quizProgress } from "@/lib/quiz/progress";
 import { QUIZ_STEP_COUNT } from "@/lib/quiz/spending";
 import { applicationPath, cardPath, deniedPath, planPath, ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -349,13 +350,10 @@ function NextStep({
 // the spending question, and the quiz says "Question 1 of 7". Once started it
 // counts what is left, as the quiz reopens on "Question 3 of 7" after two
 // answers ("5 more questions"), and one star is lit per answer; before that,
-// the first star is lit, as drawn.
+// the first star is lit, as drawn. Words from quizProgress, as on Results.
 function QuizPrompt({ answered }: { answered: number }) {
-  const left = QUIZ_STEP_COUNT - answered;
-  const heading =
-    answered === 0
-      ? `${QUIZ_STEP_COUNT} questions to your first card`
-      : `${left} more ${left === 1 ? "question" : "questions"} to your first card`;
+  const progress = quizProgress(answered);
+  const heading = `${progress.questions} to your first card`;
   const lit = (index: number) => (answered === 0 ? index === 0 : index < answered);
   return (
     <section aria-labelledby="quiz-prompt" className="flex flex-col rounded-card bg-off-white p-5">
@@ -379,7 +377,7 @@ function QuizPrompt({ answered }: { answered: number }) {
         Light up each star and we’ll match you with cards built for where you are.
       </p>
       <Link href={ROUTES.quiz} className={cn(buttonVariants({ chevron: false }), "mt-10")}>
-        {answered > 0 ? "Continue the quiz" : "Start the quiz"}
+        {progress.action}
       </Link>
     </section>
   );

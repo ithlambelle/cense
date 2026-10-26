@@ -24,6 +24,14 @@ describe("depositLine", () => {
     }
   });
 
+  // In the issuer's own terms: U.S. Bank says it may move you; Citi, only in good standing.
+  it("keeps each issuer's conditions", () => {
+    for (const id of ["us-bank-altitude-go-secured", "us-bank-cash-plus-secured"]) {
+      expect(depositLine(findCard(id)!), id).toBe("A refundable deposit backs the card. U.S. Bank returns it if it moves you to the regular card.");
+    }
+    expect(depositLine(findCard("citi-secured")!)).toContain("in good standing");
+  });
+
   it("says nothing for a card with no deposit", () => {
     expect(depositLine(findCard("chime-card")!)).toBeNull();
     expect(depositLine(findCard("discover-it-student-cash-back")!)).toBeNull();

@@ -31,7 +31,7 @@ export const DEPOSIT_REFUNDS: Readonly<Record<string, DepositRefund>> = {
     verifiedAt: "2026-10-25",
   },
   "citi-secured": {
-    whenBack: "Citi generally returns it when you close the account with the balance paid in full.",
+    whenBack: "Citi generally returns it when you close the account in good standing with the balance paid in full.",
     sourceUrl: "https://www.citi.com/credit-cards/citi-secured-credit-card",
     verifiedAt: "2026-10-25",
   },
@@ -41,12 +41,12 @@ export const DEPOSIT_REFUNDS: Readonly<Record<string, DepositRefund>> = {
     verifiedAt: "2026-10-25",
   },
   "us-bank-altitude-go-secured": {
-    whenBack: "U.S. Bank returns it when it moves you to the regular card.",
+    whenBack: "U.S. Bank returns it if it moves you to the regular card.",
     sourceUrl: "https://www.usbank.com/credit-cards/altitude-go-secured-visa-credit-card.html",
     verifiedAt: "2026-10-25",
   },
   "us-bank-cash-plus-secured": {
-    whenBack: "U.S. Bank returns it when it moves you to the regular card.",
+    whenBack: "U.S. Bank returns it if it moves you to the regular card.",
     sourceUrl: "https://www.usbank.com/credit-cards/cash-plus-secured-visa-credit-card.html",
     verifiedAt: "2026-10-25",
   },

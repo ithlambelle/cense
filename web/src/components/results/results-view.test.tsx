@@ -15,10 +15,14 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/results" }));
 const ALL_SIX = { under21: true, incomeBand: "under_5k", student: true, standing: "none", recentDenial: false, canDeposit: true };
 
 describe("ResultsView", () => {
-  it("sends an unfinished quiz back to the quiz, counting its questions as the quiz does", () => {
-    render(<ResultsView view={{ kind: "quiz_unfinished" }} />);
-    expect(screen.getByRole("link", { name: "Take the quiz" }).getAttribute("href")).toBe(ROUTES.quiz);
-    expect(screen.getByText(`Answer ${QUIZ_STEP_COUNT} short questions to see one`)).toBeTruthy();
+  it("sends an unfinished quiz back to the quiz, counting what is left as Home does", () => {
+    const { unmount } = render(<ResultsView view={{ kind: "quiz_unfinished" }} />);
+    expect(screen.getByRole("link", { name: "Start the quiz" }).getAttribute("href")).toBe(ROUTES.quiz);
+    expect(screen.getByText(`Answer ${QUIZ_STEP_COUNT} questions to see one`)).toBeTruthy();
+    unmount();
+    render(<ResultsView view={{ kind: "quiz_unfinished" }} answered={2} />);
+    expect(screen.getByRole("link", { name: "Continue the quiz" }).getAttribute("href")).toBe(ROUTES.quiz);
+    expect(screen.getByText(`Answer ${QUIZ_STEP_COUNT - 2} more questions to see one`)).toBeTruthy();
   });
 
   it("gives a next step when no card fits: an authorized user, and the quiz again once there is income", () => {
@@ -26,8 +30,10 @@ describe("ResultsView", () => {
     const next = screen.getByRole("region", { name: NOT_YET_NEXT_STEPS.title });
     expect(within(next).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
       NOT_YET_NEXT_STEPS.authorizedUser,
-      NOT_YET_NEXT_STEPS.ownIncome,
+      `${NOT_YET_NEXT_STEPS.ownIncome}${NOT_YET_NEXT_STEPS.ownIncomeLink}.`,
     ]);
+    // The advice leads somewhere: the quiz.
+    expect(within(next).getByRole("link", { name: NOT_YET_NEXT_STEPS.ownIncomeLink }).getAttribute("href")).toBe(ROUTES.quiz);
     unmount();
     // No income reason: more income is not the answer, so only the first.
     render(<ResultsView view={{ kind: "no_card", ruleId: null, reason: null }} />);

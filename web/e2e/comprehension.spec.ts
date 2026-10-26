@@ -52,29 +52,33 @@ test("Home counts the questions the quiz has left, for a new student and one pic
   await page.goto("/home");
   const resumed = await homePrompt(page);
   await expect(page.getByRole("heading", { name: `${start.of - 2} more questions to your first card` })).toBeVisible();
+  // Results, before a match, says the same as Home: what is left, and Continue.
+  await page.goto("/results");
+  await expect(page.getByText(`Answer ${start.of - 2} more questions to see one`)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Start the quiz" })).toHaveCount(0);
   await page.getByRole("link", { name: "Continue the quiz" }).click();
   const back = await quizCount(page);
   expect(back).toEqual({ at: 3, of: start.of });
   expect(resumed).toEqual({ left: back.of - back.at + 1, lit: 2, stars: back.of });
 });
 
-test("Your account, for a student with no card, offers the quiz and adding a card it mentions", async ({ page }) => {
+test("Your account, for a student with no card, offers the quiz it mentions, and adding a card once", async ({ page }) => {
   const checkA11y = axeChecker(page);
   await signUp(page, uniqueEmail("empty-account"), async () => {});
   await page.goto("/settings");
   const yourCard = page.getByRole("region", { name: "Your card" });
   await expect(yourCard.getByText("No card tracked yet.")).toBeVisible();
   await checkA11y("account: no card");
-  for (const [name, path] of [
-    ["Take the quiz", /\/quiz$/],
-    ["Add a card I already have", /\/home\/add-card$/],
-  ] as const) {
-    await page.goto("/settings");
-    const link = yourCard.getByRole("link", { name });
-    expect((await link.boundingBox())!.height, `${name}: tap target`).toBeGreaterThanOrEqual(44);
-    await link.click();
-    await expect(page, name).toHaveURL(path);
-  }
+  // In Home's words.
+  const quiz = yourCard.getByRole("link", { name: "Start the quiz" });
+  expect((await quiz.boundingBox())!.height, "quiz link: tap target").toBeGreaterThanOrEqual(44);
+  await quiz.click();
+  await expect(page).toHaveURL(/\/quiz$/);
+  // Adding a card is one row, not two.
+  await page.goto("/settings");
+  await expect(page.getByRole("link", { name: "Add a card I already have" })).toHaveCount(1);
+  await page.getByRole("link", { name: "Add a card I already have" }).click();
+  await expect(page).toHaveURL(/\/home\/add-card$/);
 });
 
 test("a result with no card that fits gives a next step", async ({ page }) => {
@@ -89,6 +93,9 @@ test("a result with no card that fits gives a next step", async ({ page }) => {
   await expect(next).toContainText("authorized user");
   await expect(next).toContainText("income or savings of your own");
   await checkA11y("results: not yet, with a next step");
+  // The advice leads somewhere.
+  await next.getByRole("link", { name: "take the quiz again" }).click();
+  await expect(page).toHaveURL(/\/quiz$/);
 });
 
 test("a secured card's page says what the deposit is, and calls it refundable only where the issuer does", async ({ page }) => {
@@ -101,6 +108,11 @@ test("a secured card's page says what the deposit is, and calls it refundable on
   await page.goto("/cards/bofa-bankamericard-secured");
   await expect(page.getByText("A deposit backs the card.", { exact: false })).toBeVisible();
   await expect(page.getByText(/refundable/i)).toHaveCount(0);
+  // In each issuer's own conditions.
+  await page.goto("/cards/us-bank-altitude-go-secured");
+  await expect(page.getByText("U.S. Bank returns it if it moves you to the regular card.", { exact: false })).toBeVisible();
+  await page.goto("/cards/citi-secured");
+  await expect(page.getByText(/in good standing/)).toBeVisible();
   // No deposit (Chime) and unsecured cards say nothing about one.
   for (const id of ["chime-card", "discover-it-student-cash-back"]) {
     await page.goto(`/cards/${id}`);

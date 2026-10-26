@@ -19,7 +19,7 @@ import {
 } from "@/lib/api/reminders";
 import type { Student } from "@/lib/api/auth";
 import { listCards } from "@/lib/cards/catalog";
-import { firstUnanswered, QUESTIONS } from "@/lib/quiz/questions";
+import { answeredCount } from "@/lib/quiz/progress";
 import { computeResult, type ResultView } from "@/lib/results/compute";
 
 export type StudentSnapshot = {
@@ -38,7 +38,7 @@ export async function loadStudentSnapshot(student: Student): Promise<StudentSnap
   return {
     applications,
     quiz: computeResult(answers, listCards()),
-    quizAnswered: firstUnanswered(answers) ?? QUESTIONS.length,
+    quizAnswered: answeredCount(answers),
   };
 }
 

@@ -8,12 +8,22 @@ import { STATUS_LABELS } from "@/lib/copy/applications";
 import { SENSITIVE } from "@/lib/analytics";
 import type { Application } from "@/lib/api/application";
 import { moneyAmount } from "@/lib/money";
+import { quizProgress } from "@/lib/quiz/progress";
 import { ROUTES } from "@/lib/routes";
 
 // Your account (S28): the MVP1 subset of the Profile frame (416:342), in the
 // system's colors (the frame is an earlier draft in other hexes). Updates,
 // notification settings and security screens are not in MVP1.
-export function AccountView({ email, card }: { email: string | null; card: Application | null }) {
+export function AccountView({
+  email,
+  card,
+  quizAnswered = 0,
+}: {
+  email: string | null;
+  card: Application | null;
+  // How many quiz questions are answered, for the no-card box's quiz link.
+  quizAnswered?: number;
+}) {
   const initial = email?.trim()[0]?.toUpperCase() ?? "?";
   return (
     <div className="flex min-h-dvh justify-center bg-background">
@@ -55,24 +65,16 @@ export function AccountView({ email, card }: { email: string | null; card: Appli
                 <ChevronRight aria-hidden="true" width={16} height={16} className="shrink-0 text-violet" />
               </Link>
             ) : (
-              // The two ways to get a card here, as Home offers them: the quiz,
-              // and "I already have a card".
+              // The quiz, in Home's words (quizProgress). Adding a card you
+              // already have is the Account row below, so it is not repeated.
               <div className="flex flex-col rounded-input border border-hairline px-4 pt-4 pb-1">
                 <p className="text-body-s text-indigo-black">No card tracked yet.</p>
-                <div className="flex flex-wrap gap-x-5">
-                  {[
-                    { href: ROUTES.quiz, label: "Take the quiz" },
-                    { href: ROUTES.addCard, label: "Add a card I already have" },
-                  ].map((action) => (
-                    <Link
-                      key={action.href}
-                      href={action.href}
-                      className="min-h-11 content-center text-body-s text-violet underline underline-offset-2 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
-                    >
-                      {action.label}
-                    </Link>
-                  ))}
-                </div>
+                <Link
+                  href={ROUTES.quiz}
+                  className="min-h-11 self-start content-center text-body-s text-violet underline underline-offset-2 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
+                >
+                  {quizProgress(quizAnswered).action}
+                </Link>
               </div>
             )}
           </section>
