@@ -64,9 +64,11 @@ export function ResultsView({ view, answered = 0 }: { view: ResultView; answered
             {view.ruleId ? (
               <li>
                 {NOT_YET_NEXT_STEPS.ownIncome}
+                {/* A 44px tap area around the 17px line: 14px each way
+                    (after:-inset-3.5), kept on one line so it stays one box. */}
                 <Link
                   href={ROUTES.quiz}
-                  className="text-violet underline underline-offset-2 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
+                  className="relative whitespace-nowrap text-violet underline underline-offset-2 outline-none after:absolute after:-inset-3.5 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
                 >
                   {NOT_YET_NEXT_STEPS.ownIncomeLink}
                 </Link>
