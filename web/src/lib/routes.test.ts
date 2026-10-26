@@ -10,6 +10,8 @@ import {
   googleSignInPath,
   paymentRemindersPath,
   planPath,
+  quizBackHref,
+  quizPath,
   signInPath,
   waitingPath,
 } from "./routes";
@@ -109,5 +111,22 @@ describe("Mark result remembers the card page it was opened from", () => {
     expect(applicationBackLink(undefined, "chime-card")).toEqual({ href: "/home", label: "Home" });
     expect(applicationBackLink("https://evil.example", "chime-card")).toEqual({ href: "/home", label: "Home" });
     expect(applicationBackLink(["card", "card"], "chime-card")).toEqual({ href: "/home", label: "Home" });
+  });
+});
+
+describe("the quiz and the waiting screen go back where they were opened from", () => {
+  it("opens the quiz with its origin, and its first question goes back there", () => {
+    expect(quizPath()).toBe("/quiz");
+    expect(quizPath("cards")).toBe("/quiz?from=cards");
+    expect(quizPath("results")).toBe("/quiz?from=results");
+    expect(quizBackHref("cards")).toBe("/cards");
+    expect(quizBackHref("results")).toBe("/results");
+    for (const other of [undefined, "home", "https://evil.example", ["cards", "cards"]]) expect(quizBackHref(other)).toBe("/home");
+  });
+
+  it("passes Mark result's origin to the waiting screen", () => {
+    const id = "00000000-0000-4000-8000-000000000001";
+    expect(waitingPath(id)).toBe(`/applications/${id}/waiting`);
+    expect(waitingPath(id, "card")).toBe(`/applications/${id}/waiting?from=card`);
   });
 });

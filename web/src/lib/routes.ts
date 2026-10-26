@@ -36,9 +36,26 @@ export function applicationPath(applicationId: string, from?: ApplicationOrigin)
   return from ? `${path}?from=${from}` : path;
 }
 
-// "I haven’t heard yet" for one tracked card.
-export function waitingPath(applicationId: string): string {
-  return `${applicationPath(applicationId)}/waiting`;
+// "I haven’t heard yet" for one tracked card. `from` is Mark result's, so its
+// back arrow returns to the card page or Home the student came from.
+export function waitingPath(applicationId: string, from?: ApplicationOrigin): string {
+  const path = `${applicationPath(applicationId)}/waiting`;
+  return from ? `${path}?from=${from}` : path;
+}
+
+// Where the quiz was opened from. Its back arrow on the first question
+// returns there instead of always Home. Anything else, including a
+// hand-typed value, means Home.
+export type QuizOrigin = "cards" | "results";
+
+export function quizPath(from?: QuizOrigin): string {
+  return from ? `${ROUTES.quiz}?from=${from}` : ROUTES.quiz;
+}
+
+export function quizBackHref(from: string | string[] | undefined): string {
+  if (from === "cards") return ROUTES.cards;
+  if (from === "results") return ROUTES.results;
+  return ROUTES.home;
 }
 
 // Home right after Mark result saves a new approval. Home celebrates that

@@ -5,18 +5,28 @@ import { BottomNav } from "@/components/ui/bottom-nav";
 import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { MascotStill } from "@/components/mascot/mascot";
 import type { Application } from "@/lib/api/application";
-import { applicationPath, ROUTES } from "@/lib/routes";
+import { applicationPath, ROUTES, type ApplicationOrigin } from "@/lib/routes";
 
 // "Not yet" from the mark-result screen (S19). No frame: built from the
 // denial frames' parts and proposed to design. Facts are sourced:
 // Regulation B, 12 CFR 1002.9(a)(1) (https://www.consumerfinance.gov/rules-policy/regulations/1002/9/);
 // Capital One on review times (https://www.capitalone.com/learn-grow/money-management/how-long-does-it-take-to-get-a-credit-card/).
-export function WaitingView({ application }: { application: Application }) {
+// `back` is where the student came from (the card's page or Home); "I heard
+// back" is the way to Mark result, keeping that origin.
+export function WaitingView({
+  application,
+  back = { href: ROUTES.home, label: "Home" },
+  from,
+}: {
+  application: Application;
+  back?: { href: string; label: string };
+  from?: ApplicationOrigin;
+}) {
   const id = application.id;
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
-        <AppHeader backHref={applicationPath(id)} backLabel="Your application" />
+        <AppHeader backHref={back.href} backLabel={back.label} />
         <main className="stagger flex flex-1 flex-col gap-6 px-6 pt-4 pb-6">
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-3">
@@ -50,7 +60,7 @@ export function WaitingView({ application }: { application: Application }) {
               Go to Home
               <ButtonChevron />
             </Link>
-            <Link href={applicationPath(id)} className={buttonVariants({ variant: "secondary" })}>
+            <Link href={applicationPath(id, from)} className={buttonVariants({ variant: "secondary" })}>
               I heard back
             </Link>
           </div>

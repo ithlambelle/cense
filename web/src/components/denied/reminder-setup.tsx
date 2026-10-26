@@ -58,7 +58,9 @@ export function ReminderSetup({ applicationId }: { applicationId: string | null 
     // The student left while it saved: the answer must not move them again.
     if (!isMounted()) return;
     if (result.kind === "ok") {
-      router.push(deniedPath("reminderSaved", applicationId));
+      // Replace, not push: Back from the saved screen goes to the plan, never
+      // to this form again for a reminder that is already saved.
+      router.replace(deniedPath("reminderSaved", applicationId));
       return;
     }
     setPending(false);

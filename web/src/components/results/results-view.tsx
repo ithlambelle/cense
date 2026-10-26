@@ -21,7 +21,7 @@ import { SENSITIVE } from "@/lib/analytics";
 import { moneyAmount } from "@/lib/money";
 import { QUESTIONS } from "@/lib/quiz/questions";
 import type { ResultView } from "@/lib/results/compute";
-import { cardPath, ROUTES } from "@/lib/routes";
+import { cardPath, quizPath, ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 // The result screen, drawn from Figma 397:822 (Wireframes Prototyping page).
@@ -33,7 +33,7 @@ export function ResultsView({ view }: { view: ResultView }) {
         <p className="text-body-m text-navy">
           We’ll show a card to start with and the reasons it fits what you told us.
         </p>
-        <Link href={ROUTES.quiz} className={cn(buttonVariants(), "mt-6")}>
+        <Link href={quizPath("results")} className={cn(buttonVariants(), "mt-6")}>
           Take the quiz
           <ButtonChevron />
         </Link>
@@ -183,7 +183,7 @@ function ResultLayout({ title, subtitle, footer = false, children }: ResultLayou
           {footer ? (
             <div className="mt-auto flex flex-col items-center gap-3 pt-10 pb-[max(1.3125rem,env(safe-area-inset-bottom))]">
               <Link
-                href={ROUTES.quiz}
+                href={quizPath("results")}
                 className="min-h-11 content-center text-body-s text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 Retake quiz
