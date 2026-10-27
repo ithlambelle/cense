@@ -74,6 +74,13 @@ async function answerWhoCovers(page: Page, checkA11y?: (screen: string) => Promi
         await expect(page.getByRole("main").getByRole("alert")).toContainText("Enter an amount");
       }
       await field.fill(step.amount.value);
+      // Due on the 31st, so the bill is always still to come this month and
+      // the number does not depend on the day the test runs.
+      if (index === 0) {
+        await page.getByRole("button", { name: "Continue" }).click();
+        await expect(page.getByRole("main").getByRole("alert")).toContainText("Enter a day from 1 to 31.");
+      }
+      await page.getByLabel("Due on day").fill("31");
     }
     await page.getByRole("button", { name: "Continue" }).click();
   }
@@ -187,7 +194,9 @@ test("a student links the sandbox bank, says who covers what, and sees safe to s
   await continueTo("Who covers your phone?");
   await continueTo("Who covers your tuition?");
   await page.getByRole("group", { name: "Who covers your tuition?" }).getByRole("button", { name: "Me", exact: true }).click();
-  await page.getByLabel("Your tuition each month").fill("100");
+  // Tuition is asked per semester: $400 a semester is $100 a month.
+  await expect(page.getByLabel("Due on day")).toHaveCount(0);
+  await page.getByLabel("Your tuition each semester").fill("400");
   await continueTo("Who covers your groceries?");
   await continueTo("Who covers your car?");
   await continueTo("Anything to keep aside each month?");

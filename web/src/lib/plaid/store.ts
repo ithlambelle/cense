@@ -135,10 +135,10 @@ export async function deleteBankLink(student: Student): Promise<StoreResult<bool
 
 export async function saveAnswers(
   student: Student,
-  answers: { bills: { bill: string; coveredBy: string; monthlyCents: number | null }[]; setAsideCents: number },
+  answers: { bills: { bill: string; coveredBy: string; monthlyCents: number | null; dueDay: number | null }[]; setAsideCents: number },
 ): Promise<StoreResult<boolean>> {
   const { data, error } = await student.supabase.rpc("save_safe_to_spend_answers", {
-    p_bills: answers.bills.map((answer) => ({ bill: answer.bill, covered_by: answer.coveredBy, monthly_cents: answer.monthlyCents })),
+    p_bills: answers.bills.map((answer) => ({ bill: answer.bill, covered_by: answer.coveredBy, monthly_cents: answer.monthlyCents, due_day: answer.dueDay })),
     p_set_aside_cents: answers.setAsideCents,
   });
   if (error) return { ok: false, error };

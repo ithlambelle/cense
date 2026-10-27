@@ -75,16 +75,29 @@ create table if not exists public.bank_balances (
 );
 
 -- who covers each bill (Figma 222:2090). monthly_cents is the student's own
--- amount: the bill for "me", their share for "split".
+-- amount: the bill for "me", their share for "split"; tuition is asked per
+-- semester and stored as its monthly figure. due_day is the day of the month
+-- a bill they pay is due; safe to spend subtracts only the bills still to
+-- come this month (Ben, Oct 27). Tuition has no due day.
 create table if not exists public.bill_coverage (
   student_id uuid not null references public.bank_links (student_id) on delete cascade,
   bill text not null check (bill in ('rent', 'phone', 'tuition', 'groceries', 'car')),
   covered_by text not null check (covered_by in ('me', 'family', 'split', 'none')),
   monthly_cents bigint check (monthly_cents between 0 and 10000000),
+  due_day smallint check (due_day between 1 and 31),
   constraint bill_coverage_amount_when_paying
     check ((covered_by in ('me', 'split')) = (monthly_cents is not null)),
+  constraint bill_coverage_due_day_when_paying
+    check (((covered_by in ('me', 'split')) and bill <> 'tuition') = (due_day is not null)),
   primary key (student_id, bill)
 );
+
+-- the due day on a table made by an earlier draft of this file (no rows
+-- there yet outside local stacks)
+alter table public.bill_coverage add column if not exists due_day smallint check (due_day between 1 and 31);
+alter table public.bill_coverage drop constraint if exists bill_coverage_due_day_when_paying;
+alter table public.bill_coverage add constraint bill_coverage_due_day_when_paying
+  check (((covered_by in ('me', 'split')) and bill <> 'tuition') = (due_day is not null));
 
 -- Supabase's default privileges give anon and authenticated every privilege
 -- on new tables in public. Take them back so the grants below are the only ones.
@@ -219,10 +232,10 @@ begin
     return false;
   end if;
   delete from public.bill_coverage where student_id = v_student;
-  insert into public.bill_coverage (student_id, bill, covered_by, monthly_cents)
-  select v_student, b.bill, b.covered_by, b.monthly_cents
+  insert into public.bill_coverage (student_id, bill, covered_by, monthly_cents, due_day)
+  select v_student, b.bill, b.covered_by, b.monthly_cents, b.due_day
   from jsonb_to_recordset(coalesce(p_bills, '[]'::jsonb))
-    as b(bill text, covered_by text, monthly_cents bigint);
+    as b(bill text, covered_by text, monthly_cents bigint, due_day smallint);
   return true;
 end;
 $$;

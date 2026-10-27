@@ -20,24 +20,50 @@ import {
   type BillAnswer,
 } from "@/lib/api-client/safe-to-spend";
 import { ROUTES, safeToSpendSetupPath, signInPath } from "@/lib/routes";
-import { BILLS, COVERED_BY, type Bill, type CoveredBy } from "@/lib/safe-to-spend/compute";
-import { BILL_COPY, COVERED_BY_LABELS, SAFE_TO_SPEND_COPY, SHARE_LABEL } from "@/lib/safe-to-spend/copy";
+import { parseDay } from "@/lib/api-client/reminder-setup";
+import {
+  BILLS,
+  COVERED_BY,
+  monthlyFromSemester,
+  SEMESTER_BILL,
+  semesterFromMonthly,
+  type Bill,
+  type CoveredBy,
+} from "@/lib/safe-to-spend/compute";
+import { BILL_COPY, COVERED_BY_LABELS, DUE_DAY_LABEL, SAFE_TO_SPEND_COPY, SEMESTER_SHARE_LABEL, SHARE_LABEL } from "@/lib/safe-to-spend/copy";
 import { useIsMounted } from "@/lib/use-is-mounted";
 import { cn } from "@/lib/utils";
 
-type Draft = Record<Bill, { coveredBy: CoveredBy | null; amount: string }>;
+type BillDraft = { coveredBy: CoveredBy | null; amount: string; dueDay: string };
+type Draft = Record<Bill, BillDraft>;
+type FieldError = { step: number; text: string; field?: "amount" | "day" };
 
 const AMOUNT_ERROR = "Enter an amount, like 650.";
+const DAY_ERROR = "Enter a day from 1 to 31.";
 
 const paysPart = (coveredBy: CoveredBy | null) => coveredBy === "me" || coveredBy === "split";
+// Tuition is per semester and has no due day; every other bill the student
+// pays is monthly with a due day.
+const needsDueDay = (bill: Bill, coveredBy: CoveredBy | null) => paysPart(coveredBy) && bill !== SEMESTER_BILL;
 
-// The first step whose answer is missing or has no valid amount, or null.
+// What is missing from one bill's answer, or null when it is complete.
+function problem(bill: Bill, { coveredBy, amount, dueDay }: BillDraft): "pick" | "amount" | "day" | null {
+  if (coveredBy === null) return "pick";
+  if (paysPart(coveredBy) && parseAmount(amount) === null) return "amount";
+  if (needsDueDay(bill, coveredBy) && parseDay(dueDay) === null) return "day";
+  return null;
+}
+
+// The first step whose answer is incomplete, or null.
 function firstUnfinished(draft: Draft): number | null {
-  const index = BILLS.findIndex((bill) => {
-    const { coveredBy, amount } = draft[bill];
-    return coveredBy === null || (paysPart(coveredBy) && parseAmount(amount) === null);
-  });
+  const index = BILLS.findIndex((bill) => problem(bill, draft[bill]) !== null);
   return index === -1 ? null : index + 1;
+}
+
+// The amount saved, as the student typed it: tuition back in semesters.
+function savedAmount(bill: Bill, monthlyCents: number | null): string {
+  if (monthlyCents === null) return "";
+  return amountInput(bill === SEMESTER_BILL ? semesterFromMonthly(monthlyCents) : monthlyCents);
 }
 
 // "Who covers what" (Figma 222:2090), one bill a screen, then what to keep
@@ -61,13 +87,17 @@ export function SetupFlow({
     const initial = {} as Draft;
     for (const bill of BILLS) {
       const saved = savedBills.find((answer) => answer.bill === bill);
-      initial[bill] = { coveredBy: saved?.coveredBy ?? null, amount: amountInput(saved?.monthlyCents ?? null) };
+      initial[bill] = {
+        coveredBy: saved?.coveredBy ?? null,
+        amount: savedAmount(bill, saved?.monthlyCents ?? null),
+        dueDay: saved?.dueDay ? String(saved.dueDay) : "",
+      };
     }
     return initial;
   });
   const [setAside, setSetAside] = useState(answered && savedSetAsideCents > 0 ? amountInput(savedSetAsideCents) : "");
   // Shown only on the step it belongs to.
-  const [error, setError] = useState<{ step: number; text: string; field?: boolean } | null>(null);
+  const [error, setError] = useState<FieldError | null>(null);
   const [pending, setPending] = useState(false);
 
   const backHref = step === 1 ? (answered ? ROUTES.safeToSpend : ROUTES.home) : safeToSpendSetupPath(step - 1);
@@ -84,13 +114,17 @@ export function SetupFlow({
   function continueFromBill(event: FormEvent) {
     event.preventDefault();
     const bill = BILLS[step - 1];
-    const { coveredBy, amount } = draft[bill];
-    if (coveredBy === null) {
+    const missing = problem(bill, draft[bill]);
+    if (missing === "pick") {
       setError({ step, text: `Pick who covers your ${BILL_COPY[bill].label.toLowerCase()}.` });
       return;
     }
-    if (paysPart(coveredBy) && parseAmount(amount) === null) {
-      setError({ step, text: AMOUNT_ERROR, field: true });
+    if (missing === "amount") {
+      setError({ step, text: AMOUNT_ERROR, field: "amount" });
+      return;
+    }
+    if (missing === "day") {
+      setError({ step, text: DAY_ERROR, field: "day" });
       return;
     }
     goTo(step + 1);
@@ -106,15 +140,22 @@ export function SetupFlow({
     }
     const setAsideCents = setAside.trim() === "" ? 0 : parseAmount(setAside);
     if (setAsideCents === null) {
-      setError({ step, text: AMOUNT_ERROR, field: true });
+      setError({ step, text: AMOUNT_ERROR, field: "amount" });
       return;
     }
     setPending(true);
     setError(null);
     const result = await saveSafeToSpendAnswers({
       bills: BILLS.map((bill) => {
-        const { coveredBy, amount } = draft[bill];
-        return { bill, coveredBy: coveredBy!, monthlyCents: paysPart(coveredBy) ? parseAmount(amount) : null };
+        const { coveredBy, amount, dueDay } = draft[bill];
+        const typed = paysPart(coveredBy) ? parseAmount(amount) : null;
+        return {
+          bill,
+          coveredBy: coveredBy!,
+          // Tuition is typed per semester and saved as its monthly figure.
+          monthlyCents: typed === null ? null : bill === SEMESTER_BILL ? monthlyFromSemester(typed) : typed,
+          dueDay: needsDueDay(bill, coveredBy) ? parseDay(dueDay) : null,
+        };
       }),
       setAsideCents,
     });
@@ -167,7 +208,7 @@ export function SetupFlow({
                   setError(null);
                   setSetAside(event.target.value);
                 }}
-                error={stepError?.field ? stepError.text : undefined}
+                error={stepError?.field === "amount" ? stepError.text : undefined}
                 disabled={pending}
               />
               <div className="flex-1" />
@@ -205,9 +246,9 @@ function BillStep({
 }: {
   step: number;
   bill: Bill;
-  answer: { coveredBy: CoveredBy | null; amount: string };
-  error: { text: string; field?: boolean } | null;
-  onChange: (next: Partial<{ coveredBy: CoveredBy; amount: string }>) => void;
+  answer: BillDraft;
+  error: { text: string; field?: "amount" | "day" } | null;
+  onChange: (next: Partial<BillDraft>) => void;
   onSubmit: (event: FormEvent) => void;
 }) {
   const titleId = useId();
@@ -245,13 +286,27 @@ function BillStep({
       </div>
       {paysPart(answer.coveredBy) ? (
         <TextField
-          label={answer.coveredBy === "split" ? SHARE_LABEL : copy.amountLabel}
+          label={
+            answer.coveredBy === "split" ? (bill === SEMESTER_BILL ? SEMESTER_SHARE_LABEL : SHARE_LABEL) : copy.amountLabel
+          }
           inputMode="decimal"
           autoComplete="off"
           placeholder="$0"
           value={answer.amount}
           onChange={(event) => onChange({ amount: event.target.value })}
-          error={error?.field ? error.text : undefined}
+          error={error?.field === "amount" ? error.text : undefined}
+        />
+      ) : null}
+      {needsDueDay(bill, answer.coveredBy) ? (
+        <TextField
+          label={DUE_DAY_LABEL}
+          inputMode="numeric"
+          autoComplete="off"
+          maxLength={2}
+          placeholder="1 to 31"
+          value={answer.dueDay}
+          onChange={(event) => onChange({ dueDay: event.target.value })}
+          error={error?.field === "day" ? error.text : undefined}
         />
       ) : null}
       <div className="flex-1" />

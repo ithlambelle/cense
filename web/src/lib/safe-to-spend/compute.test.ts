@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { accountKind, balanceRows, computeSafeToSpend, isStale, STALE_AFTER_MS, type BankAccountInput } from "./compute";
+import { accountKind, balanceRows, computeSafeToSpend, isStale, monthlyFromSemester, semesterFromMonthly, STALE_AFTER_MS, type BankAccountInput } from "./compute";
 
 const account = (overrides: Partial<BankAccountInput> & { type: string; subtype: string | null }, available: number | null, current: number | null): BankAccountInput => ({
   balances: { available, current, iso_currency_code: "USD" },
@@ -18,12 +18,13 @@ describe("computeSafeToSpend", () => {
         { name: "Card", mask: "3333", kind: "card", balanceCents: 31_000 },
       ],
       bills: [
-        { bill: "rent", coveredBy: "me", monthlyCents: 65_000 },
-        { bill: "phone", coveredBy: "split", monthlyCents: 4_000 },
-        { bill: "tuition", coveredBy: "family", monthlyCents: null },
-        { bill: "groceries", coveredBy: "none", monthlyCents: null },
+        { bill: "rent", coveredBy: "me", monthlyCents: 65_000, dueDay: null },
+        { bill: "phone", coveredBy: "split", monthlyCents: 4_000, dueDay: null },
+        { bill: "tuition", coveredBy: "family", monthlyCents: null, dueDay: null },
+        { bill: "groceries", coveredBy: "none", monthlyCents: null, dueDay: null },
       ],
       setAsideCents: 5_000,
+      today: 1,
     });
     expect(sum).toEqual({
       cashCents: 124_000,
@@ -45,6 +46,7 @@ describe("computeSafeToSpend", () => {
       ],
       bills: [],
       setAsideCents: 0,
+      today: 1,
     });
     expect(sum.leftCents).toBe(-31_000);
     expect(sum.dailyCents).toBe(0);
@@ -58,6 +60,7 @@ describe("computeSafeToSpend", () => {
       ],
       bills: [],
       setAsideCents: 0,
+      today: 1,
     });
     expect(sum.cardCents).toBe(0);
     expect(sum.dailyCents).toBe(100);
@@ -71,12 +74,13 @@ describe("computeSafeToSpend", () => {
       ],
       bills: [],
       setAsideCents: 0,
+      today: 1,
     });
     expect(sum.cashCents).toBe(59_000);
   });
 
   it("rounds down to the cent", () => {
-    const sum = computeSafeToSpend({ accounts: [{ name: "C", mask: null, kind: "cash", balanceCents: 100 }], bills: [], setAsideCents: 0 });
+    const sum = computeSafeToSpend({ accounts: [{ name: "C", mask: null, kind: "cash", balanceCents: 100 }], bills: [], setAsideCents: 0, today: 1 });
     expect(sum.dailyCents).toBe(3);
   });
 });
@@ -147,5 +151,29 @@ describe("isStale", () => {
     expect(isStale(null, now)).toBe(true);
     expect(isStale(new Date(now - STALE_AFTER_MS - 1).toISOString(), now)).toBe(true);
     expect(isStale(new Date(now - 5 * 60_000).toISOString(), now)).toBe(false);
+  });
+});
+
+describe("bills still to come this month (Ben, Oct 27)", () => {
+  const accounts = [{ name: "Checking", mask: null, kind: "cash" as const, balanceCents: 124_000 }];
+  const bills = [
+    { bill: "rent" as const, coveredBy: "me" as const, monthlyCents: 65_000, dueDay: 1 },
+    { bill: "phone" as const, coveredBy: "split" as const, monthlyCents: 4_000, dueDay: 28 },
+    { bill: "tuition" as const, coveredBy: "me" as const, monthlyCents: 10_000, dueDay: null },
+  ];
+
+  it("leaves out a bill already due this month, keeps one still to come, and always keeps tuition", () => {
+    // On the 15th: rent (the 1st) is paid, the phone (the 28th) is not.
+    expect(computeSafeToSpend({ accounts, bills, setAsideCents: 0, today: 15 }).billsCents).toBe(14_000);
+    // On the 1st, rent is due today and still counts.
+    expect(computeSafeToSpend({ accounts, bills, setAsideCents: 0, today: 1 }).billsCents).toBe(79_000);
+  });
+});
+
+describe("monthlyFromSemester", () => {
+  it("spreads a semester's tuition over its four months, to the cent", () => {
+    expect(monthlyFromSemester(400_000)).toBe(100_000);
+    expect(monthlyFromSemester(100_001)).toBe(25_000);
+    expect(semesterFromMonthly(100_000)).toBe(400_000);
   });
 });

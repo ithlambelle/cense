@@ -11,6 +11,10 @@
 //   checking, and a bill family covers is not subtracted (Figma 222:2090,
 //   "Family support counts as income").
 // - A card's whole balance is subtracted: it is money already spent.
+// - Only the bills still to come this month are subtracted (Ben, Oct 27): a
+//   bill whose due day has passed is paid, and its money already left checking.
+//   Tuition is asked per semester, turned into a monthly figure and has no due
+//   day, so it is always kept back.
 // - Savings and similar accounts are shown but not counted.
 
 export const BILLS = ["rent", "phone", "tuition", "groceries", "car"] as const;
@@ -30,7 +34,22 @@ export const SPREAD_DAYS = 30;
 export const MAX_MONTHLY_CENTS = 10_000_000;
 
 export type BalanceRow = { name: string; mask: string | null; kind: AccountKind; balanceCents: number };
-export type BillAnswer = { bill: Bill; coveredBy: CoveredBy; monthlyCents: number | null };
+// dueDay: the day of the month the bill is due (1 to 31), for the bills the
+// student pays; null for tuition and for bills they do not pay.
+export type BillAnswer = { bill: Bill; coveredBy: CoveredBy; monthlyCents: number | null; dueDay: number | null };
+
+// The bill asked per semester rather than per month.
+export const SEMESTER_BILL: Bill = "tuition";
+// A semester's tuition is spread over about four months.
+export const SEMESTER_MONTHS = 4;
+
+export function monthlyFromSemester(semesterCents: number): number {
+  return Math.round(semesterCents / SEMESTER_MONTHS);
+}
+
+export function semesterFromMonthly(monthlyCents: number): number {
+  return monthlyCents * SEMESTER_MONTHS;
+}
 
 export type SafeToSpendSum = {
   cashCents: number;
@@ -42,25 +61,32 @@ export type SafeToSpendSum = {
   dailyCents: number;
 };
 
-// What a bill takes out of the student's month: their amount when they pay
-// all or part of it, nothing when family covers it or it does not apply.
-export function billCents(answer: BillAnswer): number {
-  return answer.coveredBy === "me" || answer.coveredBy === "split" ? (answer.monthlyCents ?? 0) : 0;
+// What a bill still takes out of the student's month: their amount when they
+// pay all or part of it and its due day is today or later (`today` is the day
+// of the month); nothing when it is already paid this month, family covers it
+// or it does not apply.
+export function billCents(answer: BillAnswer, today: number): number {
+  if (answer.coveredBy !== "me" && answer.coveredBy !== "split") return 0;
+  if (answer.dueDay !== null && answer.dueDay < today) return 0;
+  return answer.monthlyCents ?? 0;
 }
 
 export function computeSafeToSpend({
   accounts,
   bills,
   setAsideCents,
+  today,
 }: {
   accounts: BalanceRow[];
   bills: BillAnswer[];
   setAsideCents: number;
+  // Today's day of the month, on the student's calendar.
+  today: number;
 }): SafeToSpendSum {
   const cashCents = accounts.filter((a) => a.kind === "cash").reduce((sum, a) => sum + a.balanceCents, 0);
   // A card paid past zero owes nothing; it does not add cash.
   const cardCents = accounts.filter((a) => a.kind === "card").reduce((sum, a) => sum + Math.max(0, a.balanceCents), 0);
-  const billsCents = bills.reduce((sum, answer) => sum + billCents(answer), 0);
+  const billsCents = bills.reduce((sum, answer) => sum + billCents(answer, today), 0);
   const leftCents = cashCents - cardCents - billsCents - setAsideCents;
   return {
     cashCents,

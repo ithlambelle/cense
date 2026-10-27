@@ -6,6 +6,7 @@ import {
   computeSafeToSpend,
   COVERED_BY,
   MAX_MONTHLY_CENTS,
+  SEMESTER_BILL,
   SPREAD_DAYS,
   type AccountKind,
   type Bill,
@@ -27,13 +28,22 @@ export const billAnswerSchema = z
     bill: billSchema,
     coveredBy: coveredBySchema,
     // The student's own monthly amount: the bill for "me", their share for
-    // "split", null for "family" and "none".
+    // "split", null for "family" and "none". Tuition is asked per semester
+    // and sent as its monthly figure.
     monthlyCents: monthlyCentsSchema.nullable(),
+    // The day of the month it is due (1 to 31), for a bill the student pays;
+    // null for tuition and for bills they do not pay.
+    dueDay: z.int().min(1).max(31).nullable(),
   })
   .refine((answer) => (answer.coveredBy === "me" || answer.coveredBy === "split") === (answer.monthlyCents !== null), {
     message: "An amount is needed for me and split, and only for those.",
     path: ["monthlyCents"],
-  });
+  })
+  .refine(
+    (answer) =>
+      ((answer.coveredBy === "me" || answer.coveredBy === "split") && answer.bill !== SEMESTER_BILL) === (answer.dueDay !== null),
+    { message: "A due day is needed for a monthly bill the student pays, and only for those.", path: ["dueDay"] },
+  );
 
 export const saveSafeToSpendAnswersSchema = z
   .strictObject({
@@ -100,7 +110,7 @@ export type BillAnswerBody = z.infer<typeof billAnswerSchema>;
 
 export const BANK_LINK_FIELDS = "institution_name, status, linked_at, refreshed_at, set_aside_cents, answered_at";
 export const BANK_BALANCE_FIELDS = "position, name, mask, kind, balance_cents";
-export const BILL_COVERAGE_FIELDS = "bill, covered_by, monthly_cents";
+export const BILL_COVERAGE_FIELDS = "bill, covered_by, monthly_cents, due_day";
 
 export type BankLinkRow = {
   institution_name: string;
@@ -111,20 +121,31 @@ export type BankLinkRow = {
   answered_at: string | null;
 };
 export type BankBalanceRow = { position: number; name: string; mask: string | null; kind: string; balance_cents: number | string };
-export type BillCoverageRow = { bill: string; covered_by: string; monthly_cents: number | string | null };
+export type BillCoverageRow = { bill: string; covered_by: string; monthly_cents: number | string | null; due_day: number | null };
 
 const iso = (value: string) => new Date(value).toISOString();
 
+// Today's day of the month on the app's calendar (Eastern, the reminder
+// job's default; per-student time zones are SCOPE-20).
+export function todayDay(now: Date = new Date()): number {
+  return Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", day: "numeric" }).format(now));
+}
+
 // Rows to the API shape, with the sum worked out. bigint columns may arrive
 // as strings, so every amount goes through Number().
-export function safeToSpendFromRows(link: BankLinkRow, balances: BankBalanceRow[], coverage: BillCoverageRow[]): SafeToSpend {
+export function safeToSpendFromRows(
+  link: BankLinkRow,
+  balances: BankBalanceRow[],
+  coverage: BillCoverageRow[],
+  today: number = todayDay(),
+): SafeToSpend {
   const accounts = [...balances]
     .sort((a, b) => a.position - b.position)
     .map((row) => ({ name: row.name, mask: row.mask, kind: row.kind as AccountKind, balanceCents: Number(row.balance_cents) }));
   const bills = BILLS.flatMap((bill) => {
     const row = coverage.find((answer) => answer.bill === bill);
     return row
-      ? [{ bill: bill as Bill, coveredBy: row.covered_by as CoveredBy, monthlyCents: row.monthly_cents === null ? null : Number(row.monthly_cents) }]
+      ? [{ bill: bill as Bill, coveredBy: row.covered_by as CoveredBy, monthlyCents: row.monthly_cents === null ? null : Number(row.monthly_cents), dueDay: row.due_day }]
       : [];
   });
   const setAsideCents = Number(link.set_aside_cents);
@@ -136,6 +157,6 @@ export function safeToSpendFromRows(link: BankLinkRow, balances: BankBalanceRow[
     answered: link.answered_at !== null,
     accounts,
     bills,
-    ...computeSafeToSpend({ accounts, bills, setAsideCents }),
+    ...computeSafeToSpend({ accounts, bills, setAsideCents, today }),
   };
 }

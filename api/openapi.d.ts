@@ -722,6 +722,7 @@ export interface components {
                 /** @enum {string} */
                 coveredBy: "me" | "family" | "split" | "none";
                 monthlyCents: number | null;
+                dueDay: number | null;
             }[];
             setAsideCents: number;
             cashCents: number;
@@ -2686,6 +2687,7 @@ export interface operations {
                         /** @enum {string} */
                         coveredBy: "me" | "family" | "split" | "none";
                         monthlyCents: number | null;
+                        dueDay: number | null;
                     }[];
                     setAsideCents: number;
                 };

@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import { saveSafeToSpendAnswersSchema, safeToSpendFromRows, safeToSpendSchema } from "./safe-to-spend";
 
 const BILLS = [
-  { bill: "rent", coveredBy: "me", monthlyCents: 65_000 },
-  { bill: "phone", coveredBy: "split", monthlyCents: 4_000 },
-  { bill: "tuition", coveredBy: "family", monthlyCents: null },
-  { bill: "groceries", coveredBy: "none", monthlyCents: null },
-  { bill: "car", coveredBy: "none", monthlyCents: null },
+  { bill: "rent", coveredBy: "me", monthlyCents: 65_000, dueDay: 31 },
+  { bill: "phone", coveredBy: "split", monthlyCents: 4_000, dueDay: 31 },
+  { bill: "tuition", coveredBy: "family", monthlyCents: null, dueDay: null },
+  { bill: "groceries", coveredBy: "none", monthlyCents: null, dueDay: null },
+  { bill: "car", coveredBy: "none", monthlyCents: null, dueDay: null },
 ];
 
 describe("saveSafeToSpendAnswersSchema", () => {
@@ -20,6 +20,15 @@ describe("saveSafeToSpendAnswersSchema", () => {
     const extra = BILLS.map((b) => (b.bill === "tuition" ? { ...b, monthlyCents: 100 } : b));
     expect(saveSafeToSpendAnswersSchema.safeParse({ bills: missing, setAsideCents: 0 }).success).toBe(false);
     expect(saveSafeToSpendAnswersSchema.safeParse({ bills: extra, setAsideCents: 0 }).success).toBe(false);
+  });
+
+  it("needs a due day for a monthly bill the student pays, and none for tuition", () => {
+    const noDay = BILLS.map((b) => (b.bill === "rent" ? { ...b, dueDay: null } : b));
+    const tuitionDay = BILLS.map((b) => (b.bill === "tuition" ? { ...b, coveredBy: "me", monthlyCents: 100, dueDay: 5 } : b));
+    const tuitionNoDay = BILLS.map((b) => (b.bill === "tuition" ? { ...b, coveredBy: "me", monthlyCents: 100 } : b));
+    expect(saveSafeToSpendAnswersSchema.safeParse({ bills: noDay, setAsideCents: 0 }).success).toBe(false);
+    expect(saveSafeToSpendAnswersSchema.safeParse({ bills: tuitionDay, setAsideCents: 0 }).success).toBe(false);
+    expect(saveSafeToSpendAnswersSchema.safeParse({ bills: tuitionNoDay, setAsideCents: 0 }).success).toBe(true);
   });
 
   it("refuses a missing or repeated bill, a negative or huge amount, and unknown fields", () => {
@@ -53,7 +62,7 @@ describe("safeToSpendFromRows", () => {
         { position: 1, name: "Plaid Credit Card", mask: "3333", kind: "card", balance_cents: "31000" },
         { position: 0, name: "Plaid Checking", mask: "0000", kind: "cash", balance_cents: 124000 },
       ],
-      BILLS.map((b) => ({ bill: b.bill, covered_by: b.coveredBy, monthly_cents: b.monthlyCents === null ? null : String(b.monthlyCents) })),
+      BILLS.map((b) => ({ bill: b.bill, covered_by: b.coveredBy, monthly_cents: b.monthlyCents === null ? null : String(b.monthlyCents), due_day: b.dueDay })),
     );
     expect(result.accounts.map((a) => a.name)).toEqual(["Plaid Checking", "Plaid Credit Card"]);
     expect(result).toMatchObject({ answered: true, cashCents: 124_000, cardCents: 31_000, billsCents: 69_000, setAsideCents: 5_000, dailyCents: 633 });
