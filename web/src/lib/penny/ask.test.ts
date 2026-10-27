@@ -23,11 +23,11 @@ afterEach(() => {
 
 const model = (over: Record<string, unknown>) => ({ kind: "answer", answerId: null, reply: null, suggestionIds: [], ...over });
 
-// D8, Ben's call of Oct 27: typed questions show the model's own wording
-// ("rephrased"), kept within the checked answer by groundedReply.
+// D8, Ben's call of Oct 27: typed questions show the checked answer the
+// model picks, word for word ("checked", for MVP2).
 describe("typed answers (D8)", () => {
-  it("are rephrased, and a reply the answer cannot back falls back to it word for word", () => {
-    expect(TYPED_ANSWERS).toBe("rephrased");
+  it("show the checked answer the model picked, word for word, whatever it writes", () => {
+    expect(TYPED_ANSWERS).toBe("checked");
     const reply = replyFrom(model({ answerId: "credit-score", reply: "Soft inquiries raise your score, so check often." }) as never);
     expect(reply).toMatchObject({ kind: "answer", text: findAnswer("credit-score")?.answer, answer: { id: "credit-score" } });
   });
@@ -40,10 +40,10 @@ describe("typed answers (D8)", () => {
     expect(pennySystemPrompt("checked")).not.toMatch(/\breply\b/);
   });
 
-  it("ask for the reply in the rephrased prompt, the one that ships", async () => {
+  it("when rephrased, ask for the reply in the rephrased prompt", async () => {
     sdk.parse.mockResolvedValue({ stop_reason: "end_turn", parsed_output: model({ answerId: "credit-score", reply: "A number." }) });
-    await askPenny("What is a credit score?");
-    expect(PENNY_SYSTEM_PROMPT).toBe(pennySystemPrompt("rephrased"));
+    await askPenny("What is a credit score?", "rephrased");
+    expect(PENNY_SYSTEM_PROMPT).toBe(pennySystemPrompt("checked"));
     const request = sdk.parse.mock.calls[0][0];
     expect(Object.keys(request.output_config.format.schema.properties)).toContain("reply");
     expect(request.system[0].text).toBe(pennySystemPrompt("rephrased"));

@@ -155,15 +155,16 @@ test("student types questions: an AI answer with its source, advice and off-topi
   await hubField.fill("   ");
   await expect(page.getByRole("button", { name: "Send" })).toBeDisabled();
 
-  // Typed on Learn, answered in the chat in the model's words (D8,
-  // "rephrased"), which the checked answer backs. Personal details never
-  // leave Cense.
+  // Typed on Learn, answered in the chat with the checked answer the model
+  // picked, word for word (D8): the model's own wording never shows.
+  // Personal details never leave Cense.
   const before = received.length;
   await ask(page, "Will checking preapproval hurt my score? I'm jordan.lee@bu.edu, 617-555-0142");
   await expect(page).toHaveURL(/\/learn\/penny$/);
   await expect(page.getByRole("article", { name: "You" }).first()).toContainText("Will checking preapproval hurt my score?");
-  await expect(lastPennyMessage(page)).toContainText("Checking preapproval won’t change your score, because it’s a soft inquiry.");
   const preapproval = await checkedAnswer("Preapproval vs. applying");
+  await expect(lastPennyMessage(page)).toContainText(preapproval.answer);
+  await expect(lastPennyMessage(page)).not.toContainText("won’t change your score");
   await expect(lastPennyMessage(page).getByRole("link", { name: `Source: ${preapproval.source.name}` })).toHaveAttribute(
     "href",
     preapproval.source.url,
