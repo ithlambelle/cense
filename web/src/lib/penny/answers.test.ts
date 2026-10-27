@@ -55,22 +55,23 @@ describe("Penny's checked answers", () => {
 });
 
 describe("topics and starters", () => {
-  it("lists five answers per topic, each from that topic", () => {
+  it("lists five answers per topic (seven on Credit), each from that topic", () => {
     for (const topic of PENNY_TOPICS) {
       const answers = topicAnswers(topic.slug);
-      expect(answers, topic.slug).toHaveLength(5);
-      expect(TOPIC_QUESTIONS[topic.slug]).toHaveLength(5);
+      expect(answers, topic.slug).toHaveLength(topic.slug === "credit" ? 7 : 5);
       for (const answer of answers) expect(answer.topic).toBe(topic.slug);
     }
   });
 
-  it("lists the Credit questions from the frame word for word (144:3285)", () => {
+  it("lists the Credit questions from the frame word for word (144:3285), then the two no starter reaches (D6)", () => {
     expect(topicAnswers("credit").map((a) => a.question)).toEqual([
       "How does a credit card work?",
       "What is a credit score?",
       "Preapproval vs. applying",
       "How do I avoid paying interest?",
       "What is a secured card?",
+      "What is a credit limit and utilization?",
+      "What happens if I pay late?",
     ]);
   });
 
@@ -91,7 +92,7 @@ describe("answers keep their sources' conditions", () => {
   const text = (id: string) => findAnswer(id)?.answer ?? "";
 
   it("preapproval: prescreening is usual, not a promise the score stays the same", () => {
-    expect(text("preapproval-vs-applying")).toContain("usually come from a lender prescreening");
+    expect(text("preapproval-vs-applying")).toContain("Preapproved offers usually come from a lender");
     expect(text("preapproval-vs-applying")).not.toContain("stays the same");
   });
 
@@ -113,5 +114,9 @@ describe("answers keep their sources' conditions", () => {
     expect(findAnswer("overdraft-fees")?.source.url).toBe(
       "https://www.consumerfinance.gov/ask-cfpb/what-can-i-do-if-my-bank-charged-me-a-fee-for-overdrawing-my-account-en-1037/",
     );
+  });
+
+  it("BNPL: an unpaid loan sent to collections could be reported (CFPB 2117)", () => {
+    expect(text("buy-now-pay-later")).toContain("an unpaid loan sent to collections could be reported");
   });
 });

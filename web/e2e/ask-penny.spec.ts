@@ -120,6 +120,8 @@ test("student opens Learn from the bottom bar and gets checked answers to tapped
     "Preapproval vs. applying",
     "How do I avoid paying interest?",
     "What is a secured card?",
+    "What is a credit limit and utilization?",
+    "What happens if I pay late?",
   ]);
   await expect(page.getByText("Educational, not financial advice.")).toBeVisible();
   await checkA11y("learn: topic");

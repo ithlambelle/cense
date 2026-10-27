@@ -35,7 +35,7 @@ export const PENNY_ANSWERS = [
     topic: "credit",
     question: "How does a credit card work?",
     answer:
-      "A credit card lets you borrow money to pay for things. You repay the card company by the payment due date. Paying less than the full amount brings interest charges, and paying late usually adds a late fee. Debit and prepaid cards are different, since they spend money you already have.",
+      "A credit card lets you borrow money to pay for things, typically over a monthly period. Paying less than the full amount you owe by the due date brings interest, and paying late usually adds a late fee. Debit and prepaid cards spend money you already have, in your bank account or on the card.",
     source: { name: "CFPB", url: "https://www.consumerfinance.gov/ask-cfpb/how-are-prepaid-cards-debit-cards-and-credit-cards-different-en-433/" },
   },
   {
@@ -51,7 +51,7 @@ export const PENNY_ANSWERS = [
     topic: "credit",
     question: "Preapproval vs. applying",
     answer:
-      "Preapproved offers usually come from a lender prescreening your credit file, which counts as a soft inquiry. Soft inquiries do not affect your credit scores. Applying is what triggers a hard inquiry. Lenders use it to decide on approval, and hard inquiries can affect your score.",
+      "Preapproved offers usually come from a lender (like a credit card company) prescreening your credit file, which counts as a soft inquiry. Soft inquiries do not affect your credit scores. Applying is what triggers a hard inquiry. Lenders use it to decide on approval, and hard inquiries can affect your score.",
     source: { name: "CFPB", url: "https://www.consumerfinance.gov/ask-cfpb/what-is-a-credit-inquiry-en-1317/" },
   },
   {
@@ -75,7 +75,7 @@ export const PENNY_ANSWERS = [
     topic: "credit",
     question: "How to use a credit card?",
     answer:
-      "Every purchase is money you borrow, and one bill arrives each month for all of it. Paying the whole bill each month usually means no interest. Paying only the minimum means interest on the rest. Missing the minimum can raise your interest rate, add fees and damage your credit.",
+      "Every purchase is money you borrow, and one bill arrives each month for all of it. Paying the whole statement balance each month usually means no interest. Paying only the minimum means interest on the rest that you haven’t paid. Missing the minimum can raise your interest rate, add fees and damage your credit.",
     source: { name: "FTC", url: "https://consumer.gov/credit/getting-credit-card" },
   },
   {
@@ -139,7 +139,9 @@ export const PENNY_ANSWERS = [
     topic: "budgeting",
     question: "How does buy now, pay later work?",
     answer:
-      "Buy now, pay later is a type of installment loan that lets you buy something now and pay it off in four or fewer payments. Many of these loans charge no interest, but most charge late fees for missed payments. Your payment history may not be reported to credit reporting companies.",
+      "Buy now, pay later is a type of installment loan that lets you buy something now and pay it off in four or fewer payments. Many charge no interest, but most charge late fees for missed payments. Payments often go unreported to credit reporting companies, but an unpaid loan sent to collections could be reported.",
+    // The last clause is from CFPB 2117 (https://www.consumerfinance.gov/ask-cfpb/will-a-buy-now-pay-later-bnpl-loan-impact-my-credit-scores-en-2117/):
+    // one source shows per answer, and both are CFPB's.
     source: { name: "CFPB", url: "https://www.consumerfinance.gov/ask-cfpb/what-is-a-buy-now-pay-later-bnpl-loan-en-2119/" },
   },
   {
@@ -235,7 +237,8 @@ export const STARTER_IDS = ["using-a-credit-card", "student-budget"] as const sa
 // word (144:3285); the others follow it. The rest of a topic's answers are
 // reached from Learn's starters or by asking.
 export const TOPIC_QUESTIONS: Record<PennyTopic, readonly PennyAnswerId[]> = {
-  credit: ["credit-card-basics", "credit-score", "preapproval-vs-applying", "avoid-interest", "secured-card"],
+  // The frame's five (144:3285), then the two no starter reaches (Ben, D6).
+  credit: ["credit-card-basics", "credit-score", "preapproval-vs-applying", "avoid-interest", "secured-card", "credit-limit-utilization", "paying-late"],
   budgeting: ["fixed-vs-variable", "needs-vs-wants", "tracking-spending", "overdraft-fees", "buy-now-pay-later"],
   saving: ["emergency-fund", "fdic-insurance", "saving-on-small-income", "savings-vs-checking", "automatic-saving"],
   "student-loans": [
