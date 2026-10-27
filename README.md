@@ -208,7 +208,7 @@ Before it can run:
 | `PLAID_ENV` | `sandbox` |
 | `PLAID_TOKEN_KEY` | `openssl rand -base64 32`, a different one per environment. Mark it Sensitive and keep a copy in the team password manager: changing or losing it makes every stored token unreadable (students link again). |
 
-To try it: Home, "See what's safe to spend", Connect (Preview), pick First Platypus Bank, sign in with `user_good` / `pass_good`.
+To try it: Home, "See what's safe to spend", Connect (Preview). In Plaid's sandbox Link: Continue without phone number, search for First Platypus Bank and pick the plain "First Platypus Bank" (not the OAuth ones, which need a redirect URI we have not set up), sign in with `user_good` / `pass_good`, then Continue, Share data and Finish without saving. That user's checking and cash management accounts count as cash (about $12,160), its two cards are subtracted (about $5,430), and savings, CD, money market and HSA show as not counted; loans and investments are never read (checked against the sandbox on Oct 27).
 
 Locally and in CI the journey tests (`web/e2e/safe-to-spend.spec.ts`) never call Plaid: they start a stand-in on :3598 (`web/e2e/support/fake-plaid.ts`) and answer Link's script in the browser. Start the app for them with `PLAID_CLIENT_ID=e2e-client PLAID_SECRET=e2e-placeholder PLAID_ENV=sandbox PLAID_BASE_URL=http://127.0.0.1:3598` and a `PLAID_TOKEN_KEY` in `web/.env.local`, as the `e2e` job does.
 
