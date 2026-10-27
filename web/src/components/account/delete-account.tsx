@@ -16,7 +16,7 @@ import { ROUTES, signInPath } from "@/lib/routes";
 // "Cards you track", so no one fears their real card is closed.
 const WHAT_GOES = [
   "Cards you track, quiz answers, plans and reminders are deleted now.",
-  "Your analytics and screen recordings follow within 30 days.",
+  "Your analytics follow within 30 days.",
   "This can’t be undone.",
 ];
 

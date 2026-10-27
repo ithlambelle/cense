@@ -81,7 +81,7 @@ describe("Delete my account", () => {
     // track", so no one fears their real card is closed.
     expect([...sheet.querySelectorAll("li")].map((li) => li.textContent)).toEqual([
       "Cards you track, quiz answers, plans and reminders are deleted now.",
-      "Your analytics and screen recordings follow within 30 days.",
+      "Your analytics follow within 30 days.",
       "This can’t be undone.",
     ]);
     // Keeping the account is the first and main button.
