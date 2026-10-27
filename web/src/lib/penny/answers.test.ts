@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { listCards } from "@/lib/cards/catalog";
 
-import { findAnswer, PENNY_ANSWERS, PENNY_TOPICS, STARTER_IDS, TOPIC_QUESTIONS, topicAnswers } from "./answers";
+import { findAnswer, PENNY_ANSWERS, PENNY_TOPICS, STARTER_IDS, topicAnswers } from "./answers";
 
 // Where a checked answer may come from: US government and regulator sites.
 const OFFICIAL_HOSTS = [

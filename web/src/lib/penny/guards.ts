@@ -40,6 +40,45 @@ function typeset(text: string): string {
     .replace(/"([^"]*)"/g, "“$1”");
 }
 
+// Words the reply may use only if its checked answer does (PEN-05 b).
+const NUMBER_WORD =
+  /\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|billion|half|dozen)\b/gi;
+const INVESTMENT_WORD =
+  /\b(stocks?|shares|bonds?|crypto(currency|currencies)?|bitcoin|etfs?|mutual funds?|invest(s|ing|ment|ments|or|ors)?|trading|portfolio)\b/gi;
+// Never, whatever the answer says: advice and promises.
+const NEVER = /\b(should|guarantee\w*|approved)\b/i;
+
+// Short, common words that carry no fact.
+const FILLER = new Set(
+  "that this with your from have what when they them then than will would could also just only more most some into about because which there their these those each does been being were here very such like much many make makes means mean even still".split(" "),
+);
+
+// A word's first five letters, so "inquiry" matches "inquiries".
+function stems(text: string): string[] {
+  return (text.toLowerCase().match(/[a-z]{4,}/g) ?? [])
+    .filter((word) => !FILLER.has(word) && !new RegExp(NUMBER_WORD.source, "i").test(word))
+    .map((word) => word.slice(0, 5));
+}
+
+// Every sentence must be mostly the answer's own words: more than half of
+// its content words appear in the checked answer.
+function traceable(reply: string, answer: string): boolean {
+  const known = new Set(stems(answer));
+  return reply
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => sentence.trim().length > 0)
+    .every((sentence) => {
+      const words = stems(sentence);
+      return words.length > 0 && words.filter((word) => known.has(word)).length / words.length > 0.5;
+    });
+}
+
+// Words of one kind in the reply that the answer does not have.
+function newWords(pattern: RegExp, reply: string, answer: string): boolean {
+  const known = new Set((answer.match(pattern) ?? []).map((word) => word.toLowerCase()));
+  return (reply.match(pattern) ?? []).some((word) => !known.has(word.toLowerCase()));
+}
+
 // With typed answers set to "rephrased" (D8, lib/penny/ask.ts): the model's
 // rephrasing, if it only says what the checked answer says.
 // Otherwise the checked answer exactly as written: a number that is not in
@@ -52,5 +91,9 @@ export function groundedReply(reply: string | null, answer: PennyAnswer): string
   const known = new Set(numbersIn(answer.answer));
   if (numbersIn(text).some((value) => !known.has(value))) return answer.answer;
   if (catalogNames().some((name) => text.includes(name))) return answer.answer;
+  if (newWords(NUMBER_WORD, text, answer.answer)) return answer.answer;
+  if (NEVER.test(text) && !NEVER.test(answer.answer)) return answer.answer;
+  if (newWords(INVESTMENT_WORD, text, answer.answer)) return answer.answer;
+  if (!traceable(text, answer.answer)) return answer.answer;
   return typeset(text);
 }

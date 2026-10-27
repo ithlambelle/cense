@@ -23,29 +23,27 @@ afterEach(() => {
 
 const model = (over: Record<string, unknown>) => ({ kind: "answer", answerId: null, reply: null, suggestionIds: [], ...over });
 
-// D8, Ben's call: typed questions show the checked answer the model picks,
-// word for word ("checked", the default), or the model's own wording of it
-// ("rephrased").
+// D8, Ben's call of Oct 27: typed questions show the model's own wording
+// ("rephrased"), kept within the checked answer by groundedReply.
 describe("typed answers (D8)", () => {
-  it("default to the checked answer the model picked, word for word", () => {
-    expect(TYPED_ANSWERS).toBe("checked");
-    // A wrong fact with no number, link or name: the guard alone lets it through.
+  it("are rephrased, and a reply the answer cannot back falls back to it word for word", () => {
+    expect(TYPED_ANSWERS).toBe("rephrased");
     const reply = replyFrom(model({ answerId: "credit-score", reply: "Soft inquiries raise your score, so check often." }) as never);
     expect(reply).toMatchObject({ kind: "answer", text: findAnswer("credit-score")?.answer, answer: { id: "credit-score" } });
   });
 
-  it("ask the model only to choose, with no reply to write", async () => {
+  it("when checked, ask the model only to choose, with no reply to write", async () => {
     sdk.parse.mockResolvedValue({ stop_reason: "end_turn", parsed_output: model({ answerId: "credit-score" }) });
-    await askPenny("What is a credit score?");
+    await askPenny("What is a credit score?", "checked");
     const request = sdk.parse.mock.calls[0][0];
     expect(Object.keys(request.output_config.format.schema.properties).sort()).toEqual(["answerId", "kind", "suggestionIds"]);
-    expect(PENNY_SYSTEM_PROMPT).toBe(pennySystemPrompt("checked"));
-    expect(PENNY_SYSTEM_PROMPT).not.toMatch(/\breply\b/);
+    expect(pennySystemPrompt("checked")).not.toMatch(/\breply\b/);
   });
 
-  it("when rephrased, ask for the reply and keep it only within the answer's facts", async () => {
+  it("ask for the reply in the rephrased prompt, the one that ships", async () => {
     sdk.parse.mockResolvedValue({ stop_reason: "end_turn", parsed_output: model({ answerId: "credit-score", reply: "A number." }) });
-    await askPenny("What is a credit score?", "rephrased");
+    await askPenny("What is a credit score?");
+    expect(PENNY_SYSTEM_PROMPT).toBe(pennySystemPrompt("rephrased"));
     const request = sdk.parse.mock.calls[0][0];
     expect(Object.keys(request.output_config.format.schema.properties)).toContain("reply");
     expect(request.system[0].text).toBe(pennySystemPrompt("rephrased"));

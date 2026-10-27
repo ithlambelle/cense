@@ -55,3 +55,33 @@ describe("groundedReply", () => {
     expect(groundedReply("Coverage is 250000 dollars per depositor.", fdic)).toBe("Coverage is 250000 dollars per depositor.");
   });
 });
+
+// PEN-05 option (b), Ben's D8 of Oct 27: the student reads the model's
+// wording, so anything it adds falls back to the checked answer.
+describe("groundedReply, rephrased (PEN-05 b)", () => {
+  const score = findAnswer("credit-score") as PennyAnswer;
+  const preapproval = findAnswer("preapproval-vs-applying") as PennyAnswer;
+  const fdic = findAnswer("fdic-insurance") as PennyAnswer;
+
+  it.each([
+    ["a spelled-out number", score, "Most scores range from three hundred to eight fifty."],
+    ["should", preapproval, "Preapproved offers are a soft inquiry, so you should check them."],
+    ["approved", preapproval, "Preapproved offers are a soft inquiry, and lenders say you are approved."],
+    ["guarantee", preapproval, "Soft inquiries guarantee your credit scores stay the same."],
+    ["an investment word", score, "Lenders, landlords and insurers use your credit score, and so do crypto apps."],
+    ["a sentence its answer cannot back", preapproval, "Soft inquiries raise your score, so check often."],
+  ])("falls back for %s", (_case, answer, reply) => {
+    expect(groundedReply(reply, answer)).toBe(answer.answer);
+  });
+
+  it("keeps an investment word the answer itself has", () => {
+    expect(groundedReply("Stocks, bonds and crypto are not covered, even at an insured bank.", fdic)).toBe(
+      "Stocks, bonds and crypto are not covered, even at an insured bank.",
+    );
+  });
+
+  it("keeps a rephrasing whose every sentence the answer backs", () => {
+    const reply = "Checking preapproved offers is a soft inquiry, so your credit scores stay put. Applying is what triggers a hard inquiry.";
+    expect(groundedReply(reply, preapproval)).toBe(reply);
+  });
+});

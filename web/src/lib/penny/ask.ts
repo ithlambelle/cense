@@ -15,18 +15,18 @@ import { groundedReply } from "./guards";
 // education and advice, not long reasoning.
 export const PENNY_MODEL = "claude-sonnet-5-5";
 
-// D8, Ben's call: what a student reads for a typed question.
-// - "checked" (the default): the checked answer the model picked, word for
-//   word, the same as a tapped question. The model only chooses the answer
-//   or the decline and writes nothing a student reads, so it cannot get a
-//   fact wrong, and npm run penny:eval checks everything it decides. The
-//   audit's recommendation for the first real students (PEN-05).
-// - "rephrased": the model answers in the student's terms from that answer's
-//   facts. groundedReply() falls back to the checked answer on a number,
-//   link or card name the answer lacks, but it cannot check meaning, so
-//   penny:eval prints every reply for Ben to read before this goes live.
+// D8, Ben's call (Oct 27: "rephrased"): what a student reads for a typed question.
+// - "checked": the checked answer the model picked, word for word, the same
+//   as a tapped question. The model only chooses and writes nothing a
+//   student reads.
+// - "rephrased" (the setting): the model answers in the student's terms
+//   from that answer's facts. groundedReply() falls back to the checked
+//   answer word for word when the reply adds a number (digits or words), a
+//   link, a card name, "should", "approved", "guarantee", an investment
+//   word, or a sentence the answer does not back (PEN-05 b). It cannot
+//   check meaning, so penny:eval prints every reply for Ben to read.
 export type TypedAnswers = "checked" | "rephrased";
-export const TYPED_ANSWERS: TypedAnswers = "checked";
+export const TYPED_ANSWERS: TypedAnswers = "rephrased";
 
 // What the model returns. The source and the topic are never the model's:
 // they come from the checked answer it picked. Rephrased also asks for the
