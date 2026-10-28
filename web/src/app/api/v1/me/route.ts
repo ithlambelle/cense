@@ -1,6 +1,7 @@
 import { accountDeletionConfig, deletePostHogPerson } from "@/lib/account-deletion";
 import { authenticatedStudent } from "@/lib/api/auth";
 import { apiError } from "@/lib/api/errors";
+import { removeBankLinksForStudent } from "@/lib/plaid/unlink";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export async function GET(): Promise<Response> {
@@ -14,10 +15,11 @@ export async function GET(): Promise<Response> {
 }
 
 // Delete my account (S28), at once: the student's PostHog person with its
-// events and recordings, then the sign-in record, which cascades to every
+// events and recordings, then the Plaid Items, then the sign-in record, which cascades to every
 // table that holds their data, then the session cookies. The settings are
-// checked first and each step runs only if the one before worked, so a
-// failure deletes nothing of the account and the student can try again.
+// checked first and each step runs only if the one before worked. A failure
+// keeps the auth account and session for a retry; completed external work
+// cannot be rolled back across services.
 export async function DELETE(): Promise<Response> {
   const student = await authenticatedStudent();
   if (!student) return apiError(401, "unauthorized", "Sign in to continue.");
@@ -31,6 +33,14 @@ export async function DELETE(): Promise<Response> {
   if (config.posthog && !(await deletePostHogPerson(student.studentId, config.posthog))) {
     console.error(JSON.stringify({ event: "account_deletion_failed", step: "analytics" }));
     return apiError(502, "deletion_failed", "We couldn’t delete your account. Please try again.");
+  }
+
+  // Remove the external Items before the auth cascade destroys their tokens.
+  // A failed unlink keeps the account and session available for another try.
+  const unlinked = await removeBankLinksForStudent(student);
+  if (unlinked.kind !== "removed" && unlinked.kind !== "none") {
+    console.error(JSON.stringify({ event: "account_deletion_failed", step: "bank_link", reason: unlinked.kind }));
+    return apiError(unlinked.kind === "not_configured" ? 503 : 502, "deletion_failed", "We couldn’t delete your account. Please try again.");
   }
 
   const { error } = await createServiceClient(config.serviceRoleKey).auth.admin.deleteUser(student.studentId);
