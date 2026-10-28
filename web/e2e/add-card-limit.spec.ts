@@ -53,12 +53,12 @@ test("invalid and failed saves keep the entered limit, and Cancel returns Home",
   await field.fill("-500");
   await page.getByRole("button", { name: "Add card", exact: true }).click();
   await expect(field).toHaveAttribute("aria-invalid", "true");
-  await expect(page.getByRole("alert")).toContainText("Enter the limit in dollars");
+  await expect(page.getByRole("alert").filter({ hasText: /Enter the limit in dollars|Go back and check your cards/ })).toContainText("Enter the limit in dollars");
   expect((await (await page.request.get("/api/v1/applications")).json()).applications).toHaveLength(0);
   await field.fill("750");
   await page.route("**/api/v1/applications", (route) => route.request().method() === "POST" ? route.abort() : route.continue());
   await page.getByRole("button", { name: "Add card", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("Go back and check your cards");
+  await expect(page.getByRole("alert").filter({ hasText: /Enter the limit in dollars|Go back and check your cards/ })).toContainText("Go back and check your cards");
   await expect(field).toHaveValue("750");
   await expect(field).toBeEditable();
   await expect(page.getByLabel("Card name")).toHaveValue("Student Cash Card");
