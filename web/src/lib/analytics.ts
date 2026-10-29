@@ -9,7 +9,7 @@ import { analyticsEnvironment, baseProperties } from "@/lib/analytics-config";
 // Add SENSITIVE to an element's className when its text says something about
 // the student: their answers, a card's status, a credit limit. Autocapture then
 // keeps the click but drops the text, and session replay shows asterisks.
-export { SENSITIVE, SENSITIVE_SELECTOR } from "@/lib/analytics-config";
+export { NO_CAPTURE, SENSITIVE, SENSITIVE_SELECTOR } from "@/lib/analytics-config";
 export type { AnalyticsEvent, EventProperties } from "@/lib/analytics-catalog";
 
 // For an event copied from a Postgres row (S46): the row id as the event id

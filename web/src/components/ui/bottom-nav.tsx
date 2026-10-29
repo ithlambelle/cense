@@ -1,6 +1,7 @@
 "use client"
 
 import CreditCard from "@gravity-ui/icons/CreditCard"
+import File from "@gravity-ui/icons/File"
 import House from "@gravity-ui/icons/House"
 import Image from "next/image"
 import Link from "next/link"
@@ -14,18 +15,21 @@ import { cn } from "@/lib/utils"
 // denial guide (Ben, 2026-10-17), and on the card pages when signed in. The
 // sign-in screens, password reset, and the not-found and error pages leave it
 // out.
-// Home and Cards. Learn joins when Ask Penny works (Ben, 2026-10-23): a tab
-// with nothing to do yet looks tappable and is not. The frames draw four
-// (Today, Learn, Goals, Invest) for a later product.
+// Home, Cards and Learn (G1, 144:1338). Learn joined with Ask Penny (Ben,
+// 2026-10-23: "Learn joins when Ask Penny works"); its icon is the frame's
+// (Icon / Learn 277:2241, Gravity's file). The frames draw four (Today, Learn,
+// Goals, Invest) for a later product.
 const TABS = [
   { href: ROUTES.home, label: "Home", Icon: House },
   { href: ROUTES.cards, label: "Cards", Icon: CreditCard },
+  { href: ROUTES.learn, label: "Learn", Icon: File },
 ] as const
 
-// In the gaps between and beside the two tabs, never on a label.
+// In the gaps between and beside the three tabs, never on a label.
 const STARS = [
   { size: 9, className: "top-2 left-[7%]" },
-  { size: 7, className: "bottom-3 left-1/2" },
+  { size: 7, className: "bottom-3 left-[34%]" },
+  { size: 8, className: "top-2 left-[66%]" },
   { size: 6, className: "top-3 right-[6%]" },
 ] as const
 

@@ -433,6 +433,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/penny": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask Penny one typed question
+         * @description Answered from Penny's checked answers, with the source; personal details are removed before the model sees it, and nothing about the question is stored. A tapped question never calls this: its checked answer ships with the app. Each student may ask 20 a day and all students 300 (429 penny_limit). 503 penny_unavailable when the model cannot answer.
+         */
+        post: operations["askPenny"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/recommendations/latest": {
         parameters: {
             query?: never;
@@ -619,6 +639,32 @@ export interface components {
             statementClosing: boolean;
             paymentDue: boolean;
             checkAutopay: boolean;
+        };
+        PennyReply: {
+            /** @enum {string} */
+            kind: "answer";
+            text: string;
+            answer: {
+                id: string;
+                question: string;
+                /** @enum {string} */
+                topic: "credit" | "budgeting" | "saving" | "student-loans";
+                source: {
+                    name: string;
+                    /** Format: uri */
+                    url: string;
+                };
+            };
+        } | {
+            /** @enum {string} */
+            kind: "declined";
+            /** @enum {string} */
+            reason: "advice" | "off_topic" | "unknown" | "crisis";
+            text: string;
+            suggestions: {
+                id: string;
+                question: string;
+            }[];
         };
     };
     responses: never;
@@ -2186,6 +2232,68 @@ export interface operations {
             };
             /** @description No preapproval link */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    askPenny: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    question: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PennyReply"];
+                };
+            };
+            /** @description Empty or too long */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Daily limit reached */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
