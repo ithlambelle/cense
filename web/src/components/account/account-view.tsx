@@ -40,7 +40,7 @@ export function AccountView({ email, card }: { email: string | null; card: Appli
             {card ? (
               <Link
                 href={ROUTES.home}
-                className="flex items-center gap-3.5 rounded-input border border-hairline p-4 outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="flex items-center gap-3.5 rounded-input border border-hairline p-4 hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 <span aria-hidden="true" className="flex h-9 w-14 shrink-0 items-end rounded-[5px] bg-navy p-1.5">
                   <span className="h-2 w-3 rounded-[2px] bg-light-blue" />
@@ -75,7 +75,7 @@ export function AccountView({ email, card }: { email: string | null; card: Appli
                 <li key={row.href} className={index > 0 ? "border-t border-hairline" : undefined}>
                   <Link
                     href={row.href}
-                    className="flex min-h-[51px] items-center justify-between px-4 text-body-s text-navy outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+                    className="flex min-h-[51px] items-center justify-between px-4 text-body-s text-navy hover:bg-off-white focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
                   >
                     {row.label}
                     <ChevronRight aria-hidden="true" width={16} height={16} className="text-violet" />

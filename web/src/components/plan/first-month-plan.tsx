@@ -34,7 +34,7 @@ const ACTIONS: { key: ActionKey; title: string; detail: string }[] = [
 ];
 
 const ACTION_ROW =
-  "flex w-full items-start gap-3 rounded-input border-[1.5px] border-violet bg-white p-4 text-left outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+  "flex w-full items-start gap-3 rounded-input border-[1.5px] border-violet bg-white p-4 text-left hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 const NONE_DONE: PlanActions = { autopay: false, plannedPurchase: false, paymentReminder: false };
 

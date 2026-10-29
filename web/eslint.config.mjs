@@ -6,15 +6,19 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   // S49: analytics go through track() in src/lib/analytics.ts, which checks
-  // every event against the catalog. Nothing else may call PostHog.
+  // every event against the catalog. Nothing else may call PostHog. Server
+  // errors go through reportServerError() in src/lib/server-errors.ts.
   {
     files: ["**/*.{ts,tsx}"],
-    ignores: ["src/lib/analytics.ts", "src/lib/analytics-config.ts", "src/lib/analytics.test.ts", "src/instrumentation-client.ts"],
+    ignores: ["src/lib/analytics.ts", "src/lib/analytics-config.ts", "src/lib/analytics.test.ts", "src/instrumentation-client.ts", "src/lib/server-errors.ts"],
     rules: {
       "no-restricted-imports": [
         "error",
         {
-          paths: [{ name: "posthog-js", allowTypeImports: true, message: "Send analytics with track() from @/lib/analytics, which checks the event catalog." }],
+          paths: [
+            { name: "posthog-js", allowTypeImports: true, message: "Send analytics with track() from @/lib/analytics, which checks the event catalog." },
+            { name: "posthog-node", allowTypeImports: true, message: "Report server errors with reportServerError() from @/lib/server-errors." },
+          ],
           patterns: [{ group: ["posthog-js/*"], allowTypeImports: true, message: "Send analytics with track() from @/lib/analytics, which checks the event catalog." }],
         },
       ],

@@ -49,7 +49,7 @@ export function LogOutButton() {
         onClick={logOut}
         disabled={pending}
         aria-busy={pending || undefined}
-        className="min-h-11 text-body-s text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-progress"
+        className="min-h-11 text-body-s text-violet underline underline-offset-2 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-progress"
       >
         {pending ? "Logging out…" : "Log out"}
       </button>

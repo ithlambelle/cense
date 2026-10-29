@@ -2,7 +2,8 @@ import posthog from "posthog-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { EVENT_SEND_INTERVAL_MS } from "./analytics-config";
-import { applyAnalyticsChoice, browserAsksNotToTrack, forgetDeletedStudent, identify, pauseAnalytics, resetAnalytics, track } from "./analytics";
+import { applyAnalyticsChoice, browserAsksNotToTrack, captureError, forgetDeletedStudent, identify, pauseAnalytics, resetAnalytics, track } from "./analytics";
+import { TRACKING_PLAN_VERSION } from "./analytics-catalog";
 
 const STUDENT = "00000000-0000-4000-8000-000000000001";
 const CLICK = "00000000-0000-4000-8000-0000000000c1";
@@ -267,6 +268,32 @@ describe("resetAnalytics", () => {
     const register = vi.spyOn(posthog, "register").mockImplementation(() => undefined);
     resetAnalytics();
     expect(reset).toHaveBeenCalledOnce();
-    expect(register).toHaveBeenCalledWith(expect.objectContaining({ plan_version: 1, is_internal: false }));
+    expect(register).toHaveBeenCalledWith(expect.objectContaining({ plan_version: TRACKING_PLAN_VERSION, is_internal: false }));
+  });
+});
+
+describe("captureError", () => {
+  it("sends nothing while PostHog is not loaded (no token set)", () => {
+    const captureException = vi.spyOn(posthog, "captureException");
+    captureError("page", new Error("boom"));
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it("sends the error to error tracking with where it happened", () => {
+    posthog.__loaded = true;
+    const captureException = vi.spyOn(posthog, "captureException").mockImplementation(() => undefined);
+    const error = new Error("boom");
+    captureError("page", error);
+    expect(captureException).toHaveBeenCalledWith(error, { where: "page" });
+  });
+
+  it("never throws when PostHog does", () => {
+    posthog.__loaded = true;
+    vi.spyOn(posthog, "captureException").mockImplementation(() => {
+      throw new Error("posthog down");
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    expect(() => captureError("page", new Error("boom"))).not.toThrow();
+    expect(warn).toHaveBeenCalledWith(JSON.stringify({ event: "analytics_exception_failed", analyticsEvent: null }));
   });
 });
