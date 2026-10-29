@@ -291,8 +291,9 @@ test("a student still waiting on the issuer sees what to expect, and nothing cha
   await expect(page).toHaveURL(new RegExp(`/applications/${id}$`));
   await expect(page.getByRole("heading", { level: 1, name: "What did the issuer decide?" })).toBeVisible();
   await page.goto(`/applications/${id}/waiting`);
-  await page.getByRole("link", { name: "Back to Your application" }).click();
-  await expect(page).toHaveURL(new RegExp(`/applications/${id}$`));
+  // Opened with no origin, its back arrow goes Home (#78).
+  await page.getByRole("link", { name: "Back to Home" }).click();
+  await expect(page).toHaveURL(/\/home$/);
   await page.goto(`/applications/${id}/waiting`);
   await page.getByRole("link", { name: "Go to Home" }).click();
   await expect(page).toHaveURL(/\/home$/);
