@@ -55,8 +55,8 @@ type RequestArgs<Path extends keyof paths, M extends Method> = [RequestBody<Path
 export const REQUEST_TIMEOUT_MS = 15_000;
 
 // Runs a request that is cut off after REQUEST_TIMEOUT_MS, or the given time.
-// Every browser request goes through this (pending.ts too). Built by hand
-// because older phones lack AbortSignal.timeout.
+// Every browser request goes through this. Built by hand because older phones
+// lack AbortSignal.timeout.
 export async function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);

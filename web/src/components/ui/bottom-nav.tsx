@@ -148,7 +148,7 @@ function BottomNav() {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "group flex min-h-12 flex-col items-center gap-0.5 rounded-input text-body-s outline-none transition-[color,scale] duration-200 motion-safe:active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
+                  "group flex min-h-12 flex-col items-center gap-0.5 rounded-input text-body-s transition-[color,scale] duration-200 motion-safe:active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
                   active ? "font-semibold text-white" : "text-off-white/80 hover:text-off-white"
                 )}
               >

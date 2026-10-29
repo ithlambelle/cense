@@ -79,6 +79,17 @@ export function resetAnalytics(): void {
   }
 }
 
+// An unexpected error, to PostHog error tracking (S21). Called only by
+// reportError() in lib/report-error.ts. `where` is a screen or function name.
+export function captureError(where: string, error: unknown): void {
+  try {
+    if (!posthog.__loaded) return;
+    posthog.captureException(error, { where });
+  } catch {
+    report("analytics_exception_failed", null);
+  }
+}
+
 // Structured, and never the event's properties.
 function report(problem: string, event: AnalyticsEvent | null): void {
   console.warn(JSON.stringify({ event: problem, analyticsEvent: event }));

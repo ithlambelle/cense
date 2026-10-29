@@ -105,6 +105,16 @@ describe("posthogConfig", () => {
     expect(config.before_send).toBe(stripQueryStrings);
   });
 
+  // Error tracking (S21): uncaught errors and rejected promises. Not every
+  // console.error, which would include errors the app already handles.
+  it("captures uncaught errors and rejections, not console errors", () => {
+    expect(config.capture_exceptions).toEqual({
+      capture_unhandled_errors: true,
+      capture_unhandled_rejections: true,
+      capture_console_errors: false,
+    });
+  });
+
   it("records replay with typing masked and never request bodies or headers", () => {
     expect(config.session_recording).toMatchObject({ maskAllInputs: true, maskTextSelector: ".ph-sensitive", recordHeaders: false, recordBody: false });
     const mask = config.session_recording?.maskCapturedNetworkRequestFn;

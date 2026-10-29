@@ -116,8 +116,15 @@ export function posthogConfig(): Partial<PostHogConfig> {
     capture_heatmaps: true,
     // Request timing in replay, to see a failed save. No web vitals.
     capture_performance: { network_timing: true, web_vitals: false },
-    // Error tracking is its own piece of work (S51).
-    capture_exceptions: false,
+    // Error tracking (S21), alerts to the team (S51): errors nothing caught
+    // and promises nothing awaited. Not console errors, which include ones the
+    // app already handles. Errors a screen catches go through reportError().
+    // Exceptions pass before_send like every event, so addresses lose "?".
+    capture_exceptions: {
+      capture_unhandled_errors: true,
+      capture_unhandled_rejections: true,
+      capture_console_errors: false,
+    },
     disable_surveys: true,
     // No feature flags. The /flags request would also carry the first page's
     // full address as a person property, which before_send never sees.
