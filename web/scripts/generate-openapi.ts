@@ -27,6 +27,12 @@ import {
   updateReminderSettingsSchema,
 } from "../src/lib/api/reminders";
 import {
+  createBankLinkSchema,
+  linkTokenSchema,
+  safeToSpendSchema,
+  saveSafeToSpendAnswersSchema,
+} from "../src/lib/api/safe-to-spend";
+import {
   passwordCredentialsSchema,
   passwordResetRequestSchema,
   passwordSignInSchema,
@@ -257,6 +263,49 @@ registry.registerPath({
   summary: "Read the latest server-generated recommendation",
   security: [{ studentSession: [] }],
   responses: { 200: ok(recommendationContract), 404: failure("No saved recommendation"), ...protectedResponses },
+});
+
+// Safe to spend on a Plaid sandbox bank (US-12). The access token stays on
+// the server; these answers never carry it or any Plaid response.
+const safeToSpendContract = registry.register("SafeToSpend", safeToSpendSchema);
+const safeToSpendResponses = { 503: failure("Data unavailable or safe to spend off"), 401: failure("Sign-in required") };
+registry.registerPath({
+  method: "post", path: "/bank-link/link-token", operationId: "createBankLinkToken",
+  summary: "Create a Plaid Link token: a new bank, or update mode for one that needs a new sign-in",
+  security: [{ studentSession: [] }],
+  responses: { 200: ok(registry.register("LinkToken", linkTokenSchema)), 409: failure("Already linked, or link again"), 502: failure("Plaid unreachable"), ...safeToSpendResponses },
+});
+registry.registerPath({
+  method: "post", path: "/bank-link", operationId: "createBankLink",
+  summary: "Link a bank: exchange Link's public token on the server and read the balances once",
+  security: [{ studentSession: [] }],
+  request: { body: body(createBankLinkSchema) },
+  responses: { 201: ok(safeToSpendContract), 400: failure("Invalid or expired public token"), 409: failure("Already linked"), 502: failure("Plaid unreachable"), ...safeToSpendResponses },
+});
+registry.registerPath({
+  method: "delete", path: "/bank-link", operationId: "deleteBankLink",
+  summary: "Disconnect: remove the Item at Plaid, then delete the token, balances and answers",
+  security: [{ studentSession: [] }],
+  responses: { 204: { description: "Disconnected" }, 404: failure("No bank linked"), 502: failure("Plaid unreachable; nothing changed"), ...safeToSpendResponses },
+});
+registry.registerPath({
+  method: "post", path: "/bank-link/refresh", operationId: "refreshBankLink",
+  summary: "Read the balances from Plaid again",
+  security: [{ studentSession: [] }],
+  responses: { 200: ok(safeToSpendContract), 404: failure("No bank linked"), 409: failure("Reconnect or link again"), 502: failure("Plaid unreachable"), ...safeToSpendResponses },
+});
+registry.registerPath({
+  method: "get", path: "/safe-to-spend", operationId: "getSafeToSpend",
+  summary: "Read safe to spend as last read: balances, answers and each step of the sum",
+  security: [{ studentSession: [] }],
+  responses: { 200: ok(safeToSpendContract), 404: failure("No bank linked"), ...safeToSpendResponses },
+});
+registry.registerPath({
+  method: "put", path: "/safe-to-spend/answers", operationId: "saveSafeToSpendAnswers",
+  summary: "Save who covers each bill and the amount kept aside",
+  security: [{ studentSession: [] }],
+  request: { body: body(saveSafeToSpendAnswersSchema) },
+  responses: { 200: ok(safeToSpendContract), 400: failure("Invalid answers"), 404: failure("No bank linked"), ...safeToSpendResponses },
 });
 
 // Left out on purpose: GET /cron/reminders (Vercel Cron) and

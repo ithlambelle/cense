@@ -10,12 +10,21 @@ import {
   googleSignInPath,
   paymentRemindersPath,
   planPath,
+  safeToSpendSetupPath,
   signInPath,
   waitingPath,
 } from "./routes";
 
 describe("allowedNext", () => {
-  it.each(["/quiz", "/results", "/home", "/cards/discover-cash-back"])("keeps %s", (path) => {
+  it.each([
+    "/quiz",
+    "/results",
+    "/home",
+    "/cards/discover-cash-back",
+    "/safe-to-spend",
+    "/safe-to-spend/connect",
+    "/safe-to-spend/setup",
+  ])("keeps %s", (path) => {
     expect(allowedNext(path)).toBe(path);
   });
 
@@ -31,6 +40,8 @@ describe("allowedNext", () => {
     "/cards/a/b",
     "/cards/UPPER",
     "/settings",
+    "/safe-to-spend/setup?step=2",
+    "/safe-to-spend/other",
     "quiz",
     "",
   ])("drops %j", (path) => {
@@ -40,6 +51,14 @@ describe("allowedNext", () => {
   it("drops a missing value", () => {
     expect(allowedNext(null)).toBeNull();
     expect(allowedNext(undefined)).toBeNull();
+  });
+});
+
+describe("safeToSpendSetupPath", () => {
+  it("leaves the first step bare and numbers the rest", () => {
+    expect(safeToSpendSetupPath()).toBe("/safe-to-spend/setup");
+    expect(safeToSpendSetupPath(1)).toBe("/safe-to-spend/setup");
+    expect(safeToSpendSetupPath(6)).toBe("/safe-to-spend/setup?step=6");
   });
 });
 
