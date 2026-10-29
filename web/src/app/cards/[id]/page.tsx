@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { IdentifyStudent } from "@/components/analytics/identify-student";
+import { loadAnalyticsOn } from "@/lib/analytics-choice";
 import { TrackOnMount } from "@/components/analytics/track-on-mount";
 import { CardDetailView } from "@/components/cards/card-detail-view";
 import { findCard } from "@/lib/cards/catalog";
@@ -25,13 +26,18 @@ export default async function CardDetailPage({ params, searchParams }: PageProps
   const card = findCard(id);
   if (!card) notFound();
   const student = await currentStudent();
+  const analyticsOn = student ? await loadAnalyticsOn(student) : null;
   // A signed-in student who tracks this card can update it from here (US-05).
   const tracked = student ? cardApplication(await loadApplications(student), card.id) : null;
   return (
     <>
       {/* Outside the (app) layout, so a signed-in student is identified here too. */}
       {student ? (
-        <IdentifyStudent studentId={student.studentId} isInternal={isInternalStudent(student.studentId)} />
+        <IdentifyStudent
+          studentId={student.studentId}
+          isInternal={isInternalStudent(student.studentId)}
+          analyticsOn={analyticsOn}
+        />
       ) : null}
       <TrackOnMount event="card_details_viewed" props={{ card_id: card.id, signed_in: student !== null }} />
       <CardDetailView card={card} signedIn={student !== null} from={from} tracked={tracked} />

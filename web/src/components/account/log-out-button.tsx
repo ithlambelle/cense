@@ -10,7 +10,8 @@ import { ROUTES } from "@/lib/routes";
 
 // Per-tab notes such as "waiting to hear if you finished applying" belong to
 // the student who left; the next person on this tab must not inherit them.
-function forgetTabState() {
+// Delete my account clears them too.
+export function forgetTabState() {
   try {
     for (const key of Object.keys(sessionStorage)) {
       if (key.startsWith("cense:")) sessionStorage.removeItem(key);
