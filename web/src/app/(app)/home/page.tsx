@@ -15,8 +15,8 @@ export default async function HomePage({ searchParams }: PageProps<"/home">) {
   const params = await searchParams;
   const fromReminder = reminderKindParam(params[REMINDER_PARAM]);
   const student = await requireStudent(fromReminder ? reminderArrivalPath(fromReminder) : ROUTES.home);
-  const { applications, quiz, quizStarted } = await loadStudentSnapshot(student);
-  const state = homeState(applications, quiz, quizStarted);
+  const { applications, quiz, quizAnswered } = await loadStudentSnapshot(student);
+  const state = homeState(applications, quiz, quizAnswered);
   // The leading card's denial reason and autopay, read the same way as
   // GET /applications/{id}. Only those fields reach the page. An approved
   // card's reminder star also needs the student's reminder settings.

@@ -22,14 +22,15 @@ import {
 import type { Student } from "@/lib/api/auth";
 import { listCards } from "@/lib/cards/catalog";
 import { firstStatementEmailUpcoming } from "@/lib/home/state";
-import { firstUnanswered } from "@/lib/quiz/questions";
+import { answeredCount } from "@/lib/quiz/progress";
 import { computeResult, type ResultView } from "@/lib/results/compute";
 
 export type StudentSnapshot = {
   applications: Application[];
   quiz: ResultView;
-  // True when at least one quiz answer is saved.
-  quizStarted: boolean;
+  // How many quiz questions are answered, counted as the quiz counts them: it
+  // reopens on the first unanswered one (0 before starting).
+  quizAnswered: number;
 };
 
 // What a signed-in screen needs to decide what to show, read on the server
@@ -40,7 +41,7 @@ export async function loadStudentSnapshot(student: Student): Promise<StudentSnap
   return {
     applications,
     quiz: computeResult(answers, listCards()),
-    quizStarted: firstUnanswered(answers) !== 0,
+    quizAnswered: answeredCount(answers),
   };
 }
 

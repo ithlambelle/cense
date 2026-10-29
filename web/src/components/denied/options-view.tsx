@@ -83,7 +83,13 @@ export function DeniedOptionsView({ applicationId, preview }: { applicationId: s
       // restores the cached Home saying "not added".
       router.refresh();
     }
-    if (answer === "no-letter") track("denial_letter_answered", { answer: "waiting_on_letter" });
+    if (answer === "no-letter") {
+      track("denial_letter_answered", { answer: "waiting_on_letter" });
+      // Replace, not push: "Not yet" is saved, so Back from "No problem"
+      // returns where the student came from, not to this question again.
+      router.replace(deniedPath(next, applicationId));
+      return;
+    }
     router.push(deniedPath(next, applicationId));
   }
 
@@ -199,7 +205,7 @@ export function DeniedOptionsView({ applicationId, preview }: { applicationId: s
                 placeholder="Too many recent applications"
                 onChange={(event) => setNote(event.target.value)}
                 className={cn(
-                  "h-20 resize-none rounded-input border-[1.5px] border-violet bg-white px-4 py-3.5 text-body-m text-navy caret-violet outline-none placeholder:text-indigo-black/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                  "h-20 resize-none rounded-input border-[1.5px] border-violet bg-white px-4 py-3.5 text-body-m text-navy caret-violet placeholder:text-indigo-black/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                   SENSITIVE,
                 )}
               />

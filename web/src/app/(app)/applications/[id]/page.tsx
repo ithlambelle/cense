@@ -22,5 +22,5 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
   if (application.status === "rejected") redirect(deniedPath("options", id));
   // A card added by hand that is not in the catalog has no page to return to.
   const cardId = application.cardId && findCard(application.cardId) ? application.cardId : null;
-  return <MarkResult application={application} back={applicationBackLink(from, cardId)} />;
+  return <MarkResult application={application} back={applicationBackLink(from, cardId)} from={from === "card" && cardId ? "card" : undefined} />;
 }

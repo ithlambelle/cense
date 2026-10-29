@@ -24,7 +24,8 @@ import { SENSITIVE } from "@/lib/analytics";
 import type { Application } from "@/lib/api/application";
 import { ALL_REMINDERS_ON, celebrating, paymentReminderOn, type CardDetail, type HomeState, type StarSettings } from "@/lib/home/state";
 import { moneyAmount } from "@/lib/money";
-import { QUESTIONS } from "@/lib/quiz/questions";
+import { quizProgress } from "@/lib/quiz/progress";
+import { QUIZ_STEP_COUNT } from "@/lib/quiz/spending";
 import { applicationPath, cardPath, deniedPath, planPath, ROUTES, type ReminderKind } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -68,7 +69,7 @@ export function HomeView({
           <Link
             href={ROUTES.settings}
             aria-label="Profile"
-            className="flex size-11 items-center justify-center rounded-pill border border-track bg-off-white font-heading text-[17px] font-medium text-navy outline-none transition-colors hover:bg-selected-outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="flex size-11 items-center justify-center rounded-pill border border-track bg-off-white font-heading text-[17px] font-medium text-navy transition-colors hover:bg-selected-outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             <Image src="/mascot/astro-pig/avatar.png" alt={initial} width={40} height={40} className="rounded-input" />
           </Link>
@@ -106,10 +107,10 @@ function HomeContent({
           <Greeting subtitle="Let’s find your first card." />
           <MascotStill pose="idle" size={72} className="shrink-0" />
         </div>
-        <QuizPrompt started={state.started} />
+        <QuizPrompt answered={state.answered} />
         <Link
           href={ROUTES.addCard}
-          className="min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
+          className="min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
         >
           I already have a card
         </Link>
@@ -353,32 +354,40 @@ function NextStep({
   );
 }
 
-// "6 questions to your first card" (Figma 407:442, drawn as a pop-up over the
-// MVP2 home). Shown inline on the MVP1 home with the system's type.
-function QuizPrompt({ started }: { started: boolean }) {
+// "N questions to your first card" (Figma 407:442, drawn as a pop-up over the
+// MVP2 home). Shown inline on the MVP1 home with the system's type. The count
+// and the stars are the quiz's own (QUIZ_STEP_COUNT): the frame's 6 predates
+// the spending question, and the quiz says "Question 1 of 7". Once started it
+// counts what is left, as the quiz reopens on "Question 3 of 7" after two
+// answers ("5 more questions"), and one star is lit per answer; before that,
+// the first star is lit, as drawn. Words from quizProgress, as on Results.
+function QuizPrompt({ answered }: { answered: number }) {
+  const progress = quizProgress(answered);
+  const heading = `${progress.questions} to your first card`;
+  const lit = (index: number) => (answered === 0 ? index === 0 : index < answered);
   return (
     <section aria-labelledby="quiz-prompt" className="flex flex-col rounded-card bg-off-white p-5">
       <ol aria-hidden="true" className="flex items-center gap-1.5">
-        {QUESTIONS.map((question, index) => (
+        {Array.from({ length: QUIZ_STEP_COUNT }, (_, index) => (
           <li
-            key={question.field}
+            key={index}
             className={cn(
               "flex size-[22px] items-center justify-center rounded-full",
-              index === 0 ? "bg-navy" : "border-[1.5px] border-indigo-black/70",
+              lit(index) ? "bg-navy" : "border-[1.5px] border-indigo-black/70",
             )}
           >
-            {index === 0 ? <Image src="/decor/star-large.svg" alt="" width={13} height={12} /> : null}
+            {lit(index) ? <Image src="/decor/star-large.svg" alt="" width={13} height={12} /> : null}
           </li>
         ))}
       </ol>
       <h2 id="quiz-prompt" className="pt-6 font-heading text-h3 font-medium text-indigo-black">
-        {QUESTIONS.length} questions to your first card
+        {heading}
       </h2>
       <p className="pt-3 text-body-s text-indigo-black/70">
         Light up each star and we’ll match you with cards built for where you are.
       </p>
       <Link href={ROUTES.quiz} className={cn(buttonVariants({ chevron: false }), "mt-10")}>
-        {started ? "Continue the quiz" : "Start the quiz"}
+        {progress.action}
       </Link>
     </section>
   );
@@ -405,7 +414,7 @@ function OtherCards({ applications }: { applications: Application[] }) {
                       ? cardPath(application.cardId, "home")
                       : planPath(application.id)
               }
-              className="flex items-center justify-between gap-3 rounded-card border border-hairline bg-white px-5 py-4 outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="flex items-center justify-between gap-3 rounded-card border border-hairline bg-white px-5 py-4 hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               <span className="min-w-0 truncate font-heading text-h6 font-medium text-navy">{application.cardName}</span>
               <StatusPill className={SENSITIVE}>{PILLS[application.status]}</StatusPill>

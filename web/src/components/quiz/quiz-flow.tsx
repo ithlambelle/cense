@@ -54,17 +54,19 @@ function wait(ms: number): Promise<void> {
 // The quiz against the API. Tapping an answer saves the whole draft and moves
 // on. A retake saves only at the last question (see Draft). Answers are kept
 // in memory only: never in the address bar, a cookie or browser storage.
-export function QuizFlow() {
+// `backHref` is where the back arrow on the first question goes: where the
+// quiz was opened from (Cards, Results), else Home.
+export function QuizFlow({ backHref = ROUTES.home }: { backHref?: string }) {
   const { loaded, retry } = useLoaded(fetchDraft, signInPath(ROUTES.quiz));
   if (loaded.status === "loading") return <LoadingScreen label="Loading your quiz" />;
   if (loaded.status === "failed") {
     return <FailedScreen title="We couldn’t load your quiz" message={loaded.message} onRetry={retry} />;
   }
-  return <QuizSteps saved={loaded.data} />;
+  return <QuizSteps saved={loaded.data} backHref={backHref} />;
 }
 
 // One question at a time, starting from the saved draft.
-function QuizSteps({ saved }: { saved: Draft }) {
+function QuizSteps({ saved, backHref }: { saved: Draft; backHref: string }) {
   const router = useRouter();
   const isMounted = useIsMounted();
   const [draft, setDraft] = useState<Draft>(saved);
@@ -137,7 +139,7 @@ function QuizSteps({ saved }: { saved: Draft }) {
   function back() {
     setSaveError(null);
     if (index === 0) {
-      router.push(ROUTES.home);
+      router.push(backHref);
       return;
     }
     setDraft({ answers, choiceIds, retake, index: index - 1 });

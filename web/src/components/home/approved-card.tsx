@@ -40,7 +40,7 @@ const STEPS: { key: StepKey; step: PlanStepName | null; title: string; detail: s
 
 // List row, Tinted (273:2196), shared by the tick rows and the reminder link.
 const ROW =
-  "flex w-full items-center gap-3 rounded-[14px] bg-off-white px-3.5 py-3 text-left text-indigo-black outline-none hover:bg-selected-outline/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+  "flex w-full items-center gap-3 rounded-[14px] bg-off-white px-3.5 py-3 text-left text-indigo-black hover:bg-selected-outline/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 const NONE_LIT: Lit = { autopay: false, plannedPurchase: false, paymentReminder: false };
 
@@ -276,7 +276,7 @@ function TitleRow({ application, children }: { application: Application; childre
     <Link
       href={cardPath(application.cardId, "home")}
       aria-label={`${application.cardName} details`}
-      className="-m-2 flex items-center gap-3 rounded-input p-2 outline-none hover:bg-off-white/60 focus-visible:outline-2 focus-visible:outline-ring"
+      className="-m-2 flex items-center gap-3 rounded-input p-2 hover:bg-off-white/60 focus-visible:outline-2 focus-visible:outline-ring"
     >
       {children}
       <ChevronRight aria-hidden="true" width={16} height={16} className="shrink-0 text-indigo-black/70" />
@@ -370,7 +370,7 @@ function CreditLimit({ application, sample }: { application: Application; sample
           type="button"
           onClick={open}
           aria-label={cents === null ? "Add credit limit" : "Edit credit limit"}
-          className="relative text-body-s font-medium text-violet underline underline-offset-2 outline-none after:absolute after:-inset-3 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
+          className="relative text-body-s font-medium text-violet underline underline-offset-2 after:absolute after:-inset-3 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
         >
           {cents === null ? "Add" : "Edit"}
         </button>

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { PENNY_ANSWER_IDS } from "./penny/answers";
+
 // The tracking plan: every analytics event Cense sends, the question it
 // answers, who owns it, the plan version it arrived in, and the only
 // properties it may carry. `track()` in analytics.ts is the only way to send
@@ -19,7 +21,7 @@ import { z } from "zod";
 // reminder job, an email's unsubscribe link).
 
 // Bump when an event or property is added, changed or removed.
-export const TRACKING_PLAN_VERSION = 2;
+export const TRACKING_PLAN_VERSION = 3;
 
 const cardId = z.string().regex(/^[a-z0-9-]{1,100}$/);
 const fitTier = z.enum(["likely_fit", "stretch", "not_yet"]);
@@ -121,17 +123,33 @@ export const EVENTS = {
     addedIn: 1,
     properties: z.strictObject({ method: z.enum(["manual"]) }),
   },
+  penny_question_asked: {
+    question:
+      "S34's cut rule: do students use Ask Penny, how (tapped or typed), and how often does Penny answer rather than decline or fail? Never the question's text.",
+    owner: "Ben",
+    addedIn: 2,
+    properties: z.strictObject({
+      // starter: on Learn; topic: on a topic page; suggestion: offered in the
+      // chat; typed: asked in words; link: opened from anywhere else.
+      source: z.enum(["starter", "topic", "suggestion", "typed", "link"]),
+      // No outcome for a crisis: a crisis sends no event at all, because
+      // reaching the 988 line is health data and students are identified.
+      outcome: z.enum(["answered", "advice", "off_topic", "unknown", "limit", "unavailable", "offline", "signed_out"]),
+      // The checked answer shown, the same id for every student.
+      answer_id: z.enum(PENNY_ANSWER_IDS).optional(),
+    }),
+  },
   reminder_setup_saved: {
     question: "US-08: how many students with an approved card save payment reminders, and which of the two emails they keep on?",
     owner: "Ben",
-    addedIn: 2,
+    addedIn: 3,
     ledger: "card_applications (the days) and profiles (the settings)",
     properties: z.strictObject({ payment_due: z.boolean(), statement_closing: z.boolean() }),
   },
   reminder_sent: {
     question: "MVP2's headline: how many reminder emails go out, and of which kind? Sent by the daily job once an email is marked sent.",
     owner: "Ben",
-    addedIn: 2,
+    addedIn: 3,
     ledger: "reminders (sent_at; the event uuid is the row id)",
     sentFrom: "server",
     properties: z.strictObject({ kind: reminderKind }),
@@ -140,13 +158,13 @@ export const EVENTS = {
     question:
       "Do reminder emails bring students back? Counted when a signed-in student lands on Home from an email's Open Cense button. Email opens are not tracked.",
     owner: "Ben",
-    addedIn: 2,
+    addedIn: 3,
     properties: z.strictObject({ kind: reminderKind }),
   },
   reminder_settings_changed: {
     question: "Which reminder emails do students turn off or back on, and where: Reminder settings or an email's unsubscribe link?",
     owner: "Ben",
-    addedIn: 2,
+    addedIn: 3,
     ledger: "profiles (the settings)",
     sentFrom: "browser and server",
     properties: z.strictObject({

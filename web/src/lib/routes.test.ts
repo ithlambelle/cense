@@ -8,9 +8,13 @@ import {
   cardPath,
   deniedPath,
   googleSignInPath,
+  learnTopicPath,
   paymentRemindersPath,
-  remindersBackLink,
+  pennyPath,
   planPath,
+  quizBackHref,
+  quizPath,
+  remindersBackLink,
   signInPath,
   waitingPath,
 } from "./routes";
@@ -25,6 +29,9 @@ describe("allowedNext", () => {
     "/settings/reminders",
     "/home?reminder=statement_closing",
     "/home?reminder=reapply",
+    "/learn",
+    "/learn/penny",
+    "/learn/student-loans",
   ])("keeps %s", (path) => {
     expect(allowedNext(path)).toBe(path);
   });
@@ -43,6 +50,9 @@ describe("allowedNext", () => {
     "/settings/x",
     "/home?reminder=other",
     "/home?reminder=payment_due&x=1",
+    "/learn/penny?answer=credit-score",
+    "/learn/Credit",
+    "/learn/a/b",
     "quiz",
     "",
   ])("drops %j", (path) => {
@@ -132,5 +142,33 @@ describe("Mark result remembers the card page it was opened from", () => {
     expect(applicationBackLink(undefined, "chime-card")).toEqual({ href: "/home", label: "Home" });
     expect(applicationBackLink("https://evil.example", "chime-card")).toEqual({ href: "/home", label: "Home" });
     expect(applicationBackLink(["card", "card"], "chime-card")).toEqual({ href: "/home", label: "Home" });
+  });
+});
+
+describe("the quiz and the waiting screen go back where they were opened from", () => {
+  it("opens the quiz with its origin, and its first question goes back there", () => {
+    expect(quizPath()).toBe("/quiz");
+    expect(quizPath("cards")).toBe("/quiz?from=cards");
+    expect(quizPath("results")).toBe("/quiz?from=results");
+    expect(quizBackHref("cards")).toBe("/cards");
+    expect(quizBackHref("results")).toBe("/results");
+    expect(quizPath("account")).toBe("/quiz?from=account");
+    expect(quizBackHref("account")).toBe("/settings");
+    for (const other of [undefined, "home", "https://evil.example", ["cards", "cards"]]) expect(quizBackHref(other)).toBe("/home");
+  });
+
+  it("passes Mark result's origin to the waiting screen", () => {
+    const id = "00000000-0000-4000-8000-000000000001";
+    expect(waitingPath(id)).toBe(`/applications/${id}/waiting`);
+    expect(waitingPath(id, "card")).toBe(`/applications/${id}/waiting?from=card`);
+  });
+});
+
+describe("Learn and Ask Penny paths", () => {
+  it("builds a topic page and Ask Penny with an answer and where it came from", () => {
+    expect(learnTopicPath("student-loans")).toBe("/learn/student-loans");
+    expect(pennyPath()).toBe("/learn/penny");
+    expect(pennyPath("credit-score", "learn")).toBe("/learn/penny?answer=credit-score&from=learn");
+    expect(pennyPath("credit-score")).toBe("/learn/penny?answer=credit-score");
   });
 });

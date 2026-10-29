@@ -23,6 +23,14 @@ export const ROUTES = {
   forgotPassword: "/forgot-password",
   // Opened from the password reset email.
   resetPassword: "/reset-password",
+  // Security and privacy (the "Soon" row of Profile, Figma 222:2282): the
+  // Analytics switch and Delete my account.
+  privacy: "/settings/privacy",
+  // Where a student lands, signed out, once their account is deleted.
+  accountDeleted: "/account-deleted",
+  // Penny's starters, the topics and Ask Penny (Flow 5).
+  learn: "/learn",
+  penny: "/learn/penny",
 } as const;
 
 // Keeps the tracked card with the student as they move between screens.
@@ -39,9 +47,27 @@ export function applicationPath(applicationId: string, from?: ApplicationOrigin)
   return from ? `${path}?from=${from}` : path;
 }
 
-// "I haven’t heard yet" for one tracked card.
-export function waitingPath(applicationId: string): string {
-  return `${applicationPath(applicationId)}/waiting`;
+// "I haven’t heard yet" for one tracked card. `from` is Mark result's, so its
+// back arrow returns to the card page or Home the student came from.
+export function waitingPath(applicationId: string, from?: ApplicationOrigin): string {
+  const path = `${applicationPath(applicationId)}/waiting`;
+  return from ? `${path}?from=${from}` : path;
+}
+
+// Where the quiz was opened from. Its back arrow on the first question
+// returns there instead of always Home. Anything else, including a
+// hand-typed value, means Home.
+export type QuizOrigin = "cards" | "results" | "account";
+
+export function quizPath(from?: QuizOrigin): string {
+  return from ? `${ROUTES.quiz}?from=${from}` : ROUTES.quiz;
+}
+
+export function quizBackHref(from: string | string[] | undefined): string {
+  if (from === "cards") return ROUTES.cards;
+  if (from === "results") return ROUTES.results;
+  if (from === "account") return ROUTES.settings;
+  return ROUTES.home;
 }
 
 // Home right after Mark result saves a new approval. Home celebrates that
@@ -149,15 +175,35 @@ export function applicationBackLink(from: string | string[] | undefined, cardId:
   return { href: ROUTES.home, label: "Home" };
 }
 
+// One Learn topic's checked questions (Flow 5, A1).
+export function learnTopicPath(topic: string): string {
+  return `${ROUTES.learn}/${encodeURIComponent(topic)}`;
+}
+
+// Ask Penny, showing one checked answer when `answer` is given. `from` is
+// where it was opened: "learn", or a topic's slug. Its back arrow returns there.
+export function pennyPath(answer?: string, from?: string): string {
+  const params = new URLSearchParams();
+  if (answer) params.set("answer", answer);
+  if (from) params.set("from", from);
+  const query = params.toString();
+  return query ? `${ROUTES.penny}?${query}` : ROUTES.penny;
+}
+
 const NEXT_ALLOW_LIST: readonly string[] = [
   ROUTES.quiz,
   ROUTES.results,
   ROUTES.home,
   ROUTES.settings,
   ROUTES.reminderSettings,
+  ROUTES.learn,
+  ROUTES.penny,
   // A reminder email's button, opened while signed out: Home still counts the visit.
   ...REMINDER_KINDS.map(reminderArrivalPath),
 ];
+
+// A Learn topic page, so a signed-out visitor returns to it after signing in.
+const LEARN_TOPIC_PATH = /^\/learn\/[a-z-]{1,40}$/;
 
 // A card page, for a visitor who pressed an issuer button while signed out.
 const CARD_PATH = /^\/cards\/[a-z0-9-]{1,100}$/;
@@ -170,7 +216,9 @@ const APPLICATION_PATH = /^\/applications\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[
 // from the address bar is attacker-controlled, so anything else is dropped.
 export function allowedNext(value: string | null | undefined): string | null {
   if (!value) return null;
-  if (NEXT_ALLOW_LIST.includes(value) || CARD_PATH.test(value) || APPLICATION_PATH.test(value)) return value;
+  if (NEXT_ALLOW_LIST.includes(value) || CARD_PATH.test(value) || APPLICATION_PATH.test(value) || LEARN_TOPIC_PATH.test(value)) {
+    return value;
+  }
   return null;
 }
 
