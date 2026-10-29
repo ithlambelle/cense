@@ -47,6 +47,12 @@ jobs:
       - name: Start the local Supabase stack (migrations applied, Mailpit on 54324)
         working-directory: .
         run: supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,studio,postgres-meta
+      # The reminder scheduler and sender rules, run in the database itself
+      # (pgTAP, supabase/tests/database). Each file rolls back, so the journey
+      # tests below start from the same empty stack.
+      - name: Database tests
+        working-directory: .
+        run: supabase test db
       - name: Point the app at the local stack
         working-directory: .
         run: |

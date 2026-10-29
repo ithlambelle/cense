@@ -158,6 +158,7 @@ The stack's config is `supabase/config.toml` (migrations from `supabase/migratio
 ```bash
 npx supabase start        # first run pulls the Docker images
 npx supabase status       # copy the API URL and publishable key into web/.env.local
+npx supabase test db      # the reminder rules, tested in the database (supabase/tests/database)
 cd web
 npm run dev:local         # the app on http://localhost:3300 (or: npm run build && npx next start -p 3300, as CI does)
 npm run seed:local        # optional: six test students, one per Home state
@@ -176,7 +177,7 @@ Vercel Cron calls `GET /api/v1/cron/reminders` once a day at 13:00 UTC (`web/ver
 
 Before it can run:
 
-- Yunho applies `supabase/migrations/20261024220000_reminder_sender.sql` by hand in the Supabase SQL editor, after the reminders migration.
+- Yunho applies `supabase/migrations/20261024220000_reminder_sender.sql` by hand in the Supabase SQL editor, after the reminders migration, then `20261025200000_reminder_fixes.sql`. To undo the last one, run `supabase/rollbacks/20261025200000_reminder_fixes.down.sql` the same way (`supabase/rollbacks` is never run on its own).
 - Ben or Mabelle adds these on Vercel (Project Settings, Environment Variables, Production), then redeploys:
 
 | Variable | Where it comes from |
