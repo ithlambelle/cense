@@ -19,6 +19,7 @@ import {
   saveQuizSchema,
   updateApplicationSchema,
 } from "../src/lib/api/schemas";
+import { askPennySchema, pennyReplySchema } from "../src/lib/api/penny";
 import { planNameSchema, planProgressSchema, planStepNameSchema, planStepSchema } from "../src/lib/api/plans";
 import {
   createReapplyReminderSchema,
@@ -250,6 +251,18 @@ registry.registerPath({
     })),
     400: failure("Invalid request"), 404: failure("Card not found"),
     409: failure("No preapproval link"), ...protectedResponses,
+  },
+});
+const pennyReplyContract = registry.register("PennyReply", pennyReplySchema);
+registry.registerPath({
+  method: "post", path: "/penny", operationId: "askPenny",
+  summary: "Ask Penny one typed question",
+  description: "Answered from Penny's checked answers, with the source; personal details are removed before the model sees it, and nothing about the question is stored. A tapped question never calls this: its checked answer ships with the app. Each student may ask 20 a day and all students 300 (429 penny_limit). 503 penny_unavailable when the model cannot answer.",
+  security: [{ studentSession: [] }],
+  request: { body: body(askPennySchema) },
+  responses: {
+    200: ok(pennyReplyContract), 400: failure("Empty or too long"),
+    429: failure("Daily limit reached"), ...protectedResponses,
   },
 });
 registry.registerPath({

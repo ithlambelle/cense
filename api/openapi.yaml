@@ -533,6 +533,88 @@ components:
         - paymentDue
         - checkAutopay
       additionalProperties: false
+    PennyReply:
+      oneOf:
+        - type: object
+          properties:
+            kind:
+              type: string
+              enum:
+                - answer
+            text:
+              type: string
+            answer:
+              type: object
+              properties:
+                id:
+                  type: string
+                question:
+                  type: string
+                topic:
+                  type: string
+                  enum:
+                    - credit
+                    - budgeting
+                    - saving
+                    - student-loans
+                source:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    url:
+                      type: string
+                      format: uri
+                  required:
+                    - name
+                    - url
+                  additionalProperties: false
+              required:
+                - id
+                - question
+                - topic
+                - source
+              additionalProperties: false
+          required:
+            - kind
+            - text
+            - answer
+          additionalProperties: false
+        - type: object
+          properties:
+            kind:
+              type: string
+              enum:
+                - declined
+            reason:
+              type: string
+              enum:
+                - advice
+                - off_topic
+                - unknown
+                - crisis
+            text:
+              type: string
+            suggestions:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  question:
+                    type: string
+                required:
+                  - id
+                  - question
+                additionalProperties: false
+              maxItems: 2
+          required:
+            - kind
+            - reason
+            - text
+            - suggestions
+          additionalProperties: false
   parameters: {}
   securitySchemes:
     studentSession:
@@ -1971,6 +2053,62 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "409":
           description: No preapproval link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /penny:
+    post:
+      operationId: askPenny
+      summary: Ask Penny one typed question
+      description: "Answered from Penny's checked answers, with the source; personal
+        details are removed before the model sees it, and nothing about the
+        question is stored. A tapped question never calls this: its checked
+        answer ships with the app. Each student may ask 20 a day and all
+        students 300 (429 penny_limit). 503 penny_unavailable when the model
+        cannot answer."
+      security:
+        - studentSession: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                question:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+              required:
+                - question
+              additionalProperties: false
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PennyReply"
+        "400":
+          description: Empty or too long
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Daily limit reached
           content:
             application/json:
               schema:

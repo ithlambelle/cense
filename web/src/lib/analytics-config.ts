@@ -1,12 +1,17 @@
 import type { BeforeSendFn, CaptureResult, PostHogConfig, Properties } from "posthog-js";
 
 import { TRACKING_PLAN_VERSION } from "@/lib/analytics-catalog";
+import { dropPennyClicks } from "@/lib/penny/no-click-trace";
 
 // PostHog settings and the privacy filter every event passes through. Kept
 // apart from instrumentation-client.ts so it can be tested.
 
 export const SENSITIVE = "ph-sensitive";
 export const SENSITIVE_SELECTOR = `.${SENSITIVE}`;
+// Stronger: the element is left out of session replay altogether (the
+// recorder's block class, drawn as an empty box) and out of autocapture,
+// rage and dead clicks, href included. For what must leave no trace.
+export const NO_CAPTURE = "ph-no-capture";
 
 export type AnalyticsEnvironment = "production" | "preview" | "development";
 
@@ -73,13 +78,18 @@ function stripAddresses(properties: Properties | undefined): Properties | undefi
 }
 
 // Runs on every event just before it is sent, including $set and $set_once
-// (where PostHog keeps the first page a person saw).
-export const stripQueryStrings: BeforeSendFn = (event: CaptureResult) => ({
-  ...event,
-  properties: stripAddresses(event.properties) ?? {},
-  $set: stripAddresses(event.$set),
-  $set_once: stripAddresses(event.$set_once),
-});
+// (where PostHog keeps the first page a person saw). Ask Penny's clicks and
+// heatmap points are dropped first (lib/penny/no-click-trace.ts).
+export const stripQueryStrings: BeforeSendFn = (event: CaptureResult) => {
+  const kept = dropPennyClicks(event);
+  if (!kept) return null;
+  return {
+    ...kept,
+    properties: stripAddresses(kept.properties) ?? {},
+    $set: stripAddresses(kept.$set),
+    $set_once: stripAddresses(kept.$set_once),
+  };
+};
 
 export function posthogConfig(): Partial<PostHogConfig> {
   return {

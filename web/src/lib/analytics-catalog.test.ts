@@ -7,7 +7,7 @@ import { EVENTS, QUIZ_FIELDS, TRACKING_PLAN_VERSION } from "./analytics-catalog"
 describe("event catalog", () => {
   it("names every event in snake_case, object then past-tense verb", () => {
     for (const name of Object.keys(EVENTS)) {
-      expect(name, name).toMatch(/^[a-z]+(_[a-z]+)*_(started|completed|viewed|clicked|reported|answered|added)$/);
+      expect(name, name).toMatch(/^[a-z]+(_[a-z]+)*_(started|completed|viewed|clicked|reported|answered|added|asked)$/);
     }
   });
 
@@ -29,6 +29,11 @@ describe("event catalog", () => {
 
   it("lists the quiz's answer fields in the quiz's order", () => {
     expect([...QUIZ_FIELDS]).toEqual(QUESTIONS.map((question) => question.field));
+  });
+
+  it("has no Ask Penny outcome that says a student reached the 988 line", () => {
+    // Health-related, and tied to the student's id (audit PEN-06).
+    expect(EVENTS.penny_question_asked.properties.safeParse({ source: "typed", outcome: "crisis" }).success).toBe(false);
   });
 
   it("has no property that could carry personal data", () => {
