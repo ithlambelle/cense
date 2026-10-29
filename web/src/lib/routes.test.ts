@@ -126,6 +126,8 @@ describe("the quiz and the waiting screen go back where they were opened from", 
     expect(quizPath("results")).toBe("/quiz?from=results");
     expect(quizBackHref("cards")).toBe("/cards");
     expect(quizBackHref("results")).toBe("/results");
+    expect(quizPath("account")).toBe("/quiz?from=account");
+    expect(quizBackHref("account")).toBe("/settings");
     for (const other of [undefined, "home", "https://evil.example", ["cards", "cards"]]) expect(quizBackHref(other)).toBe("/home");
   });
 

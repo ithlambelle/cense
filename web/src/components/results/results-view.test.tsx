@@ -3,7 +3,8 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { listCards } from "@/lib/cards/catalog";
-import { RESULT_DISCLAIMER, RESULT_HEADLINES, TIER_LABELS } from "@/lib/copy/results";
+import { NOT_YET_NEXT_STEPS, RESULT_DISCLAIMER, RESULT_HEADLINES, TIER_LABELS } from "@/lib/copy/results";
+import { QUIZ_STEP_COUNT } from "@/lib/quiz/spending";
 import { computeResult } from "@/lib/results/compute";
 import { cardPath, ROUTES } from "@/lib/routes";
 
@@ -14,9 +15,29 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/results" }));
 const ALL_SIX = { under21: true, incomeBand: "under_5k", student: true, standing: "none", recentDenial: false, canDeposit: true };
 
 describe("ResultsView", () => {
-  it("sends an unfinished quiz back to the quiz", () => {
-    render(<ResultsView view={{ kind: "quiz_unfinished" }} />);
-    expect(screen.getByRole("link", { name: "Take the quiz" }).getAttribute("href")).toBe("/quiz?from=results");
+  it("sends an unfinished quiz back to the quiz, counting what is left as Home does", () => {
+    const { unmount } = render(<ResultsView view={{ kind: "quiz_unfinished" }} />);
+    expect(screen.getByRole("link", { name: "Start the quiz" }).getAttribute("href")).toBe("/quiz?from=results");
+    expect(screen.getByText(`Answer ${QUIZ_STEP_COUNT} questions to see one`)).toBeTruthy();
+    unmount();
+    render(<ResultsView view={{ kind: "quiz_unfinished" }} answered={2} />);
+    expect(screen.getByRole("link", { name: "Continue the quiz" }).getAttribute("href")).toBe("/quiz?from=results");
+    expect(screen.getByText(`Answer ${QUIZ_STEP_COUNT - 2} more questions to see one`)).toBeTruthy();
+  });
+
+  it("gives a next step when no card fits: an authorized user, and the quiz again once there is income", () => {
+    const { unmount } = render(<ResultsView view={{ kind: "no_card", ruleId: "G1", reason: "Issuers need income of your own." }} />);
+    const next = screen.getByRole("region", { name: NOT_YET_NEXT_STEPS.title });
+    expect(within(next).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      NOT_YET_NEXT_STEPS.authorizedUser,
+      `${NOT_YET_NEXT_STEPS.ownIncome}${NOT_YET_NEXT_STEPS.ownIncomeLink}.`,
+    ]);
+    // The advice leads somewhere: the quiz.
+    expect(within(next).getByRole("link", { name: NOT_YET_NEXT_STEPS.ownIncomeLink }).getAttribute("href")).toBe("/quiz?from=results");
+    unmount();
+    // No income reason: more income is not the answer, so only the first.
+    render(<ResultsView view={{ kind: "no_card", ruleId: null, reason: null }} />);
+    expect(within(screen.getByRole("region", { name: NOT_YET_NEXT_STEPS.title })).getAllByRole("listitem")).toHaveLength(1);
   });
 
   it("goes back Home, never into the finished quiz", () => {

@@ -54,7 +54,7 @@ export function waitingPath(applicationId: string, from?: ApplicationOrigin): st
 // Where the quiz was opened from. Its back arrow on the first question
 // returns there instead of always Home. Anything else, including a
 // hand-typed value, means Home.
-export type QuizOrigin = "cards" | "results";
+export type QuizOrigin = "cards" | "results" | "account";
 
 export function quizPath(from?: QuizOrigin): string {
   return from ? `${ROUTES.quiz}?from=${from}` : ROUTES.quiz;
@@ -63,6 +63,7 @@ export function quizPath(from?: QuizOrigin): string {
 export function quizBackHref(from: string | string[] | undefined): string {
   if (from === "cards") return ROUTES.cards;
   if (from === "results") return ROUTES.results;
+  if (from === "account") return ROUTES.settings;
   return ROUTES.home;
 }
 

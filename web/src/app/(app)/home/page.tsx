@@ -11,8 +11,8 @@ export const metadata: Metadata = { title: "Home | CENSE" };
 // Read on the server, so Home never flashes a loading state.
 export default async function HomePage({ searchParams }: PageProps<"/home">) {
   const student = await requireStudent(ROUTES.home);
-  const { applications, quiz, quizStarted } = await loadStudentSnapshot(student);
-  const state = homeState(applications, quiz, quizStarted);
+  const { applications, quiz, quizAnswered } = await loadStudentSnapshot(student);
+  const state = homeState(applications, quiz, quizAnswered);
   // The leading card's denial reason and autopay, read the same way as
   // GET /applications/{id}. Only those fields reach the page.
   const detail = needsDetail(state) ? await loadApplicationDetail(student, state.primary.id) : null;

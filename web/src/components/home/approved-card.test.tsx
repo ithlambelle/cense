@@ -25,7 +25,7 @@ const approved: Application = {
   appliedAt: null,
   statusUpdatedAt: new Date().toISOString(),
 };
-const state = homeState([approved], computeResult(undefined, listCards()), true);
+const state = homeState([approved], computeResult(undefined, listCards()), 0);
 const NO_DETAIL = { denialReason: null, denialReasonNote: null, autopayStatus: "unknown", paymentDueDay: null } as const;
 // The card's reminder days are saved, so a done payment_reminder step lights its star.
 const DAYS_SAVED = { ...NO_DETAIL, paymentDueDay: 9 };
@@ -317,7 +317,7 @@ describe("Home approved card", () => {
 
   it("offers to add a limit when none is saved, and Cancel leaves it", async () => {
     server([{ status: 200, body: plan() }]);
-    const noLimit = homeState([{ ...approved, creditLimitCents: null }], computeResult(undefined, listCards()), true);
+    const noLimit = homeState([{ ...approved, creditLimitCents: null }], computeResult(undefined, listCards()), 0);
     render(<HomeView state={noLimit} initial="M" />);
     await screen.findByText("0 of 3 lit");
     expect(screen.getByText("Not added")).toBeTruthy();

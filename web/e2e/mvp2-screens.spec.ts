@@ -176,7 +176,8 @@ test("your account shows the student's card and email, every link opens its scre
 
   for (const [name, path] of [
     [/Discover it Student Cash Back/, /\/home$/],
-    ["Card quiz results", /\/(results|quiz)$/],
+    // No quiz yet: the quiz box opens the quiz, and Back on question 1 returns here (#77).
+    ["Start the quiz", /\/quiz\?from=account$/],
     ["Add a card I already have", /\/home\/add-card$/],
     ["Browse cards", /\/cards$/],
     ["Back to Home", /\/home$/],

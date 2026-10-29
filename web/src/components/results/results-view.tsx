@@ -14,27 +14,31 @@ import {
   cardDisplayName,
   cardTypeLabel,
   NO_CARD_FALLBACK,
+  NOT_YET_NEXT_STEPS,
   RESULT_DISCLAIMER,
   RESULT_HEADLINES,
 } from "@/lib/copy/results";
 import { SENSITIVE } from "@/lib/analytics";
 import { moneyAmount } from "@/lib/money";
-import { QUESTIONS } from "@/lib/quiz/questions";
+import { quizProgress } from "@/lib/quiz/progress";
 import type { ResultView } from "@/lib/results/compute";
 import { cardPath, quizPath, ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 // The result screen, drawn from Figma 397:822 (Wireframes Prototyping page).
 // Everything shown comes from computeResult (rules v1.2); nothing here decides fit.
-export function ResultsView({ view }: { view: ResultView }) {
+// `answered`: how many questions are answered, for a quiz not finished yet.
+export function ResultsView({ view, answered = 0 }: { view: ResultView; answered?: number }) {
   if (view.kind === "quiz_unfinished") {
+    // The same count and words as Home's quiz card (quizProgress).
+    const progress = quizProgress(answered);
     return (
-      <ResultLayout title="No card match yet" subtitle={`Answer ${QUESTIONS.length} short questions to see one`}>
+      <ResultLayout title="No card match yet" subtitle={`Answer ${progress.questions} to see one`}>
         <p className="text-body-m text-navy">
           We’ll show a card to start with and the reasons it fits what you told us.
         </p>
         <Link href={quizPath("results")} className={cn(buttonVariants(), "mt-6")}>
-          Take the quiz
+          {progress.action}
           <ButtonChevron />
         </Link>
       </ResultLayout>
@@ -48,6 +52,31 @@ export function ResultsView({ view }: { view: ResultView }) {
         <div className="rounded-card bg-off-white p-5">
           <p className={cn(SENSITIVE, "text-body-m text-navy")}>{view.reason ?? NO_CARD_FALLBACK}</p>
         </div>
+        {/* No frame for this: built as "While you wait" on Still waiting, the
+            bordered box with a violet-dot list. */}
+        <section aria-labelledby="not-yet-next" className="mt-4 flex flex-col gap-3 rounded-card border border-hairline p-5">
+          <h2 id="not-yet-next" className="font-heading text-h6 font-medium text-navy">
+            {NOT_YET_NEXT_STEPS.title}
+          </h2>
+          <ul className="flex list-disc flex-col gap-1 pl-5 text-body-s text-indigo-black marker:text-violet">
+            <li>{NOT_YET_NEXT_STEPS.authorizedUser}</li>
+            {/* Only when the reason was income: otherwise more income is not the answer. */}
+            {view.ruleId ? (
+              <li>
+                {NOT_YET_NEXT_STEPS.ownIncome}
+                {/* A 44px tap area around the 17px line: 14px each way
+                    (after:-inset-3.5), kept on one line so it stays one box. */}
+                <Link
+                  href={quizPath("results")}
+                  className="relative whitespace-nowrap text-violet underline underline-offset-2 after:absolute after:-inset-3.5 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
+                >
+                  {NOT_YET_NEXT_STEPS.ownIncomeLink}
+                </Link>
+                .
+              </li>
+            ) : null}
+          </ul>
+        </section>
       </ResultLayout>
     );
   }
