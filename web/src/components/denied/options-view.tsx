@@ -83,7 +83,13 @@ export function DeniedOptionsView({ applicationId, preview }: { applicationId: s
       // restores the cached Home saying "not added".
       router.refresh();
     }
-    if (answer === "no-letter") track("denial_letter_answered", { answer: "waiting_on_letter" });
+    if (answer === "no-letter") {
+      track("denial_letter_answered", { answer: "waiting_on_letter" });
+      // Replace, not push: "Not yet" is saved, so Back from "No problem"
+      // returns where the student came from, not to this question again.
+      router.replace(deniedPath(next, applicationId));
+      return;
+    }
     router.push(deniedPath(next, applicationId));
   }
 

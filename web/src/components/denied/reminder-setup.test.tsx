@@ -94,7 +94,7 @@ describe("ReminderSetup", () => {
     const fetchFn = server(created("2027-10-17"));
     render(<ReminderSetup applicationId={ID} />);
     chooseDate("2027-10-17");
-    await waitFor(() => expect(push).toHaveBeenCalledWith(`/denied/reminder/saved?application=${ID}`));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(`/denied/reminder/saved?application=${ID}`));
     expect(fetchFn.mock.calls[0][0]).toBe("/api/v1/reminders");
     expect(fetchFn.mock.calls[0][1]?.method).toBe("POST");
     expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toEqual({ applicationId: ID, remindOn: "2027-10-17" });
@@ -104,7 +104,7 @@ describe("ReminderSetup", () => {
     const fetchFn = server(created("2027-04-17"));
     render(<ReminderSetup applicationId={ID} />);
     save();
-    await waitFor(() => expect(push).toHaveBeenCalledWith(`/denied/reminder/saved?application=${ID}`));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(`/denied/reminder/saved?application=${ID}`));
     expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toEqual({ applicationId: ID, remindOn: "2027-04-17" });
   });
 
@@ -122,6 +122,7 @@ describe("ReminderSetup", () => {
     save();
     expect((await screen.findByRole("alert")).textContent).toContain(message);
     expect(push).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
   });
 
   it("asks to try again when offline or the data is briefly down (503), and saving again works", async () => {
@@ -138,7 +139,7 @@ describe("ReminderSetup", () => {
       expect(screen.getByRole("alert").textContent).toContain("Your data is temporarily unavailable. Please try again."),
     );
     save();
-    await waitFor(() => expect(push).toHaveBeenCalledWith(`/denied/reminder/saved?application=${ID}`));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(`/denied/reminder/saved?application=${ID}`));
   });
 
   it("sends a student whose session ended to sign in", async () => {

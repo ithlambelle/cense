@@ -9,7 +9,7 @@ import { SENSITIVE } from "@/lib/analytics";
 import type { Card } from "@/lib/cards/catalog";
 import { cardDisplayName, cardTypeLabel, type FitTier } from "@/lib/copy/results";
 import { moneyAmount } from "@/lib/money";
-import { cardPath, ROUTES, signInPath } from "@/lib/routes";
+import { cardPath, quizPath, ROUTES, signInPath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 // The card list (S13). No hi-fi frame yet: outlined cards in the style of the
@@ -46,7 +46,7 @@ export function CardListView({
           {yourMatch ? (
             <YourMatchRow match={yourMatch} />
           ) : (
-            <Link href={ROUTES.quiz} className={buttonVariants()}>
+            <Link href={quizPath("cards")} className={buttonVariants()}>
               Take the quiz
               <ButtonChevron />
             </Link>
@@ -136,7 +136,7 @@ function YourMatchRow({ match }: { match: YourMatch }) {
         ) : null}
         <ChevronRight aria-hidden="true" width={20} height={20} className="shrink-0 text-violet" />
       </Link>
-      <Link href={ROUTES.quiz} className={buttonVariants({ variant: "secondary" })}>
+      <Link href={quizPath("cards")} className={buttonVariants({ variant: "secondary" })}>
         Retake quiz
       </Link>
     </div>

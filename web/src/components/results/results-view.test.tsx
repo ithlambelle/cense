@@ -16,7 +16,7 @@ const ALL_SIX = { under21: true, incomeBand: "under_5k", student: true, standing
 describe("ResultsView", () => {
   it("sends an unfinished quiz back to the quiz", () => {
     render(<ResultsView view={{ kind: "quiz_unfinished" }} />);
-    expect(screen.getByRole("link", { name: "Take the quiz" }).getAttribute("href")).toBe(ROUTES.quiz);
+    expect(screen.getByRole("link", { name: "Take the quiz" }).getAttribute("href")).toBe("/quiz?from=results");
   });
 
   it("goes back Home, never into the finished quiz", () => {
@@ -66,7 +66,7 @@ describe("ResultsView", () => {
     expect(screen.getByRole("link", { name: new RegExp(view.alternative.card.name) }).getAttribute("href")).toBe(
       cardPath(view.alternative.card.id, "results"),
     );
-    expect(screen.getByRole("link", { name: "Retake quiz" }).getAttribute("href")).toBe(ROUTES.quiz);
+    expect(screen.getByRole("link", { name: "Retake quiz" }).getAttribute("href")).toBe("/quiz?from=results");
     expect(screen.getByText(RESULT_DISCLAIMER)).toBeTruthy();
   });
 
