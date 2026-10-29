@@ -6,6 +6,11 @@ import { dropPennyClicks } from "@/lib/penny/no-click-trace";
 // PostHog settings and the privacy filter every event passes through. Kept
 // apart from instrumentation-client.ts so it can be tested.
 
+// How often the browser sends its queued events (PostHog's request queue).
+// Delete my account waits this long after pausing analytics, so everything
+// captured before it reaches PostHog before PostHog is asked to delete it.
+export const EVENT_SEND_INTERVAL_MS = 3_000;
+
 export const SENSITIVE = "ph-sensitive";
 export const SENSITIVE_SELECTOR = `.${SENSITIVE}`;
 // Stronger: the element is left out of session replay altogether (the
@@ -106,6 +111,7 @@ export function posthogConfig(): Partial<PostHogConfig> {
     // Browser storage, no PostHog cookie: one origin, nothing to share.
     persistence: "localStorage",
     before_send: stripQueryStrings,
+    request_queue_config: { flush_interval_ms: EVENT_SEND_INTERVAL_MS },
     // Every feature is set here, so a toggle in the PostHog UI cannot turn one
     // on without a code review. Clicks, rage clicks and dead clicks show where
     // testers get stuck (D24, no broken buttons); `ph-sensitive` keeps the
@@ -125,6 +131,10 @@ export function posthogConfig(): Partial<PostHogConfig> {
       capture_unhandled_rejections: true,
       capture_console_errors: false,
     },
+    // A browser that sends Global Privacy Control (or the older Do Not
+    // Track) is opted out of events and recordings, whatever it chose before
+    // (privacy policy, "Your choices and rights").
+    respect_dnt: true,
     disable_surveys: true,
     // No feature flags. The /flags request would also carry the first page's
     // full address as a person property, which before_send never sees.

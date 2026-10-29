@@ -20,6 +20,11 @@ export const ROUTES = {
   forgotPassword: "/forgot-password",
   // Opened from the password reset email.
   resetPassword: "/reset-password",
+  // Security and privacy (the "Soon" row of Profile, Figma 222:2282): the
+  // Analytics switch and Delete my account.
+  privacy: "/settings/privacy",
+  // Where a student lands, signed out, once their account is deleted.
+  accountDeleted: "/account-deleted",
   // Penny's starters, the topics and Ask Penny (Flow 5).
   learn: "/learn",
   penny: "/learn/penny",

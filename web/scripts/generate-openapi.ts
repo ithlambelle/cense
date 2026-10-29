@@ -27,6 +27,7 @@ import {
   reminderSettingsSchema,
   updateReminderSettingsSchema,
 } from "../src/lib/api/reminders";
+import { privacySettingsSchema, updatePrivacySettingsSchema } from "../src/lib/api/privacy";
 import {
   passwordCredentialsSchema,
   passwordResetRequestSchema,
@@ -125,6 +126,28 @@ registry.registerPath({
   method: "get", path: "/me", operationId: "getMe", summary: "Get the signed-in student",
   security: [{ studentSession: [] }],
   responses: { 200: ok(z.strictObject({ id: z.uuid(), email: z.email().nullable() })), 401: failure("Sign-in required") },
+});
+registry.registerPath({
+  method: "delete", path: "/me", operationId: "deleteMe", summary: "Delete my account",
+  description: "Deletes the student's PostHog person with its events and recordings (where analytics runs), then the account, which deletes every row tied to it, then signs out. A failure deletes nothing of the account.",
+  security: [{ studentSession: [] }],
+  responses: {
+    204: { description: "Deleted and signed out" },
+    401: failure("Sign-in required"),
+    502: failure("Deletion failed"),
+    503: failure("Deletion not available"),
+  },
+});
+registry.registerPath({
+  method: "get", path: "/me/privacy", operationId: "getPrivacySettings", summary: "Read the Analytics switch",
+  security: [{ studentSession: [] }],
+  responses: { 200: ok(privacySettingsSchema), 404: failure("Profile not found"), ...protectedResponses },
+});
+registry.registerPath({
+  method: "patch", path: "/me/privacy", operationId: "updatePrivacySettings", summary: "Turn analytics and session recordings on or off",
+  security: [{ studentSession: [] }],
+  request: { body: body(updatePrivacySettingsSchema) },
+  responses: { 200: ok(privacySettingsSchema), 400: failure("Invalid setting"), 404: failure("Profile not found"), ...protectedResponses },
 });
 registry.registerPath({
   method: "get", path: "/cards", operationId: "listCards", summary: "List curated student cards",
