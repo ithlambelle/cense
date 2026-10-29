@@ -62,7 +62,7 @@ export function HomeView({
           <Link
             href={ROUTES.settings}
             aria-label="Profile"
-            className="flex size-11 items-center justify-center rounded-pill border border-track bg-off-white font-heading text-[17px] font-medium text-navy outline-none transition-colors hover:bg-selected-outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="flex size-11 items-center justify-center rounded-pill border border-track bg-off-white font-heading text-[17px] font-medium text-navy transition-colors hover:bg-selected-outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             <Image src="/mascot/astro-pig/avatar.png" alt={initial} width={40} height={40} className="rounded-input" />
           </Link>
@@ -100,7 +100,7 @@ function HomeContent({
         <QuizPrompt answered={state.answered} />
         <Link
           href={ROUTES.addCard}
-          className="min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
+          className="min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
         >
           I already have a card
         </Link>
@@ -404,7 +404,7 @@ function OtherCards({ applications }: { applications: Application[] }) {
                       ? cardPath(application.cardId, "home")
                       : planPath(application.id)
               }
-              className="flex items-center justify-between gap-3 rounded-card border border-hairline bg-white px-5 py-4 outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="flex items-center justify-between gap-3 rounded-card border border-hairline bg-white px-5 py-4 hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               <span className="min-w-0 truncate font-heading text-h6 font-medium text-navy">{application.cardName}</span>
               <StatusPill className={SENSITIVE}>{PILLS[application.status]}</StatusPill>

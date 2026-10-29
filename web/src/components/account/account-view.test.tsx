@@ -30,21 +30,21 @@ describe("AccountView", () => {
   it("invites the student to start when no card is tracked, in Home's words, without repeating a row", () => {
     const { unmount } = render(<AccountView email={null} card={null} />);
     expect(screen.getByText("No card tracked yet.")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Start the quiz" }).getAttribute("href")).toBe("/quiz");
+    expect(screen.getByRole("link", { name: "Start the quiz" }).getAttribute("href")).toBe("/quiz?from=account");
     // Adding a card is the Account row, once; the quiz is the box, once, and
     // never through Results, which has nothing to show yet.
     expect(screen.getAllByRole("link", { name: "Add a card I already have" })).toHaveLength(1);
     expect(screen.getAllByRole("link").map((link) => link.getAttribute("href"))).not.toContain("/results");
     unmount();
     render(<AccountView email={null} card={null} quizAnswered={2} />);
-    expect(screen.getAllByRole("link", { name: "Continue the quiz" }).map((link) => link.getAttribute("href"))).toEqual(["/quiz"]);
+    expect(screen.getAllByRole("link", { name: "Continue the quiz" }).map((link) => link.getAttribute("href"))).toEqual(["/quiz?from=account"]);
   });
 
   it("leads to the result once the quiz is done, with a retake second, never Continue", () => {
     const { unmount } = render(<AccountView email={null} card={null} quizAnswered={6} quizResult="match" />);
     const box = () => screen.getByText("No card tracked yet.").parentElement!;
     expect([...box().querySelectorAll("a")].map((link) => link.textContent)).toEqual(["See your match", "Retake the quiz"]);
-    expect(hrefs(["See your match", "Retake the quiz"])).toEqual(["/results", "/quiz"]);
+    expect(hrefs(["See your match", "Retake the quiz"])).toEqual(["/results", "/quiz?from=account"]);
     expect(screen.queryByRole("link", { name: "Continue the quiz" })).toBeNull();
     // The box leads to the result, so the row does not repeat it.
     expect(screen.queryByRole("link", { name: "Card quiz results" })).toBeNull();
@@ -57,10 +57,10 @@ describe("AccountView", () => {
 
   it("with a card tracked and no quiz result, the quiz row opens the quiz, not an empty result", () => {
     const { unmount } = render(<AccountView email={null} card={CARD} />);
-    expect(screen.getByRole("link", { name: "Start the quiz" }).getAttribute("href")).toBe("/quiz");
+    expect(screen.getByRole("link", { name: "Start the quiz" }).getAttribute("href")).toBe("/quiz?from=account");
     expect(screen.queryByRole("link", { name: "Card quiz results" })).toBeNull();
     unmount();
     render(<AccountView email={null} card={CARD} quizAnswered={3} />);
-    expect(screen.getByRole("link", { name: "Continue the quiz" }).getAttribute("href")).toBe("/quiz");
+    expect(screen.getByRole("link", { name: "Continue the quiz" }).getAttribute("href")).toBe("/quiz?from=account");
   });
 });

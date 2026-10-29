@@ -10,7 +10,8 @@ import { ROUTES } from "@/lib/routes";
 
 // Per-tab notes such as "waiting to hear if you finished applying" belong to
 // the student who left; the next person on this tab must not inherit them.
-function forgetTabState() {
+// Delete my account clears them too.
+export function forgetTabState() {
   try {
     for (const key of Object.keys(sessionStorage)) {
       if (key.startsWith("cense:")) sessionStorage.removeItem(key);
@@ -48,7 +49,7 @@ export function LogOutButton() {
         onClick={logOut}
         disabled={pending}
         aria-busy={pending || undefined}
-        className="min-h-11 text-body-s text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-progress"
+        className="min-h-11 text-body-s text-violet underline underline-offset-2 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-progress"
       >
         {pending ? "Logging out…" : "Log out"}
       </button>

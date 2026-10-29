@@ -21,7 +21,7 @@ describe("CardListView", () => {
     expect(match.getAttribute("href")).toBe(ROUTES.results);
     expect(match.textContent).toContain("Discover it Student Cash Back");
     expect(match.textContent).toContain("Fit: Likely fit");
-    expect(screen.getByRole("link", { name: "Retake quiz" }).getAttribute("href")).toBe(ROUTES.quiz);
+    expect(screen.getByRole("link", { name: "Retake quiz" }).getAttribute("href")).toBe("/quiz?from=cards");
     expect(screen.queryByRole("link", { name: "Take the quiz" })).toBeNull();
   });
 
@@ -32,7 +32,7 @@ describe("CardListView", () => {
 
   it("offers the quiz when it is not finished", () => {
     render(<CardListView cards={cards} signedIn yourMatch={null} />);
-    expect(screen.getByRole("link", { name: "Take the quiz" }).getAttribute("href")).toBe(ROUTES.quiz);
+    expect(screen.getByRole("link", { name: "Take the quiz" }).getAttribute("href")).toBe("/quiz?from=cards");
     expect(screen.queryByRole("link", { name: /Your match/ })).toBeNull();
   });
 });

@@ -17,11 +17,11 @@ const ALL_SIX = { under21: true, incomeBand: "under_5k", student: true, standing
 describe("ResultsView", () => {
   it("sends an unfinished quiz back to the quiz, counting what is left as Home does", () => {
     const { unmount } = render(<ResultsView view={{ kind: "quiz_unfinished" }} />);
-    expect(screen.getByRole("link", { name: "Start the quiz" }).getAttribute("href")).toBe(ROUTES.quiz);
+    expect(screen.getByRole("link", { name: "Start the quiz" }).getAttribute("href")).toBe("/quiz?from=results");
     expect(screen.getByText(`Answer ${QUIZ_STEP_COUNT} questions to see one`)).toBeTruthy();
     unmount();
     render(<ResultsView view={{ kind: "quiz_unfinished" }} answered={2} />);
-    expect(screen.getByRole("link", { name: "Continue the quiz" }).getAttribute("href")).toBe(ROUTES.quiz);
+    expect(screen.getByRole("link", { name: "Continue the quiz" }).getAttribute("href")).toBe("/quiz?from=results");
     expect(screen.getByText(`Answer ${QUIZ_STEP_COUNT - 2} more questions to see one`)).toBeTruthy();
   });
 
@@ -33,7 +33,7 @@ describe("ResultsView", () => {
       `${NOT_YET_NEXT_STEPS.ownIncome}${NOT_YET_NEXT_STEPS.ownIncomeLink}.`,
     ]);
     // The advice leads somewhere: the quiz.
-    expect(within(next).getByRole("link", { name: NOT_YET_NEXT_STEPS.ownIncomeLink }).getAttribute("href")).toBe(ROUTES.quiz);
+    expect(within(next).getByRole("link", { name: NOT_YET_NEXT_STEPS.ownIncomeLink }).getAttribute("href")).toBe("/quiz?from=results");
     unmount();
     // No income reason: more income is not the answer, so only the first.
     render(<ResultsView view={{ kind: "no_card", ruleId: null, reason: null }} />);
@@ -87,7 +87,7 @@ describe("ResultsView", () => {
     expect(screen.getByRole("link", { name: new RegExp(view.alternative.card.name) }).getAttribute("href")).toBe(
       cardPath(view.alternative.card.id, "results"),
     );
-    expect(screen.getByRole("link", { name: "Retake quiz" }).getAttribute("href")).toBe(ROUTES.quiz);
+    expect(screen.getByRole("link", { name: "Retake quiz" }).getAttribute("href")).toBe("/quiz?from=results");
     expect(screen.getByText(RESULT_DISCLAIMER)).toBeTruthy();
   });
 

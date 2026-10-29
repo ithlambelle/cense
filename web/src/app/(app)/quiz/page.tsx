@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 
 import { QuizFlow } from "@/components/quiz/quiz-flow";
-import { ROUTES } from "@/lib/routes";
+import { quizBackHref, ROUTES } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Quiz | CENSE" };
 
-export default async function QuizPage() {
+// ?from= is where the quiz was opened (Cards or Results): the back arrow on
+// the first question returns there.
+export default async function QuizPage({ searchParams }: PageProps<"/quiz">) {
   await requireStudent(ROUTES.quiz);
-  return <QuizFlow />;
+  const { from } = await searchParams;
+  return <QuizFlow backHref={quizBackHref(from)} />;
 }

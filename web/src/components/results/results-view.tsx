@@ -22,7 +22,7 @@ import { SENSITIVE } from "@/lib/analytics";
 import { moneyAmount } from "@/lib/money";
 import { quizProgress } from "@/lib/quiz/progress";
 import type { ResultView } from "@/lib/results/compute";
-import { cardPath, ROUTES } from "@/lib/routes";
+import { cardPath, quizPath, ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 // The result screen, drawn from Figma 397:822 (Wireframes Prototyping page).
@@ -37,7 +37,7 @@ export function ResultsView({ view, answered = 0 }: { view: ResultView; answered
         <p className="text-body-m text-navy">
           We’ll show a card to start with and the reasons it fits what you told us.
         </p>
-        <Link href={ROUTES.quiz} className={cn(buttonVariants(), "mt-6")}>
+        <Link href={quizPath("results")} className={cn(buttonVariants(), "mt-6")}>
           {progress.action}
           <ButtonChevron />
         </Link>
@@ -67,8 +67,8 @@ export function ResultsView({ view, answered = 0 }: { view: ResultView; answered
                 {/* A 44px tap area around the 17px line: 14px each way
                     (after:-inset-3.5), kept on one line so it stays one box. */}
                 <Link
-                  href={ROUTES.quiz}
-                  className="relative whitespace-nowrap text-violet underline underline-offset-2 outline-none after:absolute after:-inset-3.5 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
+                  href={quizPath("results")}
+                  className="relative whitespace-nowrap text-violet underline underline-offset-2 after:absolute after:-inset-3.5 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
                 >
                   {NOT_YET_NEXT_STEPS.ownIncomeLink}
                 </Link>
@@ -163,7 +163,7 @@ export function ResultsView({ view, answered = 0 }: { view: ResultView; answered
           {/* Its own tier and first reason, so a stretch never reads as an equal pick. */}
           <Link
             href={cardPath(alternative.card.id, "results")}
-            className="flex flex-col gap-1 rounded-card border-[1.5px] border-violet bg-white p-5 outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="flex flex-col gap-1 rounded-card border-[1.5px] border-violet bg-white p-5 hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             <span className="flex items-start justify-between gap-2">
               <span className="font-heading text-h6 font-medium text-navy">{cardDisplayName(alternative.card)}</span>
@@ -212,8 +212,8 @@ function ResultLayout({ title, subtitle, footer = false, children }: ResultLayou
           {footer ? (
             <div className="mt-auto flex flex-col items-center gap-3 pt-10 pb-[max(1.3125rem,env(safe-area-inset-bottom))]">
               <Link
-                href={ROUTES.quiz}
-                className="min-h-11 content-center text-body-s text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                href={quizPath("results")}
+                className="min-h-11 content-center text-body-s text-violet underline underline-offset-2 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 Retake quiz
               </Link>

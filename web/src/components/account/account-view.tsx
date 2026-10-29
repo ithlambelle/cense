@@ -10,7 +10,7 @@ import type { Application } from "@/lib/api/application";
 import { moneyAmount } from "@/lib/money";
 import { QUIZ_RETAKE, quizProgress } from "@/lib/quiz/progress";
 import type { ResultView } from "@/lib/results/compute";
-import { ROUTES } from "@/lib/routes";
+import { quizPath, ROUTES } from "@/lib/routes";
 
 // Your account (S28): the MVP1 subset of the Profile frame (416:342), in the
 // system's colors (the frame is an earlier draft in other hexes). Updates,
@@ -33,7 +33,7 @@ export function AccountView({
   // ("See your match", or "See why" when no card fits, as Home says), and a
   // retake second, which opens the quiz at question 1.
   const done = quizResult !== "quiz_unfinished";
-  const quiz = { href: ROUTES.quiz, label: done ? QUIZ_RETAKE : quizProgress(quizAnswered).action };
+  const quiz = { href: quizPath("account"), label: done ? QUIZ_RETAKE : quizProgress(quizAnswered).action };
   const result = { href: ROUTES.results, label: quizResult === "match" ? "See your match" : "See why" };
   return (
     <div className="flex min-h-dvh justify-center bg-background">
@@ -60,7 +60,7 @@ export function AccountView({
             {card ? (
               <Link
                 href={ROUTES.home}
-                className="flex items-center gap-3.5 rounded-input border border-hairline p-4 outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="flex items-center gap-3.5 rounded-input border border-hairline p-4 hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 <span aria-hidden="true" className="flex h-9 w-14 shrink-0 items-end rounded-[5px] bg-navy p-1.5">
                   <span className="h-2 w-3 rounded-[2px] bg-light-blue" />
@@ -106,11 +106,12 @@ export function AccountView({
                 ...(card ? [done ? { href: ROUTES.results, label: "Card quiz results" } : quiz] : []),
                 { href: ROUTES.addCard, label: "Add a card I already have" },
                 { href: ROUTES.cards, label: "Browse cards" },
+                { href: ROUTES.privacy, label: "Security and privacy" },
               ].map((row, index) => (
                 <li key={row.href} className={index > 0 ? "border-t border-hairline" : undefined}>
                   <Link
                     href={row.href}
-                    className="flex min-h-[51px] items-center justify-between px-4 text-body-s text-navy outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+                    className="flex min-h-[51px] items-center justify-between px-4 text-body-s text-navy hover:bg-off-white focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
                   >
                     {row.label}
                     <ChevronRight aria-hidden="true" width={16} height={16} className="text-violet" />

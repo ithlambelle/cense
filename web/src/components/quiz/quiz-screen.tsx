@@ -34,12 +34,12 @@ type QuizScreenProps = {
 export const ADVANCE_HINT = "Tap an answer to go to the next question.";
 
 const control =
-  "flex size-12 items-center justify-center rounded-pill outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress";
+  "flex size-12 items-center justify-center rounded-pill hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress";
 
 // The designers' answer card (G7): white, Amethyst outline, never shaded.
 // Callers add the height and corners.
 export const answerCardClass =
-  "flex w-full items-center gap-4 border-[1.5px] border-violet bg-white px-[18px] py-3 text-left text-body-m text-navy outline-none transition-[background-color,scale] duration-200 ease-out-soft hover:bg-off-white motion-safe:active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress";
+  "flex w-full items-center gap-4 border-[1.5px] border-violet bg-white px-[18px] py-3 text-left text-body-m text-navy transition-[background-color,scale] duration-200 ease-out-soft hover:bg-off-white motion-safe:active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress";
 
 type QuizHeaderProps = { step: number; total: number; onBack: () => void; onClose: () => void; pending: boolean };
 

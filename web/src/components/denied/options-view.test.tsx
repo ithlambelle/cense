@@ -51,7 +51,7 @@ describe("DeniedOptionsView", () => {
     const fetchFn = server([saved]);
     render(<DeniedOptionsView applicationId={ID} />);
     fireEvent.click(screen.getByRole("button", { name: "Not yet, I’m waiting on the letter" }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith(`/denied/no-letter?application=${ID}`));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(`/denied/no-letter?application=${ID}`));
     // Home shows the saved reason from its server render, so it is refreshed.
     expect(refresh).toHaveBeenCalled();
     expect(fetchFn.mock.calls[0][0]).toBe(PATCH_URL);
@@ -65,9 +65,9 @@ describe("DeniedOptionsView", () => {
     const notYet = screen.getByRole("button", { name: "Not yet, I’m waiting on the letter" });
     fireEvent.click(notYet);
     expect((await screen.findByRole("alert")).textContent).toContain(OFFLINE_MESSAGE);
-    expect(push).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
     fireEvent.click(notYet);
-    await waitFor(() => expect(push).toHaveBeenCalledWith(`/denied/no-letter?application=${ID}`));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(`/denied/no-letter?application=${ID}`));
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
@@ -135,7 +135,7 @@ describe("DeniedOptionsView", () => {
     const fetchFn = server([]);
     render(<DeniedOptionsView applicationId={null} />);
     fireEvent.click(screen.getByRole("button", { name: "Not yet, I’m waiting on the letter" }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/denied/no-letter"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/denied/no-letter"));
     expect(fetchFn).not.toHaveBeenCalled();
   });
 });

@@ -168,13 +168,13 @@ describe("password sign-up and log-in", () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/results"));
   });
 
-  it("says password sign-in isn't available yet while the route is missing", async () => {
-    server(404, {});
+  it("shows the plain fallback, not a raw answer, when the server answers with something unexpected", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => new Response("<html>502</html>", { status: 502 })));
     openPassword(SIGN_IN);
     fill("Email", "alex@email.com");
     fill("Password", "whatever1");
     fireEvent.click(screen.getByRole("button", { name: "Log in" }));
-    expect(await screen.findByText(/isn’t available yet/)).toBeTruthy();
+    expect((await screen.findByRole("alert")).textContent).toBe("Something went wrong on our side. Please try again.");
   });
 
   it("offers Forgot password on log-in only, and goes back to the email code", () => {
@@ -186,6 +186,12 @@ describe("password sign-up and log-in", () => {
 });
 
 describe("ForgotPassword", () => {
+  it("says why when a used or expired reset link sent the student here", () => {
+    render(<ForgotPassword linkExpired />);
+    expect(screen.getByRole("alert").textContent).toBe("That link has expired or was already used. Ask for a new one below.");
+    expect(screen.getByRole("button", { name: "Send link" })).toBeTruthy();
+  });
+
   it("gives the same answer whether or not an account uses the email", async () => {
     server(200, { status: "check_email" });
     render(<ForgotPassword />);

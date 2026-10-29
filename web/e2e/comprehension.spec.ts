@@ -99,7 +99,7 @@ test("Your account, for a student with no card, offers the quiz it mentions, and
   const quiz = yourCard.getByRole("link", { name: "Start the quiz" });
   expect((await quiz.boundingBox())!.height, "quiz link: tap target").toBeGreaterThanOrEqual(44);
   await quiz.click();
-  await expect(page).toHaveURL(/\/quiz$/);
+  await expect(page).toHaveURL(/\/quiz\?from=account$/);
   await expect(page.getByText("Question 1 of 7")).toBeVisible();
   // Adding a card is one row, not two.
   await page.goto("/settings");
@@ -115,7 +115,7 @@ test("Your account, for a student with no card, offers the quiz it mentions, and
   await expect(page.getByRole("region", { name: "Your card" })).toContainText("Campus Credit Union Card");
   await expect(page.locator('main a[href="/results"]')).toHaveCount(0);
   await page.getByRole("link", { name: "Start the quiz" }).click();
-  await expect(page).toHaveURL(/\/quiz$/);
+  await expect(page).toHaveURL(/\/quiz\?from=account$/);
   await expect(page.getByText("Question 1 of 7")).toBeVisible();
 });
 
@@ -148,7 +148,7 @@ for (const [result, picks, see] of [
     // The retake says what it is, and starts again at question 1.
     await page.goto("/settings");
     await page.getByRole("region", { name: "Your card" }).getByRole("link", { name: "Retake the quiz" }).click();
-    await expect(page).toHaveURL(/\/quiz$/);
+    await expect(page).toHaveURL(/\/quiz\?from=account$/);
     expect(await quizCount(page)).toEqual({ at: 1, of: 7 });
   });
 }
@@ -172,7 +172,7 @@ test("a result with no card that fits gives a next step", async ({ page }) => {
     expect(await tapHeight(again), `take the quiz again: tap height at ${size.width}`).toBeGreaterThanOrEqual(44);
   }
   await again.click();
-  await expect(page).toHaveURL(/\/quiz$/);
+  await expect(page).toHaveURL(/\/quiz\?from=results$/);
 });
 
 test("a secured card's page says what the deposit is, and calls it refundable only where the issuer does", async ({ page }) => {

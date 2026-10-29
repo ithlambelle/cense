@@ -94,7 +94,7 @@ export function WelcomeScreen() {
           {/* Not in the frame: Ben's MVP1 flow starts with browsing cards. Proposed to design. */}
           <Link
             href={ROUTES.cards}
-            className="min-h-6 content-center self-center text-body-s text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="min-h-6 content-center self-center text-body-s text-violet underline underline-offset-2 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             Browse cards
           </Link>

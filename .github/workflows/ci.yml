@@ -47,15 +47,30 @@ jobs:
       - name: Start the local Supabase stack (migrations applied, Mailpit on 54324)
         working-directory: .
         run: supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,studio,postgres-meta
+      # The reminder scheduler and sender rules, run in the database itself
+      # (pgTAP, supabase/tests/database). Each file rolls back, so the journey
+      # tests below start from the same empty stack.
+      - name: Database tests
+        working-directory: .
+        run: supabase test db
       - name: Point the app at the local stack
         working-directory: .
         run: |
           eval "$(supabase status -o env)"
           printf 'NEXT_PUBLIC_SUPABASE_URL=%s\nNEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=%s\n' "$API_URL" "$PUBLISHABLE_KEY" > web/.env.local
+          # The local stack's own service role key, for Delete my account
+          # (e2e/delete-account.spec.ts).
+          printf 'SUPABASE_SERVICE_ROLE_KEY=%s\n' "$SERVICE_ROLE_KEY" >> web/.env.local
       - run: npm ci
       # A production build, not next dev: dev recompiles mid-test and made a test flaky.
       - run: npm run build
       - name: Start the app on :3300
+        # Ask Penny's typed questions go to the stand-in Claude server the
+        # tests start on :3599 (web/e2e/support/fake-claude.ts), never the
+        # real API: no key in CI, no cost. The key is a placeholder.
+        env:
+          ANTHROPIC_API_KEY: e2e-placeholder
+          ANTHROPIC_BASE_URL: http://127.0.0.1:3599
         run: |
           npx next start -p 3300 > next.log 2>&1 &
           for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:3300/sign-in && exit 0; sleep 1; done

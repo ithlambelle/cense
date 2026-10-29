@@ -11,11 +11,12 @@ import { CODE_LENGTH, CodeInput } from "@/components/ui/code-input";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { PasswordField } from "@/components/ui/password-field";
 import { TextField } from "@/components/ui/text-field";
-import { apiRequest, FALLBACK_MESSAGE, failureMessage } from "@/lib/api-client/client";
-import { pendingRequest } from "@/lib/api-client/pending";
+import { SENSITIVE } from "@/lib/analytics";
+import { apiRequest, failureMessage } from "@/lib/api-client/client";
 import { looksLikeEmail, passwordProblem } from "@/lib/auth/password";
 import { googleSignInPath, ROUTES, signInPath, signUpPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
+import { cn } from "@/lib/utils";
 
 // Seconds before a new code can be sent. Supabase allows one code request per
 // 60 seconds by default (https://supabase.com/docs/guides/auth/auth-email-passwordless),
@@ -231,7 +232,8 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
           />
         }
       >
-        <p className="text-body-s text-indigo-black/70">
+        {/* The email is the student's own: masked in session replay. */}
+        <p className={cn("text-body-s text-indigo-black/70", SENSITIVE)}>
           {confirming
             ? `We sent a ${CODE_LENGTH}-digit code to ${email.trim()} to confirm your account.`
             : `We sent a ${CODE_LENGTH}-digit code to ${email.trim()}.`}
@@ -286,7 +288,7 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
         {copy.switchText}
         <Link
           href={mode === "sign-up" ? signInPath(next) : signUpPath(next)}
-          className="text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="text-violet underline underline-offset-2 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           {copy.switchLink}
         </Link>
@@ -311,8 +313,7 @@ type PasswordStepProps = {
 };
 
 // Password sign-up and log-in (the auth frames' password fields and error
-// states), calling Mabelle's PR #24 routes. Until #24 is merged the routes do
-// not exist, and the screen says so instead of failing silently.
+// states), calling Mabelle's password routes from PR #24.
 function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnconfirmed, onUseCode }: PasswordStepProps) {
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
@@ -353,10 +354,10 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnc
     setPending(true);
     const body = { email: email.trim(), password };
     const result = signUp
-      ? await pendingRequest("POST /auth/password/signup", body)
-      : await pendingRequest("POST /auth/password/signin", body);
+      ? await apiRequest("post", "/auth/password/signup", { body })
+      : await apiRequest("post", "/auth/password/signin", { body });
     if (!isMounted()) return;
-    if (result.kind === "ok") {
+    if (result.ok) {
       if (result.data.status === "check_email") {
         setPending(false);
         onConfirmEmail(email, password);
@@ -365,19 +366,17 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnc
       onDone();
       return;
     }
-    if (result.kind === "failed" && result.code === "email_not_confirmed") {
+    if (result.kind === "api" && result.code === "email_not_confirmed") {
       // Stays pending (Log in, Back and the code link disabled) until the code
       // step replaces this one, so a second tap cannot send a second code.
       await onUnconfirmed(email, password);
       return;
     }
     setPending(false);
-    if (result.kind === "unavailable") {
-      setErrors({ form: "Password sign-in isn’t available yet. Use Google or an email code." });
-    } else if (result.kind === "failed" && result.code === "invalid_credentials") {
+    if (result.kind === "api" && result.code === "invalid_credentials") {
       setErrors({ password: "Not quite. Give your password another try." });
     } else {
-      setErrors({ form: result.kind === "failed" ? result.message : FALLBACK_MESSAGE });
+      setErrors({ form: failureMessage(result) });
     }
   }
 
@@ -428,7 +427,7 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnc
       {signUp ? null : (
         <Link
           href={ROUTES.forgotPassword}
-          className="min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 outline-none focus-visible:outline-2 focus-visible:outline-ring"
+          className="min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-ring"
         >
           Forgot password?
         </Link>
