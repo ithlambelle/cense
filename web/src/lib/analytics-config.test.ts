@@ -1,6 +1,7 @@
 import type { CaptureResult } from "posthog-js";
 import { describe, expect, it } from "vitest";
 
+import { TRACKING_PLAN_VERSION } from "./analytics-catalog";
 import { analyticsEnvironment, baseProperties, posthogConfig, stripQuery, stripQueryStrings } from "./analytics-config";
 
 const event = (overrides: Partial<CaptureResult>): CaptureResult => ({ uuid: "u", event: "$pageview", properties: {}, ...overrides });
@@ -75,7 +76,7 @@ describe("stripQueryStrings (before_send)", () => {
 
 describe("baseProperties", () => {
   it("asks PostHog to skip the location lookup on every event", () => {
-    expect(baseProperties()).toMatchObject({ $geoip_disable: true, plan_version: 1, is_internal: false });
+    expect(baseProperties()).toMatchObject({ $geoip_disable: true, plan_version: TRACKING_PLAN_VERSION, is_internal: false });
   });
 });
 
@@ -102,6 +103,16 @@ describe("posthogConfig", () => {
     expect(config.api_host).toBe("/rx");
     expect(config.persistence).toBe("localStorage");
     expect(config.before_send).toBe(stripQueryStrings);
+  });
+
+  // Error tracking (S21): uncaught errors and rejected promises. Not every
+  // console.error, which would include errors the app already handles.
+  it("captures uncaught errors and rejections, not console errors", () => {
+    expect(config.capture_exceptions).toEqual({
+      capture_unhandled_errors: true,
+      capture_unhandled_rejections: true,
+      capture_console_errors: false,
+    });
   });
 
   it("records replay with typing masked and never request bodies or headers", () => {

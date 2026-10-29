@@ -121,7 +121,7 @@ flowchart TB
 | Risk | Mitigation |
 | --- | --- |
 | Google sign-in may not work inside the app once it is saved to the iPhone Home Screen. An installed web app keeps its own storage, separate from Safari, and redirect-based sign-in has reported failures there. | The 6-digit email code works in that setting and is always offered. Google sign-in is tested on a real iPhone, in Safari and from the Home Screen, before MVP1. |
-| A signed-in user can reach Supabase's data API directly, without going through our server. | Row level security and explicit grants on every table that holds user data, plus an automated test in CI that signs in as one user and proves they cannot read another user's records. |
+| A signed-in user can reach Supabase's data API directly, without going through our server. | Row level security on every table that holds user data, plus a test in CI (`web/e2e/cross-student.spec.ts`) that signs in as two students and proves neither can read or change the other's records, through the API or straight to the database. Narrowing the default table grants to what the API uses is still open. |
 | Card terms and links go stale, so a recommendation could rest on old facts. | Card data lives in typed files in this repo, each card with a last-verified date. It is validated in CI and changes only through a reviewed pull request. |
 | The reminder job could send a reminder twice, or stop without anyone noticing. | Each reminder is claimed once by a unique key, so a rerun cannot send it again. A heartbeat check alerts the team if the job stops running. |
 
@@ -158,8 +158,12 @@ The stack's config is `supabase/config.toml` (migrations from `supabase/migratio
 ```bash
 npx supabase start        # first run pulls the Docker images
 npx supabase status       # copy the API URL and publishable key into web/.env.local
+npx supabase test db      # the reminder rules, tested in the database (supabase/tests/database)
 cd web
-npm run dev:local         # the app on http://localhost:3300 (or: npm run build && npx next start -p 3300, as CI does)
+# the app on http://localhost:3300, with Ask Penny's typed questions sent to the
+# stand-in Claude server the tests start (or: npm run build, then the same
+# variables before npx next start -p 3300, as CI does)
+ANTHROPIC_API_KEY=e2e-placeholder ANTHROPIC_BASE_URL=http://127.0.0.1:3599 npm run dev:local
 npm run seed:local        # optional: six test students, one per Home state
 npm run e2e               # in a second terminal, with the app still running
 ```
@@ -168,7 +172,11 @@ Every pull request that changes a screen adds or updates a journey test that doe
 
 `.env.local` needs `NEXT_PUBLIC_SUPABASE_URL` (the API URL, `http://127.0.0.1:54321`) and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. The optional variables the tests and seed script read are listed in `.env.example`.
 
+Set the two `ANTHROPIC_` variables on the command line as above. They also work in `.env.local`, but a value already in your shell wins over that file (an AI coding tool's shell may set `ANTHROPIC_BASE_URL`), and then Penny's questions go to the real API with a fake key. Without them Penny's tapped questions still work but there is no field to type a question, so the Ask Penny journeys fail.
+
 Product analytics (PostHog) is off unless `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` is set, so local runs, tests and CI send nothing. With it set, the browser sends events to `/rx` on the app's own origin, which `web/next.config.ts` forwards to PostHog (US region); `web/src/proxy.ts` passes on only an allowlist of headers, so session cookies never leave. Every event is defined in `web/src/lib/analytics-catalog.ts` and sent with `track()` from `web/src/lib/analytics.ts`, which rejects anything not in the catalog; the readable tracking plan is [docs/analytics-events.md](docs/analytics-events.md), generated with `npm run analytics:docs`. Addresses lose everything after "?" before sending, and text that restates a student's answers or card status carries the `ph-sensitive` class, which masks it in session replay and keeps it out of autocapture. Team accounts listed in `INTERNAL_STUDENT_IDS` are marked `is_internal`.
+
+Error tracking uses the same PostHog project and the same token, so it is off wherever analytics is. In the browser it catches errors nothing handled and errors a screen catches through `reportError()` (`web/src/lib/report-error.ts`); on the server, `web/src/instrumentation.ts` sends any route or page that throws, with the route's file path and method only, never its address, headers or a student id. Alerts for new issues are set in PostHog (S51).
 
 ## Reminder emails
 
@@ -176,7 +184,7 @@ Vercel Cron calls `GET /api/v1/cron/reminders` once a day at 13:00 UTC (`web/ver
 
 Before it can run:
 
-- Yunho applies `supabase/migrations/20261024220000_reminder_sender.sql` by hand in the Supabase SQL editor, after the reminders migration.
+- Yunho applies `supabase/migrations/20261024220000_reminder_sender.sql` by hand in the Supabase SQL editor, after the reminders migration, then `20261025200000_reminder_fixes.sql`. To undo the last one, run `supabase/rollbacks/20261025200000_reminder_fixes.down.sql` the same way (`supabase/rollbacks` is never run on its own).
 - Ben or Mabelle adds these on Vercel (Project Settings, Environment Variables, Production), then redeploys:
 
 | Variable | Where it comes from |
@@ -189,6 +197,20 @@ Before it can run:
 | `APP_BASE_URL` | The app's public address, for the links in the emails: `https://censefinance.com`. |
 
 To run it by hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/v1/cron/reminders`. It answers with counts only.
+
+## Ask Penny
+
+Learn (`/learn`) has Penny's starter questions, four topic pages and Ask Penny (`/learn/penny`). Decisions: S34 in the decision log, Ben's build choices of Oct 25.
+
+- **Tapped questions** (starters, topic pages, Penny's suggestions) show a checked answer exactly as written in `web/src/lib/penny/answers.ts`. No model call: instant, free, no limit. Each answer was read against the official page it cites; change one only after re-reading its source.
+- **Typed questions** go to `POST /api/v1/penny`. Emails, phone, card and account numbers and SSNs are removed first, then Claude Sonnet 5.5 (low effort) picks the checked answer that fits, or declines: advice (the frame's fixed reply), off topic, or no checked answer yet, each with two questions Penny can answer. A crisis gets the 988 line, with Call 988 and Text 988 links: the phone checks for one before anything is sent (so it also works offline, signed out or at the limit), and the server checks again before any limit or model call (`web/src/lib/penny/crisis.ts`). The source shown is always the checked answer's. What the student reads is Ben's call (D8, `TYPED_ANSWERS` in `web/src/lib/penny/ask.ts`, set to `"checked"` for MVP2 on Oct 27): the student reads the picked answer word for word, as for a tapped question. With `"rephrased"` the model would say it in the student's terms, and the reply would fall back to the answer as written when it adds a number (digits or words), a link, a card name, "should", "approved", "guarantee", an investment word, or a sentence the answer does not back (`web/src/lib/penny/guards.ts`). `npm run penny:eval` prints every rephrased reply to read before that is turned on.
+- **Nothing about a question is stored.** `penny_asks` (migration `20261025160000_penny_asks.sql`) keeps who and when, for the limits: 20 typed questions per student per day and 300 across all students, checked by `claim_penny_ask()`, which students cannot bypass. Rows older than two days are deleted.
+- **Test set:** 165 questions in `web/src/lib/penny/test-set.ts`. The parts that need no model run in `npm run check`; `npm run penny:eval` asks the real model all of them (about 50 cents a run), and the `Penny eval` workflow runs it when Penny's files change once the `ANTHROPIC_API_KEY` repository secret exists.
+
+Before typed questions work in production:
+
+- Yunho applies `supabase/migrations/20261025160000_penny_asks.sql` in the Supabase SQL editor.
+- Ben adds `ANTHROPIC_API_KEY` on Vercel (Project Settings, Environment Variables, Production, and Preview only if pull request previews should answer typed questions too), then redeploys, and sets a monthly spend limit for the key's workspace in the Anthropic Console. Until then Learn and Ask Penny show no field to type a question (it could only say Penny is unavailable); starters, topic pages and tapped answers work.
 
 ## Quality checks
 
@@ -207,6 +229,7 @@ CI runs linting, type checking, tests, a production build, secret scanning, Open
 | Styling | `tailwindcss`, `shadcn`, `@base-ui/react`, `class-variance-authority`, `clsx`, `tailwind-merge`, `tw-animate-css`, `@gravity-ui/icons` | Accessible UI components, icons, and styling |
 | Data | `@supabase/supabase-js`, `@supabase/ssr` | Authentication and database client, and the session cookies |
 | Analytics | `posthog-js` | Product analytics and session replay through `track()`, off unless its token is set |
+| AI | `@anthropic-ai/sdk` | Ask Penny's typed questions (server only) |
 | Validation/API | `zod`, `@asteasolutions/zod-to-openapi`, `openapi-typescript` | Runtime schemas and generated API contracts |
 | Quality | `eslint`, `typescript`, `vitest`, `@playwright/test`, `@axe-core/playwright` | Linting, type checking, tests, and journey tests with accessibility checks |
 
@@ -226,6 +249,7 @@ Who holds each account. Key values are never stored in this repo or sent over Sl
 | Supabase, production project | Ben | Not created yet; needed before real students use the app |
 | Resend | Ben | Being set up |
 | PostHog | Not assigned yet | Not created yet |
+| Anthropic API (Ask Penny) | Ben | Key requested (S34); goes in Vercel only |
 | Google OAuth client | Yunho, with the sign-in work | Not created yet |
 | Domain | Ben | Not purchased yet |
 

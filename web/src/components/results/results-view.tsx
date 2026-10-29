@@ -134,7 +134,7 @@ export function ResultsView({ view }: { view: ResultView }) {
           {/* Its own tier and first reason, so a stretch never reads as an equal pick. */}
           <Link
             href={cardPath(alternative.card.id, "results")}
-            className="flex flex-col gap-1 rounded-card border-[1.5px] border-violet bg-white p-5 outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="flex flex-col gap-1 rounded-card border-[1.5px] border-violet bg-white p-5 hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             <span className="flex items-start justify-between gap-2">
               <span className="font-heading text-h6 font-medium text-navy">{cardDisplayName(alternative.card)}</span>
@@ -184,7 +184,7 @@ function ResultLayout({ title, subtitle, footer = false, children }: ResultLayou
             <div className="mt-auto flex flex-col items-center gap-3 pt-10 pb-[max(1.3125rem,env(safe-area-inset-bottom))]">
               <Link
                 href={quizPath("results")}
-                className="min-h-11 content-center text-body-s text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="min-h-11 content-center text-body-s text-violet underline underline-offset-2 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 Retake quiz
               </Link>

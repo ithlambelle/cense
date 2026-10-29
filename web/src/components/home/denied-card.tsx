@@ -122,7 +122,7 @@ function PlanCard({
           <Link
             href={deniedPath("options", application.id)}
             aria-label="Add the reason"
-            className="relative font-medium text-violet underline underline-offset-2 outline-none after:absolute after:-inset-3 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
+            className="relative font-medium text-violet underline underline-offset-2 after:absolute after:-inset-3 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
           >
             Add
           </Link>
@@ -138,7 +138,7 @@ function PlanCard({
       ) : next ? (
         <Link
           href={planHref}
-          className="flex items-center gap-3 rounded-input bg-off-white px-3.5 py-3 text-indigo-black outline-none hover:bg-selected-outline/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="flex items-center gap-3 rounded-input bg-off-white px-3.5 py-3 text-indigo-black hover:bg-selected-outline/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           <span aria-hidden="true" className="size-6 shrink-0 rounded-pill border-[1.5px] border-indigo-black/70" />
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -160,7 +160,7 @@ function PlanCard({
 
       <Link
         href={planHref}
-        className="flex h-11 items-center justify-center rounded-input text-[15px] font-semibold text-violet outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="flex h-11 items-center justify-center rounded-input text-[15px] font-semibold text-violet hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         See my plan
       </Link>

@@ -18,7 +18,7 @@ function AppHeader({ backHref, backLabel }: { backHref: string; backLabel: strin
 
 // Shared with the auth screens' Back button, so every back control looks the same.
 const BACK_CONTROL =
-  "flex size-12 shrink-0 items-center rounded-pill outline-none focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-progress"
+  "flex size-12 shrink-0 items-center rounded-pill focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-progress"
 
 // `label` is where it goes. The screen shows only the arrow; screen readers
 // hear "Back to Home". The light tone is for navy headers (the result screen).

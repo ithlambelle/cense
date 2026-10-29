@@ -8,7 +8,9 @@ import {
   cardPath,
   deniedPath,
   googleSignInPath,
+  learnTopicPath,
   paymentRemindersPath,
+  pennyPath,
   planPath,
   quizBackHref,
   quizPath,
@@ -17,7 +19,7 @@ import {
 } from "./routes";
 
 describe("allowedNext", () => {
-  it.each(["/quiz", "/results", "/home", "/cards/discover-cash-back"])("keeps %s", (path) => {
+  it.each(["/quiz", "/results", "/home", "/cards/discover-cash-back", "/learn", "/learn/penny", "/learn/student-loans"])("keeps %s", (path) => {
     expect(allowedNext(path)).toBe(path);
   });
 
@@ -33,6 +35,9 @@ describe("allowedNext", () => {
     "/cards/a/b",
     "/cards/UPPER",
     "/settings",
+    "/learn/penny?answer=credit-score",
+    "/learn/Credit",
+    "/learn/a/b",
     "quiz",
     "",
   ])("drops %j", (path) => {
@@ -128,5 +133,14 @@ describe("the quiz and the waiting screen go back where they were opened from", 
     const id = "00000000-0000-4000-8000-000000000001";
     expect(waitingPath(id)).toBe(`/applications/${id}/waiting`);
     expect(waitingPath(id, "card")).toBe(`/applications/${id}/waiting?from=card`);
+  });
+});
+
+describe("Learn and Ask Penny paths", () => {
+  it("builds a topic page and Ask Penny with an answer and where it came from", () => {
+    expect(learnTopicPath("student-loans")).toBe("/learn/student-loans");
+    expect(pennyPath()).toBe("/learn/penny");
+    expect(pennyPath("credit-score", "learn")).toBe("/learn/penny?answer=credit-score&from=learn");
+    expect(pennyPath("credit-score")).toBe("/learn/penny?answer=credit-score");
   });
 });
