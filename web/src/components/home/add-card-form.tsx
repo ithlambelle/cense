@@ -3,11 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
+import { limitToCents } from "@/components/applications/mark-result";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
-import { track } from "@/lib/analytics";
+import { SENSITIVE, track } from "@/lib/analytics";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import { ROUTES, signInPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
@@ -18,24 +19,32 @@ type AddCardFormProps = {
   onSignedOut: () => void;
 };
 
-// For a student who already has a card. Only its name is asked for.
+// For a student who already has a card. Its credit limit is optional.
 function AddCardForm({ onAdded, onCancel, onSignedOut }: AddCardFormProps) {
   const isMounted = useIsMounted();
   const [cardName, setCardName] = useState("");
+  const [limit, setLimit] = useState("");
+  const [limitError, setLimitError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (pending) return;
+    setLimitError(null);
     if (cardName.trim() === "") {
       setError("Enter the card’s name.");
+      return;
+    }
+    const creditLimitCents = limitToCents(limit);
+    if (creditLimitCents === undefined) {
+      setLimitError("Enter the limit in dollars, like 500 or 1,500.");
       return;
     }
     setPending(true);
     setError(null);
     const result = await apiRequest("post", "/applications", {
-      body: { cardId: null, cardName: cardName.trim(), status: "approved", creditLimitCents: null },
+      body: { cardId: null, cardName: cardName.trim(), status: "approved", creditLimitCents },
     });
     // The student left while it saved: the answer must not move them again.
     if (!isMounted()) return;
@@ -71,6 +80,21 @@ function AddCardForm({ onAdded, onCancel, onSignedOut }: AddCardFormProps) {
         error={error ?? undefined}
         disabled={pending}
       />
+      <div className={SENSITIVE}>
+        <TextField
+          label="Credit limit (optional)"
+          name="creditLimit"
+          hint="Find it in your issuer’s app. Leave it blank if you don’t know yet."
+          inputMode="decimal"
+          autoComplete="off"
+          placeholder="$500"
+          maxLength={32}
+          value={limit}
+          onChange={(event) => setLimit(event.target.value)}
+          error={limitError ?? undefined}
+          disabled={pending}
+        />
+      </div>
       <Button type="submit" pending={pending}>
         Add card
       </Button>
@@ -92,7 +116,7 @@ export function AddCardScreen() {
         <main className="stagger flex flex-1 flex-col gap-6 px-6 pt-4 pb-6">
           <div className="flex flex-col gap-2">
             <h1 className="font-heading text-h2 font-medium text-navy">Add a card you already have</h1>
-            <p className="text-body-m text-indigo-black">We’ll show it on Home. Only its name is needed.</p>
+            <p className="text-body-m text-indigo-black">We’ll show it on Home. Only its name is needed; you can add its credit limit too.</p>
           </div>
           <AddCardForm
             onAdded={() => {
