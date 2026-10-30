@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import { TRACKING_PLAN_VERSION } from "./analytics-catalog";
-import { captureServer, POSTHOG_BATCH_URL } from "./analytics-server";
+import { captureServer, POSTHOG_BATCH_URL, withAnalyticsOn } from "./analytics-server";
 
 const STUDENT = "00000000-0000-4000-8000-0000000000aa";
 
@@ -81,6 +81,22 @@ describe("captureServer", () => {
     expect(warn.mock.calls.map(([line]) => JSON.parse(String(line)))).toEqual([
       { event: "analytics_server_failed", status: 503, count: 1 },
       { event: "analytics_server_failed", status: null, code: "TypeError", count: 1 },
+    ]);
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(STUDENT);
+  });
+});
+
+describe("withAnalyticsOn", () => {
+  const event = { event: "reminder_sent" as const, studentId: STUDENT, properties: { kind: "reapply" as const } };
+
+  it("reads nothing for no events, and drops everything when the read throws", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const from = vi.fn(() => { throw new TypeError("offline"); });
+    expect(await withAnalyticsOn({ from } as never, [])).toEqual([]);
+    expect(from).not.toHaveBeenCalled();
+    expect(await withAnalyticsOn({ from } as never, [event])).toEqual([]);
+    expect(warn.mock.calls.map(([line]) => JSON.parse(String(line)))).toEqual([
+      { event: "analytics_consent_read_failed", code: "TypeError", count: 1 },
     ]);
     expect(JSON.stringify(warn.mock.calls)).not.toContain(STUDENT);
   });

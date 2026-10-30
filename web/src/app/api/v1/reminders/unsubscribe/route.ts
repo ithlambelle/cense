@@ -1,4 +1,4 @@
-import { captureServer } from "@/lib/analytics-server";
+import { captureServer, withAnalyticsOn } from "@/lib/analytics-server";
 import { reminderSettings } from "@/lib/reminders/config";
 import { verifyUnsubscribeToken } from "@/lib/reminders/unsubscribe-token";
 import { ROUTES } from "@/lib/routes";
@@ -12,7 +12,8 @@ import { createServiceClient } from "@/lib/supabase/service";
 // own, and that must never unsubscribe anyone. POST unsubscribes: the
 // button, or the inbox's own one-click unsubscribe (RFC 8058, the
 // List-Unsubscribe-Post header). It uses the service role, the narrow
-// exception in api/data-contract.md, for unsubscribe_reminders() only.
+// exception in api/data-contract.md, for unsubscribe_reminders() and the
+// student's Analytics switch only.
 
 const PAGE_HEADERS = {
   "Content-Type": "text/html; charset=utf-8",
@@ -74,9 +75,9 @@ export async function POST(request: Request): Promise<Response> {
     return page(503, "Something went wrong", `<p>Please try again in a minute, or use ${settingsLink}.</p>`);
   }
   if (turnedOff === true) {
-    await captureServer([
+    await captureServer(await withAnalyticsOn(supabase, [
       { event: "reminder_settings_changed", studentId, properties: { setting: "emails", on: false, source: "email_link" } },
-    ]);
+    ]));
   }
   return page(200, "You're unsubscribed", `<p>No more reminder emails. Changed your mind? Turn them back on in ${settingsLink}.</p>`);
 }

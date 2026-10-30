@@ -1,6 +1,6 @@
 import "server-only";
 
-import { captureServer, type ServerEvent } from "@/lib/analytics-server";
+import { captureServer, type ServerEvent, withAnalyticsOn } from "@/lib/analytics-server";
 import type { ServiceClient } from "@/lib/supabase/service";
 
 import { RESEND_EMAILS_URL } from "./config";
@@ -11,7 +11,8 @@ import { unsubscribeToken } from "./unsubscribe-token";
 // decides what is due and enforces the rules (at most one email a day per
 // student, unsubscribed and turned-off kinds skipped, one attempt a day and 3
 // in all); this sends exactly what claim_due_reminders returns. Each one
-// marked sent is copied to analytics as reminder_sent.
+// marked sent is copied to analytics as reminder_sent, unless the student
+// turned the Analytics switch off (checked after every email has gone out).
 //
 // Logs carry counts, HTTP statuses and error codes only: never an email
 // address, a name, a card or a key.
@@ -199,7 +200,8 @@ export async function runReminderJob(
     sent.push({ event: "reminder_sent", studentId: row.student_id, properties: { kind: row.kind }, uuid: row.reminder_id });
   }
 
-  await capture(sent);
+  // one profile read for every student sent to; never fails the run
+  await capture(await withAnalyticsOn(supabase, sent));
   log("reminder_job", { ...result });
   return result;
 }

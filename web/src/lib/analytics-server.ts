@@ -3,6 +3,7 @@ import "server-only";
 import { EVENTS, sentFrom, TRACKING_PLAN_VERSION, type AnalyticsEvent, type EventProperties } from "@/lib/analytics-catalog";
 import { analyticsEnvironment } from "@/lib/analytics-config";
 import { isInternalStudent } from "@/lib/internal-students";
+import type { ServiceClient } from "@/lib/supabase/service";
 
 // Events the server sends (S48: key events are recorded by the server, where
 // ad blockers cannot hide them), for moments with no browser open: the daily
@@ -35,7 +36,37 @@ function report(problem: string, fields: Record<string, unknown> = {}): void {
   console.warn(JSON.stringify({ event: problem, ...fields }));
 }
 
-// Sends the events in one request. Never throws in a deployed build: a
+// The Analytics switch (profiles.analytics_opted_out_at) covers the server's
+// events too: keeps only the events for students whose switch is on, read in
+// one query with the service client the caller already holds. Fails closed:
+// if the read fails, or a student has no profile row, their events are
+// dropped. Never throws, so it can never stop the email or the unsubscribe.
+export async function withAnalyticsOn<E extends AnalyticsEvent>(
+  supabase: Pick<ServiceClient, "from">,
+  events: ServerEvent<E>[],
+): Promise<ServerEvent<E>[]> {
+  if (events.length === 0) return [];
+  const studentIds = [...new Set(events.map((event) => event.studentId))];
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("student_id, analytics_opted_out_at")
+      .in("student_id", studentIds);
+    if (error) {
+      report("analytics_consent_read_failed", { code: error.code ?? null, count: events.length });
+      return [];
+    }
+    const rows = (data ?? []) as { student_id: string; analytics_opted_out_at: string | null }[];
+    const on = new Set(rows.filter((row) => row.analytics_opted_out_at === null).map((row) => row.student_id));
+    return events.filter((event) => on.has(event.studentId));
+  } catch (error) {
+    report("analytics_consent_read_failed", { code: error instanceof Error ? error.name : "read_failed", count: events.length });
+    return [];
+  }
+}
+
+// Sends the events in one request. Callers pass them through withAnalyticsOn
+// first. Never throws in a deployed build: a
 // failure is logged and the caller carries on (analytics must never stop a
 // reminder). An event the catalog does not allow from the server is a bug: it
 // throws in development and tests, and is dropped and reported when deployed.
