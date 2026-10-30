@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { JORDAN_OVER_BUDGET, SAM_WITH_SURPLUS } from "@/lib/budget/personas";
 
-import { BudgetView } from "./budget-view";
+import { BUDGET_DISCLAIMER, BudgetView } from "./budget-view";
 
 afterEach(cleanup);
 
@@ -98,6 +98,44 @@ describe("BudgetView", () => {
     expect((screen.getByLabelText("Pay each paycheck") as HTMLInputElement).value).toBe("480");
     expect(screen.queryByRole("alert")).toBeNull();
     expect(status().textContent).toContain("$238");
+  });
+
+  it("says it is educational, not financial advice, for every persona", () => {
+    for (const [initial, name] of [
+      [SAM_WITH_SURPLUS, "Sam"],
+      [JORDAN_OVER_BUDGET, "Jordan"],
+    ] as const) {
+      render(<BudgetView initial={initial} personaName={name} />);
+      expect(screen.getByText(BUDGET_DISCLAIMER)).toBeTruthy();
+      cleanup();
+    }
+    expect(BUDGET_DISCLAIMER).toMatch(/^Educational, not financial advice\./);
+  });
+
+  // Ben, 2026-10-30: until the team can legally make recommendations, the
+  // app informs and never tells a student what to do. This screen only does
+  // arithmetic on the numbers they enter, so none of its words should read
+  // as advice, in the normal, shortfall and error states.
+  it("never uses words that tell a student what to do", () => {
+    const advice = /\b(should|recommend\w*|you may want|you might want|consider|try to|we suggest|i suggest|you need to|you must|cut back|pull back)\b/i;
+    for (const [initial, name] of [
+      [SAM_WITH_SURPLUS, "Sam"],
+      [JORDAN_OVER_BUDGET, "Jordan"],
+    ] as const) {
+      render(<BudgetView initial={initial} personaName={name} />);
+      expect(document.body.textContent).not.toMatch(advice);
+      type("Rent", "not an amount");
+      expect(document.body.textContent).not.toMatch(advice);
+      cleanup();
+    }
+  });
+
+  it("shows a shortfall in the waterfall without a double negative", () => {
+    render(<BudgetView initial={JORDAN_OVER_BUDGET} personaName="Jordan" />);
+    const row = screen.getByText("Short").closest("div")!;
+    expect(row.textContent).toBe("Short$602");
+    // Left to decide really is below zero, so it keeps its minus.
+    expect(screen.getByText("Left to decide").closest("div")!.textContent).toBe("Left to decide-$552");
   });
 
   it("links back to the list of screens", () => {

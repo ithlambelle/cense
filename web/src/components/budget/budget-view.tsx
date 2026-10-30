@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { AppHeader } from "@/components/ui/app-header";
 import { Button } from "@/components/ui/button";
+import { NoteLine } from "@/components/ui/note";
 import { TextField } from "@/components/ui/text-field";
 import {
   computeBudget,
@@ -22,6 +23,12 @@ import { moneyAmount } from "@/lib/money";
 // what is left (see the Penny decision about recommendations).
 
 const INCOME_ID = "income";
+
+// Until the team can legally make recommendations (Ben, 2026-10-30), every
+// budget screen is education and general information, never advice made for
+// one student. The first half is the phrase the Learn topics, Penny and the
+// results screen already use. The second half says what this screen does.
+export const BUDGET_DISCLAIMER = "Educational, not financial advice. This only adds up the numbers you enter.";
 
 const CADENCES: { id: PayCadence; label: string; per: string | null }[] = [
   { id: "weekly", label: "Every week", per: "a week" },
@@ -93,7 +100,8 @@ export function BudgetView({ initial, personaName }: { initial: BudgetInput; per
     { label: "Left to decide", cents: result.surplusCents, strong: true },
     { label: "Minus changing wants", cents: result.variableWantsCents },
     { label: "Minus saving", cents: result.savingsCents },
-    { label: remaining < 0 ? "Short" : "Left over", cents: remaining, strong: true },
+    // "Short" already says it is below zero, so show the amount without a minus.
+    { label: remaining < 0 ? "Short" : "Left over", cents: Math.abs(remaining), strong: true },
   ];
 
   return (
@@ -106,6 +114,7 @@ export function BudgetView({ initial, personaName }: { initial: BudgetInput; per
             <p className="text-body-m text-indigo-black">
               Made-up numbers for {personaName}. Change any amount to see what it does. Amounts are dollars a month, and nothing here is saved.
             </p>
+            <NoteLine>{BUDGET_DISCLAIMER}</NoteLine>
           </div>
 
           <div role="status" className="flex flex-col gap-1 rounded-card bg-off-white p-4">
