@@ -45,3 +45,22 @@ export function reminderSettings<K extends keyof Settings>(
   }
   return missing.length ? { ok: false, missing } : { ok: true, settings };
 }
+
+// Resend's send endpoint. RESEND_BASE_URL (the name Resend's own SDK reads)
+// points it at a stand-in on this machine for the journey tests
+// (web/e2e/support/fake-email-server.ts), so they never call the real API. An
+// address that is not on this machine is ignored: a stray value on Vercel can
+// never send the key or a student's email anywhere but Resend.
+export const RESEND_EMAILS_URL = "https://api.resend.com/emails";
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+export function resendEmailsUrl(base = process.env.RESEND_BASE_URL): string {
+  if (!base) return RESEND_EMAILS_URL;
+  try {
+    const url = new URL(base);
+    if (url.protocol === "http:" && LOCAL_HOSTS.has(url.hostname)) return `${url.origin}/emails`;
+  } catch {
+    // not an address: ignored
+  }
+  return RESEND_EMAILS_URL;
+}

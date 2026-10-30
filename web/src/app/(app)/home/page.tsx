@@ -1,22 +1,32 @@
 import type { Metadata } from "next";
 
 import { HomeView } from "@/components/home/home-view";
-import { homeState, needsDetail, profileInitial } from "@/lib/home/state";
-import { CELEBRATE_PARAM, ROUTES } from "@/lib/routes";
+import { ALL_REMINDERS_ON, homeState, needsDetail, profileInitial } from "@/lib/home/state";
+import { CELEBRATE_PARAM, REMINDER_PARAM, reminderArrivalPath, reminderKindParam, ROUTES } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
-import { loadApplicationDetail, loadStudentSnapshot } from "@/lib/student-data";
+import { loadApplicationDetail, loadReminderSettings, loadStudentSnapshot } from "@/lib/student-data";
 
 export const metadata: Metadata = { title: "Home | CENSE" };
 
-// Read on the server, so Home never flashes a loading state.
+// Read on the server, so Home never flashes a loading state. Opened from a
+// reminder email's button (?reminder=<kind>), it counts the visit; a
+// signed-out student comes back to the same address after signing in.
 export default async function HomePage({ searchParams }: PageProps<"/home">) {
-  const student = await requireStudent(ROUTES.home);
+  const params = await searchParams;
+  const fromReminder = reminderKindParam(params[REMINDER_PARAM]);
+  const student = await requireStudent(fromReminder ? reminderArrivalPath(fromReminder) : ROUTES.home);
   const { applications, quiz, quizAnswered } = await loadStudentSnapshot(student);
   const state = homeState(applications, quiz, quizAnswered);
   // The leading card's denial reason and autopay, read the same way as
-  // GET /applications/{id}. Only those fields reach the page.
-  const detail = needsDetail(state) ? await loadApplicationDetail(student, state.primary.id) : null;
-  const celebrateId = (await searchParams)[CELEBRATE_PARAM];
+  // GET /applications/{id}. Only those fields reach the page. An approved
+  // card's reminder star also needs the student's reminder settings.
+  const [detail, settings] = needsDetail(state)
+    ? await Promise.all([
+        loadApplicationDetail(student, state.primary.id),
+        state.primary.status === "approved" ? loadReminderSettings(student) : ALL_REMINDERS_ON,
+      ])
+    : [null, ALL_REMINDERS_ON];
+  const celebrateId = params[CELEBRATE_PARAM];
   return (
     <HomeView
       state={state}
@@ -29,7 +39,9 @@ export default async function HomePage({ searchParams }: PageProps<"/home">) {
           paymentDueDay: detail.paymentDueDay,
         }
       }
+      reminderSettings={{ paymentDue: settings.paymentDue, emailsOn: settings.emailsOn }}
       celebrateId={typeof celebrateId === "string" ? celebrateId : null}
+      fromReminder={fromReminder}
     />
   );
 }

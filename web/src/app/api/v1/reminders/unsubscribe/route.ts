@@ -1,3 +1,4 @@
+import { captureServer, withAnalyticsOn } from "@/lib/analytics-server";
 import { reminderSettings } from "@/lib/reminders/config";
 import { verifyUnsubscribeToken } from "@/lib/reminders/unsubscribe-token";
 import { ROUTES } from "@/lib/routes";
@@ -11,7 +12,8 @@ import { createServiceClient } from "@/lib/supabase/service";
 // own, and that must never unsubscribe anyone. POST unsubscribes: the
 // button, or the inbox's own one-click unsubscribe (RFC 8058, the
 // List-Unsubscribe-Post header). It uses the service role, the narrow
-// exception in api/data-contract.md, for unsubscribe_reminders() only.
+// exception in api/data-contract.md, for unsubscribe_reminders() and the
+// student's Analytics switch only.
 
 const PAGE_HEADERS = {
   "Content-Type": "text/html; charset=utf-8",
@@ -30,7 +32,7 @@ function page(status: number, title: string, body: string): Response {
 }
 
 const BUTTON = "padding:10px 18px;border:0;border-radius:999px;background:#1a1a1a;color:#fff;font-size:16px;font-weight:600;cursor:pointer;";
-const settingsLink = `<a href="${ROUTES.settings}" style="color:#1a1a1a;">Reminder settings</a>`;
+const settingsLink = `<a href="${ROUTES.reminderSettings}" style="color:#1a1a1a;">Reminder settings</a>`;
 
 const brokenLink = () => page(400, "This link doesn't work", `<p>Turn reminder emails off in ${settingsLink} instead.</p>`);
 
@@ -66,10 +68,16 @@ export async function POST(request: Request): Promise<Response> {
   if (!studentId) return brokenLink();
 
   const supabase = createServiceClient(config.settings.serviceRoleKey);
-  const { error } = await supabase.rpc("unsubscribe_reminders", { p_student_id: studentId });
+  // True only when this click turned emails off (not on a second click).
+  const { data: turnedOff, error } = await supabase.rpc("unsubscribe_reminders", { p_student_id: studentId });
   if (error) {
     console.error(JSON.stringify({ event: "database_error", operation: "reminder_unsubscribe", code: error.code }));
     return page(503, "Something went wrong", `<p>Please try again in a minute, or use ${settingsLink}.</p>`);
+  }
+  if (turnedOff === true) {
+    await captureServer(await withAnalyticsOn(supabase, [
+      { event: "reminder_settings_changed", studentId, properties: { setting: "emails", on: false, source: "email_link" } },
+    ]));
   }
   return page(200, "You're unsubscribed", `<p>No more reminder emails. Changed your mind? Turn them back on in ${settingsLink}.</p>`);
 }

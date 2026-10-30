@@ -58,17 +58,27 @@ jobs:
         run: |
           eval "$(supabase status -o env)"
           printf 'NEXT_PUBLIC_SUPABASE_URL=%s\nNEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=%s\n' "$API_URL" "$PUBLISHABLE_KEY" > web/.env.local
-          # The local stack's own service role key, for Delete my account
-          # (e2e/delete-account.spec.ts).
+          # The local stack's own service role key, for the reminder job test
+          # and for Delete my account (e2e/delete-account.spec.ts).
           printf 'SUPABASE_SERVICE_ROLE_KEY=%s\n' "$SERVICE_ROLE_KEY" >> web/.env.local
       - run: npm ci
       # A production build, not next dev: dev recompiles mid-test and made a test flaky.
       - run: npm run build
       - name: Start the app on :3300
+        # The reminder job's variables, for its journey test
+        # (e2e/reminder-job.spec.ts): Resend and the heartbeat check are the
+        # stand-in server the test starts on :3598, never the real Resend API.
         # Ask Penny's typed questions go to the stand-in Claude server the
         # tests start on :3599 (web/e2e/support/fake-claude.ts), never the
-        # real API: no key in CI, no cost. The key is a placeholder.
+        # real API: no key in CI, no cost. Every value is a placeholder.
         env:
+          CRON_SECRET: e2e-cron-secret
+          RESEND_API_KEY: e2e-placeholder
+          RESEND_BASE_URL: http://127.0.0.1:3598
+          REMINDER_FROM_EMAIL: Cense <reminders@example.test>
+          APP_BASE_URL: http://localhost:3300
+          REMINDER_UNSUBSCRIBE_SECRET: e2e-unsubscribe-secret
+          REMINDER_HEARTBEAT_URL: http://127.0.0.1:3598/heartbeat
           ANTHROPIC_API_KEY: e2e-placeholder
           ANTHROPIC_BASE_URL: http://127.0.0.1:3599
         run: |
@@ -79,6 +89,7 @@ jobs:
         run: npx playwright test
         env:
           E2E_MAILPIT_URL: http://127.0.0.1:54324
+          E2E_CRON_SECRET: e2e-cron-secret
       - name: Keep the report and traces when a test fails
         if: failure()
         uses: actions/upload-artifact@v4

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PaymentReminderSetup } from "./payment-reminder-setup";
@@ -28,7 +28,10 @@ function server(...replies: Reply[]) {
 const sent = (fetchFn: ReturnType<typeof server>) =>
   fetchFn.mock.calls.map(([url, init]) => [init?.method, url, init?.body === undefined ? undefined : JSON.parse(String(init.body))]);
 
-function renderSetup(days: { closing: number | null; due: number | null } = { closing: null, due: null }) {
+function renderSetup(
+  days: { closing: number | null; due: number | null } = { closing: null, due: null },
+  more: Partial<Parameters<typeof PaymentReminderSetup>[0]> = {},
+) {
   render(
     <PaymentReminderSetup
       applicationId={ID}
@@ -36,6 +39,7 @@ function renderSetup(days: { closing: number | null; due: number | null } = { cl
       paymentDueDay={days.due}
       savedChoices={ON}
       email="student@bu.edu"
+      {...more}
     />,
   );
 }
@@ -51,6 +55,26 @@ afterEach(() => {
 });
 
 describe("PaymentReminderSetup", () => {
+  it("says the settings cover every card, and names the first-statement email only for a card that gets it", () => {
+    renderSetup();
+    expect(screen.getByText("Applies to all your cards.")).toBeTruthy();
+    expect(screen.queryByText(/autopay check/)).toBeNull();
+    cleanup();
+    renderSetup(undefined, { firstStatementEmail: true });
+    expect(
+      screen.getByText("We’ll email you before your statement closes and before your bill is due, plus one autopay check after your first statement."),
+    ).toBeTruthy();
+  });
+
+  it("goes back, and after saving returns, to the card's page when opened from it", async () => {
+    const fetchFn = server({ status: 200 }, { status: 201, body: {} });
+    renderSetup({ closing: 14, due: 9 }, { back: { href: "/cards/discover-it-student-cash-back", label: "Card details" }, doneHref: "/cards/discover-it-student-cash-back" });
+    expect(screen.getByRole("link", { name: "Back to Card details" }).getAttribute("href")).toBe("/cards/discover-it-student-cash-back");
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/cards/discover-it-student-cash-back"));
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
   it("starts from the saved days and choices", () => {
     renderSetup({ closing: 14, due: 9 });
     expect(closingField().value).toBe("14");

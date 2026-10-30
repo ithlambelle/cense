@@ -123,7 +123,7 @@ flowchart TB
 | Google sign-in may not work inside the app once it is saved to the iPhone Home Screen. An installed web app keeps its own storage, separate from Safari, and redirect-based sign-in has reported failures there. | The 6-digit email code works in that setting and is always offered. Google sign-in is tested on a real iPhone, in Safari and from the Home Screen, before MVP1. |
 | A signed-in user can reach Supabase's data API directly, without going through our server. | Row level security on every table that holds user data, plus a test in CI (`web/e2e/cross-student.spec.ts`) that signs in as two students and proves neither can read or change the other's records, through the API or straight to the database. Narrowing the default table grants to what the API uses is still open. |
 | Card terms and links go stale, so a recommendation could rest on old facts. | Card data lives in typed files in this repo, each card with a last-verified date. It is validated in CI and changes only through a reviewed pull request. |
-| The reminder job could send a reminder twice, or stop without anyone noticing. | Each reminder is claimed once by a unique key, so a rerun cannot send it again. A heartbeat check alerts the team if the job stops running. |
+| The reminder job could send a reminder twice, or stop without anyone noticing. | Each reminder is claimed once by a unique key, so a rerun cannot send it again. Each run pings a Healthchecks.io check (`REMINDER_HEARTBEAT_URL`), which emails the team when a send fails or a day passes with no run (see Reminder emails). With the variable unset, nothing alerts. |
 
 ### Mentor feedback on the stack
 
@@ -168,6 +168,14 @@ npm run seed:local        # optional: six test students, one per Home state
 npm run e2e               # in a second terminal, with the app still running
 ```
 
+The reminder job's journey test (`web/e2e/reminder-job.spec.ts`) calls the cron route, so the app needs the job's variables, pointed at the stand-in email server the test starts on :3598 instead of Resend. Start the app with them, as CI does:
+
+```bash
+CRON_SECRET=e2e-cron-secret SUPABASE_SERVICE_ROLE_KEY=<service_role key from npx supabase status> RESEND_API_KEY=e2e-placeholder RESEND_BASE_URL=http://127.0.0.1:3598 REMINDER_FROM_EMAIL="Cense <reminders@example.test>" APP_BASE_URL=http://localhost:3300 REMINDER_UNSUBSCRIBE_SECRET=e2e-unsubscribe-secret REMINDER_HEARTBEAT_URL=http://127.0.0.1:3598/heartbeat npx next start -p 3300
+```
+
+and run the tests with `E2E_CRON_SECRET=e2e-cron-secret`. Without it, that one test is skipped locally (never in CI).
+
 Every pull request that changes a screen adds or updates a journey test that does what a student does: use each control, reload to check it saved, and follow every link to where it should go. A failed run keeps its report and traces as the `playwright-report` artifact; open a trace with `npx playwright show-trace`.
 
 `.env.local` needs `NEXT_PUBLIC_SUPABASE_URL` (the API URL, `http://127.0.0.1:54321`) and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. The optional variables the tests and seed script read are listed in `.env.example`.
@@ -186,7 +194,7 @@ Delete my account on Security and privacy deletes, at once: the student's PostHo
 
 ## Reminder emails
 
-Vercel Cron calls `GET /api/v1/cron/reminders` once a day at 13:00 UTC (`web/vercel.json`; the Hobby plan runs it at some point in that hour, so 8:00 to 10:00 Eastern). The job schedules every card's next reminders, claims the ones due today, at most one per student, sends each through Resend's API and marks it sent. A student sees a reminder in the app only once its email has gone. Every email has an unsubscribe link and the one-click `List-Unsubscribe` headers. Rules and functions: [api/data-contract.md](api/data-contract.md).
+Vercel Cron calls `GET /api/v1/cron/reminders` once a day at 13:00 UTC (`web/vercel.json`; the Hobby plan runs it at some point in that hour, so 8:00 to 10:00 Eastern). The job schedules every card's next reminders, claims the ones due today, at most one per student, sends each through Resend's API and marks it sent. A failed send is tried again the next day, 3 times at most. Each email has one button, Open Cense, which opens Home; the app does not show reminders yet. Every email links to Reminder settings (`/settings/reminders`) and has an unsubscribe link and the one-click `List-Unsubscribe` headers. Rules and functions: [api/data-contract.md](api/data-contract.md).
 
 Before it can run:
 
@@ -201,8 +209,23 @@ Before it can run:
 | `REMINDER_FROM_EMAIL` | `Cense <reminders@send.censefinance.com>` |
 | `REMINDER_UNSUBSCRIBE_SECRET` | Any long random string. Changing it breaks the unsubscribe links already sent. |
 | `APP_BASE_URL` | The app's public address, for the links in the emails: `https://censefinance.com`. |
+| `REMINDER_HEARTBEAT_URL` | Optional, the alert (below). The check's ping URL, `https://hc-ping.com/<uuid>`. |
 
-To run it by hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/v1/cron/reminders`. It answers with counts only.
+To run it by hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/v1/cron/reminders`. It answers with counts only: `claimed`, `sent`, `failed`, `unconfirmed` (sent but not marked), `deferred` (out of time, sent next run) and `abandoned` (failed for the third time, never tried again). Running it again the same day does not retry a failed send; that waits for the next day.
+
+### Alert when the job fails or stops
+
+Every run the job accepts pings `REMINDER_HEARTBEAT_URL`: `/start` as it begins, the URL itself when nothing failed, `/fail` when a send failed, an email was sent but not marked, or the job could not run (a missing variable, the database). The ping's body is the run's counts or the error's name, never anything about a student. A run refused for a wrong `CRON_SECRET` pings nothing, so a missing secret shows up as a missed run.
+
+Healthchecks.io is the default (its free Hobbyist plan monitors 20 jobs). To set it up (Ben, about 5 minutes):
+
+1. Sign up at healthchecks.io with the team's shared account, not a BU address.
+2. Add a check named `cense reminders`. Schedule: Simple, Period 1 day, Grace 2 hours (Vercel Hobby fires the cron at any point in the 13:00 UTC hour, so two runs can be up to 25 hours apart).
+3. Integrations: email, to the people who should hear about it.
+4. Copy the check's ping URL into `REMINDER_HEARTBEAT_URL` on Vercel (Production only), then redeploy.
+5. Run the job by hand once (above) and check the check turns green.
+
+Another service that takes a ping URL with `/start` and `/fail` works the same way. With the variable unset, nothing is pinged and nothing alerts.
 
 ## Ask Penny
 

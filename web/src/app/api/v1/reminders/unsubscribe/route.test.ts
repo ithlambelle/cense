@@ -13,12 +13,33 @@ const STUDENT = "00000000-0000-4000-8000-0000000000aa";
 const TOKEN = unsubscribeToken(STUDENT, SECRET);
 const url = (token: string | null = TOKEN) => `https://app.test/api/v1/reminders/unsubscribe${token === null ? "" : `?token=${token}`}`;
 
-function database(result: { error: { code?: string; message: string } | null } = { error: null }) {
+// optedOut is the student's profiles.analytics_opted_out_at (null: analytics
+// on); profileError makes that read fail.
+function database(
+  result: { data?: boolean; error: { code?: string; message: string } | null } = { error: null },
+  { optedOut = null, profileError = null }: { optedOut?: string | null; profileError?: { code: string } | null } = {},
+) {
   const calls: { name: string; args: unknown }[] = [];
   service.createServiceClient.mockReturnValue({
     rpc: async (name: string, args: unknown) => { calls.push({ name, args }); return { data: true, ...result }; },
+    from: (table: string) => ({
+      select: () => ({
+        in: async (_column: string, ids: string[]) => {
+          calls.push({ name: `read ${table}`, args: ids });
+          if (profileError) return { data: null, error: profileError };
+          return { data: ids.map((id) => ({ student_id: id, analytics_opted_out_at: optedOut })), error: null };
+        },
+      }),
+    }),
   });
   return calls;
+}
+
+function analyticsOn() {
+  vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_test");
+  const fetchMock = vi.fn<typeof fetch>(async () => new Response("{}"));
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
 }
 
 beforeEach(() => {
@@ -49,8 +70,50 @@ describe("/reminders/unsubscribe", () => {
     const calls = database();
     const response = await POST(new Request(url(), { method: "POST", body: "List-Unsubscribe=One-Click" }));
     expect(response.status).toBe(200);
+    const html = await response.text();
+    expect(html).toContain("You're unsubscribed");
+    // "Turn them back on" opens the Reminder settings screen itself
+    expect(html).toContain('href="/settings/reminders"');
+    expect(calls[0]).toEqual({ name: "unsubscribe_reminders", args: { p_student_id: STUDENT } });
+  });
+
+  it("POST copies the change to analytics from the server, with the student id only", async () => {
+    database();
+    const fetchMock = analyticsOn();
+    await POST(new Request(url(), { method: "POST", body: "List-Unsubscribe=One-Click" }));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [event] = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).batch;
+    expect(event.event).toBe("reminder_settings_changed");
+    expect(event.properties).toMatchObject({ setting: "emails", on: false, source: "email_link", distinct_id: STUDENT });
+
+    // A second click: still "You're unsubscribed", but not counted again.
+    database({ data: false, error: null });
+    const again = await POST(new Request(url(), { method: "POST", body: "List-Unsubscribe=One-Click" }));
+    expect(await again.text()).toContain("You're unsubscribed");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  it("POST sends no analytics for a student who turned the Analytics switch off", async () => {
+    const calls = database({ error: null }, { optedOut: "2026-10-25T12:00:00.000Z" });
+    const fetchMock = analyticsOn();
+    const response = await POST(new Request(url(), { method: "POST", body: "List-Unsubscribe=One-Click" }));
     expect(await response.text()).toContain("You're unsubscribed");
-    expect(calls).toEqual([{ name: "unsubscribe_reminders", args: { p_student_id: STUDENT } }]);
+    expect(calls).toContainEqual({ name: "read profiles", args: [STUDENT] });
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("POST sends no analytics when the Analytics switch cannot be read, and still unsubscribes", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const calls = database({ error: null }, { profileError: { code: "PGRST000" } });
+    const fetchMock = analyticsOn();
+    const response = await POST(new Request(url(), { method: "POST", body: "List-Unsubscribe=One-Click" }));
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("You're unsubscribed");
+    expect(calls[0]).toEqual({ name: "unsubscribe_reminders", args: { p_student_id: STUDENT } });
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 
   it("refuses a tampered, missing or foreign token without touching the database", async () => {
