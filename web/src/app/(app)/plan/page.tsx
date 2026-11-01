@@ -6,10 +6,10 @@ import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { applicationParam } from "@/lib/denied";
-import { planApplication } from "@/lib/home/state";
+import { paymentReminderOn, planApplication } from "@/lib/home/state";
 import { ROUTES } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
-import { loadApplicationDetail, loadStudentSnapshot } from "@/lib/student-data";
+import { loadApplicationDetail, loadReminderSettings, loadStudentSnapshot } from "@/lib/student-data";
 
 export const metadata: Metadata = { title: "Your first-month plan | CENSE" };
 
@@ -20,8 +20,8 @@ export default async function PlanPage({ searchParams }: PageProps<"/plan">) {
   const { applications } = await loadStudentSnapshot(student);
   const approved = planApplication(applications, applicationParam((await searchParams).application));
   if (approved) {
-    const detail = await loadApplicationDetail(student, approved.id);
-    return <FirstMonthPlan application={approved} reminderDaysSaved={detail?.paymentDueDay != null} />;
+    const [detail, settings] = await Promise.all([loadApplicationDetail(student, approved.id), loadReminderSettings(student)]);
+    return <FirstMonthPlan application={approved} paymentReminderOn={paymentReminderOn(detail, settings)} />;
   }
 
   return (

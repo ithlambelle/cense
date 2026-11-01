@@ -9,6 +9,9 @@ export const ROUTES = {
   results: "/results",
   home: "/home",
   settings: "/settings",
+  // Reminder settings (Figma 222:2344): reminder emails on or off, and each
+  // kind. Opened from Your account and from the footer of every reminder email.
+  reminderSettings: "/settings/reminders",
   // Decides where a student lands after signing in.
   start: "/start",
   // The rejection guide (Figma Denial Overview frames).
@@ -77,9 +80,33 @@ export function celebratePath(applicationId: string): string {
 }
 
 // Payment reminders for one approved card (US-08): its closing and due days
-// and the reminder emails. Home's "Set a payment reminder" row opens it.
-export function paymentRemindersPath(applicationId: string): string {
-  return `${applicationPath(applicationId)}/reminders`;
+// and the reminder emails. Home's "Set a payment reminder" row opens it, and
+// the card's own page with `from` "card", so Back and Save return there.
+// `cardFrom` is where that card page was itself opened from, so its Back
+// still goes there afterwards (Home, not the card list).
+export function paymentRemindersPath(applicationId: string, from?: ApplicationOrigin, cardFrom?: CardOrigin): string {
+  const path = `${applicationPath(applicationId)}/reminders`;
+  if (!from) return path;
+  const params = new URLSearchParams({ from });
+  if (cardFrom) params.set("card_from", cardFrom);
+  return `${path}?${params}`;
+}
+
+// The reminder kinds an email can be about (reminders.kind).
+export const REMINDER_KINDS = ["statement_closing", "payment_due", "check_autopay", "reapply"] as const;
+export type ReminderKind = (typeof REMINDER_KINDS)[number];
+
+// Where a reminder email's button goes: Home, marked with the email's kind so
+// Home can count the visit (reminder_email_clicked) and then drop the mark.
+// Nothing about the student is in the link.
+export const REMINDER_PARAM = "reminder";
+
+export function reminderArrivalPath(kind: ReminderKind): string {
+  return `${ROUTES.home}?${REMINDER_PARAM}=${kind}`;
+}
+
+export function reminderKindParam(value: string | string[] | undefined): ReminderKind | null {
+  return typeof value === "string" && (REMINDER_KINDS as readonly string[]).includes(value) ? (value as ReminderKind) : null;
 }
 
 // The first-month plan for one approved card.
@@ -116,12 +143,29 @@ export function cardPath(cardId: string, from?: CardOrigin): string {
   return from ? `${path}?from=${from}` : path;
 }
 
+// A card page's origin read back from an address: only the ones above.
+export function cardOrigin(value: string | string[] | undefined): CardOrigin | undefined {
+  return value === "results" || value === "home" ? value : undefined;
+}
+
 // The card page's back arrow for each origin. Anything else, including a
 // hand-typed value, falls back to the card list.
 export function cardBackLink(from: string | string[] | undefined): { href: string; label: string } {
   if (from === "results") return { href: ROUTES.results, label: "Your match" };
   if (from === "home") return { href: ROUTES.home, label: "Home" };
   return { href: ROUTES.cards, label: "Cards" };
+}
+
+// The payment reminder screen's back arrow, and where a save goes. Opened from
+// the card's page ("card"), it returns to that page as it was opened, with its
+// own origin; anything else goes Home, where the reminder star is.
+export function remindersBackLink(
+  from: string | string[] | undefined,
+  cardFrom: string | string[] | undefined,
+  cardId: string | null,
+): { href: string; label: string } {
+  if (from === "card" && cardId) return { href: cardPath(cardId, cardOrigin(cardFrom)), label: "Card details" };
+  return { href: ROUTES.home, label: "Home" };
 }
 
 // Mark result's back arrow. "card" returns to the tracked card's page, given
@@ -146,7 +190,17 @@ export function pennyPath(answer?: string, from?: string): string {
   return query ? `${ROUTES.penny}?${query}` : ROUTES.penny;
 }
 
-const NEXT_ALLOW_LIST: readonly string[] = [ROUTES.quiz, ROUTES.results, ROUTES.home, ROUTES.learn, ROUTES.penny];
+const NEXT_ALLOW_LIST: readonly string[] = [
+  ROUTES.quiz,
+  ROUTES.results,
+  ROUTES.home,
+  ROUTES.settings,
+  ROUTES.reminderSettings,
+  ROUTES.learn,
+  ROUTES.penny,
+  // A reminder email's button, opened while signed out: Home still counts the visit.
+  ...REMINDER_KINDS.map(reminderArrivalPath),
+];
 
 // A Learn topic page, so a signed-out visitor returns to it after signing in.
 const LEARN_TOPIC_PATH = /^\/learn\/[a-z-]{1,40}$/;

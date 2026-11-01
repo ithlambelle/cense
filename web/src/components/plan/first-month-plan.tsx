@@ -43,8 +43,9 @@ type SaveState = "loading" | "saved" | "failed";
 type SavedPlan = { actions: PlanActions; state: "saved" };
 
 // The reminder action opens the reminder screen, which saves the card's days and
-// then the step; a step without saved days (ticked here before) is not done.
-function loadPlan(applicationId: string, reminderDaysSaved: boolean) {
+// then the step; a step without a reminder that is really on (saved days, the
+// due-date email on, emails not off) is not done.
+function loadPlan(applicationId: string, reminderOn: boolean) {
   return async (): Promise<LoadOutcome<SavedPlan>> => {
     const result = await loadPlanSteps(applicationId, "first_month");
     if (result.kind === "ok") {
@@ -54,7 +55,7 @@ function loadPlan(applicationId: string, reminderDaysSaved: boolean) {
           actions: {
             autopay: false,
             plannedPurchase: result.done.has("planned_purchase"),
-            paymentReminder: reminderDaysSaved && result.done.has("payment_reminder"),
+            paymentReminder: reminderOn && result.done.has("payment_reminder"),
           },
           state: "saved",
         },
@@ -68,9 +69,9 @@ function loadPlan(applicationId: string, reminderDaysSaved: boolean) {
 // Your first-month plan (S20), from the lo-fi board 219:2. Progress is saved
 // as plan steps. The lo-fi's "suggested monthly spending limit" is left out: there is
 // no sourced, rules-approved way to work one out yet.
-export function FirstMonthPlan({ application, reminderDaysSaved = false }: { application: Application; reminderDaysSaved?: boolean }) {
+export function FirstMonthPlan({ application, paymentReminderOn = false }: { application: Application; paymentReminderOn?: boolean }) {
   // useLoaded needs a load with one identity per application.
-  const load = useMemo(() => loadPlan(application.id, reminderDaysSaved), [application.id, reminderDaysSaved]);
+  const load = useMemo(() => loadPlan(application.id, paymentReminderOn), [application.id, paymentReminderOn]);
   // The return-path allow-list does not include this page, so Home it is.
   const { loaded, retry } = useLoaded(load, signInPath(ROUTES.home));
   const start: { actions: PlanActions; state: SaveState } =

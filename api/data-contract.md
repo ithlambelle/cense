@@ -49,7 +49,10 @@ review sites for estimates, on 2026-10-15; 13 are `recommend`.
   cron job has no student session at all, and the unsubscribe link is opened
   by a student who is not signed in, so a signed token stands in for the
   session. Both create the service client in `web/src/lib/supabase/service.ts`
-  (server only) and call only the functions made for them, never a table.
+  (server only) and call only the functions made for them, never a table,
+  with one read-only exception: before sending a server analytics event they
+  read the student's `profiles.analytics_opted_out_at` (the Analytics switch)
+  and send nothing for a student who turned it off or when the read fails.
 - Money is integer cents. Timestamps in API responses are UTC ISO 8601 strings.
 - Errors use `{ "error": { "code": string, "message": string, "details"?: unknown } }`.
 - Responses containing student data send `Cache-Control: no-store`.

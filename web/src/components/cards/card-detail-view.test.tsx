@@ -19,7 +19,37 @@ function catalogCard(id: string) {
 const N1 = "This issuer has no preapproval check, so applying is the only way to find out.";
 const N2 = "This card has no credit check to apply.";
 
+const TRACKED: Application = {
+  id: "00000000-0000-4000-8000-000000000001",
+  cardId: "discover-it-student-cash-back",
+  cardName: "Discover it Student Cash Back",
+  status: "approved",
+  creditLimitCents: 50000,
+  appliedAt: null,
+  statusUpdatedAt: "2026-10-25T00:00:00Z",
+};
+
 describe("CardDetailView", () => {
+  it("opens an approved card's payment reminders from its page, saying whether they are on", () => {
+    const card = catalogCard("discover-it-student-cash-back");
+    const { unmount } = render(<CardDetailView card={card} signedIn tracked={TRACKED} reminders="not_set" />);
+    const row = screen.getByRole("link", { name: /^Payment reminders/ });
+    expect(row.getAttribute("href")).toBe(`/applications/${TRACKED.id}/reminders?from=card`);
+    expect(row.textContent).toContain("Not set yet");
+    unmount();
+    render(<CardDetailView card={card} signedIn tracked={TRACKED} reminders="on" from="home" />);
+    const opened = screen.getByRole("link", { name: /^Payment reminders/ });
+    expect(opened.textContent).toContain("On");
+    // the page's own origin goes along, so Back from the reminder screen keeps it
+    expect(opened.getAttribute("href")).toBe(`/applications/${TRACKED.id}/reminders?from=card&card_from=home`);
+  });
+
+  it("has no reminder row for a card that is not approved", () => {
+    const card = catalogCard("discover-it-student-cash-back");
+    render(<CardDetailView card={card} signedIn tracked={{ ...TRACKED, status: "applied", creditLimitCents: null }} />);
+    expect(screen.queryByRole("link", { name: /^Payment reminders/ })).toBeNull();
+  });
+
   it("shows note N2, not N1, for a card with no credit check and no preapproval (Chime)", () => {
     const card = catalogCard("chime-card");
     expect(card.runsCreditCheck).toBe(false);

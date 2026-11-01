@@ -14,12 +14,25 @@ import {
   planPath,
   quizBackHref,
   quizPath,
+  remindersBackLink,
   signInPath,
   waitingPath,
 } from "./routes";
 
 describe("allowedNext", () => {
-  it.each(["/quiz", "/results", "/home", "/cards/discover-cash-back", "/learn", "/learn/penny", "/learn/student-loans"])("keeps %s", (path) => {
+  it.each([
+    "/quiz",
+    "/results",
+    "/home",
+    "/cards/discover-cash-back",
+    "/settings",
+    "/settings/reminders",
+    "/home?reminder=statement_closing",
+    "/home?reminder=reapply",
+    "/learn",
+    "/learn/penny",
+    "/learn/student-loans",
+  ])("keeps %s", (path) => {
     expect(allowedNext(path)).toBe(path);
   });
 
@@ -34,7 +47,9 @@ describe("allowedNext", () => {
     "/cards/../settings",
     "/cards/a/b",
     "/cards/UPPER",
-    "/settings",
+    "/settings/x",
+    "/home?reminder=other",
+    "/home?reminder=payment_due&x=1",
     "/learn/penny?answer=credit-score",
     "/learn/Credit",
     "/learn/a/b",
@@ -81,6 +96,17 @@ describe("tracked card paths", () => {
 
   it("builds the payment reminders screen for one card, allowed after sign-in", () => {
     expect(paymentRemindersPath(ID)).toBe(`/applications/${ID}/reminders`);
+    expect(paymentRemindersPath(ID, "card")).toBe(`/applications/${ID}/reminders?from=card`);
+    expect(paymentRemindersPath(ID, "card", "home")).toBe(`/applications/${ID}/reminders?from=card&card_from=home`);
+  });
+
+  it("sends the reminder screen's Back to the card page as it was opened, or Home", () => {
+    const card = "discover-it-student-cash-back";
+    expect(remindersBackLink("card", "home", card)).toEqual({ href: `/cards/${card}?from=home`, label: "Card details" });
+    expect(remindersBackLink("card", undefined, card)).toEqual({ href: `/cards/${card}`, label: "Card details" });
+    expect(remindersBackLink("card", "https://evil.example", card)).toEqual({ href: `/cards/${card}`, label: "Card details" });
+    expect(remindersBackLink("card", "home", null)).toEqual({ href: "/home", label: "Home" });
+    expect(remindersBackLink(undefined, "home", card)).toEqual({ href: "/home", label: "Home" });
     expect(allowedNext(paymentRemindersPath(ID))).toBe(paymentRemindersPath(ID));
     expect(allowedNext(`/applications/${ID}/reminders/x`)).toBeNull();
   });

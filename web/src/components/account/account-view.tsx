@@ -13,8 +13,9 @@ import type { ResultView } from "@/lib/results/compute";
 import { quizPath, ROUTES } from "@/lib/routes";
 
 // Your account (S28): the MVP1 subset of the Profile frame (416:342), in the
-// system's colors (the frame is an earlier draft in other hexes). Updates,
-// notification settings and security screens are not in MVP1.
+// system's colors (the frame is an earlier draft in other hexes), with the
+// Reminder settings row from the MVP2 Profile frame (222:2282). The Updates
+// screen is not built yet.
 export function AccountView({
   email,
   card,
@@ -105,6 +106,7 @@ export function AccountView({
                 // result, so this row is only for a student with a card.
                 ...(card ? [done ? { href: ROUTES.results, label: "Card quiz results" } : quiz] : []),
                 { href: ROUTES.addCard, label: "Add a card I already have" },
+                { href: ROUTES.reminderSettings, label: "Reminder settings" },
                 { href: ROUTES.cards, label: "Browse cards" },
                 { href: ROUTES.privacy, label: "Security and privacy" },
               ].map((row, index) => (
