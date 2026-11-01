@@ -23,6 +23,11 @@ export const ROUTES = {
   forgotPassword: "/forgot-password",
   // Opened from the password reset email.
   resetPassword: "/reset-password",
+  // Safe to spend on a Plaid sandbox bank (US-12): How we got this, the
+  // consent screen before Link, and who covers which bills.
+  safeToSpend: "/safe-to-spend",
+  safeToSpendConnect: "/safe-to-spend/connect",
+  safeToSpendSetup: "/safe-to-spend/setup",
   // Security and privacy (the "Soon" row of Profile, Figma 222:2282): the
   // Analytics switch and Delete my account.
   privacy: "/settings/privacy",
@@ -32,6 +37,11 @@ export const ROUTES = {
   learn: "/learn",
   penny: "/learn/penny",
 } as const;
+
+// One step of who covers which bills (1 to 5), or the set-aside (6).
+export function safeToSpendSetupPath(step = 1): string {
+  return step === 1 ? ROUTES.safeToSpendSetup : `${ROUTES.safeToSpendSetup}?step=${step}`;
+}
 
 // Keeps the tracked card with the student as they move between screens.
 function withApplication(path: string, applicationId: string | null): string {
@@ -194,6 +204,9 @@ const NEXT_ALLOW_LIST: readonly string[] = [
   ROUTES.quiz,
   ROUTES.results,
   ROUTES.home,
+  ROUTES.safeToSpend,
+  ROUTES.safeToSpendConnect,
+  ROUTES.safeToSpendSetup,
   ROUTES.settings,
   ROUTES.reminderSettings,
   ROUTES.learn,

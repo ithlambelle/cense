@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 
 import { HomeView } from "@/components/home/home-view";
 import { ALL_REMINDERS_ON, homeState, needsDetail, profileInitial } from "@/lib/home/state";
+import { plaidConfig } from "@/lib/plaid/config";
+import { loadSafeToSpend } from "@/lib/plaid/store";
 import { CELEBRATE_PARAM, REMINDER_PARAM, reminderArrivalPath, reminderKindParam, ROUTES } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
 import { loadApplicationDetail, loadReminderSettings, loadStudentSnapshot } from "@/lib/student-data";
@@ -20,12 +22,18 @@ export default async function HomePage({ searchParams }: PageProps<"/home">) {
   // The leading card's denial reason and autopay, read the same way as
   // GET /applications/{id}. Only those fields reach the page. An approved
   // card's reminder star also needs the student's reminder settings.
-  const [detail, settings] = needsDetail(state)
-    ? await Promise.all([
-        loadApplicationDetail(student, state.primary.id),
-        state.primary.status === "approved" ? loadReminderSettings(student) : ALL_REMINDERS_ON,
-      ])
-    : [null, ALL_REMINDERS_ON];
+  // Safe to spend (US-12) is read alongside, only when Plaid is set up. A
+  // failed read leaves its card out rather than failing Home.
+  const [detailAndSettings, safeToSpend] = await Promise.all([
+    needsDetail(state)
+      ? Promise.all([
+          loadApplicationDetail(student, state.primary.id),
+          state.primary.status === "approved" ? loadReminderSettings(student) : ALL_REMINDERS_ON,
+        ])
+      : null,
+    plaidConfig() ? loadSafeToSpend(student) : null,
+  ]);
+  const [detail, settings] = detailAndSettings ?? [null, ALL_REMINDERS_ON];
   const celebrateId = params[CELEBRATE_PARAM];
   return (
     <HomeView
@@ -42,6 +50,7 @@ export default async function HomePage({ searchParams }: PageProps<"/home">) {
       reminderSettings={{ paymentDue: settings.paymentDue, emailsOn: settings.emailsOn }}
       celebrateId={typeof celebrateId === "string" ? celebrateId : null}
       fromReminder={fromReminder}
+      safeToSpend={safeToSpend?.ok ? safeToSpend.value : undefined}
     />
   );
 }
