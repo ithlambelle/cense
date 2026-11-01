@@ -13,7 +13,7 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 
 import type { BrowserContext } from "@playwright/test";
 
-export const FAKE_PLAID_PORT = Number(process.env.E2E_FAKE_PLAID_PORT ?? 3598);
+export const FAKE_PLAID_PORT = Number(process.env.E2E_FAKE_PLAID_PORT ?? 3597);
 
 // The one bank every linked student gets: $1,240 in checking, $500 in
 // savings (not counted) and $310 owed on a card.

@@ -9,7 +9,7 @@ import { SENSITIVE } from "@/lib/analytics";
 import type { Card } from "@/lib/cards/catalog";
 import { cardDisplayName, cardTypeLabel, type FitTier } from "@/lib/copy/results";
 import { moneyAmount } from "@/lib/money";
-import { cardPath, ROUTES, signInPath } from "@/lib/routes";
+import { cardPath, quizPath, ROUTES, signInPath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 // The card list (S13). No hi-fi frame yet: outlined cards in the style of the
@@ -46,7 +46,7 @@ export function CardListView({
           {yourMatch ? (
             <YourMatchRow match={yourMatch} />
           ) : (
-            <Link href={ROUTES.quiz} className={buttonVariants()}>
+            <Link href={quizPath("cards")} className={buttonVariants()}>
               Take the quiz
               <ButtonChevron />
             </Link>
@@ -54,7 +54,7 @@ export function CardListView({
           {signedIn ? null : (
             <Link
               href={signInPath(null)}
-              className="-mt-3 min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 outline-none focus-visible:outline-2 focus-visible:outline-ring"
+              className="-mt-3 min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-ring"
             >
               Sign in
             </Link>
@@ -98,7 +98,7 @@ function CardGroup({ title, cards }: { title: string; cards: Card[] }) {
           <li key={card.id}>
             <Link
               href={cardPath(card.id)}
-              className="flex items-center gap-3 rounded-card border-[1.5px] border-violet bg-white p-5 outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="flex items-center gap-3 rounded-card border-[1.5px] border-violet bg-white p-5 hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="font-heading text-h6 font-medium text-navy">{cardDisplayName(card)}</span>
@@ -123,7 +123,7 @@ function YourMatchRow({ match }: { match: YourMatch }) {
     <div className="flex flex-col gap-3">
       <Link
         href={ROUTES.results}
-        className="flex items-center gap-3 rounded-card bg-off-white p-5 outline-none transition-transform duration-200 motion-safe:active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="flex items-center gap-3 rounded-card bg-off-white p-5 transition-transform duration-200 motion-safe:active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="text-body-s font-semibold text-violet">Your match</span>
@@ -136,7 +136,7 @@ function YourMatchRow({ match }: { match: YourMatch }) {
         ) : null}
         <ChevronRight aria-hidden="true" width={20} height={20} className="shrink-0 text-violet" />
       </Link>
-      <Link href={ROUTES.quiz} className={buttonVariants({ variant: "secondary" })}>
+      <Link href={quizPath("cards")} className={buttonVariants({ variant: "secondary" })}>
         Retake quiz
       </Link>
     </div>

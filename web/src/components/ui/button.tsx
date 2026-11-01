@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 // Hover, pressed, keyboard focus and pending are not drawn in Figma. They are
 // added in the system's style; the designers agreed to that on 2026-10-11.
 const baseButtonVariants = cva(
-  "group/button inline-flex shrink-0 cursor-pointer items-center gap-2 font-sans whitespace-nowrap transition-colors outline-none select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed aria-busy:cursor-progress motion-safe:active:translate-y-px [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "group/button inline-flex shrink-0 cursor-pointer items-center gap-2 font-sans whitespace-nowrap transition-colors select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed aria-busy:cursor-progress motion-safe:active:translate-y-px [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {

@@ -212,7 +212,7 @@ export function DeniedPlanScreen({
                             href={step.link.href}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-body-s text-violet underline outline-none focus-visible:outline-2 focus-visible:outline-ring"
+                            className="text-body-s text-violet underline focus-visible:outline-2 focus-visible:outline-ring"
                           >
                             {step.link.label}
                             <span className="sr-only"> (opens in a new tab)</span>
@@ -223,7 +223,7 @@ export function DeniedPlanScreen({
                             type="button"
                             disabled={saving.has(step.id)}
                             onClick={() => mark(step.id, !lit)}
-                            className="relative text-body-s leading-[17px] font-semibold text-violet underline outline-none before:absolute before:-inset-3 before:content-[''] focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-progress disabled:opacity-60"
+                            className="relative text-body-s leading-[17px] font-semibold text-violet underline before:absolute before:-inset-3 before:content-[''] focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-progress disabled:opacity-60"
                           >
                             {lit ? "Mark as not done" : "Mark as done"}
                           </button>
@@ -235,7 +235,7 @@ export function DeniedPlanScreen({
                       type="button"
                       aria-expanded={false}
                       onClick={() => setOpen(step.id)}
-                      className="flex w-full items-center gap-3 py-3.5 text-left outline-none focus-visible:outline-2 focus-visible:outline-ring"
+                      className="flex w-full items-center gap-3 py-3.5 text-left focus-visible:outline-2 focus-visible:outline-ring"
                     >
                       <StarSlot lit={lit} />
                       <span className={cn("min-w-0 flex-1", titleClass)}>{title}</span>
@@ -314,14 +314,14 @@ function ReasonNote({ reason }: { reason: SavedDenialReason }) {
     <section aria-label="Denial reason" className="flex flex-col gap-1 rounded-input bg-off-white px-4 py-3 text-indigo-black">
       <div className="flex items-center gap-3">
         <FileText aria-hidden="true" width={22} height={22} className="shrink-0 text-violet" />
-        <p className={cn("min-w-0 flex-1 font-heading text-body-s leading-[22px] font-semibold break-words", SENSITIVE)}>{line}</p>
+        <p className={cn("min-w-0 flex-1 font-heading text-body-s leading-[22px] font-medium break-words", SENSITIVE)}>{line}</p>
         {why ? (
           <button
             type="button"
             aria-expanded={open}
             aria-controls={whyId}
             onClick={() => setOpen(!open)}
-            className="relative shrink-0 text-body-s font-semibold text-violet underline outline-none before:absolute before:-inset-3 before:content-[''] focus-visible:outline-2 focus-visible:outline-ring"
+            className="relative shrink-0 text-body-s font-semibold text-violet underline before:absolute before:-inset-3 before:content-[''] focus-visible:outline-2 focus-visible:outline-ring"
           >
             Why?
           </button>

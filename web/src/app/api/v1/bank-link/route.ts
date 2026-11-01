@@ -70,7 +70,7 @@ export async function POST(request: Request): Promise<Response> {
 
 // Disconnect (US-12): every Item is removed at Plaid first, then the token,
 // balances and answers are deleted (removeBankLinksForStudent, the same step
-// account deletion takes). If Plaid cannot be reached nothing changes, so the
+// account deletion must take). If Plaid cannot be reached nothing changes, so the
 // token is never lost while the Item still exists there.
 export async function DELETE(): Promise<Response> {
   const student = await authenticatedStudent();

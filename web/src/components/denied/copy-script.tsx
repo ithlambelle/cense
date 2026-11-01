@@ -21,7 +21,7 @@ export function CopyScript({ steps }: { steps: string[] }) {
       <button
         type="button"
         onClick={copy}
-        className="min-h-6 text-body-s font-semibold text-violet underline underline-offset-2 outline-none hover:text-violet-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="min-h-6 text-body-s font-semibold text-violet underline underline-offset-2 hover:text-violet-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         Copy script
       </button>

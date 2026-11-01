@@ -25,7 +25,7 @@ const approved: Application = {
   appliedAt: null,
   statusUpdatedAt: new Date().toISOString(),
 };
-const state = homeState([approved], computeResult(undefined, listCards()), true);
+const state = homeState([approved], computeResult(undefined, listCards()), 0);
 const NO_DETAIL = { denialReason: null, denialReasonNote: null, autopayStatus: "unknown", paymentDueDay: null } as const;
 // The card's reminder days are saved, so a done payment_reminder step lights its star.
 const DAYS_SAVED = { ...NO_DETAIL, paymentDueDay: 9 };
@@ -196,6 +196,27 @@ describe("Home approved card", () => {
     expect(screen.getByRole("link", { name: /^Set a payment reminder/ }).textContent).not.toContain("done");
   });
 
+  it("leaves the reminder star out while the due-date email or every email is off, from any card", async () => {
+    server([{ status: 200, body: plan("payment_reminder") }, { status: 200, body: plan("payment_reminder") }, { status: 200, body: plan("payment_reminder") }]);
+    const { unmount } = render(<HomeView state={state} initial="M" detail={DAYS_SAVED} reminderSettings={{ paymentDue: false, emailsOn: true }} />);
+    expect(await screen.findByText("0 of 3 lit")).toBeTruthy();
+    unmount();
+    const second = render(<HomeView state={state} initial="M" detail={DAYS_SAVED} reminderSettings={{ paymentDue: true, emailsOn: false }} />);
+    expect(await screen.findByText("0 of 3 lit")).toBeTruthy();
+    second.unmount();
+    // back on: the saved step lights it again
+    render(<HomeView state={state} initial="M" detail={DAYS_SAVED} reminderSettings={{ paymentDue: true, emailsOn: true }} />);
+    expect(await screen.findByText("1 of 3 lit")).toBeTruthy();
+  });
+
+  it("counts a visit from a reminder email once, and drops the mark from the address", async () => {
+    server([{ status: 200, body: plan() }]);
+    window.history.replaceState(null, "", "/home?reminder=payment_due");
+    render(<HomeView state={state} initial="M" fromReminder="payment_due" />);
+    await screen.findByText("0 of 3 lit");
+    expect(window.location.search).toBe("");
+  });
+
   it("lights the autopay star when the card's autopay is on, and only then", async () => {
     server([{ status: 200, body: plan() }, { status: 200, body: plan() }]);
     const { unmount } = render(<HomeView state={state} initial="M" detail={{ ...NO_DETAIL, autopayStatus: "on" }} />);
@@ -317,7 +338,7 @@ describe("Home approved card", () => {
 
   it("offers to add a limit when none is saved, and Cancel leaves it", async () => {
     server([{ status: 200, body: plan() }]);
-    const noLimit = homeState([{ ...approved, creditLimitCents: null }], computeResult(undefined, listCards()), true);
+    const noLimit = homeState([{ ...approved, creditLimitCents: null }], computeResult(undefined, listCards()), 0);
     render(<HomeView state={noLimit} initial="M" />);
     await screen.findByText("0 of 3 lit");
     expect(screen.getByText("Not added")).toBeTruthy();

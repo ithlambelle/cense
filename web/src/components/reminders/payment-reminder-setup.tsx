@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { Switch } from "@/components/ui/switch";
 import { TextField } from "@/components/ui/text-field";
-import { SENSITIVE } from "@/lib/analytics";
+import { SENSITIVE, track } from "@/lib/analytics";
 import {
   parseDay,
   saveReminderSetup,
@@ -36,23 +36,35 @@ type Props = {
   savedChoices: ReminderChoices;
   // False after the student unsubscribed; saving with a reminder on turns emails back on.
   emailsOn?: boolean;
+  // This card gets the one first-statement email (a card the student just
+  // got, with that email on): the screen says so.
+  firstStatementEmail?: boolean;
   email: string | null;
+  // The back arrow: Home, or the card's page when opened from it.
+  back?: { href: string; label: string };
   // Replaced in the dev preview, so it never calls the API.
   save?: typeof saveReminderSetup;
-  // Where a finished save goes. Home, where the reminder star is now lit.
+  // Where a finished save goes. Home, where the reminder star is now lit, or
+  // the card's page it was opened from.
   doneHref?: string;
 };
 
 // Payment reminders / due date setup (US-08, Figma 144:1822, change card C4):
-// two days entered once, and two reminder emails, each 3 days ahead.
+// two days entered once, and two reminder emails, each 3 days ahead. A new
+// card also gets one autopay check after its first statement; that email is
+// switched on and off in Reminder settings, so here it is only named. The
+// toggles are the student's, not the card's, and the screen says so
+// (Reminders audit R-04, R-08).
 export function PaymentReminderSetup({
   applicationId,
   statementClosingDay,
   paymentDueDay,
   savedChoices,
   emailsOn = true,
+  firstStatementEmail = false,
   email,
   save = saveReminderSetup,
+  back = { href: ROUTES.home, label: "Home" },
   doneHref = ROUTES.home,
 }: Props) {
   const router = useRouter();
@@ -88,6 +100,7 @@ export function PaymentReminderSetup({
     // The student left while it saved: the answer must not move them again.
     if (!isMounted()) return;
     if (result.kind === "ok") {
+      track("reminder_setup_saved", { payment_due: choices.paymentDue, statement_closing: choices.statementClosing });
       // Stays pending while Home loads with the star lit. Replace, not push:
       // Back from Home goes where the student came from, not to this form (as
       // Mark result does).
@@ -108,13 +121,15 @@ export function PaymentReminderSetup({
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
-        <AppHeader backHref={ROUTES.home} backLabel="Home" />
+        <AppHeader backHref={back.href} backLabel={back.label} />
         {/* pt-2: the shared header is 8px taller than the frame's, so the
             heading still starts 96px from the top as drawn. */}
         <form method="post" onSubmit={submit} noValidate className="flex flex-1 flex-col gap-4 px-6 pt-2 pb-6">
           <h1 className="font-heading text-h3 font-medium text-navy">Never miss a payment</h1>
           <p className="text-body-s text-indigo-black/70">
-            We’ll email you before your statement closes and before your bill is due.
+            {firstStatementEmail
+              ? "We’ll email you before your statement closes and before your bill is due, plus one autopay check after your first statement."
+              : "We’ll email you before your statement closes and before your bill is due."}
           </p>
 
           <TextField
@@ -157,6 +172,8 @@ export function PaymentReminderSetup({
             disabled={pending}
             onChange={(statementClosing) => setChoices((current) => ({ ...current, statementClosing }))}
           />
+          {/* The toggle rows' detail style (144:1834). */}
+          <p className="text-caption leading-[normal] text-indigo-black/65">Applies to all your cards.</p>
 
           <div className="flex-1" />
           {error ? <ErrorMessage>{error}</ErrorMessage> : null}

@@ -48,23 +48,23 @@ export default async function HomePreviewPage({ searchParams }: { searchParams: 
   const cards = listCards();
   const none = computeResult(undefined, cards);
   const views = {
-    no_quiz: homeState([], none, false),
-    started: homeState([], computeResult({ under21: true }, cards), true),
-    matched: homeState([], computeResult(ALL_SIX, cards), true),
-    stretch: homeState([], computeResult({ ...ALL_SIX, recentDenial: true }, cards), true),
-    no_card: homeState([], computeResult({ ...ALL_SIX, incomeBand: "none" }, cards), true),
-    applied: homeState([app("applied")], none, true),
-    rejected: homeState([app("rejected")], none, true),
-    denied: homeState([app("rejected")], none, true),
-    waiting: homeState([app("rejected")], none, true),
-    approved: homeState([app("approved", { creditLimitCents: 50000 })], none, true),
+    no_quiz: homeState([], none, 0),
+    started: homeState([], computeResult({ under21: true }, cards), 1),
+    matched: homeState([], computeResult(ALL_SIX, cards), 1),
+    stretch: homeState([], computeResult({ ...ALL_SIX, recentDenial: true }, cards), 1),
+    no_card: homeState([], computeResult({ ...ALL_SIX, incomeBand: "none" }, cards), 1),
+    applied: homeState([app("applied")], none, 1),
+    rejected: homeState([app("rejected")], none, 1),
+    denied: homeState([app("rejected")], none, 1),
+    waiting: homeState([app("rejected")], none, 1),
+    approved: homeState([app("approved", { creditLimitCents: 50000 })], none, 1),
     several: homeState(
       [
         app("rejected", { id: "00000000-0000-4000-8000-000000000002", cardName: "Capital One Platinum Secured", statusUpdatedAt: "2026-10-01T00:00:00Z" }),
         app("applied"),
       ],
       none,
-      true,
+      0,
     ),
   };
   // Own keys only, so ?state=constructor falls back instead of crashing.

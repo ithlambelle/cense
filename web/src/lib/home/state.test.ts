@@ -3,7 +3,17 @@ import { describe, expect, it } from "vitest";
 import type { Application } from "../api/application";
 import { listCards } from "../cards/catalog";
 import { computeResult } from "../results/compute";
-import { cardApplication, celebrating, homeState, needsDetail, planApplication, profileInitial } from "./state";
+import {
+  cardApplication,
+  celebrating,
+  firstStatementEmailUpcoming,
+  homeState,
+  needsDetail,
+  paymentReminderOn,
+  planApplication,
+  profileInitial,
+  reminderStatus,
+} from "./state";
 
 const ALL_SIX = { under21: true, incomeBand: "under_5k", student: true, standing: "none", recentDenial: false, canDeposit: true };
 const cards = listCards();
@@ -22,17 +32,17 @@ function app(id: string, status: Application["status"], statusUpdatedAt: string)
 
 describe("homeState", () => {
   it("asks for the quiz when nothing is saved, and says when some answers are", () => {
-    expect(homeState([], computeResult(undefined, cards), false)).toEqual({ kind: "no_quiz", started: false });
-    expect(homeState([], computeResult({ under21: true }, cards), true)).toEqual({ kind: "no_quiz", started: true });
+    expect(homeState([], computeResult(undefined, cards), 0)).toEqual({ kind: "no_quiz", answered: 0 });
+    expect(homeState([], computeResult({ under21: true }, cards), 1)).toEqual({ kind: "no_quiz", answered: 1 });
   });
 
   it("shows the match when the quiz is done and nothing is tracked", () => {
-    const state = homeState([], computeResult(ALL_SIX, cards), true);
+    const state = homeState([], computeResult(ALL_SIX, cards), 1);
     expect(state.kind).toBe("matched");
   });
 
   it("shows no card with the rules' reason when none fits", () => {
-    const state = homeState([], computeResult({ ...ALL_SIX, incomeBand: "none" }, cards), true);
+    const state = homeState([], computeResult({ ...ALL_SIX, incomeBand: "none" }, cards), 1);
     expect(state.kind).toBe("no_card");
     if (state.kind === "no_card") expect(state.reason).toContain("under 21");
   });
@@ -40,13 +50,13 @@ describe("homeState", () => {
   it("puts tracked cards ahead of the quiz, newest change first", () => {
     const older = app("1", "approved", "2026-10-01T00:00:00Z");
     const newer = app("2", "rejected", "2026-10-10T00:00:00Z");
-    const state = homeState([older, newer], computeResult(ALL_SIX, cards), true);
+    const state = homeState([older, newer], computeResult(ALL_SIX, cards), 1);
     expect(state).toEqual({ kind: "tracking", primary: newer, others: [older] });
   });
 
   it("treats a card the student already had like any approved card", () => {
     const added = { ...app("3", "approved", "2026-10-05T00:00:00Z"), creditLimitCents: 50000 };
-    const state = homeState([added], computeResult(undefined, cards), false);
+    const state = homeState([added], computeResult(undefined, cards), 0);
     expect(state).toEqual({ kind: "tracking", primary: added, others: [] });
   });
 });
@@ -93,11 +103,11 @@ describe("celebrating", () => {
   const none = computeResult(undefined, cards);
   it("celebrates only the approved card Home leads with, named by the flag", () => {
     const newest = app("1", "approved", "2026-10-22T00:00:00Z");
-    const state = homeState([newest, app("2", "approved", "2026-10-01T00:00:00Z")], none, true);
+    const state = homeState([newest, app("2", "approved", "2026-10-01T00:00:00Z")], none, 1);
     expect(celebrating(state, newest.id)).toBe(true);
     expect(celebrating(state, null)).toBe(false);
     expect(celebrating(state, "00000000-0000-4000-8000-000000000002")).toBe(false);
-    expect(celebrating(homeState([app("1", "applied", "2026-10-22T00:00:00Z")], none, true), newest.id)).toBe(false);
+    expect(celebrating(homeState([app("1", "applied", "2026-10-22T00:00:00Z")], none, 1), newest.id)).toBe(false);
   });
 });
 
@@ -111,9 +121,64 @@ describe("profileInitial", () => {
 describe("needsDetail", () => {
   it("reads the denial reason and autopay only for an approved or denied leading card", () => {
     const none = computeResult(undefined, cards);
-    expect(needsDetail(homeState([app("1", "approved", "2026-10-01T00:00:00Z")], none, true))).toBe(true);
-    expect(needsDetail(homeState([app("2", "rejected", "2026-10-01T00:00:00Z")], none, true))).toBe(true);
-    expect(needsDetail(homeState([app("3", "applied", "2026-10-01T00:00:00Z")], none, true))).toBe(false);
-    expect(needsDetail(homeState([], none, false))).toBe(false);
+    expect(needsDetail(homeState([app("1", "approved", "2026-10-01T00:00:00Z")], none, 1))).toBe(true);
+    expect(needsDetail(homeState([app("2", "rejected", "2026-10-01T00:00:00Z")], none, 1))).toBe(true);
+    expect(needsDetail(homeState([app("3", "applied", "2026-10-01T00:00:00Z")], none, 1))).toBe(false);
+    expect(needsDetail(homeState([], none, 0))).toBe(false);
+  });
+});
+
+describe("paymentReminderOn", () => {
+  it("needs the due day saved, the due-date email on and emails not off", () => {
+    const on = { paymentDue: true, emailsOn: true };
+    expect(paymentReminderOn({ paymentDueDay: 9 }, on)).toBe(true);
+    expect(paymentReminderOn({ paymentDueDay: null }, on)).toBe(false);
+    expect(paymentReminderOn(null, on)).toBe(false);
+    expect(paymentReminderOn({ paymentDueDay: 9 }, { ...on, paymentDue: false })).toBe(false);
+    expect(paymentReminderOn({ paymentDueDay: 9 }, { ...on, emailsOn: false })).toBe(false);
+  });
+});
+
+describe("reminderStatus", () => {
+  const all = { emailsOn: true, statementClosing: true, paymentDue: true };
+  it("is not set until both days are saved, then on while either email is", () => {
+    expect(reminderStatus({ statementClosingDay: null, paymentDueDay: 9 }, all)).toBe("not_set");
+    expect(reminderStatus({ statementClosingDay: 14, paymentDueDay: 9 }, all)).toBe("on");
+    expect(reminderStatus({ statementClosingDay: 14, paymentDueDay: 9 }, { ...all, paymentDue: false })).toBe("on");
+    expect(reminderStatus({ statementClosingDay: 14, paymentDueDay: 9 }, { ...all, paymentDue: false, statementClosing: false })).toBe("off");
+    expect(reminderStatus({ statementClosingDay: 14, paymentDueDay: 9 }, { ...all, emailsOn: false })).toBe("off");
+  });
+});
+
+describe("firstStatementEmailUpcoming", () => {
+  const base = {
+    source: "application" as const,
+    autopayStatus: "unknown",
+    statementClosingDay: 12,
+    checkAutopay: true,
+    scheduled: { occurrence: "2026-11-12", sentAt: null, attempts: 0 },
+    today: "2026-10-25",
+  };
+
+  it("is upcoming for a new card while its email is scheduled and not sent", () => {
+    expect(firstStatementEmailUpcoming(base)).toBe(true);
+    // days not saved yet: it is scheduled once they are
+    expect(firstStatementEmailUpcoming({ ...base, statementClosingDay: null, scheduled: null })).toBe(true);
+  });
+
+  it("is not once it has gone, after its last try, or past its window", () => {
+    expect(firstStatementEmailUpcoming({ ...base, scheduled: { ...base.scheduled, sentAt: "2026-11-13T13:05:00Z" } })).toBe(false);
+    expect(firstStatementEmailUpcoming({ ...base, scheduled: { ...base.scheduled, attempts: 3 } })).toBe(false);
+    // closed Oct 21: still on Oct 24, not on Oct 25
+    expect(firstStatementEmailUpcoming({ ...base, scheduled: { ...base.scheduled, occurrence: "2026-10-21" }, today: "2026-10-24" })).toBe(true);
+    expect(firstStatementEmailUpcoming({ ...base, scheduled: { ...base.scheduled, occurrence: "2026-10-21" } })).toBe(false);
+    // days saved but nothing scheduled (window passed when they were saved, or emails off)
+    expect(firstStatementEmailUpcoming({ ...base, scheduled: null })).toBe(false);
+  });
+
+  it("is never for a card the student already had, with the email off, or with autopay on", () => {
+    expect(firstStatementEmailUpcoming({ ...base, source: "added" })).toBe(false);
+    expect(firstStatementEmailUpcoming({ ...base, checkAutopay: false })).toBe(false);
+    expect(firstStatementEmailUpcoming({ ...base, autopayStatus: "on" })).toBe(false);
   });
 });

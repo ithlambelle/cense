@@ -10,7 +10,8 @@ export type CardDays = { statementClosingDay: number; paymentDueDay: number };
 
 // The two toggles the frame draws. Reminder settings belong to the student,
 // not the card (GET and PATCH /me/reminder-settings), so they apply to every
-// approved card they track. Check autopay is not on this screen and is never sent.
+// approved card they track. The third email, the autopay check after a new
+// card's first statement, is switched on and off in Reminder settings.
 export type ReminderChoices = { paymentDue: boolean; statementClosing: boolean };
 
 // Which request failed. Everything before it was saved.

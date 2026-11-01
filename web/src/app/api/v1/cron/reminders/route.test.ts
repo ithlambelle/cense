@@ -38,16 +38,26 @@ function database(answers: Record<string, Result[]> = {}) {
   return calls;
 }
 
+// Resend answers from `responses` (or 200). Heartbeat and analytics calls are
+// kept apart in `others`, so the Resend assertions see only emails.
+const others: { url: string; body: string }[] = [];
 function resend(...responses: Response[]) {
-  const fetchMock = vi.fn(async () => responses.shift() ?? Response.json({ id: "email-id" }));
+  const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+    if (String(url).includes("/emails")) {
+      return responses.shift() ?? Response.json({ id: "email-id" });
+    }
+    others.push({ url: String(url), body: String(init?.body ?? "") });
+    return new Response("OK");
+  });
   vi.stubGlobal("fetch", fetchMock);
-  return fetchMock;
+  return { emails: () => fetchMock.mock.calls.filter(([url]) => String(url).includes("/emails")) };
 }
 
 const cron = (authorization: string | null = `Bearer ${ENV.CRON_SECRET}`) =>
   GET(new Request("https://app.test/api/v1/cron/reminders", { headers: authorization ? { authorization } : {} }));
 
 beforeEach(() => {
+  others.length = 0;
   for (const [name, value] of Object.entries(ENV)) vi.stubEnv(name, value);
   vi.spyOn(console, "log").mockImplementation(() => undefined);
   vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -88,12 +98,12 @@ describe("GET /cron/reminders", () => {
     const response = await cron();
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0 });
+    expect(body).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0 });
     expect(calls.map((call) => call.name)).toEqual(["refresh_all_reminders", "claim_due_reminders", "mark_reminder_sent"]);
     expect(calls[2].args).toEqual({ p_reminder_id: claimed().reminder_id });
     expect(service.createServiceClient).toHaveBeenCalledWith(ENV.SUPABASE_SERVICE_ROLE_KEY);
 
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const [url, init] = fetchMock.emails()[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://api.resend.com/emails");
     const headers = init.headers as Record<string, string>;
     expect(headers.Authorization).toBe(`Bearer ${ENV.RESEND_API_KEY}`);
@@ -140,7 +150,7 @@ describe("GET /cron/reminders", () => {
     const calls = database({ claim_due_reminders: [{ data: rows, error: null }] });
     const fetchMock = resend();
     expect(await (await cron()).json()).toMatchObject({ claimed: 2, sent: 2 });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.emails()).toHaveLength(2);
     expect(calls.find((call) => call.name === "claim_due_reminders")?.args).toEqual({ p_limit: 50 });
     expect(calls.filter((call) => call.name === "mark_reminder_sent").map((call) => call.args)).toEqual(rows.map((row) => ({ p_reminder_id: row.reminder_id })));
   });
@@ -148,8 +158,8 @@ describe("GET /cron/reminders", () => {
   it("sends nothing when nothing is due", async () => {
     database({ claim_due_reminders: [{ data: [], error: null }] });
     const fetchMock = resend();
-    expect(await (await cron()).json()).toEqual({ claimed: 0, sent: 0, failed: 0, unconfirmed: 0, deferred: 0 });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(await (await cron()).json()).toEqual({ claimed: 0, sent: 0, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0 });
+    expect(fetchMock.emails()).toHaveLength(0);
   });
 
   it("answers 503 when the claim fails, and keeps going when only the refresh fails", async () => {
@@ -166,5 +176,111 @@ describe("GET /cron/reminders", () => {
     resend();
     expect(await (await cron()).json()).toMatchObject({ sent: 0, unconfirmed: 1 });
     expect(calls.map((call) => call.name)).not.toContain("release_reminder_claim");
+  });
+
+  it("counts a reminder whose last attempt failed as abandoned", async () => {
+    database({ claim_due_reminders: [{ data: [claimed()], error: null }], release_reminder_claim: [{ data: true, error: null }] });
+    resend(Response.json({ statusCode: 500, name: "application_error", message: "x" }, { status: 500 }));
+    expect(await (await cron()).json()).toMatchObject({ failed: 1, abandoned: 1 });
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).toContain("reminder_abandoned");
+  });
+
+  it("sends to a stand-in Resend on this machine only (journey tests), never anywhere else", async () => {
+    database({ claim_due_reminders: [{ data: [claimed()], error: null }] });
+    const fetchMock = resend();
+    vi.stubEnv("RESEND_BASE_URL", "http://127.0.0.1:3598");
+    await cron();
+    expect(String(fetchMock.emails()[0][0])).toBe("http://127.0.0.1:3598/emails");
+
+    database({ claim_due_reminders: [{ data: [claimed()], error: null }] });
+    const elsewhere = resend();
+    vi.stubEnv("RESEND_BASE_URL", "https://evil.example");
+    await cron();
+    expect(String(elsewhere.emails()[0][0])).toBe("https://api.resend.com/emails");
+  });
+
+  describe("heartbeat", () => {
+    const HEARTBEAT = "https://hc-ping.com/test-check";
+
+    beforeEach(() => vi.stubEnv("REMINDER_HEARTBEAT_URL", HEARTBEAT));
+
+    it("pings start, then success with the counts, when every email went", async () => {
+      database({ claim_due_reminders: [{ data: [claimed()], error: null }] });
+      resend();
+      await cron();
+      expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, HEARTBEAT]);
+      expect(JSON.parse(others[1].body)).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0 });
+    });
+
+    it("pings fail when a send failed, and the body has counts only", async () => {
+      database({ claim_due_reminders: [{ data: [claimed()], error: null }] });
+      resend(Response.json({ statusCode: 422, name: "validation_error", message: "Invalid `to` field: student@example.test" }, { status: 422 }));
+      expect((await cron()).status).toBe(200);
+      expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, `${HEARTBEAT}/fail`]);
+      expect(others[1].body).not.toContain("student@example.test");
+      expect(others[1].body).not.toContain(STUDENT);
+    });
+
+    it("pings fail when the job cannot run: a missing setting or the database", async () => {
+      vi.stubEnv("RESEND_API_KEY", "");
+      resend();
+      expect((await cron()).status).toBe(500);
+      expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, `${HEARTBEAT}/fail`]);
+      expect(JSON.parse(others[1].body)).toEqual({ error: "not_configured", missing: ["RESEND_API_KEY"] });
+
+      others.length = 0;
+      vi.stubEnv("RESEND_API_KEY", ENV.RESEND_API_KEY);
+      database({ claim_due_reminders: [{ data: null, error: { code: "PGRST202", message: "missing" } }] });
+      expect((await cron()).status).toBe(503);
+      expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, `${HEARTBEAT}/fail`]);
+    });
+
+    it("never pings for a caller without the secret, and pings nothing when no check is set", async () => {
+      resend();
+      expect((await cron("Bearer wrong")).status).toBe(401);
+      expect(others).toEqual([]);
+
+      vi.stubEnv("REMINDER_HEARTBEAT_URL", "");
+      database({ claim_due_reminders: [{ data: [], error: null }] });
+      await cron();
+      expect(others).toEqual([]);
+    });
+
+    it("pings fail for a run that only gave up on a reminder (out of time on its third try)", async () => {
+      database({ claim_due_reminders: [{ data: [claimed()], error: null }], release_reminder_claim: [{ data: true, error: null }] });
+      resend();
+      // the clock is past the sending budget before the first email
+      const now = vi.spyOn(Date, "now");
+      now.mockReturnValueOnce(0).mockReturnValue(46_000);
+      const body = await (await cron()).json();
+      now.mockRestore();
+      expect(body).toMatchObject({ failed: 0, deferred: 1, abandoned: 1 });
+      expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, `${HEARTBEAT}/fail`]);
+    });
+
+    it("runs the job while the start ping is still on its way, and finishes with start then end", async () => {
+      const calls = database({ claim_due_reminders: [{ data: [], error: null }] });
+      let answerStart: () => void = () => {};
+      const order: string[] = [];
+      vi.stubGlobal("fetch", vi.fn(async (url: string | URL | Request) => {
+        order.push(String(url));
+        if (String(url).endsWith("/start")) await new Promise<void>((resolve) => (answerStart = resolve));
+        return new Response("OK");
+      }));
+      const response = cron();
+      // the job reached the database before the start ping answered
+      await vi.waitFor(() => expect(calls.map((call) => call.name)).toContain("claim_due_reminders"));
+      expect(order).toEqual([`${HEARTBEAT}/start`]);
+      answerStart();
+      expect((await response).status).toBe(200);
+      expect(order).toEqual([`${HEARTBEAT}/start`, HEARTBEAT]);
+    });
+
+    it("still answers when the check cannot be reached", async () => {
+      database({ claim_due_reminders: [{ data: [], error: null }] });
+      vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("fetch failed"); }));
+      expect((await cron()).status).toBe(200);
+      expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("hc-ping.com");
+    });
   });
 });

@@ -13,7 +13,7 @@ export function GoogleButton({ href, className }: { href: string; className?: st
     <a
       href={href}
       className={cn(
-        "flex h-14 w-full items-center justify-center gap-2.5 rounded-button border border-[#747775] bg-white px-3 font-google text-body-m font-medium text-[#1F1F1F] outline-none hover:bg-[#F8F8F8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+        "flex h-14 w-full items-center justify-center gap-2.5 rounded-button border border-[#747775] bg-white px-3 font-google text-body-m font-medium text-[#1F1F1F] hover:bg-[#F8F8F8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
         className,
       )}
     >

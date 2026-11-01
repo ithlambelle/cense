@@ -13,7 +13,7 @@ import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE, track } from "@/lib/analytics";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import type { Application } from "@/lib/api/application";
-import { applicationPath, celebratePath, deniedPath, ROUTES, signInPath, waitingPath } from "@/lib/routes";
+import { applicationPath, celebratePath, deniedPath, ROUTES, signInPath, waitingPath, type ApplicationOrigin } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
 import { cn } from "@/lib/utils";
 
@@ -48,13 +48,16 @@ export function centsToField(cents: number | null): string {
 // Mark what the issuer decided for one tracked card (S18), from the Updates
 // card's Approved / Denied choice (Figma 416:409) and Home's "I was denied".
 // "I haven't heard yet" saves nothing: there is no such status (plan P-3).
-// `back` is where the back arrow goes: Home, or the card's page it was opened from.
+// `back` is where the back arrow goes: Home, or the card's page it was opened
+// from (`from` "card"), which "I haven't heard yet" passes on to the waiting screen.
 export function MarkResult({
   application,
   back = { href: ROUTES.home, label: "Home" },
+  from,
 }: {
   application: Application;
   back?: { href: string; label: string };
+  from?: ApplicationOrigin;
 }) {
   const router = useRouter();
   const isMounted = useIsMounted();
@@ -101,7 +104,7 @@ export function MarkResult({
     setError(null);
     if (next === "waiting") {
       track("outcome_reported", { outcome: "pending", source: "mark_result" });
-      router.replace(waitingPath(application.id));
+      router.replace(waitingPath(application.id, from));
       return;
     }
     setChoice(next);

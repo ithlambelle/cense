@@ -10,6 +10,7 @@ import type { ComponentType, ReactNode, SVGProps } from "react";
 
 import { ApprovalHeading, ApprovedCard, StarConfetti } from "@/components/home/approved-card";
 import { DeniedCard } from "@/components/home/denied-card";
+import { ReminderArrival } from "@/components/home/reminder-arrival";
 import { Greeting } from "@/components/home/greeting";
 import { UpdatedLine } from "@/components/home/updated-line";
 import { MascotStill } from "@/components/mascot/mascot";
@@ -23,10 +24,11 @@ import { cardDisplayName, cardTypeLabel, NO_CARD_FALLBACK, RESULT_HEADLINES } fr
 import { SENSITIVE } from "@/lib/analytics";
 import type { Application } from "@/lib/api/application";
 import type { SafeToSpend } from "@/lib/api/safe-to-spend";
-import { celebrating, type CardDetail, type HomeState } from "@/lib/home/state";
+import { ALL_REMINDERS_ON, celebrating, paymentReminderOn, type CardDetail, type HomeState, type StarSettings } from "@/lib/home/state";
 import { moneyAmount } from "@/lib/money";
-import { QUESTIONS } from "@/lib/quiz/questions";
-import { applicationPath, cardPath, deniedPath, planPath, ROUTES } from "@/lib/routes";
+import { quizProgress } from "@/lib/quiz/progress";
+import { QUIZ_STEP_COUNT } from "@/lib/quiz/spending";
+import { applicationPath, cardPath, deniedPath, planPath, ROUTES, type ReminderKind } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
@@ -37,6 +39,8 @@ type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 // card" (Figma 224:2675) and are proposed to design.
 // `initial` is the student's initial for the profile circle. `detail` is the
 // leading card's denial reason and autopay, read on the server with it.
+// `reminderSettings` are the student's (the reminder star needs them).
+// `fromReminder` is the kind of reminder email whose button opened Home.
 // `celebrateId` is the card Mark result just approved (?celebrate=),
 // celebrated once. `sampleStars` is for the dev gallery only: the approved or
 // denied card shows these stars and never calls the API (its sample card does
@@ -46,14 +50,18 @@ export function HomeView({
   state,
   initial,
   detail = null,
+  reminderSettings = ALL_REMINDERS_ON,
   celebrateId = null,
+  fromReminder = null,
   sampleStars,
   safeToSpend,
 }: {
   state: HomeState;
   initial: string;
   detail?: CardDetail | null;
+  reminderSettings?: StarSettings;
   celebrateId?: string | null;
+  fromReminder?: ReminderKind | null;
   sampleStars?: number;
   safeToSpend?: SafeToSpend | null;
 }) {
@@ -66,18 +74,19 @@ export function HomeView({
           <Link
             href={ROUTES.settings}
             aria-label="Profile"
-            className="flex size-11 items-center justify-center rounded-pill border border-track bg-off-white font-heading text-[17px] font-medium text-navy outline-none transition-colors hover:bg-selected-outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="flex size-11 items-center justify-center rounded-pill border border-track bg-off-white font-heading text-[17px] font-medium text-navy transition-colors hover:bg-selected-outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             <Image src="/mascot/astro-pig/avatar.png" alt={initial} width={40} height={40} className="rounded-input" />
           </Link>
         </header>
         <main className="stagger flex flex-1 flex-col gap-[18px] px-6 pt-4 pb-6">
-          <HomeContent state={state} detail={detail} celebrate={celebrate} sampleStars={sampleStars} />
+          <HomeContent state={state} detail={detail} reminderSettings={reminderSettings} celebrate={celebrate} sampleStars={sampleStars} />
           {/* Under the card module, which carries MVP2's reminders; design's
               Home/Today (Figma 222:2211) puts it on top once that is built. */}
           {safeToSpend !== undefined ? <SafeToSpendHome safeToSpend={safeToSpend} /> : null}
         </main>
         {celebrate ? <StarConfetti /> : null}
+        {fromReminder ? <ReminderArrival kind={fromReminder} /> : null}
         <div className="sticky bottom-0">
           <BottomNav />
         </div>
@@ -89,11 +98,13 @@ export function HomeView({
 function HomeContent({
   state,
   detail,
+  reminderSettings,
   celebrate,
   sampleStars,
 }: {
   state: HomeState;
   detail: CardDetail | null;
+  reminderSettings: StarSettings;
   celebrate: boolean;
   sampleStars?: number;
 }) {
@@ -104,10 +115,10 @@ function HomeContent({
           <Greeting subtitle="Let’s find your first card." />
           <MascotStill pose="idle" size={72} className="shrink-0" />
         </div>
-        <QuizPrompt started={state.started} />
+        <QuizPrompt answered={state.answered} />
         <Link
           href={ROUTES.addCard}
-          className="min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 outline-none hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
+          className="min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
         >
           I already have a card
         </Link>
@@ -177,7 +188,7 @@ function HomeContent({
         <ApprovedCard
           application={primary}
           autopayOn={detail?.autopayStatus === "on"}
-          reminderDaysSaved={detail?.paymentDueDay != null}
+          paymentReminderOn={paymentReminderOn(detail, reminderSettings)}
           celebrate={celebrate}
           sampleStars={sampleStars}
         />
@@ -351,32 +362,40 @@ function NextStep({
   );
 }
 
-// "6 questions to your first card" (Figma 407:442, drawn as a pop-up over the
-// MVP2 home). Shown inline on the MVP1 home with the system's type.
-function QuizPrompt({ started }: { started: boolean }) {
+// "N questions to your first card" (Figma 407:442, drawn as a pop-up over the
+// MVP2 home). Shown inline on the MVP1 home with the system's type. The count
+// and the stars are the quiz's own (QUIZ_STEP_COUNT): the frame's 6 predates
+// the spending question, and the quiz says "Question 1 of 7". Once started it
+// counts what is left, as the quiz reopens on "Question 3 of 7" after two
+// answers ("5 more questions"), and one star is lit per answer; before that,
+// the first star is lit, as drawn. Words from quizProgress, as on Results.
+function QuizPrompt({ answered }: { answered: number }) {
+  const progress = quizProgress(answered);
+  const heading = `${progress.questions} to your first card`;
+  const lit = (index: number) => (answered === 0 ? index === 0 : index < answered);
   return (
     <section aria-labelledby="quiz-prompt" className="flex flex-col rounded-card bg-off-white p-5">
       <ol aria-hidden="true" className="flex items-center gap-1.5">
-        {QUESTIONS.map((question, index) => (
+        {Array.from({ length: QUIZ_STEP_COUNT }, (_, index) => (
           <li
-            key={question.field}
+            key={index}
             className={cn(
               "flex size-[22px] items-center justify-center rounded-full",
-              index === 0 ? "bg-navy" : "border-[1.5px] border-indigo-black/70",
+              lit(index) ? "bg-navy" : "border-[1.5px] border-indigo-black/70",
             )}
           >
-            {index === 0 ? <Image src="/decor/star-large.svg" alt="" width={13} height={12} /> : null}
+            {lit(index) ? <Image src="/decor/star-large.svg" alt="" width={13} height={12} /> : null}
           </li>
         ))}
       </ol>
       <h2 id="quiz-prompt" className="pt-6 font-heading text-h3 font-medium text-indigo-black">
-        {QUESTIONS.length} questions to your first card
+        {heading}
       </h2>
       <p className="pt-3 text-body-s text-indigo-black/70">
         Light up each star and we’ll match you with cards built for where you are.
       </p>
       <Link href={ROUTES.quiz} className={cn(buttonVariants({ chevron: false }), "mt-10")}>
-        {started ? "Continue the quiz" : "Start the quiz"}
+        {progress.action}
       </Link>
     </section>
   );
@@ -403,7 +422,7 @@ function OtherCards({ applications }: { applications: Application[] }) {
                       ? cardPath(application.cardId, "home")
                       : planPath(application.id)
               }
-              className="flex items-center justify-between gap-3 rounded-card border border-hairline bg-white px-5 py-4 outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="flex items-center justify-between gap-3 rounded-card border border-hairline bg-white px-5 py-4 hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               <span className="min-w-0 truncate font-heading text-h6 font-medium text-navy">{application.cardName}</span>
               <StatusPill className={SENSITIVE}>{PILLS[application.status]}</StatusPill>

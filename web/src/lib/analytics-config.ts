@@ -1,12 +1,22 @@
 import type { BeforeSendFn, CaptureResult, PostHogConfig, Properties } from "posthog-js";
 
 import { TRACKING_PLAN_VERSION } from "@/lib/analytics-catalog";
+import { dropPennyClicks } from "@/lib/penny/no-click-trace";
 
 // PostHog settings and the privacy filter every event passes through. Kept
 // apart from instrumentation-client.ts so it can be tested.
 
+// How often the browser sends its queued events (PostHog's request queue).
+// Delete my account waits this long after pausing analytics, so everything
+// captured before it reaches PostHog before PostHog is asked to delete it.
+export const EVENT_SEND_INTERVAL_MS = 3_000;
+
 export const SENSITIVE = "ph-sensitive";
 export const SENSITIVE_SELECTOR = `.${SENSITIVE}`;
+// Stronger: the element is left out of session replay altogether (the
+// recorder's block class, drawn as an empty box) and out of autocapture,
+// rage and dead clicks, href included. For what must leave no trace.
+export const NO_CAPTURE = "ph-no-capture";
 
 export type AnalyticsEnvironment = "production" | "preview" | "development";
 
@@ -73,13 +83,18 @@ function stripAddresses(properties: Properties | undefined): Properties | undefi
 }
 
 // Runs on every event just before it is sent, including $set and $set_once
-// (where PostHog keeps the first page a person saw).
-export const stripQueryStrings: BeforeSendFn = (event: CaptureResult) => ({
-  ...event,
-  properties: stripAddresses(event.properties) ?? {},
-  $set: stripAddresses(event.$set),
-  $set_once: stripAddresses(event.$set_once),
-});
+// (where PostHog keeps the first page a person saw). Ask Penny's clicks and
+// heatmap points are dropped first (lib/penny/no-click-trace.ts).
+export const stripQueryStrings: BeforeSendFn = (event: CaptureResult) => {
+  const kept = dropPennyClicks(event);
+  if (!kept) return null;
+  return {
+    ...kept,
+    properties: stripAddresses(kept.properties) ?? {},
+    $set: stripAddresses(kept.$set),
+    $set_once: stripAddresses(kept.$set_once),
+  };
+};
 
 export function posthogConfig(): Partial<PostHogConfig> {
   return {
@@ -96,6 +111,7 @@ export function posthogConfig(): Partial<PostHogConfig> {
     // Browser storage, no PostHog cookie: one origin, nothing to share.
     persistence: "localStorage",
     before_send: stripQueryStrings,
+    request_queue_config: { flush_interval_ms: EVENT_SEND_INTERVAL_MS },
     // Every feature is set here, so a toggle in the PostHog UI cannot turn one
     // on without a code review. Clicks, rage clicks and dead clicks show where
     // testers get stuck (D24, no broken buttons); `ph-sensitive` keeps the
@@ -106,8 +122,19 @@ export function posthogConfig(): Partial<PostHogConfig> {
     capture_heatmaps: true,
     // Request timing in replay, to see a failed save. No web vitals.
     capture_performance: { network_timing: true, web_vitals: false },
-    // Error tracking is its own piece of work (S51).
-    capture_exceptions: false,
+    // Error tracking (S21), alerts to the team (S51): errors nothing caught
+    // and promises nothing awaited. Not console errors, which include ones the
+    // app already handles. Errors a screen catches go through reportError().
+    // Exceptions pass before_send like every event, so addresses lose "?".
+    capture_exceptions: {
+      capture_unhandled_errors: true,
+      capture_unhandled_rejections: true,
+      capture_console_errors: false,
+    },
+    // A browser that sends Global Privacy Control (or the older Do Not
+    // Track) is opted out of events and recordings, whatever it chose before
+    // (privacy policy, "Your choices and rights").
+    respect_dnt: true,
     disable_surveys: true,
     // No feature flags. The /flags request would also carry the first page's
     // full address as a person property, which before_send never sees.

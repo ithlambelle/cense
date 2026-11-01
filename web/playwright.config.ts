@@ -7,6 +7,8 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
+  // In CI a stray test.only fails the run instead of quietly skipping the rest.
+  forbidOnly: !!process.env.CI,
   workers: 1,
   retries: 0,
   timeout: 90_000,

@@ -1,0 +1,34 @@
+name: Penny eval
+
+# Asks the real model every question in Penny's test set (S34) when Penny's
+# prompt, answers, test set or model call change. Needs the repository secret
+# ANTHROPIC_API_KEY; without it the script says so and passes. Costs roughly
+# 50 cents a run. The parts that need no model run in CI's web job.
+on:
+  pull_request:
+    paths:
+      - web/src/lib/penny/**
+      - web/scripts/penny-eval.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  penny-eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run penny:eval
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

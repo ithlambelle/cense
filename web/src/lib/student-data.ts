@@ -12,21 +12,25 @@ import {
 } from "@/lib/api/application";
 import { validAnswers } from "@/lib/api/quiz-answers";
 import {
+  calendarDate,
   REMINDER_SETTINGS_FIELDS,
   reminderSettingsFromRow,
+  safeTimeZone,
   type ReminderSettings,
   type ReminderSettingsRow,
 } from "@/lib/api/reminders";
 import type { Student } from "@/lib/api/auth";
 import { listCards } from "@/lib/cards/catalog";
-import { firstUnanswered } from "@/lib/quiz/questions";
+import { firstStatementEmailUpcoming } from "@/lib/home/state";
+import { answeredCount } from "@/lib/quiz/progress";
 import { computeResult, type ResultView } from "@/lib/results/compute";
 
 export type StudentSnapshot = {
   applications: Application[];
   quiz: ResultView;
-  // True when at least one quiz answer is saved.
-  quizStarted: boolean;
+  // How many quiz questions are answered, counted as the quiz counts them: it
+  // reopens on the first unanswered one (0 before starting).
+  quizAnswered: number;
 };
 
 // What a signed-in screen needs to decide what to show, read on the server
@@ -37,7 +41,7 @@ export async function loadStudentSnapshot(student: Student): Promise<StudentSnap
   return {
     applications,
     quiz: computeResult(answers, listCards()),
-    quizStarted: firstUnanswered(answers) !== 0,
+    quizAnswered: answeredCount(answers),
   };
 }
 
@@ -96,31 +100,68 @@ export async function loadApplicationDetail(student: Student, applicationId: str
   return data ? applicationDetailFromRow(data as ApplicationDetailRow) : null;
 }
 
+// The student's reminder settings, read as GET /me/reminder-settings reads
+// them. A student without a profile row yet gets the database defaults: every
+// reminder on.
+export async function loadReminderSettings(student: Student): Promise<ReminderSettings> {
+  const { data, error } = await student.supabase
+    .from("profiles")
+    .select(REMINDER_SETTINGS_FIELDS)
+    .eq("student_id", student.studentId)
+    .maybeSingle();
+  if (error) throw new Error("Could not read the student's reminder settings.");
+  return data
+    ? reminderSettingsFromRow(data as ReminderSettingsRow)
+    : { emailsOn: true, statementClosing: true, paymentDue: true, checkAutopay: true };
+}
+
 // What the payment reminder screen starts from: one card with its closing and
-// due days, and the student's reminder settings (the same reads as GET
-// /applications/{id} and GET /me/reminder-settings). Null when the card is
-// not theirs. A student without a profile row yet gets the database defaults:
-// every reminder on.
+// due days, the student's reminder settings (the same reads as GET
+// /applications/{id} and GET /me/reminder-settings), and whether this card's
+// one first-statement email is still to come (firstStatementEmailUpcoming in
+// lib/home/state.ts), read from its scheduled reminder. Null when the card is
+// not theirs.
 export async function loadReminderSetup(
   student: Student,
   applicationId: string,
-): Promise<{ application: ApplicationDetail; settings: ReminderSettings } | null> {
-  const [application, profile] = await Promise.all([
+): Promise<{ application: ApplicationDetail; settings: ReminderSettings; firstStatementEmail: boolean } | null> {
+  const [application, settings, scheduled, profile] = await Promise.all([
     student.supabase
       .from("card_applications")
-      .select(APPLICATION_DETAIL_FIELDS)
+      .select(`${APPLICATION_DETAIL_FIELDS}, source`)
       .eq("id", applicationId)
       .eq("student_id", student.studentId)
       .maybeSingle(),
-    student.supabase.from("profiles").select(REMINDER_SETTINGS_FIELDS).eq("student_id", student.studentId).maybeSingle(),
+    loadReminderSettings(student),
+    // At most one per card (refresh_reminders schedules it once).
+    student.supabase
+      .from("reminders")
+      .select("occurrence, sent_at, attempts")
+      .eq("card_application_id", applicationId)
+      .eq("student_id", student.studentId)
+      .eq("kind", "check_autopay")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    student.supabase.from("profiles").select("time_zone").eq("student_id", student.studentId).maybeSingle(),
   ]);
   if (application.error) throw new Error("Could not read the student's card.");
-  if (profile.error) throw new Error("Could not read the student's reminder settings.");
+  if (scheduled.error || profile.error) throw new Error("Could not read the student's reminders.");
   if (!application.data) return null;
+  const row = application.data as ApplicationDetailRow & { source: "application" | "added" };
+  const detail = applicationDetailFromRow(row);
+  const email = scheduled.data as { occurrence: string; sent_at: string | null; attempts: number } | null;
+  const timeZone = safeTimeZone((profile.data as { time_zone: string | null } | null)?.time_zone);
   return {
-    application: applicationDetailFromRow(application.data as ApplicationDetailRow),
-    settings: profile.data
-      ? reminderSettingsFromRow(profile.data as ReminderSettingsRow)
-      : { emailsOn: true, statementClosing: true, paymentDue: true, checkAutopay: true },
+    application: detail,
+    settings,
+    firstStatementEmail: firstStatementEmailUpcoming({
+      source: row.source,
+      autopayStatus: detail.autopayStatus,
+      statementClosingDay: detail.statementClosingDay,
+      checkAutopay: settings.checkAutopay,
+      scheduled: email && { occurrence: email.occurrence, sentAt: email.sent_at, attempts: email.attempts },
+      today: calendarDate(new Date().toISOString(), timeZone),
+    }),
   };
 }

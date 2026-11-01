@@ -25,7 +25,7 @@ function Sheet({ open, onOpenChange, title, description, children }: SheetProps)
             <Dialog.Title className="font-heading text-h3 font-medium text-navy">{title}</Dialog.Title>
             <Dialog.Close
               aria-label="Close"
-              className="-mt-2 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-pill text-indigo-black outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-ring"
+              className="-mt-2 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-pill text-indigo-black hover:bg-off-white focus-visible:outline-2 focus-visible:outline-ring"
             >
               <Xmark aria-hidden="true" width={22} height={22} />
             </Dialog.Close>

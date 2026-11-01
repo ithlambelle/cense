@@ -31,12 +31,22 @@ function addField(markup: string): HTMLElement {
 }
 
 describe("BottomNav", () => {
-  it("shows two labeled tabs, Home and Cards, until Learn has something to do", () => {
+  it("shows three labeled tabs: Home, Cards and Learn", () => {
     render(<BottomNav />);
     expect(nav()).toBeTruthy();
+    expect(screen.getAllByRole("link").map((link) => link.textContent)).toEqual(["Home", "Cards", "Learn"]);
     expect(screen.getByRole("link", { name: "Home" }).getAttribute("href")).toBe("/home");
     expect(screen.getByRole("link", { name: "Cards" }).getAttribute("href")).toBe("/cards");
-    expect(screen.getAllByRole("link")).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "Learn" }).getAttribute("href")).toBe("/learn");
+  });
+
+  it("marks Learn on a topic page and in Ask Penny", () => {
+    for (const path of ["/learn", "/learn/credit", "/learn/penny"]) {
+      pathname = path;
+      render(<BottomNav />);
+      expect(screen.getByRole("link", { name: "Learn" }).getAttribute("aria-current"), path).toBe("page");
+      cleanup();
+    }
   });
 
   it("marks only the current tab", () => {
