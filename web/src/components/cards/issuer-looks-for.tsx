@@ -19,7 +19,7 @@ export function IssuerLooksFor({ rules }: { rules: { kind: string; text: string 
       aria-labelledby={headingId}
       className="flex flex-col gap-1.5 rounded-card border-[1.5px] border-off-white bg-white px-5 py-4"
     >
-      <h2 id={headingId} className="font-heading text-h6 font-semibold text-navy">
+      <h2 id={headingId} className="font-heading text-h6 font-medium text-navy">
         What the issuer looks for
       </h2>
       <ul id={listId} className="flex flex-col gap-2">

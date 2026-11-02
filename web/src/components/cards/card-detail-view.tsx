@@ -67,7 +67,7 @@ export function CardDetailView({
             <p className="text-body-s text-indigo-black/65">
               {cardTypeLabel(card)} · {card.brand}
             </p>
-            <h1 className="font-heading text-h3 font-semibold text-navy">{cardDisplayName(card)}</h1>
+            <h1 className="font-heading text-h3 font-medium text-navy">{cardDisplayName(card)}</h1>
           </div>
 
           {signedIn && tracked ? <TrackedStatus application={tracked} reminders={reminders} from={cardOrigin(from)} /> : null}
@@ -148,7 +148,7 @@ function TrackedStatus({
     >
       <div className="flex items-center justify-between gap-3">
         {/* The card page's section heading style, as "What the issuer looks for". */}
-        <h2 id="your-status" className="font-heading text-h6 font-semibold text-navy">
+        <h2 id="your-status" className="font-heading text-h6 font-medium text-navy">
           Your status
         </h2>
         <StatusPill className={SENSITIVE}>{STATUS_LABELS[application.status].toUpperCase()}</StatusPill>
