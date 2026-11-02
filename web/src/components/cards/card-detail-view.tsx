@@ -1,9 +1,8 @@
 import ChevronRight from "@gravity-ui/icons/ChevronRight";
-import CircleInfo from "@gravity-ui/icons/CircleInfo";
-import Image from "next/image";
 import Link from "next/link";
 
 import { IssuerActions } from "@/components/cards/issuer-actions";
+import { IssuerLooksFor } from "@/components/cards/issuer-looks-for";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { buttonVariants } from "@/components/ui/button";
@@ -17,12 +16,29 @@ import { STATUS_LABELS } from "@/lib/copy/applications";
 import { cardDisplayName, cardTypeLabel } from "@/lib/copy/results";
 import type { ReminderStatus } from "@/lib/home/state";
 import { moneyAmount } from "@/lib/money";
-import { applicationPath, cardBackLink, cardOrigin, paymentRemindersPath, type CardOrigin } from "@/lib/routes";
+import { pennyFromCard } from "@/lib/penny/navigation";
+import {
+  applicationPath,
+  cardBackLink,
+  cardOrigin,
+  paymentRemindersPath,
+  pennyPath,
+  type CardOrigin,
+} from "@/lib/routes";
 import { cardNotes } from "@/lib/rules/fit-tier";
+import { cn } from "@/lib/utils";
 
-// A card's page (S14). There is no hi-fi frame yet: built from the result
-// card's parts (type line, card symbol, fact chips) and the lo-fi hand-off
-// board (219:909), and proposed to design.
+// The card page's fact boxes (144:2909): they share the row, 8/6 padding.
+const FACT_BOX = "min-w-0 px-2 py-1.5";
+
+// The Learn answer the lesson link opens (Learn > Credit).
+const PREAPPROVAL_ANSWER = "preapproval-vs-applying";
+
+// A card's page (S14), from the approved frame "Card page / Why it fits"
+// (Figma gPofkJWVZ2wUWyF9SfHW6O, 144:2904): type and issuer on one line, the
+// name, fact boxes in one row, "What the issuer looks for", the lesson link
+// and the issuer actions. The frame's "Why it fits" box and "Year one" box
+// need fit reasons and rewards data the card page does not have yet.
 export function CardDetailView({
   card,
   signedIn,
@@ -46,43 +62,38 @@ export function CardDetailView({
       <div className="flex w-full max-w-phone flex-col">
         <AppHeader backHref={back.href} backLabel={back.label} />
         <main className="stagger flex flex-1 flex-col gap-6 px-6 pt-4 pb-6">
-          <div className="flex flex-col gap-[9px]">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-body-s text-indigo-black">{cardTypeLabel(card)}</p>
-              <Image src="/icons/card-symbol.svg" alt="" width={24} height={18} />
-            </div>
-            <h1 className="font-heading text-h3 font-medium text-navy">{cardDisplayName(card)}</h1>
-            <p className="text-body-s text-indigo-black/70">{card.brand}</p>
+          {/* 144:2906 and 144:2907: Inter 14 at 65%, then Sora SemiBold 24/32. */}
+          <div className="flex flex-col gap-4">
+            <p className="text-body-s text-indigo-black/65">
+              {cardTypeLabel(card)} · {card.brand}
+            </p>
+            <h1 className="font-heading text-h3 font-semibold text-navy">{cardDisplayName(card)}</h1>
           </div>
 
           {signedIn && tracked ? <TrackedStatus application={tracked} reminders={reminders} from={cardOrigin(from)} /> : null}
 
-          <dl className="flex flex-wrap gap-3">
-            <FactChip label="Annual fee" value={moneyAmount(card.annualFeeCents)} />
+          {/* 144:2908: the boxes share one row. A secured card's fourth box makes two rows of two. */}
+          <dl className={`grid gap-3 ${card.secured && card.depositMinCents > 0 ? "grid-cols-2" : "grid-cols-3"}`}>
+            <FactChip className={FACT_BOX} label="Annual fee" value={moneyAmount(card.annualFeeCents)} />
             {card.secured && card.depositMinCents > 0 ? (
-              <FactChip label="Deposit" value={`From ${moneyAmount(card.depositMinCents)}`} />
+              <FactChip className={FACT_BOX} label="Deposit" value={`From ${moneyAmount(card.depositMinCents)}`} />
             ) : null}
-            <FactChip label="Credit check" value={card.runsCreditCheck ? "Yes" : "No"} />
-            <FactChip label="Foreign fee" value={`${card.foreignTransactionFeePercent}%`} />
+            <FactChip className={FACT_BOX} label="Credit check" value={card.runsCreditCheck ? "Yes" : "No"} />
+            <FactChip className={FACT_BOX} label="Foreign fee" value={`${card.foreignTransactionFeePercent}%`} />
           </dl>
           {/* What "secured" means for this card: the result frame's line (397:847), Inter 14/20 at 65%. */}
           {deposit ? <p className="-mt-3 text-body-s text-indigo-black/65">{deposit}</p> : null}
 
-          {approval.length > 0 ? (
-            <section aria-labelledby="what-to-know" className="flex flex-col gap-3 rounded-card bg-off-white p-5">
-              <h2 id="what-to-know" className="font-heading text-h6 font-medium text-navy">
-                What the issuer says about approval
-              </h2>
-              <ul className="flex flex-col gap-2">
-                {approval.map((condition) => (
-                  <li key={condition.kind} className="flex items-start gap-3 text-body-s text-indigo-black">
-                    {/* An info mark, not a check: many of these are reasons an issuer says no. */}
-                    <CircleInfo aria-hidden="true" width={18} height={18} className="mt-0.5 shrink-0 text-violet" />
-                    <span>{condition.text}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
+          <IssuerLooksFor rules={approval} />
+
+          {/* The lesson link (144:2939): light blue tint, Amethyst text. Learn needs an account. */}
+          {signedIn ? (
+            <Link
+              href={pennyPath(PREAPPROVAL_ANSWER, pennyFromCard(card.id, cardOrigin(from)))}
+              className="rounded-[16px] bg-light-blue/50 px-4 py-3 text-body-s text-violet hover:bg-light-blue/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              New to this? What is preapproval? · 2 min
+            </Link>
           ) : null}
 
           <IssuerActions
@@ -117,8 +128,7 @@ const REMINDER_STATUS: Record<ReminderStatus, string> = {
 // The student's status for a card they track, with the way to change it
 // (US-05). No frame yet: the box is the card page's white bordered box ("What
 // the issuer looks for", 144:2936: 1.5px off-white border, radius 22, 20/16
-// padding), with the status pill and the outline button ("Compare side by
-// side", 144:2785) full width below. Mark result's back returns here. An
+// padding), with the status pill and Button/Secondary (79:9) as a text action. Mark result's back returns here. An
 // approved card adds its payment reminders as Home's List row, Tinted
 // (273:2196), which opens the reminder screen; its Back and Save return here.
 function TrackedStatus({
@@ -137,13 +147,18 @@ function TrackedStatus({
       className="flex flex-col gap-3 rounded-card border-[1.5px] border-off-white bg-white px-5 py-4"
     >
       <div className="flex items-center justify-between gap-3">
-        {/* The card page's section heading style, as "What the issuer says about approval". */}
-        <h2 id="your-status" className="font-heading text-h6 font-medium text-navy">
+        {/* The card page's section heading style, as "What the issuer looks for". */}
+        <h2 id="your-status" className="font-heading text-h6 font-semibold text-navy">
           Your status
         </h2>
         <StatusPill className={SENSITIVE}>{STATUS_LABELS[application.status].toUpperCase()}</StatusPill>
       </div>
-      <Link href={applicationPath(application.id, "card")} className={buttonVariants({ variant: "outline" })}>
+      {/* A quiet text action, not a full-width button: once the status is set it
+          is a correction, not the next step (James, Oct 26). */}
+      <Link
+        href={applicationPath(application.id, "card")}
+        className={cn(buttonVariants({ variant: "secondary" }), "-my-1 w-auto self-start px-0")}
+      >
         Update status
       </Link>
       {application.status === "approved" && reminders ? (

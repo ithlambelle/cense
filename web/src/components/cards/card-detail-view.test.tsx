@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { Application } from "@/lib/api/application";
@@ -82,6 +82,42 @@ describe("CardDetailView", () => {
   it("goes back to the card list by default", () => {
     render(<CardDetailView card={catalogCard("discover-it-student-cash-back")} signedIn />);
     expect(screen.getByRole("link", { name: "Back to Cards" }).getAttribute("href")).toBe("/cards");
+  });
+
+  it("puts the card's type and issuer on one line above its name (144:2906)", () => {
+    render(<CardDetailView card={catalogCard("discover-it-student-cash-back")} signedIn={false} />);
+    expect(screen.getByText("Student credit card · Discover")).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Discover it Student Cash Back");
+  });
+
+  it("shows the issuer's first rule and opens the rest from Show 1 more", () => {
+    render(<CardDetailView card={catalogCard("discover-it-student-cash-back")} signedIn={false} />);
+    const box = screen.getByRole("region", { name: "What the issuer looks for" });
+    expect(box.querySelectorAll("li")).toHaveLength(1);
+    const more = screen.getByRole("button", { name: "Show 1 more" });
+    expect(more.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(more);
+    expect(box.querySelectorAll("li")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Show less" }).getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("has no Show more for a card with one issuer rule", () => {
+    render(<CardDetailView card={catalogCard("chase-freedom-rise")} signedIn={false} />);
+    expect(screen.getByRole("region", { name: "What the issuer looks for" }).querySelectorAll("li")).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: /^Show/ })).toBeNull();
+  });
+
+  it("links a signed-in student to the preapproval lesson, keeping the way back to this card", () => {
+    render(<CardDetailView card={catalogCard("discover-it-student-cash-back")} signedIn from="results" />);
+    const lesson = screen.getByRole("link", { name: /What is preapproval\?/ });
+    expect(lesson.getAttribute("href")).toBe(
+      "/learn/penny?answer=preapproval-vs-applying&from=card%3Adiscover-it-student-cash-back%3Aresults",
+    );
+  });
+
+  it("has no lesson link for a signed-out visitor, since Learn needs an account", () => {
+    render(<CardDetailView card={catalogCard("discover-it-student-cash-back")} signedIn={false} />);
+    expect(screen.queryByRole("link", { name: /What is preapproval\?/ })).toBeNull();
   });
 
   describe("the student's status for a tracked card", () => {
