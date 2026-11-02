@@ -35,7 +35,7 @@ export function IssuerLooksFor({ rules }: { rules: { kind: string; text: string 
           aria-expanded={open}
           aria-controls={listId}
           onClick={() => setOpen((value) => !value)}
-          className="-mb-2 min-h-11 self-start text-body-s font-semibold text-violet underline-offset-2 hover:text-violet-hover hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="-mb-2 min-h-11 cursor-pointer self-start text-body-s font-semibold text-violet underline-offset-2 hover:text-violet-hover hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           {open ? "Show less" : `Show ${hidden} more`}
         </button>
