@@ -176,4 +176,30 @@ describe("FirstMonthPlan", () => {
     render(<FirstMonthPlan application={application} />);
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/sign-in?next=%2Fhome"));
   });
+
+  it("suggests 30% of the card's limit as a monthly spending guide, with its source", async () => {
+    server([{ status: 200, body: plan() }]);
+    render(<FirstMonthPlan application={application} />);
+    await screen.findByText("0 of 3 done");
+    expect(screen.getByText("$150 a month")).toBeTruthy();
+    expect(screen.getByText(/30% of your \$500 limit/)).toBeTruthy();
+    const source = screen.getByRole("link", { name: /Why 30%\?/ });
+    expect(source.getAttribute("href")).toContain("consumerfinance.gov");
+  });
+
+  it("shows the 30% rule without dollars, and asks for the limit, when setup skipped it", async () => {
+    server([{ status: 200, body: plan() }]);
+    render(<FirstMonthPlan application={{ ...application, creditLimitCents: null }} />);
+    await screen.findByText("0 of 3 done");
+    expect(screen.getByText("Up to 30% of your limit")).toBeTruthy();
+    expect(screen.queryByText(/a month$/)).toBeNull();
+    expect(screen.getByRole("link", { name: "Add your credit limit on Home" }).getAttribute("href")).toBe("/home");
+  });
+
+  it("checks off autopay when the card's autopay is on", async () => {
+    server([{ status: 200, body: plan() }]);
+    render(<FirstMonthPlan application={application} autopayOn />);
+    expect(await screen.findByText("1 of 3 done")).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: /Turn on autopay/ }).getAttribute("aria-checked")).toBe("true");
+  });
 });
