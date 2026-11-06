@@ -43,6 +43,13 @@ const GROUPS: { title: string; entries: Entry[] }[] = [
     ],
   },
   {
+    title: "Budget (prototype, made-up numbers)",
+    entries: [
+      { label: "Budget: money left over (Sam)", href: "/dev/budget" },
+      { label: "Budget: needs more than income (Jordan)", href: "/dev/budget?persona=jordan" },
+    ],
+  },
+  {
     title: "Account and other",
     entries: [
       { label: "S28 Account", href: "/dev/preview?screen=account" },
