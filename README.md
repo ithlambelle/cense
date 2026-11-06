@@ -261,6 +261,8 @@ Before it can run:
 
 To try it: Home, "See what's safe to spend", Connect (Preview). In Plaid's sandbox Link: Continue without phone number, search for First Platypus Bank and pick the plain "First Platypus Bank" (not the OAuth ones, which need a redirect URI we have not set up), sign in with `user_good` / `pass_good`, then Continue, Share data and Finish without saving. That user's checking and cash management accounts count as cash (about $12,160), its two cards are subtracted (about $5,430), and savings, CD, money market and HSA show as not counted; loans and investments are never read (checked against the sandbox on Oct 27).
 
+New sandbox connections ask Link for 180 days of transaction history and add Liabilities as an optional product (US-15). Plaid fixes an Item's history when the Item is created, and Liabilities is available in Sandbox without extra product permissions. To get both on an existing sandbox connection, disconnect it (How we got this, Disconnect bank) and link it again with the test user above, selecting the credit card as well as checking; the normal reconnect flow only repairs an existing Item. Reading Liabilities (`/liabilities/get`), filling in statement dates and balances, and the Liabilities tables are follow-up work.
+
 Locally and in CI the journey tests (`web/e2e/safe-to-spend.spec.ts`) never call Plaid: they start a stand-in on :3597 (`web/e2e/support/fake-plaid.ts`) and answer Link's script in the browser. Start the app for them with `PLAID_CLIENT_ID=e2e-client PLAID_SECRET=e2e-placeholder PLAID_ENV=sandbox PLAID_BASE_URL=http://127.0.0.1:3597` and a `PLAID_TOKEN_KEY` in `web/.env.local`, as the `e2e` job does.
 
 ## Quality checks
