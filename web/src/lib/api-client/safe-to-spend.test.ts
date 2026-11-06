@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { amountInput, parseAmount } from "./safe-to-spend";
+import { parseAmount } from "./safe-to-spend";
 
 describe("parseAmount", () => {
   it.each([
@@ -14,15 +14,7 @@ describe("parseAmount", () => {
     expect(parseAmount(typed)).toBe(cents);
   });
 
-  it.each(["", "abc", "-5", "1.234", "100001", "1e3", "$", "6 50"])("refuses %j", (typed) => {
+  it.each(["", "abc", "-5", "1.234", "100001", "1e3", "$", "6 50", "12,34", "1,0000"])("refuses %j", (typed) => {
     expect(parseAmount(typed)).toBeNull();
-  });
-});
-
-describe("amountInput", () => {
-  it("writes cents back the way a student types them", () => {
-    expect(amountInput(65_000)).toBe("650");
-    expect(amountInput(4_050)).toBe("40.50");
-    expect(amountInput(null)).toBe("");
   });
 });
