@@ -38,7 +38,7 @@ describe("Plaid calls", () => {
     expect(JSON.stringify(body)).not.toContain("the-secret");
   });
 
-  it("ask Link for a new bank with only everyday accounts and cards, and only the student's pseudonymous id", async () => {
+  it("request Transactions and Liabilities for a new sandbox bank with only everyday accounts and cards", async () => {
     const fetchMock = answer(200, { link_token: "link-sandbox-1", expiration: "2026-10-25T22:00:00Z" });
     await createLinkToken(CONFIG, "student-uuid");
     const { body } = sent(fetchMock);
@@ -46,7 +46,7 @@ describe("Plaid calls", () => {
       client_name: "Cense",
       country_codes: ["US"],
       user: { client_user_id: "student-uuid" },
-      products: ["transactions"],
+      products: ["transactions", "liabilities"],
       account_filters: { depository: { account_subtypes: ["all"] }, credit: { account_subtypes: ["credit card"] } },
     });
     expect(Object.keys(body.user as object)).toEqual(["client_user_id"]);

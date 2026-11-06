@@ -91,9 +91,10 @@ async function call<T>(config: PlaidConfig, path: string, body: Record<string, u
 
 // Link for a new bank, or, given the access token, update mode for one that
 // needs the student to sign in again (the same Item, no new token).
-// Transactions is the product requested because Link needs one and Balance
-// alone is not allowed; Cense never calls the transactions endpoints. Only
-// everyday accounts and credit cards can be picked: no loans or investments.
+// Transactions supports the bank-link flow; Liabilities prepares new sandbox
+// Items for US-15 statement dates and balances. Fetching and storing liability
+// data is a separate step. Only everyday accounts and credit cards can be
+// picked: no loans or investments.
 export async function createLinkToken(config: PlaidConfig, studentId: string, accessToken?: string) {
   const base = {
     client_name: "Cense",
@@ -106,7 +107,7 @@ export async function createLinkToken(config: PlaidConfig, studentId: string, ac
     ? { ...base, access_token: accessToken }
     : {
         ...base,
-        products: ["transactions"],
+        products: ["transactions", "liabilities"],
         account_filters: {
           depository: { account_subtypes: ["all"] },
           credit: { account_subtypes: ["credit card"] },
