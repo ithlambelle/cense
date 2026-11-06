@@ -10,6 +10,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusPill } from "@/components/ui/status-pill";
+import { SENSITIVE } from "@/lib/analytics";
 import { loadPlanSteps, savePlanStep, type PlanStepName } from "@/lib/api-client/plans";
 import type { Application } from "@/lib/api/application";
 import { moneyAmount } from "@/lib/money";
@@ -254,8 +255,9 @@ function SpendingGuide({ creditLimitCents }: { creditLimitCents: number | null }
       </h2>
       {suggested !== null && creditLimitCents !== null ? (
         <>
-          <p className="font-heading text-h3 font-medium text-navy">{moneyAmount(suggested)} a month</p>
-          <p className="text-body-s text-indigo-black">
+          {/* Amounts are hidden from session replay, like the limit on Home. */}
+          <p className={cn(SENSITIVE, "font-heading text-h3 font-medium text-navy")}>Up to {moneyAmount(suggested)} a month</p>
+          <p className={cn(SENSITIVE, "text-body-s text-indigo-black")}>
             That&apos;s {SPEND_LIMIT_PERCENT}% of your {moneyAmount(creditLimitCents)} limit. Keeping your balance under{" "}
             {SPEND_LIMIT_PERCENT}% of your limit is better for your credit score, and lower is better.
           </p>

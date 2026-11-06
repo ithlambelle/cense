@@ -181,7 +181,10 @@ describe("FirstMonthPlan", () => {
     server([{ status: 200, body: plan() }]);
     render(<FirstMonthPlan application={application} />);
     await screen.findByText("0 of 3 done");
-    expect(screen.getByText("$150 a month")).toBeTruthy();
+    const guide = screen.getByText("Up to $150 a month");
+    // Hidden from session replay, like the limit on Home.
+    expect(guide.className).toContain("ph-sensitive");
+    expect(screen.getByText(/30% of your \$500 limit/).className).toContain("ph-sensitive");
     expect(screen.getByText(/30% of your \$500 limit/)).toBeTruthy();
     const source = screen.getByRole("link", { name: /Why 30%\?/ });
     expect(source.getAttribute("href")).toContain("consumerfinance.gov");
