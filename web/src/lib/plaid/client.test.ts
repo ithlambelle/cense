@@ -47,6 +47,8 @@ describe("Plaid calls", () => {
       country_codes: ["US"],
       user: { client_user_id: "student-uuid" },
       products: ["transactions"],
+      transactions: { days_requested: 180 },
+      optional_products: ["liabilities"],
       account_filters: { depository: { account_subtypes: ["all"] }, credit: { account_subtypes: ["credit card"] } },
     });
     expect(Object.keys(body.user as object)).toEqual(["client_user_id"]);
@@ -58,6 +60,8 @@ describe("Plaid calls", () => {
     const { body } = sent(fetchMock);
     expect(body.access_token).toBe("access-sandbox-1");
     expect(body).not.toHaveProperty("products");
+    expect(body).not.toHaveProperty("transactions");
+    expect(body).not.toHaveProperty("optional_products");
   });
 
   it("return Plaid's error code, and log only the code, type and request id", async () => {
