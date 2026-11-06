@@ -14,6 +14,9 @@ vi.mock("@/lib/plaid/client", async (importOriginal) => ({ ...(await importOrigi
 const store = vi.hoisted(() => ({ readAccessToken: vi.fn(), saveBalances: vi.fn(), markLinkStatus: vi.fn(), loadSafeToSpend: vi.fn() }));
 vi.mock("@/lib/plaid/store", () => store);
 
+const transactions = vi.hoisted(() => ({ syncStudentTransactions: vi.fn() }));
+vi.mock("@/lib/plaid/transactions", () => transactions);
+
 import { POST } from "./route";
 
 const TOKEN = { ok: true, value: { kind: "token", itemId: "item-1", accessToken: "access-sandbox-1" } };
@@ -26,13 +29,23 @@ beforeEach(() => {
   store.markLinkStatus.mockResolvedValue({ ok: true, value: null });
   store.loadSafeToSpend.mockResolvedValue({ ok: true, value: { dailyCents: 633 } });
   plaid.getAccounts.mockResolvedValue({ ok: true, data: { accounts: [], item: {} } });
+  transactions.syncStudentTransactions.mockResolvedValue({ kind: "synced", saved: 0, removed: 0 });
 });
 
 afterEach(() => {
-  for (const group of [auth, config, plaid, store]) for (const fn of Object.values(group)) fn.mockReset();
+  for (const group of [auth, config, plaid, store, transactions]) for (const fn of Object.values(group)) fn.mockReset();
 });
 
 describe("POST /bank-link/refresh", () => {
+  it("brings transactions up to date after the balances, and still answers when that fails", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    transactions.syncStudentTransactions.mockResolvedValue({ kind: "plaid", failure: { ok: false, kind: "network" } });
+    const response = await POST();
+    expect(response.status).toBe(200);
+    expect(transactions.syncStudentTransactions).toHaveBeenCalledWith(expect.anything(), expect.anything(), "access-sandbox-1");
+    expect(logged).toHaveBeenCalledWith(JSON.stringify({ event: "plaid_transactions_sync_failed", kind: "plaid" }));
+  });
+
   it("saves the balances read again and answers safe to spend", async () => {
     const response = await POST();
     expect(response.status).toBe(200);

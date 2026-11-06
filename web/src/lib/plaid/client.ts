@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import type { PlaidConfig } from "./config";
 
-// The five Plaid calls safe to spend makes, over plain fetch (no SDK). Called
+// The Plaid calls safe to spend and budgeting make, over plain fetch (no SDK). Called
 // only from route handlers. The client id and secret go in headers, never in
 // a body. Nothing Plaid sends back is logged: a failure logs the endpoint,
 // Plaid's error type and code, and its request id, which Plaid support needs.
@@ -168,4 +168,33 @@ export function itemAlreadyGone(failure: PlaidFailure): boolean {
 // The bank wants the student to sign in again (Link in update mode fixes it).
 export function needsReconnect(failure: PlaidFailure): boolean {
   return failure.kind === "plaid" && failure.code === "ITEM_LOGIN_REQUIRED";
+}
+
+// One page of Transactions Sync (US-14): what was added, changed or removed
+// since the cursor (none: from the start of the Item's history). Only the
+// fields Cense keeps are read; names, locations, counterparties and payment
+// details are dropped here. https://plaid.com/docs/api/products/transactions/#transactionssync
+const syncTransactionSchema = z.object({
+  transaction_id: z.string().min(1).max(200),
+  account_id: z.string().min(1).max(200),
+  amount: z.number(),
+  iso_currency_code: z.string().nullable(),
+  date: z.string(),
+  pending: z.boolean(),
+  merchant_name: z.string().nullable().optional(),
+  personal_finance_category: z.object({ primary: z.string(), detailed: z.string() }).nullable().optional(),
+});
+
+export type PlaidTransaction = z.infer<typeof syncTransactionSchema>;
+
+const syncPageSchema = z.object({
+  added: z.array(syncTransactionSchema),
+  modified: z.array(syncTransactionSchema),
+  removed: z.array(z.object({ transaction_id: z.string().min(1).max(200) })),
+  next_cursor: z.string().max(2000),
+  has_more: z.boolean(),
+});
+
+export async function syncTransactionsPage(config: PlaidConfig, accessToken: string, cursor: string | null) {
+  return call(config, "/transactions/sync", { access_token: accessToken, ...(cursor ? { cursor } : {}), count: 500 }, syncPageSchema);
 }
