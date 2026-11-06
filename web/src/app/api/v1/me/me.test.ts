@@ -6,6 +6,8 @@ const admin = vi.hoisted(() => ({ deleteUser: vi.fn() }));
 vi.mock("@/lib/supabase/service", () => ({ createServiceClient: () => ({ auth: { admin } }) }));
 const deletion = vi.hoisted(() => ({ accountDeletionConfig: vi.fn(), deletePostHogPerson: vi.fn() }));
 vi.mock("@/lib/account-deletion", () => deletion);
+const bank = vi.hoisted(() => ({ removeBankLinksForStudent: vi.fn() }));
+vi.mock("@/lib/plaid/unlink", () => bank);
 
 import { DELETE } from "./route";
 
@@ -19,6 +21,10 @@ const signOut = vi.fn(async (options: unknown) => {
 
 beforeEach(() => {
   steps.length = 0;
+  bank.removeBankLinksForStudent.mockImplementation(async () => {
+    steps.push("plaid");
+    return { kind: "none" };
+  });
   auth.authenticatedStudent.mockResolvedValue({ supabase: { auth: { signOut } }, studentId: STUDENT, email: null });
   deletion.deletePostHogPerson.mockImplementation(async () => {
     steps.push("posthog");
@@ -42,11 +48,11 @@ describe("DELETE /me", () => {
     expect(steps).toEqual([]);
   });
 
-  it("deletes the PostHog person, then the account, then signs out", async () => {
+  it("deletes the PostHog person, removes Plaid Items, then deletes the account and signs out", async () => {
     deletion.accountDeletionConfig.mockReturnValue({ ok: true, serviceRoleKey: "service", posthog: ADMIN });
     const response = await DELETE();
     expect(response.status).toBe(204);
-    expect(steps).toEqual(["posthog", "account", 'sign out {"scope":"local"}']);
+    expect(steps).toEqual(["posthog", "plaid", "account", 'sign out {"scope":"local"}']);
     expect(deletion.deletePostHogPerson).toHaveBeenCalledWith(STUDENT, ADMIN);
     expect(admin.deleteUser).toHaveBeenCalledWith(STUDENT);
   });
@@ -54,7 +60,7 @@ describe("DELETE /me", () => {
   it("skips PostHog where analytics never ran", async () => {
     deletion.accountDeletionConfig.mockReturnValue({ ok: true, serviceRoleKey: "service", posthog: null });
     expect((await DELETE()).status).toBe(204);
-    expect(steps).toEqual(["account", 'sign out {"scope":"local"}']);
+    expect(steps).toEqual(["plaid", "account", 'sign out {"scope":"local"}']);
   });
 
   it("deletes nothing when a setting is missing", async () => {
@@ -73,6 +79,27 @@ describe("DELETE /me", () => {
     deletion.deletePostHogPerson.mockResolvedValue(false);
     const response = await DELETE();
     expect(response.status).toBe(502);
+    expect(admin.deleteUser).not.toHaveBeenCalled();
+    expect(bank.removeBankLinksForStudent).not.toHaveBeenCalled();
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  it("finishes after removing a linked Item", async () => {
+    deletion.accountDeletionConfig.mockReturnValue({ ok: true, serviceRoleKey: "service", posthog: null });
+    bank.removeBankLinksForStudent.mockImplementation(async () => {
+      steps.push("plaid");
+      return { kind: "removed" };
+    });
+    expect((await DELETE()).status).toBe(204);
+    expect(steps).toEqual(["plaid", "account", 'sign out {"scope":"local"}']);
+    expect(bank.removeBankLinksForStudent).toHaveBeenCalledWith(expect.objectContaining({ studentId: STUDENT }));
+  });
+
+  it.each(["plaid_unreachable", "not_configured", "database_error"])("keeps the account and session after %s", async (kind) => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    deletion.accountDeletionConfig.mockReturnValue({ ok: true, serviceRoleKey: "service", posthog: null });
+    bank.removeBankLinksForStudent.mockResolvedValue({ kind });
+    expect((await DELETE()).status).toBe(kind === "not_configured" ? 503 : 502);
     expect(admin.deleteUser).not.toHaveBeenCalled();
     expect(signOut).not.toHaveBeenCalled();
   });
