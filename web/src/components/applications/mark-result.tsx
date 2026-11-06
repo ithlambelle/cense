@@ -13,6 +13,7 @@ import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE, track } from "@/lib/analytics";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import type { Application } from "@/lib/api/application";
+import { centsToInput, dollarsToCents } from "@/lib/money";
 import { applicationPath, celebratePath, deniedPath, ROUTES, signInPath, waitingPath, type ApplicationOrigin } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
 import { cn } from "@/lib/utils";
@@ -32,17 +33,8 @@ const MAX_LIMIT_DOLLARS = 100_000;
 // Parses "$1,500", "1500" or "500.00" to cents. Null for empty; undefined when
 // it is not a limit (bad comma grouping, more than 2 decimals, under $1, too large).
 export function limitToCents(value: string): number | null | undefined {
-  const cleaned = value.trim().replace(/^\$\s*/, "");
-  if (cleaned === "") return null;
-  if (!/^(\d{1,3}(,\d{3})*|\d+)(\.\d{1,2})?$/.test(cleaned)) return undefined;
-  const cents = Math.round(Number(cleaned.replace(/,/g, "")) * 100);
-  if (cents < 100 || cents > MAX_LIMIT_DOLLARS * 100) return undefined;
-  return cents;
-}
-
-export function centsToField(cents: number | null): string {
-  if (cents === null) return "";
-  return Number.isInteger(cents / 100) ? String(cents / 100) : (cents / 100).toFixed(2);
+  if (/^\s*\$?\s*$/.test(value)) return null;
+  return dollarsToCents(value, { minCents: 100, maxCents: MAX_LIMIT_DOLLARS * 100 }) ?? undefined;
 }
 
 // Mark what the issuer decided for one tracked card (S18), from the Updates
@@ -63,7 +55,7 @@ export function MarkResult({
   const isMounted = useIsMounted();
   const [choice, setChoice] = useState<Choice | null>(null);
   // Starts from the saved limit, so marking an approved card again never erases it.
-  const [limit, setLimit] = useState(centsToField(application.creditLimitCents));
+  const [limit, setLimit] = useState(centsToInput(application.creditLimitCents));
   const [limitError, setLimitError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
