@@ -1,14 +1,15 @@
 import type { Application, ApplicationDetail } from "../api/application";
 import type { ReminderSettings } from "../api/reminders";
 import { addDays } from "../reminders/schedule";
-import type { ResultView } from "../results/compute";
+import type { ResultOption, ResultView } from "../results/compute";
 
 export type HomeState =
   // No complete quiz and nothing tracked. `answered` is how many questions are
   // answered (0 before starting); the quiz reopens on the next one.
   | { kind: "no_quiz"; answered: number }
-  // A complete quiz with a match, and nothing tracked yet.
-  | { kind: "matched"; result: Extract<ResultView, { kind: "match" }> }
+  // A complete quiz with a match, and nothing tracked yet. Home shows the top
+  // match; the other options are on the result.
+  | { kind: "matched"; result: ResultOption }
   // A complete quiz where no listed card fits, and nothing tracked yet.
   | { kind: "no_card"; reason: string | null }
   // At least one tracked card. `primary` sets the next step; `others` are listed below.
@@ -91,7 +92,7 @@ export function homeState(applications: Application[], quiz: ResultView, quizAns
     const [primary, ...others] = sorted;
     return { kind: "tracking", primary, others };
   }
-  if (quiz.kind === "match") return { kind: "matched", result: quiz };
+  if (quiz.kind === "match") return { kind: "matched", result: quiz.options[0] };
   if (quiz.kind === "no_card") return { kind: "no_card", reason: quiz.reason };
   return { kind: "no_quiz", answered: quizAnswered };
 }
