@@ -1,4 +1,5 @@
 import { apiError } from "@/lib/api/errors";
+import { purgeOldTransactions } from "@/lib/plaid/transactions";
 import { cronAuthorized, reminderSettings, resendEmailsUrl } from "@/lib/reminders/config";
 import { pingHeartbeat } from "@/lib/reminders/heartbeat";
 import { ReminderJobError, runReminderJob } from "@/lib/reminders/job";
@@ -6,7 +7,8 @@ import { createServiceClient } from "@/lib/supabase/service";
 
 // The daily reminder job, called by Vercel Cron (web/vercel.json) with
 // CRON_SECRET. Not a student route: it uses the service role, the one
-// exception in api/data-contract.md, and only calls the reminder functions.
+// exception in api/data-contract.md, and only calls the reminder functions
+// and the daily purge of bank transactions older than 90 days (US-14).
 // The answer is counts only. Each authorized run pings the heartbeat check
 // (lib/reminders/heartbeat.ts), so a failed send or a run that never comes
 // alerts the team.
@@ -36,8 +38,12 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const { serviceRoleKey, ...jobConfig } = config.settings;
+  const service = createServiceClient(serviceRoleKey);
+  // Retention, not reminders: a failed purge is logged and tried again
+  // tomorrow, and never fails the job or its heartbeat.
+  await purgeOldTransactions(service);
   try {
-    const result = await runReminderJob(createServiceClient(serviceRoleKey), { ...jobConfig, resendUrl: resendEmailsUrl() });
+    const result = await runReminderJob(service, { ...jobConfig, resendUrl: resendEmailsUrl() });
     // A person needs to look at any of these: a send failed, one was sent but
     // not marked (it may go again tomorrow), or a reminder was given up on
     // (its third try, which can also be a run that ran out of time). Deferred
