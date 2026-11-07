@@ -16,7 +16,8 @@ const CORE = { under21: true, incomeBand: "under_5k", student: true, standing: "
 const SAMPLES: Record<string, unknown> = {
   match: CORE,
   spending: { ...CORE, spendingCategories: ["groceries", "food_and_dining"], spendingBand: "200_to_500" },
-  // A sign-up bonus out of reach at under $200 a month.
+  // Under $200 a month and one area. No top-3 card's bonus is out of reach at
+  // this spend with today's catalog; that line is covered by unit tests.
   small_spender: { ...CORE, standing: "limited", spendingCategories: ["food_and_dining"], spendingBand: "under_200" },
   stretch: { under21: false, incomeBand: "5k_to_15k", student: true, standing: "none", recentDenial: true, canDeposit: false },
   no_card: { ...CORE, incomeBand: "none" },
