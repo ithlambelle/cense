@@ -8,6 +8,7 @@ import {
   axeChecker,
   blockExternalRequests,
   expireAccessToken,
+  GROCERIES_AND_DINING,
   LIKELY_FIT_PICKS,
   sessionExpiresAt,
   signUp,
@@ -33,6 +34,43 @@ test("new student signs up, takes the quiz and gets a match", async ({ page }) =
   await takeQuiz(page, LIKELY_FIT_PICKS, checkA11y);
   await expect(page.getByRole("heading", { level: 1, name: "Here’s your match" })).toBeVisible();
   await checkA11y("results: likely fit");
+});
+
+test("student answers the spending question and sees three cards, each with why it is right for them", async ({ page }) => {
+  const checkA11y = axeChecker(page);
+  await signUp(page, uniqueEmail("three-cards"), checkA11y);
+  await page.getByRole("link", { name: "Start the quiz" }).click();
+  await takeQuiz(page, LIKELY_FIT_PICKS, checkA11y, GROCERIES_AND_DINING);
+
+  const options = () => page.getByRole("main").getByRole("link", { name: /^View card: / });
+  for (const pass of ["first visit", "after a reload"]) {
+    await expect(page.getByRole("heading", { level: 1, name: "Here’s your match" }), pass).toBeVisible();
+    await expect(page.getByRole("region", { name: "Top match" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Other options" }).getByRole("heading", { level: 3 })).toHaveCount(2);
+    await expect(options()).toHaveCount(3);
+    // In words, not only the signal bars, and the value from the spending answer.
+    await expect(page.getByText("You’re likely to be approved").first()).toBeVisible();
+    await expect(page.getByText(/^About \$\d[\d,]* in your first year$/).first()).toBeVisible();
+    await expect(page.getByText("An estimate from what you told us, not a promise.")).toBeVisible();
+    await checkA11y(`results: three cards, ${pass}`);
+    await page.reload();
+  }
+
+  // The whole card opens its page, which shows the same estimate, and Back returns.
+  const second = options().nth(1);
+  const href = await second.getAttribute("href");
+  await second.click();
+  await expect(page).toHaveURL(new RegExp(`${href!.replace("?", "\\?")}$`));
+  await expect(page.getByRole("region", { name: "Rewards" }).getByText(/in your first year/)).toBeVisible();
+  await checkA11y("cards: detail with an estimate");
+  await page.getByRole("link", { name: "Back to Your match" }).click();
+  await expect(page).toHaveURL(/\/results$/);
+
+  // A retake starts from the saved picks; clearing them takes the value lines away.
+  await page.getByRole("link", { name: "Retake quiz" }).click();
+  await takeQuiz(page, LIKELY_FIT_PICKS, async () => {}, GROCERIES_AND_DINING);
+  await expect(page.getByText(/in your first year/)).toHaveCount(0);
+  await expect(options()).toHaveCount(3);
 });
 
 test("student with no income gets the not-yet result", async ({ page }) => {

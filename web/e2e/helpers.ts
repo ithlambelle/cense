@@ -128,8 +128,19 @@ export const LIKELY_FIT_PICKS: QuizPicks = {
   canDeposit: "Yes",
 };
 
-// Taps one answer per question, in order, and runs axe on each question.
-export async function takeQuiz(page: Page, picks: QuizPicks, checkA11y: (screen: string) => Promise<void>) {
+// The spending question's labels to tap (lib/quiz/spending.ts).
+export type SpendingPicks = { categories: string[]; amount: string };
+
+export const GROCERIES_AND_DINING: SpendingPicks = { categories: ["Groceries", "Food and dining"], amount: "$200 to $500" };
+
+// Taps one answer per question, in order, and runs axe on each question. The
+// spending question is optional: skipped unless picks are given.
+export async function takeQuiz(
+  page: Page,
+  picks: QuizPicks,
+  checkA11y: (screen: string) => Promise<void>,
+  spending: SpendingPicks | null = null,
+) {
   for (const [index, question] of QUESTIONS.entries()) {
     const heading = page.getByRole("heading", { level: 1, name: question.title });
     await expect(heading).toBeVisible();
@@ -141,9 +152,15 @@ export async function takeQuiz(page: Page, picks: QuizPicks, checkA11y: (screen:
     await checkA11y(`quiz: question ${index + 1}`);
     await answer.click();
   }
-  // The spending question is optional and not saved yet: skip it.
   await expect(page.getByRole("heading", { level: 1, name: SPENDING_COPY.title })).toBeVisible();
   await checkA11y("quiz: spending");
+  // A tap toggles: on a retake the saved picks start pressed, so tapping them clears them.
+  for (const label of spending ? [...spending.categories, spending.amount] : []) {
+    const pick = page.getByRole("button", { name: label, exact: true });
+    const was = await pick.getAttribute("aria-pressed");
+    await pick.click();
+    await expect(pick).toHaveAttribute("aria-pressed", was === "true" ? "false" : "true");
+  }
   await page.getByRole("button", { name: "Continue" }).click();
   await page.waitForURL("**/results");
 }
