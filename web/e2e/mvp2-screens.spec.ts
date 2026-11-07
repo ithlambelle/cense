@@ -97,7 +97,7 @@ test("a student adds a card they already have, and it stays on Home", async ({ p
   await visitor.context().close();
 });
 
-test("the first-month plan saves a ticked action, opens the reminder screen, and shows only the student's own card", async ({ page, browser }) => {
+test("the first-month plan saves a ticked action and autopay, opens the reminder screen, and shows only the student's own card", async ({ page, browser }) => {
   const checkA11y = axeChecker(page);
   await signUp(page, uniqueEmail("plan"), checkA11y);
   // Two cards added by name: Home leads with the newer one and lists the other,
@@ -129,6 +129,18 @@ test("the first-month plan saves a ticked action, opens the reminder screen, and
   await expect(page.getByText("0 of 3 done")).toBeVisible();
   await page.reload();
   await expect(page.getByRole("checkbox", { name: /Choose one planned purchase/ })).toHaveAttribute("aria-checked", "false");
+
+  // Autopay is saved on the card, as on Home: it survives a reload, ticked and unticked.
+  for (const on of [true, false]) {
+    const autopay = page.getByRole("checkbox", { name: /Turn on autopay/ });
+    await expect(autopay).toBeEnabled();
+    const write = page.waitForResponse((r) => r.url().endsWith(`/api/v1/applications/${older}`) && r.request().method() === "PATCH");
+    await autopay.click();
+    expect((await write).ok()).toBe(true);
+    await page.reload();
+    await expect(page.getByRole("checkbox", { name: /Turn on autopay/ })).toHaveAttribute("aria-checked", String(on));
+    await expect(page.getByText(`${on ? 1 : 0} of 3 done`)).toBeVisible();
+  }
 
   // The reminder row opens that card's reminder screen; Back returns here.
   await page.getByRole("link", { name: /Set a payment reminder/ }).click();

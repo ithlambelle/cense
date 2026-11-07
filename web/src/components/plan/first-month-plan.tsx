@@ -2,6 +2,7 @@
 
 import Check from "@gravity-ui/icons/Check";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { AppHeader } from "@/components/ui/app-header";
@@ -11,6 +12,7 @@ import { ErrorMessage } from "@/components/ui/error-message";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusPill } from "@/components/ui/status-pill";
 import { SENSITIVE } from "@/lib/analytics";
+import { saveAutopay } from "@/lib/api-client/applications";
 import { loadPlanSteps, savePlanStep, type PlanStepName } from "@/lib/api-client/plans";
 import type { Application } from "@/lib/api/application";
 import { moneyAmount } from "@/lib/money";
@@ -22,8 +24,9 @@ import { cn } from "@/lib/utils";
 type ActionKey = "autopay" | "plannedPurchase" | "paymentReminder";
 type PlanActions = Record<ActionKey, boolean>;
 
-// The saved step behind each action. Autopay is not a plan step: it comes
-// from the card's autopay status (US-10), so it is done once autopay is on.
+// The saved step behind each action. Autopay is not a plan step: it is the
+// card's own autopay status (US-10), read on the server with the card and
+// saved with PATCH /applications/{id}, as on Home, so both agree.
 const STEP: Record<ActionKey, PlanStepName | null> = {
   autopay: null,
   plannedPurchase: "planned_purchase",
@@ -110,6 +113,7 @@ function PlanScreen({
   start: { actions: PlanActions; state: SaveState };
   onRetry: (() => void) | null;
 }) {
+  const router = useRouter();
   const [actions, setActions] = useState<PlanActions>(start.actions);
   // Fixed for this load: the screen is keyed on the load state.
   const state: SaveState = start.state;
@@ -121,16 +125,23 @@ function PlanScreen({
     const value = !actions[key];
     setActions((current) => ({ ...current, [key]: value }));
     setError(null);
+    if (state !== "saved") return;
     const step = STEP[key];
-    if (state !== "saved" || !step) return;
     setSaving((current) => new Set(current).add(key));
-    const result = await savePlanStep(application.id, "first_month", step, value);
+    const result = step
+      ? await savePlanStep(application.id, "first_month", step, value)
+      : await saveAutopay(application.id, value);
     setSaving((current) => {
       const next = new Set(current);
       next.delete(key);
       return next;
     });
-    if (result.kind === "ok") return;
+    if (result.kind === "ok") {
+      // Autopay reaches this page in the server render: refresh it, or Back
+      // from another screen restores the cached page with the old check.
+      if (!step) router.refresh();
+      return;
+    }
     // Undo only this action, so other saves in flight are not overwritten.
     setActions((current) => ({ ...current, [key]: !value }));
     setError(result.kind === "failed" ? result.message : "Sign in again to save your plan.");
