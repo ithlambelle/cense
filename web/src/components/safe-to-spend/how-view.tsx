@@ -251,7 +251,7 @@ function DisconnectSheet({ open, onOpenChange }: { open: boolean; onOpenChange: 
         onOpenChange(next);
       }}
       title="Disconnect your bank?"
-      description="We remove the connection and delete your balances and answers."
+      description="We remove the connection and delete your balances, transactions and answers."
     >
       <p className="text-body-s text-indigo-black">
         Plaid keeps its own copy of what it shared. Manage it at{" "}
