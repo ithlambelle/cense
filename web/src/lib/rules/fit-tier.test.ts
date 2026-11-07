@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { evaluateFit, RULES_VERSION } from "./fit-tier";
-import type { FitResult, RuleAnswers, RuleCard } from "./fit-tier";
+import type { FitResult, RuleAnswers, RuleCard, YearOneValues } from "./fit-tier";
 import { card, CORE_STUDENT, PREAPPROVAL, SECTION_7_CARDS, SECTION_7_STUDENTS } from "./fit-tier.fixtures";
 
 type CompleteResult = Extract<FitResult, { status: "complete" }>;
@@ -17,11 +17,12 @@ function fitOf(answers: RuleAnswers, rule: RuleCard) {
   return complete(evaluateFit(answers, [rule])).cards[0];
 }
 
-function pick(answers: RuleAnswers, cards: RuleCard[]) {
-  return complete(evaluateFit(answers, cards)).recommendedCardId;
+function pick(answers: RuleAnswers, cards: RuleCard[], values: YearOneValues = null) {
+  return complete(evaluateFit(answers, cards, values)).recommendedCardId;
 }
 
-// The table in section 7 of "Fit Tier Rules v1.2", copied cell by cell.
+// The table in section 7 of "Fit Tier Rules v1.2", copied cell by cell. v1.3
+// keeps it: it only adds a last tie-breaker, used when spending is answered.
 // Rows are students 1 to 8, columns are the cards in SECTION_7_CARDS order.
 // A cell is the tier followed by the rule IDs that fired.
 const L = "likely_fit";
@@ -70,8 +71,8 @@ describe("fit tier rules: section 7 table", () => {
   });
 
   it("gives every result the rules version", () => {
-    expect(RULES_VERSION).toBe("fit-rules v1.2");
-    expect(evaluateFit(CORE_STUDENT, SECTION_7_CARDS).rulesVersion).toBe("fit-rules v1.2");
+    expect(RULES_VERSION).toBe("fit-rules v1.3");
+    expect(evaluateFit(CORE_STUDENT, SECTION_7_CARDS).rulesVersion).toBe("fit-rules v1.3");
   });
 });
 
@@ -310,9 +311,23 @@ describe("fit tier rules: picking the recommended card (section 6)", () => {
     expect(pick(CORE_STUDENT, [card("a-fee", "none", { annualFeeCents: 3900 }), card("b-free", "none", { secured: true })])).toBe("b-free");
   });
 
-  it("9. unsecured first, then card ID as the last resort", () => {
+  it("9. unsecured first", () => {
     expect(pick(CORE_STUDENT, [card("a-secured", "none", { secured: true }), card("b-unsecured")])).toBe("b-unsecured");
+  });
+
+  it("10 (v1.3). then the higher estimated year-one value, only when the student answered spending", () => {
+    const cards = [card("a-low"), card("b-high")];
+    expect(pick(CORE_STUDENT, cards, { "a-low": 3_000, "b-high": 9_000 })).toBe("b-high");
+    // No spending answer: value plays no part.
+    expect(pick(CORE_STUDENT, cards, null)).toBe("a-low");
+    // A card with no rewards data counts as 0.
+    expect(pick(CORE_STUDENT, cards, { "b-high": 1 })).toBe("b-high");
+    expect(pick(CORE_STUDENT, cards, {})).toBe("a-low");
+  });
+
+  it("11. card ID as the last resort", () => {
     expect(pick(CORE_STUDENT, [card("b"), card("a")])).toBe("a");
+    expect(pick(CORE_STUDENT, [card("b"), card("a")], { a: 500, b: 500 })).toBe("a");
   });
 
   describe("the steps run in the order the rules give", () => {
@@ -342,9 +357,40 @@ describe("fit tier rules: picking the recommended card (section 6)", () => {
       expect(pick({ ...CORE_STUDENT, goal: "build_credit" }, cards)).toBe("a-upgrade-fee");
     });
 
+    it("every earlier step (1 to 9) before value (10): value never outranks them, however large", () => {
+      const rich = { "a-rich": 900_000 };
+      expect(pick(CORE_STUDENT, [card("a-rich", "limited"), card("b-likely")], rich)).toBe("b-likely");
+      expect(pick(denied, [card("a-rich"), card("b-secured", "none", { ...secured, okForRebuilding: true })], rich)).toBe("b-secured");
+      expect(pick(CORE_STUDENT, [card("a-rich", "none", { historyBasis: "estimate" }), card("b-pub")], rich)).toBe("b-pub");
+      expect(pick(CORE_STUDENT, [card("a-rich"), card("b-student", "none", { studentsOnly: true })], rich)).toBe("b-student");
+      expect(pick(limitedStudent, [card("a-rich", "limited"), card("b-none")], rich)).toBe("b-none");
+      expect(pick({ ...CORE_STUDENT, goal: "build_credit" }, [card("a-rich"), card("b-upgrade", "none", { conditions: ["graduation_review"] })], rich)).toBe("b-upgrade");
+      expect(pick(CORE_STUDENT, [card("a-rich", "none", { annualFeeCents: 3900 }), card("b-free")], rich)).toBe("b-free");
+      expect(pick(CORE_STUDENT, [card("a-rich", "none", { secured: true }), card("b-unsecured")], rich)).toBe("b-unsecured");
+    });
+
     it("an estimate (4) ranks below a published level even for a student card (5)", () => {
       expect(pick(CORE_STUDENT, [card("a-est", "none", { historyBasis: "estimate", studentsOnly: true }), card("b-pub")])).toBe("b-pub");
     });
+  });
+
+  it("ranks every likely fit and stretch in pick order, and never a not yet card", () => {
+    const result = complete(evaluateFit(CORE_STUDENT, [card("c-stretch", "limited"), card("a-notyet", "strong"), card("b-likely"), card("d-likely")]));
+    expect(result.ranking).toEqual(["b-likely", "d-likely", "c-stretch"]);
+    expect(result.recommendedCardId).toBe("b-likely");
+    expect(complete(evaluateFit(CORE_STUDENT, [card("only", "strong")])).ranking).toEqual([]);
+  });
+
+  it("ranks the same whatever order the cards come in, with or without values", () => {
+    const reversed = [...SECTION_7_CARDS].reverse();
+    const values = Object.fromEntries(SECTION_7_CARDS.map((rule, index) => [rule.id, (index % 4) * 1_000]));
+    for (const student of SECTION_7_STUDENTS) {
+      for (const given of [null, values]) {
+        expect(complete(evaluateFit(student.answers, reversed, given)).ranking).toEqual(
+          complete(evaluateFit(student.answers, SECTION_7_CARDS, given)).ranking,
+        );
+      }
+    }
   });
 
   it("picks the same card whatever order the cards come in", () => {
