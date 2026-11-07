@@ -269,7 +269,7 @@ function SpendingGuide({ creditLimitCents }: { creditLimitCents: number | null }
           {/* Amounts are hidden from session replay, like the limit on Home. */}
           <p className={cn(SENSITIVE, "font-heading text-h3 font-medium text-navy")}>Up to {moneyAmount(suggested)} a month</p>
           <p className={cn(SENSITIVE, "text-body-s text-indigo-black")}>
-            That&apos;s {SPEND_LIMIT_PERCENT}% of your {moneyAmount(creditLimitCents)} limit. Keeping your balance under{" "}
+            That’s {SPEND_LIMIT_PERCENT}% of your {moneyAmount(creditLimitCents)} limit. Keeping your balance under{" "}
             {SPEND_LIMIT_PERCENT}% of your limit is better for your credit score, and lower is better.
           </p>
         </>
