@@ -45,8 +45,13 @@ link returns through `/api/v1/auth/password/reset/verify` and then opens
 `/reset-password`. That screen sends `{ "password": "..." }` to
 `POST /api/v1/auth/password/reset/confirm` with the recovery session cookie.
 The password fields require at least 8 characters and at most 72 UTF-8 bytes
-for sign-up and reset. Only a session with a `recovery` authentication method
-can confirm a reset.
+for sign-up and reset. Only a session from a reset link opened in the last
+hour can confirm a reset (`openedResetLink` in `web/src/lib/api/password.ts`).
+Supabase marks a session from its own reset link `recovery`, and one from the
+`token_hash` link below `otp`, the same as an email code, so an `otp` session
+counts only when it began at or after the account's latest reset email
+(`recovery_sent_at`). Anything else gets `403` `recovery_required`, and the
+screen shows "This link has expired" with a way to ask for a new one.
 
 The Supabase project needs Google OAuth enabled, the app origin and callback
 URL allowed in Auth redirect settings, and an email template using

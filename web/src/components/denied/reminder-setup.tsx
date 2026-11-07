@@ -58,7 +58,9 @@ export function ReminderSetup({ applicationId }: { applicationId: string | null 
     // The student left while it saved: the answer must not move them again.
     if (!isMounted()) return;
     if (result.kind === "ok") {
-      router.push(deniedPath("reminderSaved", applicationId));
+      // Replace, not push: Back from the saved screen goes to the plan, never
+      // to this form again for a reminder that is already saved.
+      router.replace(deniedPath("reminderSaved", applicationId));
       return;
     }
     setPending(false);
@@ -157,7 +159,7 @@ function TimingOption({
       type="button"
       aria-pressed={selected}
       onClick={onSelect}
-      className="flex min-h-20 w-full items-center gap-4 rounded-card border-[1.5px] border-violet bg-white px-5 py-3 text-left outline-none hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="flex min-h-20 w-full items-center gap-4 rounded-card border-[1.5px] border-violet bg-white px-5 py-3 text-left hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-indigo-black">
         <span className="font-heading text-h6 font-medium">{title}</span>

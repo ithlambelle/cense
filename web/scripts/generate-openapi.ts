@@ -19,6 +19,7 @@ import {
   saveQuizSchema,
   updateApplicationSchema,
 } from "../src/lib/api/schemas";
+import { askPennySchema, pennyReplySchema } from "../src/lib/api/penny";
 import { planNameSchema, planProgressSchema, planStepNameSchema, planStepSchema } from "../src/lib/api/plans";
 import {
   createReapplyReminderSchema,
@@ -26,6 +27,13 @@ import {
   reminderSettingsSchema,
   updateReminderSettingsSchema,
 } from "../src/lib/api/reminders";
+import { privacySettingsSchema, updatePrivacySettingsSchema } from "../src/lib/api/privacy";
+import {
+  createBankLinkSchema,
+  linkTokenSchema,
+  safeToSpendSchema,
+  saveSafeToSpendAnswersSchema,
+} from "../src/lib/api/safe-to-spend";
 import {
   passwordCredentialsSchema,
   passwordResetRequestSchema,
@@ -124,6 +132,28 @@ registry.registerPath({
   method: "get", path: "/me", operationId: "getMe", summary: "Get the signed-in student",
   security: [{ studentSession: [] }],
   responses: { 200: ok(z.strictObject({ id: z.uuid(), email: z.email().nullable() })), 401: failure("Sign-in required") },
+});
+registry.registerPath({
+  method: "delete", path: "/me", operationId: "deleteMe", summary: "Delete my account",
+  description: "Deletes the student's PostHog person with its events and recordings (where analytics runs), then the account, which deletes every row tied to it, then signs out. A failure deletes nothing of the account.",
+  security: [{ studentSession: [] }],
+  responses: {
+    204: { description: "Deleted and signed out" },
+    401: failure("Sign-in required"),
+    502: failure("Deletion failed"),
+    503: failure("Deletion not available"),
+  },
+});
+registry.registerPath({
+  method: "get", path: "/me/privacy", operationId: "getPrivacySettings", summary: "Read the Analytics switch",
+  security: [{ studentSession: [] }],
+  responses: { 200: ok(privacySettingsSchema), 404: failure("Profile not found"), ...protectedResponses },
+});
+registry.registerPath({
+  method: "patch", path: "/me/privacy", operationId: "updatePrivacySettings", summary: "Turn analytics and session recordings on or off",
+  security: [{ studentSession: [] }],
+  request: { body: body(updatePrivacySettingsSchema) },
+  responses: { 200: ok(privacySettingsSchema), 400: failure("Invalid setting"), 404: failure("Profile not found"), ...protectedResponses },
 });
 registry.registerPath({
   method: "get", path: "/cards", operationId: "listCards", summary: "List curated student cards",
@@ -252,11 +282,66 @@ registry.registerPath({
     409: failure("No preapproval link"), ...protectedResponses,
   },
 });
+const pennyReplyContract = registry.register("PennyReply", pennyReplySchema);
+registry.registerPath({
+  method: "post", path: "/penny", operationId: "askPenny",
+  summary: "Ask Penny one typed question",
+  description: "Answered from Penny's checked answers, with the source; personal details are removed before the model sees it, and nothing about the question is stored. A tapped question never calls this: its checked answer ships with the app. Each student may ask 20 a day and all students 300 (429 penny_limit). 503 penny_unavailable when the model cannot answer.",
+  security: [{ studentSession: [] }],
+  request: { body: body(askPennySchema) },
+  responses: {
+    200: ok(pennyReplyContract), 400: failure("Empty or too long"),
+    429: failure("Daily limit reached"), ...protectedResponses,
+  },
+});
 registry.registerPath({
   method: "get", path: "/recommendations/latest", operationId: "getLatestRecommendation",
   summary: "Read the latest server-generated recommendation",
   security: [{ studentSession: [] }],
   responses: { 200: ok(recommendationContract), 404: failure("No saved recommendation"), ...protectedResponses },
+});
+
+// Safe to spend on a Plaid sandbox bank (US-12). The access token stays on
+// the server; these answers never carry it or any Plaid response.
+const safeToSpendContract = registry.register("SafeToSpend", safeToSpendSchema);
+const safeToSpendResponses = { 503: failure("Data unavailable or safe to spend off"), 401: failure("Sign-in required") };
+registry.registerPath({
+  method: "post", path: "/bank-link/link-token", operationId: "createBankLinkToken",
+  summary: "Create a Plaid Link token: a new bank, or update mode for one that needs a new sign-in",
+  security: [{ studentSession: [] }],
+  responses: { 200: ok(registry.register("LinkToken", linkTokenSchema)), 409: failure("Already linked, or link again"), 502: failure("Plaid unreachable"), ...safeToSpendResponses },
+});
+registry.registerPath({
+  method: "post", path: "/bank-link", operationId: "createBankLink",
+  summary: "Link a bank: exchange Link's public token on the server and read the balances once",
+  security: [{ studentSession: [] }],
+  request: { body: body(createBankLinkSchema) },
+  responses: { 201: ok(safeToSpendContract), 400: failure("Invalid or expired public token"), 409: failure("Already linked"), 502: failure("Plaid unreachable"), ...safeToSpendResponses },
+});
+registry.registerPath({
+  method: "delete", path: "/bank-link", operationId: "deleteBankLink",
+  summary: "Disconnect: remove the Item at Plaid, then delete the token, balances and answers",
+  security: [{ studentSession: [] }],
+  responses: { 204: { description: "Disconnected" }, 404: failure("No bank linked"), 502: failure("Plaid unreachable; nothing changed"), ...safeToSpendResponses },
+});
+registry.registerPath({
+  method: "post", path: "/bank-link/refresh", operationId: "refreshBankLink",
+  summary: "Read the balances from Plaid again",
+  security: [{ studentSession: [] }],
+  responses: { 200: ok(safeToSpendContract), 404: failure("No bank linked"), 409: failure("Reconnect or link again"), 502: failure("Plaid unreachable"), ...safeToSpendResponses },
+});
+registry.registerPath({
+  method: "get", path: "/safe-to-spend", operationId: "getSafeToSpend",
+  summary: "Read safe to spend as last read: balances, answers and each step of the sum",
+  security: [{ studentSession: [] }],
+  responses: { 200: ok(safeToSpendContract), 404: failure("No bank linked"), ...safeToSpendResponses },
+});
+registry.registerPath({
+  method: "put", path: "/safe-to-spend/answers", operationId: "saveSafeToSpendAnswers",
+  summary: "Save who covers each bill and the amount kept aside",
+  security: [{ studentSession: [] }],
+  request: { body: body(saveSafeToSpendAnswersSchema) },
+  responses: { 200: ok(safeToSpendContract), 400: failure("Invalid answers"), 404: failure("No bank linked"), ...safeToSpendResponses },
 });
 
 // Left out on purpose: GET /cron/reminders (Vercel Cron) and

@@ -3,6 +3,7 @@
 // up its own fresh student. Run with: npm run e2e
 import { expect, test } from "@playwright/test";
 
+import { QUIZ_STEP_COUNT } from "../src/lib/quiz/spending";
 import {
   axeChecker,
   blockExternalRequests,
@@ -25,7 +26,7 @@ test("new student signs up, takes the quiz and gets a match", async ({ page }) =
   await signUp(page, uniqueEmail("match"), checkA11y);
 
   await expect(page).toHaveURL(/\/home$/);
-  await expect(page.getByRole("heading", { name: "6 questions to your first card" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: `${QUIZ_STEP_COUNT} questions to your first card` })).toBeVisible();
   await checkA11y("home: no quiz");
   await page.getByRole("link", { name: "Start the quiz" }).click();
 
@@ -147,7 +148,7 @@ test("student whose access token has expired still loads Home and Cards", async 
 
   await page.goto("/home");
   await expect(page).toHaveURL(/\/home$/);
-  await expect(page.getByRole("heading", { name: "6 questions to your first card" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: `${QUIZ_STEP_COUNT} questions to your first card` })).toBeVisible();
   await checkA11y("home: after refresh");
   // The proxy wrote a fresh session.
   expect(await sessionExpiresAt(context)).toBeGreaterThan(Date.now() / 1000);

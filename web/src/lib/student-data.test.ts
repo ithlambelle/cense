@@ -31,7 +31,7 @@ describe("loadStudentSnapshot", () => {
     // A retired field next to six good answers used to throw the whole draft away.
     const snapshot = await loadStudentSnapshot(studentWithDraft({ ...ALL_SIX, retiredField: "x" }));
     expect(snapshot.quiz.kind).toBe("match");
-    expect(snapshot.quizStarted).toBe(true);
+    expect(snapshot.quizAnswered).toBe(6);
     expect(console.warn).toHaveBeenCalledOnce();
   });
 
@@ -39,23 +39,28 @@ describe("loadStudentSnapshot", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const snapshot = await loadStudentSnapshot(studentWithDraft({ under21: true, incomeBand: "lots" }));
     expect(snapshot.quiz.kind).toBe("quiz_unfinished");
-    expect(snapshot.quizStarted).toBe(true);
+    expect(snapshot.quizAnswered).toBe(1);
   });
 
   it("counts one saved answer as started", async () => {
     const snapshot = await loadStudentSnapshot(studentWithDraft({ under21: true }));
     expect(snapshot.quiz.kind).toBe("quiz_unfinished");
-    expect(snapshot.quizStarted).toBe(true);
+    expect(snapshot.quizAnswered).toBe(1);
+  });
+
+  // The quiz reopens on the first unanswered question, so Home counts from there.
+  it("counts the answers the quiz will reopen after", async () => {
+    expect((await loadStudentSnapshot(studentWithDraft({ under21: true, incomeBand: "under_5k" }))).quizAnswered).toBe(2);
   });
 
   it("is not started when the saved draft has no answers", async () => {
     const snapshot = await loadStudentSnapshot(studentWithDraft({}));
-    expect(snapshot.quizStarted).toBe(false);
+    expect(snapshot.quizAnswered).toBe(0);
   });
 
   it("is not started when nothing is saved", async () => {
     const snapshot = await loadStudentSnapshot(studentWithDraft(undefined));
-    expect(snapshot).toEqual({ applications: [], quiz: { kind: "quiz_unfinished" }, quizStarted: false });
+    expect(snapshot).toEqual({ applications: [], quiz: { kind: "quiz_unfinished" }, quizAnswered: 0 });
   });
 });
 

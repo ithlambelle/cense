@@ -40,20 +40,21 @@ const STEPS: { key: StepKey; step: PlanStepName | null; title: string; detail: s
 
 // List row, Tinted (273:2196), shared by the tick rows and the reminder link.
 const ROW =
-  "flex w-full items-center gap-3 rounded-[14px] bg-off-white px-3.5 py-3 text-left text-indigo-black outline-none hover:bg-selected-outline/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+  "flex w-full items-center gap-3 rounded-[14px] bg-off-white px-3.5 py-3 text-left text-indigo-black hover:bg-selected-outline/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 const NONE_LIT: Lit = { autopay: false, plannedPurchase: false, paymentReminder: false };
 
-// The reminder star needs the step and the card's saved days: the old first-month
-// page ticked the step on its own, so a step without days is not a reminder.
-function loadLit(applicationId: string, autopay: boolean, reminderDaysSaved: boolean) {
+// The reminder star needs the step and a reminder that is really on (saved
+// days, the due-date email on, emails not off): the old first-month page ticked
+// the step on its own, and the settings cover every card.
+function loadLit(applicationId: string, autopay: boolean, reminderOn: boolean) {
   return async (): Promise<LoadOutcome<Lit>> => {
     const result = await loadPlanSteps(applicationId, "first_month");
     if (result.kind === "signed-out") return "signed-out";
     if (result.kind === "failed") return { status: "failed", message: result.message };
     return {
       status: "ready",
-      data: { autopay, plannedPurchase: result.done.has("planned_purchase"), paymentReminder: reminderDaysSaved && result.done.has("payment_reminder") },
+      data: { autopay, plannedPurchase: result.done.has("planned_purchase"), paymentReminder: reminderOn && result.done.has("payment_reminder") },
     };
   };
 }
@@ -61,15 +62,15 @@ function loadLit(applicationId: string, autopay: boolean, reminderDaysSaved: boo
 export function ApprovedCard({
   application,
   autopayOn,
-  reminderDaysSaved = false,
+  paymentReminderOn = false,
   celebrate,
   sampleStars,
 }: {
   application: Application;
   // The saved autopay status is "on" (off and unknown leave the star out).
   autopayOn: boolean;
-  // The card has a saved payment due day (set on the reminder screen).
-  reminderDaysSaved?: boolean;
+  // The card's payment reminder is really on (paymentReminderOn in lib/home/state.ts).
+  paymentReminderOn?: boolean;
   celebrate: boolean;
   // Dev gallery only: this many stars lit, in order, with nothing loaded or saved.
   sampleStars?: number;
@@ -83,21 +84,21 @@ export function ApprovedCard({
       </>
     );
   }
-  return <SavedCard application={application} autopayOn={autopayOn} reminderDaysSaved={reminderDaysSaved} celebrate={celebrate} />;
+  return <SavedCard application={application} autopayOn={autopayOn} paymentReminderOn={paymentReminderOn} celebrate={celebrate} />;
 }
 
 function SavedCard({
   application,
   autopayOn,
-  reminderDaysSaved,
+  paymentReminderOn,
   celebrate,
 }: {
   application: Application;
   autopayOn: boolean;
-  reminderDaysSaved: boolean;
+  paymentReminderOn: boolean;
   celebrate: boolean;
 }) {
-  const load = useMemo(() => loadLit(application.id, autopayOn, reminderDaysSaved), [application.id, autopayOn, reminderDaysSaved]);
+  const load = useMemo(() => loadLit(application.id, autopayOn, paymentReminderOn), [application.id, autopayOn, paymentReminderOn]);
   const { loaded, retry } = useLoaded(load, signInPath(ROUTES.home));
   // A key per load state, so the stars start again from what was loaded.
   // The arrival effects sit outside it, so they run once.
@@ -275,7 +276,7 @@ function TitleRow({ application, children }: { application: Application; childre
     <Link
       href={cardPath(application.cardId, "home")}
       aria-label={`${application.cardName} details`}
-      className="-m-2 flex items-center gap-3 rounded-input p-2 outline-none hover:bg-off-white/60 focus-visible:outline-2 focus-visible:outline-ring"
+      className="-m-2 flex items-center gap-3 rounded-input p-2 hover:bg-off-white/60 focus-visible:outline-2 focus-visible:outline-ring"
     >
       {children}
       <ChevronRight aria-hidden="true" width={16} height={16} className="shrink-0 text-indigo-black/70" />
@@ -369,7 +370,7 @@ function CreditLimit({ application, sample }: { application: Application; sample
           type="button"
           onClick={open}
           aria-label={cents === null ? "Add credit limit" : "Edit credit limit"}
-          className="relative text-body-s font-medium text-violet underline underline-offset-2 outline-none after:absolute after:-inset-3 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
+          className="relative text-body-s font-medium text-violet underline underline-offset-2 after:absolute after:-inset-3 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
         >
           {cents === null ? "Add" : "Edit"}
         </button>

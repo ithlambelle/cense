@@ -1,7 +1,8 @@
 import type { CaptureResult } from "posthog-js";
 import { describe, expect, it } from "vitest";
 
-import { analyticsEnvironment, baseProperties, posthogConfig, stripQuery, stripQueryStrings } from "./analytics-config";
+import { TRACKING_PLAN_VERSION } from "./analytics-catalog";
+import { analyticsEnvironment, baseProperties, EVENT_SEND_INTERVAL_MS, posthogConfig, stripQuery, stripQueryStrings } from "./analytics-config";
 
 const event = (overrides: Partial<CaptureResult>): CaptureResult => ({ uuid: "u", event: "$pageview", properties: {}, ...overrides });
 
@@ -75,7 +76,7 @@ describe("stripQueryStrings (before_send)", () => {
 
 describe("baseProperties", () => {
   it("asks PostHog to skip the location lookup on every event", () => {
-    expect(baseProperties()).toMatchObject({ $geoip_disable: true, plan_version: 1, is_internal: false });
+    expect(baseProperties()).toMatchObject({ $geoip_disable: true, plan_version: TRACKING_PLAN_VERSION, is_internal: false });
   });
 });
 
@@ -97,11 +98,30 @@ describe("posthogConfig", () => {
     }
   });
 
+  // Global Privacy Control (and Do Not Track) opts the browser out (privacy policy).
+  it("honors the browser's request not to be tracked", () => {
+    expect(config.respect_dnt).toBe(true);
+  });
+
+  it("sends queued events on the interval Delete my account waits for", () => {
+    expect(config.request_queue_config).toEqual({ flush_interval_ms: EVENT_SEND_INTERVAL_MS });
+  });
+
   it("uses the proxy, no cookie, the query filter, and no feature flag requests", () => {
     expect(config.advanced_disable_feature_flags).toBe(true);
     expect(config.api_host).toBe("/rx");
     expect(config.persistence).toBe("localStorage");
     expect(config.before_send).toBe(stripQueryStrings);
+  });
+
+  // Error tracking (S21): uncaught errors and rejected promises. Not every
+  // console.error, which would include errors the app already handles.
+  it("captures uncaught errors and rejections, not console errors", () => {
+    expect(config.capture_exceptions).toEqual({
+      capture_unhandled_errors: true,
+      capture_unhandled_rejections: true,
+      capture_console_errors: false,
+    });
   });
 
   it("records replay with typing masked and never request bodies or headers", () => {

@@ -533,6 +533,224 @@ components:
         - paymentDue
         - checkAutopay
       additionalProperties: false
+    PennyReply:
+      oneOf:
+        - type: object
+          properties:
+            kind:
+              type: string
+              enum:
+                - answer
+            text:
+              type: string
+            answer:
+              type: object
+              properties:
+                id:
+                  type: string
+                question:
+                  type: string
+                topic:
+                  type: string
+                  enum:
+                    - credit
+                    - budgeting
+                    - saving
+                    - student-loans
+                source:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    url:
+                      type: string
+                      format: uri
+                  required:
+                    - name
+                    - url
+                  additionalProperties: false
+              required:
+                - id
+                - question
+                - topic
+                - source
+              additionalProperties: false
+          required:
+            - kind
+            - text
+            - answer
+          additionalProperties: false
+        - type: object
+          properties:
+            kind:
+              type: string
+              enum:
+                - declined
+            reason:
+              type: string
+              enum:
+                - advice
+                - off_topic
+                - unknown
+                - crisis
+            text:
+              type: string
+            suggestions:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  question:
+                    type: string
+                required:
+                  - id
+                  - question
+                additionalProperties: false
+              maxItems: 2
+          required:
+            - kind
+            - reason
+            - text
+            - suggestions
+          additionalProperties: false
+    SafeToSpend:
+      type: object
+      properties:
+        institutionName:
+          type: string
+        status:
+          type: string
+          enum:
+            - active
+            - reconnect_needed
+            - relink_needed
+        linkedAt:
+          type: string
+          format: date-time
+        refreshedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        answered:
+          type: boolean
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/BankAccount"
+        bills:
+          type: array
+          items:
+            type: object
+            properties:
+              bill:
+                type: string
+                enum:
+                  - rent
+                  - phone
+                  - tuition
+                  - groceries
+                  - car
+              coveredBy:
+                type: string
+                enum:
+                  - me
+                  - family
+                  - split
+                  - none
+              monthlyCents:
+                type:
+                  - integer
+                  - "null"
+                minimum: 0
+                maximum: 10000000
+              dueDay:
+                type:
+                  - integer
+                  - "null"
+                minimum: 1
+                maximum: 31
+            required:
+              - bill
+              - coveredBy
+              - monthlyCents
+              - dueDay
+            additionalProperties: false
+        setAsideCents:
+          type: integer
+        cashCents:
+          type: integer
+        cardCents:
+          type: integer
+        billsCents:
+          type: integer
+        leftCents:
+          type: integer
+        days:
+          type: number
+          enum:
+            - 30
+        dailyCents:
+          type: integer
+      required:
+        - institutionName
+        - status
+        - linkedAt
+        - refreshedAt
+        - answered
+        - accounts
+        - bills
+        - setAsideCents
+        - cashCents
+        - cardCents
+        - billsCents
+        - leftCents
+        - days
+        - dailyCents
+      additionalProperties: false
+    BankAccount:
+      type: object
+      properties:
+        name:
+          type: string
+        mask:
+          type:
+            - string
+            - "null"
+        kind:
+          type: string
+          enum:
+            - cash
+            - card
+            - other
+        balanceCents:
+          type: integer
+      required:
+        - name
+        - mask
+        - kind
+        - balanceCents
+      additionalProperties: false
+    LinkToken:
+      type: object
+      properties:
+        linkToken:
+          type: string
+        expiration:
+          type: string
+          format: date-time
+        mode:
+          type: string
+          enum:
+            - create
+            - update
+      required:
+        - linkToken
+        - expiration
+        - mode
+      additionalProperties: false
   parameters: {}
   securitySchemes:
     studentSession:
@@ -1066,6 +1284,125 @@ paths:
                 additionalProperties: false
         "401":
           description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteMe
+      summary: Delete my account
+      description: Deletes the student's PostHog person with its events and recordings
+        (where analytics runs), then the account, which deletes every row tied
+        to it, then signs out. A failure deletes nothing of the account.
+      security:
+        - studentSession: []
+      responses:
+        "204":
+          description: Deleted and signed out
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: Deletion failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Deletion not available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /me/privacy:
+    get:
+      operationId: getPrivacySettings
+      summary: Read the Analytics switch
+      security:
+        - studentSession: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  analyticsOn:
+                    type: boolean
+                required:
+                  - analyticsOn
+                additionalProperties: false
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    patch:
+      operationId: updatePrivacySettings
+      summary: Turn analytics and session recordings on or off
+      security:
+        - studentSession: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                analyticsOn:
+                  type: boolean
+              required:
+                - analyticsOn
+              additionalProperties: false
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  analyticsOn:
+                    type: boolean
+                required:
+                  - analyticsOn
+                additionalProperties: false
+        "400":
+          description: Invalid setting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
           content:
             application/json:
               schema:
@@ -1981,6 +2318,62 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /penny:
+    post:
+      operationId: askPenny
+      summary: Ask Penny one typed question
+      description: "Answered from Penny's checked answers, with the source; personal
+        details are removed before the model sees it, and nothing about the
+        question is stored. A tapped question never calls this: its checked
+        answer ships with the app. Each student may ask 20 a day and all
+        students 300 (429 penny_limit). 503 penny_unavailable when the model
+        cannot answer."
+      security:
+        - studentSession: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                question:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+              required:
+                - question
+              additionalProperties: false
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PennyReply"
+        "400":
+          description: Empty or too long
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Daily limit reached
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /recommendations/latest:
     get:
       operationId: getLatestRecommendation
@@ -2008,6 +2401,298 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "503":
           description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /bank-link/link-token:
+    post:
+      operationId: createBankLinkToken
+      summary: "Create a Plaid Link token: a new bank, or update mode for one that
+        needs a new sign-in"
+      security:
+        - studentSession: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkToken"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Already linked, or link again
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: Plaid unreachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable or safe to spend off
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /bank-link:
+    post:
+      operationId: createBankLink
+      summary: "Link a bank: exchange Link's public token on the server and read the
+        balances once"
+      security:
+        - studentSession: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                publicToken:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+              required:
+                - publicToken
+              additionalProperties: false
+      responses:
+        "201":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafeToSpend"
+        "400":
+          description: Invalid or expired public token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Already linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: Plaid unreachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable or safe to spend off
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteBankLink
+      summary: "Disconnect: remove the Item at Plaid, then delete the token, balances
+        and answers"
+      security:
+        - studentSession: []
+      responses:
+        "204":
+          description: Disconnected
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No bank linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: Plaid unreachable; nothing changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable or safe to spend off
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /bank-link/refresh:
+    post:
+      operationId: refreshBankLink
+      summary: Read the balances from Plaid again
+      security:
+        - studentSession: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafeToSpend"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No bank linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Reconnect or link again
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: Plaid unreachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable or safe to spend off
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /safe-to-spend:
+    get:
+      operationId: getSafeToSpend
+      summary: "Read safe to spend as last read: balances, answers and each step of
+        the sum"
+      security:
+        - studentSession: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafeToSpend"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No bank linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable or safe to spend off
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /safe-to-spend/answers:
+    put:
+      operationId: saveSafeToSpendAnswers
+      summary: Save who covers each bill and the amount kept aside
+      security:
+        - studentSession: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bills:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      bill:
+                        type: string
+                        enum:
+                          - rent
+                          - phone
+                          - tuition
+                          - groceries
+                          - car
+                      coveredBy:
+                        type: string
+                        enum:
+                          - me
+                          - family
+                          - split
+                          - none
+                      monthlyCents:
+                        type:
+                          - integer
+                          - "null"
+                        minimum: 0
+                        maximum: 10000000
+                      dueDay:
+                        type:
+                          - integer
+                          - "null"
+                        minimum: 1
+                        maximum: 31
+                    required:
+                      - bill
+                      - coveredBy
+                      - monthlyCents
+                      - dueDay
+                    additionalProperties: false
+                setAsideCents:
+                  type: integer
+                  minimum: 0
+                  maximum: 10000000
+              required:
+                - bills
+                - setAsideCents
+              additionalProperties: false
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafeToSpend"
+        "400":
+          description: Invalid answers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No bank linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable or safe to spend off
           content:
             application/json:
               schema:

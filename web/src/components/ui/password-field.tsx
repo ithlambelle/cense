@@ -23,7 +23,7 @@ function PasswordField(props: PasswordFieldProps) {
           aria-pressed={visible}
           onClick={() => setVisible(!visible)}
           disabled={props.disabled}
-          className="flex size-11 shrink-0 items-center justify-center rounded-pill text-indigo-black outline-none focus-visible:outline-2 focus-visible:outline-ring"
+          className="flex size-11 shrink-0 items-center justify-center rounded-pill text-indigo-black focus-visible:outline-2 focus-visible:outline-ring"
         >
           {visible ? <EyeSlash aria-hidden="true" width={24} height={24} /> : <Eye aria-hidden="true" width={24} height={24} />}
         </button>

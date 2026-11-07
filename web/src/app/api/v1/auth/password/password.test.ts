@@ -267,9 +267,13 @@ describe("optional password auth", () => {
     expect(auth.updateUser).not.toHaveBeenCalled();
   });
 
-  it("rejects password updates from an ordinary email session", async () => {
-    auth.getUser.mockResolvedValue({ data: { user: { id: "student-id" } }, error: null });
-    auth.getClaims.mockResolvedValue({ data: { claims: { amr: [{ method: "otp" }] } }, error: null });
+  // Seconds since 1970, as Supabase writes amr timestamps.
+  const now = () => Math.floor(Date.now() / 1000);
+
+  it("rejects password updates from an ordinary email session that began before the reset email", async () => {
+    const sentAt = new Date(Date.now() - 60_000).toISOString();
+    auth.getUser.mockResolvedValue({ data: { user: { id: "student-id", recovery_sent_at: sentAt } }, error: null });
+    auth.getClaims.mockResolvedValue({ data: { claims: { amr: [{ method: "otp", timestamp: now() - 600 }] } }, error: null });
     const response = await confirm(request("/api/v1/auth/password/reset/confirm", {
       password: "new-long-password",
     }));
@@ -277,14 +281,50 @@ describe("optional password auth", () => {
     expect(auth.updateUser).not.toHaveBeenCalled();
   });
 
+  it("rejects an email session when no reset email was ever sent", async () => {
+    auth.getUser.mockResolvedValue({ data: { user: { id: "student-id", recovery_sent_at: null } }, error: null });
+    auth.getClaims.mockResolvedValue({ data: { claims: { amr: [{ method: "otp", timestamp: now() }] } }, error: null });
+    const response = await confirm(request("/api/v1/auth/password/reset/confirm", { password: "new-long-password" }));
+    expect(response.status).toBe(403);
+  });
+
+  // The app's own reset link (token_hash) gives the session Supabase's "otp" method.
+  it("updates a password from a session the reset link opened, in any browser", async () => {
+    const sentAt = new Date(Date.now() - 60_000).toISOString();
+    auth.getUser.mockResolvedValue({ data: { user: { id: "student-id", recovery_sent_at: sentAt } }, error: null });
+    auth.getClaims.mockResolvedValue({ data: { claims: { amr: [{ method: "otp", timestamp: now() - 30 }] } }, error: null });
+    auth.updateUser.mockResolvedValue({ error: null });
+    const response = await confirm(request("/api/v1/auth/password/reset/confirm", { password: "new-long-password" }));
+    expect(response.status).toBe(200);
+    expect(auth.updateUser).toHaveBeenCalledWith({ password: "new-long-password" });
+  });
+
   it("updates a password with a recovery session", async () => {
     auth.getUser.mockResolvedValue({ data: { user: { id: "student-id" } }, error: null });
-    auth.getClaims.mockResolvedValue({ data: { claims: { amr: [{ method: "recovery" }] } }, error: null });
+    auth.getClaims.mockResolvedValue({ data: { claims: { amr: [{ method: "recovery", timestamp: now() }] } }, error: null });
     auth.updateUser.mockResolvedValue({ error: null });
     const response = await confirm(request("/api/v1/auth/password/reset/confirm", {
       password: "new-long-password",
     }));
     expect(response.status).toBe(200);
     expect(auth.updateUser).toHaveBeenCalledWith({ password: "new-long-password" });
+  });
+
+  it("rejects a reset session older than the hour the link lasts", async () => {
+    auth.getUser.mockResolvedValue({ data: { user: { id: "student-id", recovery_sent_at: new Date(Date.now() - 7_200_000).toISOString() } }, error: null });
+    auth.getClaims.mockResolvedValue({ data: { claims: { amr: [{ method: "recovery", timestamp: now() - 3_700 }] } }, error: null });
+    const response = await confirm(request("/api/v1/auth/password/reset/confirm", { password: "new-long-password" }));
+    expect(response.status).toBe(403);
+    expect(auth.updateUser).not.toHaveBeenCalled();
+  });
+
+  it("rejects password and Google sessions", async () => {
+    auth.getUser.mockResolvedValue({ data: { user: { id: "student-id", recovery_sent_at: new Date().toISOString() } }, error: null });
+    for (const method of ["password", "oauth"]) {
+      auth.getClaims.mockResolvedValue({ data: { claims: { amr: [{ method, timestamp: now() }] } }, error: null });
+      const response = await confirm(request("/api/v1/auth/password/reset/confirm", { password: "new-long-password" }));
+      expect(response.status, method).toBe(403);
+    }
+    expect(auth.updateUser).not.toHaveBeenCalled();
   });
 });

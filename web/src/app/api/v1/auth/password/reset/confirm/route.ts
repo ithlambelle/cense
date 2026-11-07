@@ -1,6 +1,6 @@
-import { authenticatedStudent } from "@/lib/api/auth";
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
-import { passwordUpdateSchema } from "@/lib/api/password";
+import { openedResetLink, passwordUpdateSchema } from "@/lib/api/password";
+import { createStudentClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request): Promise<Response> {
   const body = await parseJson(request);
@@ -13,16 +13,18 @@ export async function POST(request: Request): Promise<Response> {
     return validationError(parsed.error);
   }
 
-  const student = await authenticatedStudent();
-  if (!student) return apiError(401, "sign_in_required", "A valid reset session is required.");
+  // As authenticatedStudent(), keeping the user: the rule below needs the time
+  // of the account's latest reset email.
+  const supabase = await createStudentClient();
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) return apiError(401, "sign_in_required", "A valid reset session is required.");
 
-  const { data: claims, error: claimsError } = await student.supabase.auth.getClaims();
-  if (claimsError || !Array.isArray(claims?.claims?.amr) ||
-      !claims.claims.amr.some((entry) => typeof entry === "object" && entry !== null && entry.method === "recovery")) {
+  const { data: claims, error: claimsError } = await supabase.auth.getClaims();
+  if (claimsError || !openedResetLink(claims?.claims?.amr, userData.user.recovery_sent_at, Date.now() / 1000)) {
     return apiError(403, "recovery_required", "Open a password reset link before setting a new password.");
   }
 
-  const { error } = await student.supabase.auth.updateUser({ password: parsed.data.password });
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
   if (error) return apiError(502, "password_update_failed", "We could not update your password. Please try again.");
 
   return Response.json({ status: "password_updated" }, { headers: { "Cache-Control": "no-store" } });

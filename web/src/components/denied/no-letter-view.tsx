@@ -17,7 +17,7 @@ export function NoLetterView({ applicationId }: { applicationId: string | null }
         <MascotStill pose="sad" size={170} />
       </div>
       <div className="flex flex-col gap-2">
-        <h1 className="font-heading text-h1 font-semibold text-navy">No problem</h1>
+        <h1 className="font-heading text-h1 font-medium text-navy">No problem</h1>
         <p className="text-body-m text-indigo-black">
           Letters can take up to 30 days. Tell us when yours comes, and we’ll turn the reason into your next steps.
         </p>

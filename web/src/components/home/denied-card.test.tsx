@@ -23,7 +23,7 @@ const denied: Application = {
   appliedAt: null,
   statusUpdatedAt: new Date().toISOString(),
 };
-const state = homeState([denied], computeResult(undefined, listCards()), true);
+const state = homeState([denied], computeResult(undefined, listCards()), 0);
 const detail = (denialReason: CardDetail["denialReason"], denialReasonNote: string | null = null): CardDetail => ({
   denialReason,
   denialReasonNote,
