@@ -21,7 +21,13 @@ export default async function PlanPage({ searchParams }: PageProps<"/plan">) {
   const approved = planApplication(applications, applicationParam((await searchParams).application));
   if (approved) {
     const [detail, settings] = await Promise.all([loadApplicationDetail(student, approved.id), loadReminderSettings(student)]);
-    return <FirstMonthPlan application={approved} paymentReminderOn={paymentReminderOn(detail, settings)} />;
+    return (
+      <FirstMonthPlan
+        application={approved}
+        paymentReminderOn={paymentReminderOn(detail, settings)}
+        autopayOn={detail?.autopayStatus === "on"}
+      />
+    );
   }
 
   return (
