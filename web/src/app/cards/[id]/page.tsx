@@ -6,11 +6,13 @@ import { loadAnalyticsOn } from "@/lib/analytics-choice";
 import { TrackOnMount } from "@/components/analytics/track-on-mount";
 import { CardDetailView } from "@/components/cards/card-detail-view";
 import { findCard } from "@/lib/cards/catalog";
+import { cardRewards } from "@/lib/cards/rewards";
 import { cardApplication, reminderStatus } from "@/lib/home/state";
 import { cardDisplayName } from "@/lib/copy/results";
 import { isInternalStudent } from "@/lib/internal-students";
 import { currentStudent } from "@/lib/session";
-import { loadApplicationDetail, loadApplications, loadReminderSettings } from "@/lib/student-data";
+import { estimateYearOne } from "@/lib/results/value";
+import { loadApplicationDetail, loadApplications, loadReminderSettings, loadSpendingProfile } from "@/lib/student-data";
 
 export async function generateMetadata({ params }: PageProps<"/cards/[id]">): Promise<Metadata> {
   const { id } = await params;
@@ -36,6 +38,17 @@ export default async function CardDetailPage({ params, searchParams }: PageProps
       ? await Promise.all([loadApplicationDetail(student, tracked.id), loadReminderSettings(student)])
       : [null, null];
   const reminders = detail && settings ? reminderStatus(detail, settings) : null;
+  const rewards = cardRewards(card.id);
+  // The student's year-one estimate for this card, from their saved spending
+  // answer. The page still works without it.
+  let estimate = null;
+  if (student) {
+    try {
+      estimate = estimateYearOne(rewards, await loadSpendingProfile(student));
+    } catch {
+      console.warn(JSON.stringify({ event: "card_estimate_read_failed" }));
+    }
+  }
   return (
     <>
       {/* Outside the (app) layout, so a signed-in student is identified here too. */}
@@ -47,7 +60,15 @@ export default async function CardDetailPage({ params, searchParams }: PageProps
         />
       ) : null}
       <TrackOnMount event="card_details_viewed" props={{ card_id: card.id, signed_in: student !== null }} />
-      <CardDetailView card={card} signedIn={student !== null} from={from} tracked={tracked} reminders={reminders} />
+      <CardDetailView
+        card={card}
+        signedIn={student !== null}
+        from={from}
+        tracked={tracked}
+        reminders={reminders}
+        rewards={rewards}
+        estimate={estimate}
+      />
     </>
   );
 }
