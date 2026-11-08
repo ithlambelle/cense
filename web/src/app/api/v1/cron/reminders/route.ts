@@ -8,7 +8,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 // The daily reminder job, called by Vercel Cron (web/vercel.json) with
 // CRON_SECRET. Not a student route: it uses the service role, the one
 // exception in api/data-contract.md, and only calls the reminder functions
-// and the daily purge of bank transactions older than 90 days (US-14).
+// and the daily purge of bank transactions older than 180 days (US-14).
 // The answer is counts only. Each authorized run pings the heartbeat check
 // (lib/reminders/heartbeat.ts), so a failed send or a run that never comes
 // alerts the team.

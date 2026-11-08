@@ -209,7 +209,7 @@ describe("GET /cron/reminders", () => {
     expect(String(elsewhere.emails()[0][0])).toBe("https://api.resend.com/emails");
   });
 
-  it("purges bank transactions older than 90 days on every run, with the service role and no arguments", async () => {
+  it("purges bank transactions older than 180 days on every run, with the service role and no arguments", async () => {
     const calls = database({ purge_old_plaid_transactions: [{ data: 3, error: null }] });
     resend();
     const response = await cron();

@@ -10,7 +10,7 @@ import type { StoreResult } from "./store";
 // A student's transactions for budgeting (US-14, the US-09 spec in #87):
 // Plaid's Transactions Sync, saved through apply_plaid_transactions_sync()
 // (supabase/migrations/20261106210000_plaid_transactions.sql), which keeps the
-// last 90 days in the private plaid schema. Students only ever get monthly
+// last 180 days in the private plaid schema. Students only ever get monthly
 // totals back. Logs carry kinds and counts, never an amount, a merchant or a
 // transaction id. Merchant names are kept for our own recurring-bill
 // detector; account ids tell card spending from debit spending.
@@ -22,14 +22,14 @@ export const MAX_SYNC_PAGES = 20;
 
 // Transactions posted before this many days ago are dropped here, before
 // they reach the database, which skips them too and purges them daily.
-export const KEEP_DAYS = 90;
+export const KEEP_DAYS = 180;
 
 const CATEGORY = /^[A-Z_]{1,64}$/;
 const CATEGORY_DETAILED = /^[A-Z_]{1,100}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 // The oldest posted date kept, as YYYY-MM-DD: KEEP_DAYS before today in UTC,
-// the database's current_date - 90.
+// the database's current_date - 180.
 export function oldestKeptDate(now: Date = new Date()): string {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - KEEP_DAYS)).toISOString().slice(0, 10);
 }
@@ -133,8 +133,8 @@ export async function syncStudentTransactions(
   return { kind: "plaid", failure: { ok: false, kind: "plaid", code: MUTATION } };
 }
 
-// The daily purge (US-14): deletes every student's transactions older than 90
-// days, including students who stopped syncing. Run by the daily cron with the
+// The daily purge (US-14): deletes every student's transactions older than
+// 180 days, including students who stopped syncing. Run by the daily cron with the
 // service role. Never throws; a failure logs only the database's code.
 export async function purgeOldTransactions(service: ServiceClient): Promise<{ ok: true; deleted: number } | { ok: false; code: string | null }> {
   try {

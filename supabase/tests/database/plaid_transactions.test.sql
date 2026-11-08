@@ -1,6 +1,6 @@
 -- Created with Claude Code (2026-11-07). The rules for Plaid transactions in
 -- the database (US-14, 20261106210000_plaid_transactions.sql): who can touch
--- plaid.transactions and its functions, the 90-day window, what counts as
+-- plaid.transactions and its functions, the 180-day window, what counts as
 -- spending, the cap of 10,000 rows per student, and what deletes the rows.
 -- Run with `npx supabase test db` on the local stack (CI does this in the e2e
 -- job). One transaction, rolled back at the end.
@@ -83,8 +83,8 @@ select is(public.apply_plaid_transactions_sync(
     pg_temp.txn('ana-transfer', 4, 5000, 'TRANSFER_OUT'),
     pg_temp.txn('ana-loan', 6, 3000, 'LOAN_PAYMENTS'),
     pg_temp.txn('ana-pay', 2, -48000, 'INCOME'),
-    pg_temp.txn('ana-edge', 90, 777),
-    pg_temp.txn('ana-old', 91, 999)),
+    pg_temp.txn('ana-edge', 180, 777),
+    pg_temp.txn('ana-old', 181, 999)),
   '[]', '[]', 'c1'), true, 'a student saves their own sync');
 select is(public.plaid_transactions_cursor(), 'c1', 'and the cursor moves with it');
 select throws_ok($$select count(*) from plaid.transactions$$, '42501', null, 'a student cannot read plaid.transactions');
@@ -98,9 +98,9 @@ select is((select sum(income_cents)::bigint from public.income_by_month(3)), 480
 reset role;
 
 select is((select count(*)::int from plaid.transactions where transaction_id = 'ana-old'), 0,
-  'a transaction 91 days old is never stored');
+  'a transaction 181 days old is never stored');
 select is((select count(*)::int from plaid.transactions where transaction_id = 'ana-edge'), 1,
-  'one exactly 90 days old is kept');
+  'one exactly 180 days old is kept');
 select is((select merchant_name || ' / ' || account_id from plaid.transactions where transaction_id = 'ana-food'),
   'Chipotle / acc-1', 'the merchant name and account id are kept for bill detection and card spending');
 
@@ -134,12 +134,12 @@ reset role;
 
 -- the daily purge
 insert into plaid.transactions (student_id, transaction_id, account_id, posted_on, amount_cents)
-values ('d0000000-0000-4000-8000-000000000001', 'ana-stale', 'acc-1', current_date - 100, 500);
+values ('d0000000-0000-4000-8000-000000000001', 'ana-stale', 'acc-1', current_date - 200, 500);
 set local role service_role;
-select is(public.purge_old_plaid_transactions(), 1, 'the purge deletes what is older than 90 days');
+select is(public.purge_old_plaid_transactions(), 1, 'the purge deletes what is older than 180 days');
 reset role;
 select is((select count(*)::int from plaid.transactions where transaction_id in ('ana-stale', 'ana-edge')), 1,
-  'and keeps what is 90 days old or newer');
+  'and keeps what is 180 days old or newer');
 
 -- the cap: 10,000 rows per student
 insert into plaid.transactions (student_id, transaction_id, account_id, posted_on, amount_cents)
