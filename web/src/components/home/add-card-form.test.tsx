@@ -7,11 +7,13 @@ import { AddCardScreen } from "./add-card-form";
 const track = vi.fn();
 vi.mock("@/lib/analytics", () => ({ SENSITIVE: "ph-sensitive", track: (...args: unknown[]) => track(...args) }));
 const push = vi.fn();
-vi.mock("next/navigation", () => ({ usePathname: () => "/home/add-card", useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn() }) }));
+const replace = vi.fn();
+vi.mock("next/navigation", () => ({ usePathname: () => "/home/add-card", useRouter: () => ({ push, replace, refresh: vi.fn() }) }));
 
 afterEach(() => {
   vi.unstubAllGlobals();
   push.mockClear();
+  replace.mockClear();
   track.mockClear();
 });
 
@@ -26,13 +28,35 @@ describe("AddCardScreen", () => {
     vi.stubGlobal("fetch", fetchFn);
     render(<AddCardScreen />);
     addCard("  Student Cash Card ");
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/home"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
     expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toEqual({
       cardId: null,
       cardName: "Student Cash Card",
       status: "approved",
       creditLimitCents: null,
     });
+  });
+
+  it("opened from Profile, Back, Cancel and Add card all return to Profile, replacing the form", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => Response.json({}, { status: 201 })));
+    const { unmount } = render(<AddCardScreen fromAccount />);
+    expect(screen.getByRole("link", { name: "Back to Your account" }).getAttribute("href")).toBe("/settings");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(replace).toHaveBeenCalledWith("/settings");
+    unmount();
+    replace.mockClear();
+    render(<AddCardScreen fromAccount />);
+    addCard("Student Cash Card");
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/settings"));
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("opened from Home, Cancel returns Home, replacing the form", () => {
+    render(<AddCardScreen />);
+    expect(screen.getByRole("link", { name: "Back to Home" }).getAttribute("href")).toBe("/home");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(replace).toHaveBeenCalledWith("/home");
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("on a network failure, says the card may have been saved instead of inviting a duplicate", async () => {
@@ -54,7 +78,7 @@ describe("AddCardScreen", () => {
       render(<AddCardScreen />);
       fireEvent.change(screen.getByLabelText("Credit limit (optional)"), { target: { value: limit } });
       addCard("Student Cash Card");
-      await waitFor(() => expect(push).toHaveBeenCalledWith("/home"));
+      await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
       expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body)).creditLimitCents).toBe(cents);
       expect(track.mock.calls).toEqual([["card_added", { method: "manual" }]]);
     },

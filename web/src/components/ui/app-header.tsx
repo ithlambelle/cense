@@ -8,10 +8,13 @@ import { cn } from "@/lib/utils"
 // destination word on screen. No page title in the header either: every
 // screen names itself in its own heading (G2). "I always go to the top left
 // to go back" (solution interview, 2026-10-17).
-function AppHeader({ backHref, backLabel }: { backHref: string; backLabel: string }) {
+// `replace` swaps the current history entry instead of adding one (Global G1,
+// Figma 477:961): Back from a screen reached by Save or Cancel never reopens
+// the form behind it.
+function AppHeader({ backHref, backLabel, replace = false }: { backHref: string; backLabel: string; replace?: boolean }) {
   return (
     <header className="box-content flex h-14 items-center px-6 pt-8">
-      <BackLink href={backHref} label={backLabel} />
+      <BackLink href={backHref} label={backLabel} replace={replace} />
     </header>
   )
 }
@@ -22,10 +25,21 @@ const BACK_CONTROL =
 
 // `label` is where it goes. The screen shows only the arrow; screen readers
 // hear "Back to Home". The light tone is for navy headers (the result screen).
-function BackLink({ href, label, tone = "dark" }: { href: string; label: string; tone?: "dark" | "light" }) {
+function BackLink({
+  href,
+  label,
+  tone = "dark",
+  replace = false,
+}: {
+  href: string
+  label: string
+  tone?: "dark" | "light"
+  replace?: boolean
+}) {
   return (
     <Link
       href={href}
+      replace={replace}
       aria-label={`Back to ${label}`}
       className={cn(BACK_CONTROL, tone === "dark" ? "focus-visible:outline-ring" : "focus-visible:outline-off-white")}
     >

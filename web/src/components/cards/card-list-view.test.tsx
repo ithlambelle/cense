@@ -15,6 +15,14 @@ const all = listCards();
 const cards = [...all.filter((card) => card.catalogRole === "recommend").slice(0, 3), ...all.filter((card) => card.catalogRole === "explore").slice(0, 3)];
 
 describe("CardListView", () => {
+  it("opened from Profile, has a back arrow to Profile; as a tab, none (F6)", () => {
+    const { unmount } = render(<CardListView cards={cards} signedIn fromAccount />);
+    expect(screen.getByRole("link", { name: "Back to Your account" }).getAttribute("href")).toBe(ROUTES.settings);
+    unmount();
+    render(<CardListView cards={cards} signedIn />);
+    expect(screen.queryByRole("link", { name: /^Back to/ })).toBeNull();
+  });
+
   it("puts the student's match on top, one tap from the result, with a way to retake", () => {
     render(<CardListView cards={cards} signedIn yourMatch={{ name: "Discover it Student Cash Back", tier: "likely_fit" }} />);
     const match = screen.getByRole("link", { name: /Your match/ });

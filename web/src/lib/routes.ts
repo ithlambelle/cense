@@ -80,6 +80,19 @@ export function quizBackHref(from: string | string[] | undefined): string {
   return ROUTES.home;
 }
 
+// Cards and Add a card opened from Profile (Flow F, F6 and F7): the back
+// arrow, and Add card's Save and Cancel, return to Profile.
+export const FROM_ACCOUNT = "account";
+
+export function fromAccount(path: typeof ROUTES.cards | typeof ROUTES.addCard): string {
+  return `${path}?from=${FROM_ACCOUNT}`;
+}
+
+// True when a screen's `from` says it was opened from Profile.
+export function openedFromAccount(from: string | string[] | undefined): boolean {
+  return from === FROM_ACCOUNT;
+}
+
 // Home right after Mark result saves a new approval. Home celebrates that
 // card once and drops the flag from the address, so a reload is calm. There
 // is no approved_at column, so this arrival is the only time the date is known.
