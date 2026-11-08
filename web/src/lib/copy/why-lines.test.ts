@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { cardRewards } from "../cards/rewards";
 import { fixtureRate, fixtureRewards } from "../results/rewards.fixtures";
 import type { YearOneEstimate } from "../results/value";
 import type { CardFit } from "../rules/fit-tier";
@@ -66,6 +67,13 @@ describe("whyLines", () => {
     const autopay = { summary: "$25 statement credit when you sign up for automatic payments.", valueCents: 2_500, spendCents: null, withinDays: 90 };
     const [, bonus] = whyLines({ fit: LIKELY, rewards: fixtureRewards([], { bonus: autopay }), estimate: null });
     expect(bonus).toMatchObject({ text: "$25 sign-up bonus", detail: autopay.summary });
+  });
+
+  it("uses the issuer's short form when the card has one (Chase's autopay credit)", () => {
+    const rise = cardRewards("chase-freedom-rise")?.bonus;
+    expect(rise?.resultLine).toBeDefined();
+    const [, bonus] = whyLines({ fit: LIKELY, rewards: fixtureRewards([], { bonus: rise ?? null }), estimate: null });
+    expect(bonus).toMatchObject({ text: "$25 for enrolling in automatic payments", amount: "$25", detail: "Sign up in your first 3 months and stay enrolled 90 days." });
   });
 
   it("is never more than three lines, and never uses an em dash or a tilde", () => {

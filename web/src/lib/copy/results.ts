@@ -145,6 +145,7 @@ function bonusLine(rewards: CardRewards | null, estimate: YearOneEstimate | null
   // the issuer's words as the detail so the condition is never hidden.
   if (valueCents !== null) {
     const amount = moneyAmount(valueCents);
+    if (bonus.resultLine) return { id: "bonus", mark, text: bonus.resultLine.text, amount, detail: detail ?? bonus.resultLine.detail };
     return { id: "bonus", mark, text: `${amount} sign-up bonus`, amount, detail: detail ?? bonus.summary };
   }
   return { id: "bonus", mark, text: bonus.summary, amount: null, detail };

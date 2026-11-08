@@ -80,6 +80,9 @@ export type SignUpBonus = {
   // what to spend, and in how many days, when the issuer says
   spendCents: number | null;
   withinDays: number | null;
+  // how the result states a bonus that is not a spend target, in the
+  // issuer's own terms, kept short; null for a spend target or a match
+  resultLine?: { text: string; detail: string };
 };
 
 export type CardRewards = {
@@ -306,6 +309,8 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
       valueCents: 2_500,
       spendCents: null,
       withinDays: 90,
+      // Chase's own short form of the offer
+      resultLine: { text: "$25 for enrolling in automatic payments", detail: "Sign up in your first 3 months and stay enrolled 90 days." },
     },
     pointValueCents: null,
     image: "/cards/chase-freedom-rise.png",
