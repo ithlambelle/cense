@@ -72,7 +72,7 @@ export function InfoCallout({ title, children }: { title: string; children: Reac
 }
 
 // The star at the front of a setup row: an empty ring, or lit (Lead / done).
-function StarLead({ lit }: { lit: boolean }) {
+export function StarLead({ lit }: { lit: boolean }) {
   return lit ? (
     <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-pill bg-amber text-white">
       <StarFill width={13} height={13} />
@@ -82,8 +82,8 @@ function StarLead({ lit }: { lit: boolean }) {
   );
 }
 
-const ROW = "relative flex w-full gap-3 border-b border-off-white py-3.5 text-left";
-const ROW_LINK = "hover:bg-off-white/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+export const ROW = "relative flex w-full gap-3 border-b border-off-white py-3.5 text-left";
+export const ROW_LINK = "hover:bg-off-white/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 // List row, Divider, Star slot (371:3101 Default, 371:3117 Done): the whole
 // row opens `href`. Done keeps the chevron off, as the frame does.

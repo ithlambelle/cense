@@ -1,15 +1,17 @@
 // Created with Claude Code (2026-11-08). I1, "Set up your <Card> card"
 // (Figma Design Edits 477:1570, US-10): the card, its dates, then the three
-// first-month steps as the same star list Home shows. Every row opens the
-// screen where that step is done; stars light as steps finish.
+// first-month steps as the same star list Home shows. Rows open the screen
+// where that step is done (the spend limit ticks in place); stars light as
+// steps finish.
 
 import Link from "next/link";
 
 import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import type { SetupProgress } from "@/lib/setup/progress";
-import { autopayOnPath, autopayStepsPath, paymentRemindersPath, planPath, ROUTES } from "@/lib/routes";
+import { autopayOnPath, autopayStepsPath, paymentRemindersPath, ROUTES } from "@/lib/routes";
 
 import { SetupHeading, SetupScreen, Spacer, StarRow, UpNextRow } from "./setup-parts";
+import { SpendLimitRow } from "./spend-limit-row";
 
 export function CardSetupList({
   applicationId,
@@ -58,7 +60,7 @@ export function CardSetupList({
           )}
         </li>
         <li>
-          <StarRow title="Set a spend limit" subtitle="A monthly limit to try" done={progress.spendLimit} href={planPath(applicationId)} />
+          <SpendLimitRow applicationId={applicationId} done={progress.spendLimit} />
         </li>
         <li>
           <StarRow title="Choose your reminders" subtitle="One email before each date" done={progress.reminders} href={reminders} />

@@ -157,6 +157,22 @@ test("Not yet saves autopay off and clears the payment type; the setup list says
   await expect(page).toHaveURL(new RegExp(`/applications/${id}/setup$`));
 });
 
+test("the spend limit star ticks on the setup list, stays after a reload, and shows on Home", async ({ page }) => {
+  const { id } = await approvedStudent(page, "setup-spend-limit");
+  await page.goto(`/applications/${id}/setup`);
+  const limit = page.getByRole("checkbox", { name: /Set a spend limit/ });
+  await expect(limit).toHaveAttribute("aria-checked", "false");
+  const write = page.waitForResponse((r) => r.url().includes("/steps/spend_limit") && r.request().method() === "PUT");
+  await limit.click();
+  expect((await write).ok()).toBe(true);
+  await page.reload();
+  await expect(page.getByRole("checkbox", { name: /Set a spend limit/ })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("link", { name: "Back to Home" }).click();
+  const home = page.getByRole("region", { name: DISCOVER.name });
+  await expect(home.getByRole("checkbox", { name: /Set a spend limit/ })).toHaveAttribute("aria-checked", "true");
+  await expect(home.getByText("1 of 3 lit")).toBeVisible();
+});
+
 test("Chime's steps say the card is paid from the Chime account", async ({ page }) => {
   const { id } = await approvedStudent(page, "setup-chime", { id: "chime-card", name: "Chime Card" });
   await page.goto(`/applications/${id}/setup/autopay`);
