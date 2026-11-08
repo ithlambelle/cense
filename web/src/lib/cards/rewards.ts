@@ -1,8 +1,9 @@
 // What each card in the catalog earns and its sign-up bonus, for the card's
 // page and for estimating a student's first-year value (Ben, Oct 29). Kept
-// apart from cards.json like deposit.ts: these are display and estimate facts,
-// not inputs to the fit rules, and they change often, so editing them never
-// changes a saved recommendation's card data version.
+// apart from cards.json like deposit.ts: they never change a card's tier. Since
+// fit rules v1.3 the first-year value built from them breaks the last ties in
+// the card order, so save.ts hashes them into card_data_version: editing a rate
+// or bonus changes it.
 //
 // Every value is in the issuer's own terms, read on the issuer's page listed
 // as sourceUrl on verifiedAt, including the rewards terms that page links to
