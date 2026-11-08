@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { saveAutopay } from "./applications";
+import { saveAutopay, saveAutopayAnswer } from "./applications";
 
 const ID = "00000000-0000-4000-8000-000000000001";
 
@@ -31,5 +31,18 @@ describe("saveAutopay", () => {
     expect(await saveAutopay(ID, true)).toEqual({ kind: "signed-out" });
     answer(404, { error: { code: "not_found", message: "Application not found." } });
     expect(await saveAutopay(ID, true)).toEqual({ kind: "failed", message: "Application not found." });
+  });
+});
+
+describe("saveAutopayAnswer", () => {
+  it("saves autopay on with the payment type, or off for Not yet", async () => {
+    let fetchFn = answer(200, {});
+    expect(await saveAutopayAnswer(ID, "minimum")).toEqual({ kind: "ok" });
+    expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toEqual({ autopayStatus: "on", autopayPaymentType: "minimum" });
+    fetchFn = answer(200, {});
+    await saveAutopayAnswer(ID, "not_yet");
+    expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toEqual({ autopayStatus: "off" });
+    answer(401, { error: { code: "unauthorized", message: "Sign in to continue." } });
+    expect(await saveAutopayAnswer(ID, "fixed_amount")).toEqual({ kind: "signed-out" });
   });
 });

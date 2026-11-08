@@ -4,7 +4,11 @@ import {
   allowedNext,
   applicationBackLink,
   applicationPath,
+  autopayConfirmPath,
+  autopayOnPath,
+  autopayStepsPath,
   cardBackLink,
+  cardSetupPath,
   cardPath,
   deniedPath,
   googleSignInPath,
@@ -123,6 +127,20 @@ describe("tracked card paths", () => {
     expect(remindersBackLink(undefined, "home", card)).toEqual({ href: "/home", label: "Home" });
     expect(allowedNext(paymentRemindersPath(ID))).toBe(paymentRemindersPath(ID));
     expect(allowedNext(`/applications/${ID}/reminders/x`)).toBeNull();
+  });
+
+  it("builds card setup's screens (US-10), each allowed after sign-in, and the reminder screen's Back to setup", () => {
+    expect(cardSetupPath(ID)).toBe(`/applications/${ID}/setup`);
+    expect(autopayStepsPath(ID)).toBe(`/applications/${ID}/setup/autopay`);
+    expect(autopayConfirmPath(ID)).toBe(`/applications/${ID}/setup/autopay/confirm`);
+    expect(autopayOnPath(ID)).toBe(`/applications/${ID}/setup/autopay/on`);
+    for (const path of [cardSetupPath(ID), autopayStepsPath(ID), autopayConfirmPath(ID), autopayOnPath(ID)]) {
+      expect(allowedNext(path)).toBe(path);
+    }
+    expect(allowedNext(`/applications/${ID}/setup/x`)).toBeNull();
+    expect(paymentRemindersPath(ID, "setup")).toBe(`/applications/${ID}/reminders?from=setup`);
+    expect(remindersBackLink("setup", undefined, null, ID)).toEqual({ href: `/applications/${ID}/setup`, label: "Card setup" });
+    expect(remindersBackLink("setup", undefined, null)).toEqual({ href: "/home", label: "Home" });
   });
 });
 

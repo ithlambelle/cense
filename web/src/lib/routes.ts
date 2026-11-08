@@ -50,11 +50,31 @@ function withApplication(path: string, applicationId: string | null): string {
 
 // Where a student marks what the issuer decided for one tracked card. `from`
 // works like the card page's: "card" means it was opened from that card's page.
-export type ApplicationOrigin = "card";
+// "setup" means the card setup list (US-10), for the payment reminder screen.
+export type ApplicationOrigin = "card" | "setup";
 
 export function applicationPath(applicationId: string, from?: ApplicationOrigin): string {
   const path = `/applications/${encodeURIComponent(applicationId)}`;
   return from ? `${path}?from=${from}` : path;
+}
+
+// Card setup and autopay for one approved card (US-10, Figma Flow C 477:1493):
+// the setup list (I1), the issuer's autopay steps (I2), "Did you turn on
+// autopay?" (I3) and "Autopay is on" (I5).
+export function cardSetupPath(applicationId: string): string {
+  return `${applicationPath(applicationId)}/setup`;
+}
+
+export function autopayStepsPath(applicationId: string): string {
+  return `${cardSetupPath(applicationId)}/autopay`;
+}
+
+export function autopayConfirmPath(applicationId: string): string {
+  return `${autopayStepsPath(applicationId)}/confirm`;
+}
+
+export function autopayOnPath(applicationId: string): string {
+  return `${autopayStepsPath(applicationId)}/on`;
 }
 
 // "I haven’t heard yet" for one tracked card. `from` is Mark result's, so its
@@ -90,7 +110,7 @@ export function celebratePath(applicationId: string): string {
 }
 
 // Payment reminders for one approved card (US-08): its closing and due days
-// and the reminder emails. Home's "Set a payment reminder" row opens it, and
+// and the reminder emails. Home's "Choose your reminders" row and card setup open it, and
 // the card's own page with `from` "card", so Back and Save return there.
 // `cardFrom` is where that card page was itself opened from, so its Back
 // still goes there afterwards (Home, not the card list).
@@ -173,8 +193,11 @@ export function remindersBackLink(
   from: string | string[] | undefined,
   cardFrom: string | string[] | undefined,
   cardId: string | null,
+  // Opened from the card setup list ("setup"), Back and Save return there.
+  applicationId?: string,
 ): { href: string; label: string } {
   if (from === "card" && cardId) return { href: cardPath(cardId, cardOrigin(cardFrom)), label: "Card details" };
+  if (from === "setup" && applicationId) return { href: cardSetupPath(applicationId), label: "Card setup" };
   return { href: ROUTES.home, label: "Home" };
 }
 
@@ -223,7 +246,7 @@ const CARD_PATH = /^\/cards\/[a-z0-9-]{1,100}$/;
 
 // A tracked card's screens opened from Home (update, waiting, payment
 // reminders), so a signed-out visitor returns to the one they were on.
-const APPLICATION_PATH = /^\/applications\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\/waiting|\/reminders)?$/;
+const APPLICATION_PATH = /^\/applications\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\/waiting|\/reminders|\/setup|\/setup\/autopay|\/setup\/autopay\/confirm|\/setup\/autopay\/on)?$/;
 
 // Returns the path only when it is one this app chose. A `next` value read
 // from the address bar is attacker-controlled, so anything else is dropped.
