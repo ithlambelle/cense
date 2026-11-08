@@ -1,7 +1,5 @@
 # Keeping card data current
 
-Created with Claude Code (2026-11-07).
-
 Every rate and sign-up bonus a card page shows comes from `web/src/lib/cards/rewards.ts`, read on the issuer's own page. Issuers change them without notice. Three checks find that for us, so one person can keep all 53 cards correct in about 15 minutes a week. Who owns the loop is the team's call; the natural fit is whoever owns the card data.
 
 ## What runs without anyone
