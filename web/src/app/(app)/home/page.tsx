@@ -4,19 +4,19 @@ import { HomeView } from "@/components/home/home-view";
 import { ALL_REMINDERS_ON, homeState, needsDetail, profileInitial } from "@/lib/home/state";
 import { plaidConfig } from "@/lib/plaid/config";
 import { loadSafeToSpend } from "@/lib/plaid/store";
-import { CELEBRATE_PARAM, REMINDER_PARAM, reminderArrivalPath, reminderKindParam, ROUTES } from "@/lib/routes";
+import { CELEBRATE_PARAM, REMINDER_PARAM, reminderKindParam, ROUTES } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
 import { loadApplicationDetail, loadReminderSettings, loadStudentSnapshot } from "@/lib/student-data";
 
 export const metadata: Metadata = { title: "Home | CENSE" };
 
-// Read on the server, so Home never flashes a loading state. Opened from a
-// reminder email's button (?reminder=<kind>), it counts the visit; a
+// Read on the server, so Home never flashes a loading state. Opened from an
+// older reminder email's button (?reminder=<kind>; new ones open Updates), it counts the visit; a
 // signed-out student comes back to the same address after signing in.
 export default async function HomePage({ searchParams }: PageProps<"/home">) {
   const params = await searchParams;
   const fromReminder = reminderKindParam(params[REMINDER_PARAM]);
-  const student = await requireStudent(fromReminder ? reminderArrivalPath(fromReminder) : ROUTES.home);
+  const student = await requireStudent(fromReminder ? `${ROUTES.home}?${REMINDER_PARAM}=${fromReminder}` : ROUTES.home);
   const { applications, quiz, quizAnswered } = await loadStudentSnapshot(student);
   const state = homeState(applications, quiz, quizAnswered);
   // The leading card's denial reason and autopay, read the same way as

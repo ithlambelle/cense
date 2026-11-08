@@ -98,9 +98,9 @@ describe("GET /cron/reminders", () => {
     const response = await cron();
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0 });
-    expect(calls.map((call) => call.name)).toEqual(["refresh_all_reminders", "claim_due_reminders", "mark_reminder_sent"]);
-    expect(calls[2].args).toEqual({ p_reminder_id: claimed().reminder_id });
+    expect(body).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, followUps: { raised: 0, skipped: 0 } });
+    expect(calls.map((call) => call.name)).toEqual(["raise_reminder_follow_ups", "refresh_all_reminders", "claim_due_reminders", "mark_reminder_sent"]);
+    expect(calls[3].args).toEqual({ p_reminder_id: claimed().reminder_id });
     expect(service.createServiceClient).toHaveBeenCalledWith(ENV.SUPABASE_SERVICE_ROLE_KEY);
 
     const [url, init] = fetchMock.emails()[0] as unknown as [string, RequestInit];
@@ -131,7 +131,7 @@ describe("GET /cron/reminders", () => {
 
     const body = await (await cron()).json();
     expect(body).toMatchObject({ claimed: 1, sent: 0, failed: 1 });
-    expect(calls.map((call) => call.name)).toEqual(["refresh_all_reminders", "claim_due_reminders", "release_reminder_claim"]);
+    expect(calls.map((call) => call.name)).toEqual(["raise_reminder_follow_ups", "refresh_all_reminders", "claim_due_reminders", "release_reminder_claim"]);
     const logs = JSON.stringify(vi.mocked(console.error).mock.calls);
     expect(logs).toContain("validation_error");
     expect(logs).not.toContain("student@example.test");
@@ -158,7 +158,7 @@ describe("GET /cron/reminders", () => {
   it("sends nothing when nothing is due", async () => {
     database({ claim_due_reminders: [{ data: [], error: null }] });
     const fetchMock = resend();
-    expect(await (await cron()).json()).toEqual({ claimed: 0, sent: 0, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0 });
+    expect(await (await cron()).json()).toEqual({ claimed: 0, sent: 0, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, followUps: { raised: 0, skipped: 0 } });
     expect(fetchMock.emails()).toHaveLength(0);
   });
 
@@ -199,6 +199,32 @@ describe("GET /cron/reminders", () => {
     expect(String(elsewhere.emails()[0][0])).toBe("https://api.resend.com/emails");
   });
 
+  it("raises the in-app follow-ups before sending, and a skipped one is not a failed run", async () => {
+    vi.stubEnv("REMINDER_HEARTBEAT_URL", "https://hc-ping.com/test-check");
+    const calls = database({ raise_reminder_follow_ups: [{ data: [{ raised: 2, skipped: 1 }], error: null }] });
+    resend();
+    const response = await cron();
+    expect(response.status).toBe(200);
+    expect((await response.json()).followUps).toEqual({ raised: 2, skipped: 1 });
+    expect(calls[0]).toEqual({ name: "raise_reminder_follow_ups", args: undefined });
+    expect(JSON.parse(others[1].body).followUps).toEqual({ raised: 2, skipped: 1 });
+    expect(others[1].url).not.toContain("/fail");
+  });
+
+  it("still sends the emails when the follow-ups cannot run, and the heartbeat says fail", async () => {
+    const calls = database({
+      raise_reminder_follow_ups: [{ data: null, error: { code: "42883", message: "function does not exist" } }],
+      claim_due_reminders: [{ data: [claimed()], error: null }],
+    });
+    vi.stubEnv("REMINDER_HEARTBEAT_URL", "https://hc-ping.com/test-check");
+    resend();
+    const body = await (await cron()).json();
+    expect(body).toMatchObject({ sent: 1, followUps: { raised: 0, skipped: 0 } });
+    expect(calls.map((call) => call.name)).toContain("mark_reminder_sent");
+    expect(others[1].url).toContain("/fail");
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).toContain("reminder_follow_ups_failed");
+  });
+
   describe("heartbeat", () => {
     const HEARTBEAT = "https://hc-ping.com/test-check";
 
@@ -209,7 +235,7 @@ describe("GET /cron/reminders", () => {
       resend();
       await cron();
       expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, HEARTBEAT]);
-      expect(JSON.parse(others[1].body)).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0 });
+      expect(JSON.parse(others[1].body)).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, followUps: { raised: 0, skipped: 0 } });
     });
 
     it("pings fail when a send failed, and the body has counts only", async () => {

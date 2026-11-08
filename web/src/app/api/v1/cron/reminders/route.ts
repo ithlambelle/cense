@@ -1,5 +1,6 @@
 import { apiError } from "@/lib/api/errors";
 import { cronAuthorized, reminderSettings, resendEmailsUrl } from "@/lib/reminders/config";
+import { raiseFollowUps } from "@/lib/reminders/follow-ups";
 import { pingHeartbeat } from "@/lib/reminders/heartbeat";
 import { ReminderJobError, runReminderJob } from "@/lib/reminders/job";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -7,7 +8,9 @@ import { createServiceClient } from "@/lib/supabase/service";
 // The daily reminder job, called by Vercel Cron (web/vercel.json) with
 // CRON_SECRET. Not a student route: it uses the service role, the one
 // exception in api/data-contract.md, and only calls the reminder functions.
-// The answer is counts only. Each authorized run pings the heartbeat check
+// The answer is counts only. It also raises the in-app follow-ups
+// (lib/reminders/follow-ups.ts), apart from the emails: one never stops the
+// other, and one bad reminder never fails the run. Each authorized run pings the heartbeat check
 // (lib/reminders/heartbeat.ts), so a failed send or a run that never comes
 // alerts the team.
 
@@ -36,13 +39,18 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const { serviceRoleKey, ...jobConfig } = config.settings;
+  const supabase = createServiceClient(serviceRoleKey);
+  // Never throws; a reminder it skipped is logged, not a failed run.
+  const { failed: followUpsFailed, ...followUps } = await raiseFollowUps(supabase);
   try {
-    const result = await runReminderJob(createServiceClient(serviceRoleKey), { ...jobConfig, resendUrl: resendEmailsUrl() });
+    const sent = await runReminderJob(supabase, { ...jobConfig, resendUrl: resendEmailsUrl() });
+    const result = { ...sent, followUps };
     // A person needs to look at any of these: a send failed, one was sent but
     // not marked (it may go again tomorrow), or a reminder was given up on
     // (its third try, which can also be a run that ran out of time). Deferred
     // ones alone simply go on the next run.
-    const problem = result.failed > 0 || result.unconfirmed > 0 || result.abandoned > 0;
+    // So is a follow-up call that failed as a whole.
+    const problem = sent.failed > 0 || sent.unconfirmed > 0 || sent.abandoned > 0 || followUpsFailed;
     await finish(problem ? "fail" : "success", result);
     return Response.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

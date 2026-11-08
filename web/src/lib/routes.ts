@@ -33,6 +33,9 @@ export const ROUTES = {
   privacy: "/settings/privacy",
   // Where a student lands, signed out, once their account is deleted.
   accountDeleted: "/account-deleted",
+  // Updates (US-08, Flow B N1): each sent reminder as a card the student can
+  // act on, snooze or dismiss. Opened from a reminder email and Home's bell.
+  updates: "/updates",
   // Penny's starters, the topics and Ask Penny (Flow 5).
   learn: "/learn",
   penny: "/learn/penny",
@@ -106,13 +109,23 @@ export function paymentRemindersPath(applicationId: string, from?: ApplicationOr
 export const REMINDER_KINDS = ["statement_closing", "payment_due", "check_autopay", "reapply"] as const;
 export type ReminderKind = (typeof REMINDER_KINDS)[number];
 
-// Where a reminder email's button goes: Home, marked with the email's kind so
-// Home can count the visit (reminder_email_clicked) and then drop the mark.
-// Nothing about the student is in the link.
+// Where a reminder email's button goes: Updates, where the same reminder is a
+// card (Flow B), marked with the email's kind so the visit is counted
+// (reminder_email_clicked) and the mark then dropped. Nothing about the
+// student is in the link. Home still counts an old email's /home?reminder=.
 export const REMINDER_PARAM = "reminder";
 
 export function reminderArrivalPath(kind: ReminderKind): string {
-  return `${ROUTES.home}?${REMINDER_PARAM}=${kind}`;
+  return `${ROUTES.updates}?${REMINDER_PARAM}=${kind}`;
+}
+
+// The follow-up for one reminder (Flow B N3), and the screen after a snooze (N4).
+export function updatePath(reminderId: string): string {
+  return `${ROUTES.updates}/${encodeURIComponent(reminderId)}`;
+}
+
+export function updateSnoozedPath(reminderId: string): string {
+  return `${updatePath(reminderId)}/snoozed`;
 }
 
 export function reminderKindParam(value: string | string[] | undefined): ReminderKind | null {
@@ -211,6 +224,9 @@ const NEXT_ALLOW_LIST: readonly string[] = [
   ROUTES.reminderSettings,
   ROUTES.learn,
   ROUTES.penny,
+  ROUTES.updates,
+  // An old reminder email's button (before Updates), still counted on Home.
+  ...REMINDER_KINDS.map((kind) => `${ROUTES.home}?${REMINDER_PARAM}=${kind}`),
   // A reminder email's button, opened while signed out: Home still counts the visit.
   ...REMINDER_KINDS.map(reminderArrivalPath),
 ];
@@ -225,11 +241,14 @@ const CARD_PATH = /^\/cards\/[a-z0-9-]{1,100}$/;
 // reminders), so a signed-out visitor returns to the one they were on.
 const APPLICATION_PATH = /^\/applications\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\/waiting|\/reminders)?$/;
 
+// One reminder's follow-up, for a signed-out student opening it.
+const UPDATE_PATH = /^\/updates\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 // Returns the path only when it is one this app chose. A `next` value read
 // from the address bar is attacker-controlled, so anything else is dropped.
 export function allowedNext(value: string | null | undefined): string | null {
   if (!value) return null;
-  if (NEXT_ALLOW_LIST.includes(value) || CARD_PATH.test(value) || APPLICATION_PATH.test(value) || LEARN_TOPIC_PATH.test(value)) {
+  if (NEXT_ALLOW_LIST.includes(value) || CARD_PATH.test(value) || APPLICATION_PATH.test(value) || UPDATE_PATH.test(value) || LEARN_TOPIC_PATH.test(value)) {
     return value;
   }
   return null;

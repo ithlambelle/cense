@@ -34,13 +34,13 @@ describe("buildReminderEmail", () => {
     expect(email.text).toContain("Your Savor Rewards for Students statement closes Thu, Nov 12.");
     expect(email.text).toContain("pay it down to $150 or less in your Capital One app");
     expect(email.html).toContain("<strong>$150 or less</strong>");
-    expect(email.text).toContain("Open Cense: https://app.test/home?reminder=statement_closing");
+    expect(email.text).toContain("Open Cense: https://app.test/updates?reminder=statement_closing");
   });
 
   it("has one button, Open Cense, to Home marked with the email's kind, and promises nothing it cannot do", () => {
     for (const input of KINDS) {
       const email = buildReminderEmail(input, LINKS);
-      const link = `https://app.test/home?reminder=${input.kind}`;
+      const link = `https://app.test/updates?reminder=${input.kind}`;
       expect(email.text).toContain(`Open Cense: ${link}`);
       const buttons = [...email.html.matchAll(/<a href="([^"]+)" style="display:inline-block[^"]*">([^<]+)<\/a>/g)];
       expect(buttons.map(([, href, label]) => [href, label])).toEqual([[link, "Open Cense"]]);
@@ -60,7 +60,7 @@ describe("buildReminderEmail", () => {
     expect(buildReminderEmail(KINDS[2], LINKS).subject).toBe("Due Wed. Autopay's got it.");
     const off = buildReminderEmail(KINDS[1], LINKS);
     expect(off.subject).toBe("Your payment's due Wed");
-    expect(off.text).toContain("Open Cense: https://app.test/home?reminder=payment_due");
+    expect(off.text).toContain("Open Cense: https://app.test/updates?reminder=payment_due");
   });
 
   it("first statement names the first due date after it closes", () => {

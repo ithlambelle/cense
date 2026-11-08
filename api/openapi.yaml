@@ -520,6 +520,26 @@ components:
             - string
             - "null"
           format: date-time
+        readAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        snoozedUntil:
+          type:
+            - string
+            - "null"
+          format: date-time
+        dismissedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        followUpAt:
+          type:
+            - string
+            - "null"
+          format: date-time
         createdAt:
           type: string
           format: date-time
@@ -532,6 +552,10 @@ components:
         - dueAt
         - sentAt
         - actedAt
+        - readAt
+        - snoozedUntil
+        - dismissedAt
+        - followUpAt
         - createdAt
       additionalProperties: false
     ReminderSettings:
@@ -550,6 +574,15 @@ components:
         - statementClosing
         - paymentDue
         - checkAutopay
+      additionalProperties: false
+    MarkRemindersRead:
+      type: object
+      properties:
+        marked:
+          type: integer
+          minimum: 0
+      required:
+        - marked
       additionalProperties: false
     PennyReply:
       oneOf:
@@ -2174,6 +2207,151 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "409":
           description: Reminder not sent yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /reminders/{id}/snooze:
+    post:
+      operationId: snoozeReminder
+      summary: "Snooze a sent reminder: tomorrow morning, in 2 days, or the day before
+        it is due"
+      description: Each choice is 9:00 on the student's calendar, worked out by the
+        server. A choice past the reminder's due date, or already gone, is
+        refused with past_due.
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                choice:
+                  type: string
+                  enum:
+                    - tomorrow
+                    - in_2_days
+                    - day_before_due
+              required:
+                - choice
+              additionalProperties: false
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reminder"
+        "400":
+          description: Invalid reminder ID or choice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Reminder not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Not sent yet, already done, or past the due date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /reminders/{id}/dismiss:
+    post:
+      operationId: dismissReminder
+      summary: Dismiss a sent reminder for the rest of its billing cycle (keeps the
+        first time)
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reminder"
+        "400":
+          description: Invalid reminder ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Reminder not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Reminder not sent yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /reminders/read:
+    post:
+      operationId: markRemindersRead
+      summary: Mark all of the student's sent reminders read
+      security:
+        - studentSession: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarkRemindersRead"
+        "401":
+          description: Sign-in required
           content:
             application/json:
               schema:

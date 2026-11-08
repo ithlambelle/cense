@@ -23,6 +23,10 @@ function reminder(overrides: Partial<Reminder> = {}): Reminder {
     dueAt: "2027-04-17T13:00:00Z",
     sentAt: null,
     actedAt: null,
+    readAt: null,
+    snoozedUntil: null,
+    dismissedAt: null,
+    followUpAt: null,
     createdAt: "2026-10-17T13:00:00Z",
     ...overrides,
   };
