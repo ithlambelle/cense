@@ -62,12 +62,12 @@ export function AccountView({
             {/* Avatar, Profile, Large (371:3342). */}
             <div
               aria-hidden="true"
-              className={`${SENSITIVE} flex size-16 shrink-0 items-center justify-center rounded-pill border-[1.5px] border-violet bg-light-blue/50 font-heading text-[24px] font-bold text-indigo-black`}
+              className={`${SENSITIVE} flex size-16 shrink-0 items-center justify-center rounded-pill border-[1.5px] border-violet bg-light-blue/50 font-heading text-[24px] font-medium text-indigo-black`}
             >
               {initial}
             </div>
             <div className="flex min-w-0 flex-col">
-              <h1 className="font-heading text-h5 font-semibold text-navy">Your account</h1>
+              <h1 className="font-heading text-h5 font-medium text-navy">Your account</h1>
               {email ? <p className={`truncate text-body-s text-indigo-black/70 ${SENSITIVE}`}>{email}</p> : null}
             </div>
           </div>

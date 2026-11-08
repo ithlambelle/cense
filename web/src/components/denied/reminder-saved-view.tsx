@@ -29,13 +29,13 @@ export function ReminderSavedView({
         <AppHeader backHref={plan} backLabel="Plan" replace />
         <main className="stagger flex flex-1 flex-col gap-4 px-6 pt-3 pb-6">
           <OutcomeMark icon={Check} tone="success" />
-          <h1 className="font-heading text-h1 font-semibold text-navy">Reminder saved</h1>
+          <h1 className="font-heading text-h1 font-medium text-navy">Reminder saved</h1>
           <p className="text-body-m text-indigo-black">
             {emailed ? "We emailed you a confirmation." : `We’ll email you on ${dateLabel}.`}
           </p>
           <section className="flex flex-col items-center gap-2 rounded-card border-[1.5px] border-violet bg-white p-5">
             <h2 className="text-[12px] leading-4 font-semibold text-violet uppercase">Reapply check-in</h2>
-            <p className="w-full font-heading text-h6 font-semibold text-navy">{dateLabel}</p>
+            <p className="w-full font-heading text-h6 font-medium text-navy">{dateLabel}</p>
             <p className="w-full text-body-s text-indigo-black">
               Check reports, review on-time history, then try a preapproval check.
             </p>

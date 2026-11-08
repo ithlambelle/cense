@@ -120,7 +120,7 @@ export function AddCardScreen({ fromAccount = false }: { fromAccount?: boolean }
       <div className="flex w-full max-w-phone flex-col">
         <AppHeader backHref={back.href} backLabel={back.label} />
         <main className="stagger flex flex-1 flex-col gap-4 px-6 pt-3 pb-6">
-          <h1 className="font-heading text-h3 font-semibold text-navy">Add a card you already have</h1>
+          <h1 className="font-heading text-h3 font-medium text-navy">Add a card you already have</h1>
           <p className="text-body-m text-indigo-black">We’ll show it on Home. Only its name is needed.</p>
           <AddCardForm
             onAdded={() => {
