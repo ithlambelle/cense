@@ -309,7 +309,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
     },
     pointValueCents: null,
     image: "/cards/chase-freedom-rise.png",
-    sourceUrl: "https://www.chase.com/personal/credit-cards/freedom/rise",
+    sourceUrl: "https://creditcards.chase.com/cash-back-credit-cards/freedom/rise",
     verifiedAt: READ,
   },
   "bofa-customized-cash-students": {
