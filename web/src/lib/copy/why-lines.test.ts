@@ -5,7 +5,7 @@ import type { YearOneEstimate } from "../results/value";
 import type { CardFit } from "../rules/fit-tier";
 import { APPROVAL_LINES, BONUS_OUT_OF_REACH, MATCH_LINE, whyLines } from "./results";
 
-const LIKELY: CardFit = { cardId: "a", tier: "likely_fit", ruleIds: [], reasons: ["You meet what the issuer says this card is for."], notes: [] };
+const LIKELY: CardFit = { cardId: "a", tier: "likely_fit", ruleIds: [], reasons: ["Made for students starting with no credit history, like you."], notes: [] };
 const STRETCH: CardFit = { cardId: "a", tier: "stretch", ruleIds: ["C1"], reasons: ["The issuer says this card is for people with a bit more credit history."], notes: [] };
 
 function estimate(extra: Partial<YearOneEstimate> = {}): YearOneEstimate {

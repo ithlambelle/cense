@@ -14,6 +14,8 @@ import { moneyAmount } from "../money";
 // cards the rules otherwise cannot tell apart. The result also lists every
 // card that can be picked, in pick order (ranking), so the result screen can
 // show the top three. Gates, cautions and tiers are unchanged.
+// v1.3 also replaces v1.2's one likely fit line, the same on every card, with
+// one that says why the card fits this student (whyItFits, below).
 //
 // v1.2 keeps the v1.1 gates, cautions and tiers. It changes four things:
 // - Only cards with catalogRole "recommend" are tiered. Explore cards are for browsing.
@@ -109,6 +111,7 @@ const C2_REASON =
 const C3_REASON = "This card is not aimed at rebuilding credit.";
 const C3_UNSECURED_REASON = "This card is not aimed at rebuilding credit. A secured card is the more reliable next step.";
 
+// v1.2's only likely fit line. Since v1.3 it is the last resort of whyItFits.
 const LIKELY_FIT_REASON = "You meet what the issuer says this card is for.";
 const LIKELY_FIT_PREAPPROVAL_REASON = "You can check preapproval without affecting your credit.";
 const NO_PREAPPROVAL_NOTE = "This issuer has no preapproval check, so applying is the only way to find out.";
@@ -254,10 +257,90 @@ export function cardNotes(card: Pick<RuleCard, "runsCreditCheck" | "preapprovalU
   return found;
 }
 
-function likelyFitReasons(card: RuleCard): string[] {
-  return card.preapprovalUrl === null
-    ? [LIKELY_FIT_REASON]
-    : [LIKELY_FIT_REASON, LIKELY_FIT_PREAPPROVAL_REASON];
+// Only a level the issuer itself publishes counts. An estimate or a team
+// decision ranks below it (rules, section 6, step 4), and is never said to be
+// what the card is made for. Silent never gets here.
+function hasPublishedHistory(card: RuleCard): boolean {
+  return card.eligibilityEvidence.historyNeeded.basis === "issuer";
+}
+
+// Why it fits (v1.3, Ben, 2026-11-07): the one line under "You're likely to be
+// approved". In interviews a student said the result told her "why this card
+// is great, but not why it would be good for me specifically". Each line puts
+// one of the student's answers next to a fact about the card, and is used only
+// when both are true. The first that applies wins, in this order:
+// 1. Rebuilding: the student has missed payments and the card is for rebuilding.
+// 2. Same history: the issuer publishes the card's history level, and it is
+//    the student's own. "students" in place of "people" on a students-only card.
+// 3. Students: a students-only card (gate G3 means the student is one).
+// 4. Deposit: the student can put one down, and the most the card asks for is
+//    within the quiz's limit.
+// 5. Less history: the issuer's level is below the student's.
+// 6. No credit check to apply.
+// 7. Otherwise v1.2's line, LIKELY_FIT_REASON.
+// A recent denial never gets here: caution C2 makes every card a stretch.
+const REBUILDING_LINE = "Made for rebuilding credit, which fits where you are.";
+
+type HistoryStanding = Exclude<keyof typeof STUDENT_LEVEL, "damaged">;
+
+// Written as a record so the compiler flags a new standing. "Not sure" never
+// says the student has no history: the rules only count it as none.
+const SAME_HISTORY_LINES: Record<HistoryStanding, { people: string; students: string }> = {
+  none: {
+    people: "Made for people starting with no credit history, like you.",
+    students: "Made for students starting with no credit history, like you.",
+  },
+  not_sure: {
+    people: "Made for people with no credit history, so you don’t need one.",
+    students: "Made for students with no credit history, so you don’t need one.",
+  },
+  limited: {
+    people: "Made for people with a little credit history, like you.",
+    students: "Made for students with a little credit history, like you.",
+  },
+  established: {
+    people: "Made for people with an established credit history, like you.",
+    students: "Made for students with an established credit history, like you.",
+  },
+};
+
+const STUDENTS_LINE = "Made for students, like you.";
+// Not "refundable": some issuers do not say so (lib/cards/deposit.ts).
+const DEPOSIT_LINE = "You can put down the deposit it needs.";
+const LESS_HISTORY_LINE = "It asks for less credit history than you already have.";
+const NO_CREDIT_CHECK_LINE = "It doesn’t check your credit to apply.";
+
+// The most question 6 asks about: "Could you put down a refundable deposit of
+// up to $200?" (lib/quiz/questions.ts).
+export const QUIZ_DEPOSIT_LIMIT_CENTS = 20_000;
+
+// The most the card can ask for: the top of its range, or its minimum when
+// there is no top ("at least $200" asks for $200).
+function largestDeposit(card: RuleCard): number {
+  return card.depositMaxCents ?? card.depositMinCents;
+}
+
+function sameHistoryLine(standing: CompleteAnswers["standing"], card: RuleCard): string | null {
+  if (standing === "damaged" || !hasPublishedHistory(card)) return null;
+  if (CARD_LEVEL[card.historyNeeded] !== STUDENT_LEVEL[standing]) return null;
+  const lines = SAME_HISTORY_LINES[standing];
+  return card.studentsOnly ? lines.students : lines.people;
+}
+
+function whyItFits(answers: CompleteAnswers, card: RuleCard): string {
+  if (answers.standing === "damaged" && card.okForRebuilding) return REBUILDING_LINE;
+  const sameHistory = sameHistoryLine(answers.standing, card);
+  if (sameHistory) return sameHistory;
+  if (card.studentsOnly) return STUDENTS_LINE;
+  if (needsDeposit(card) && answers.canDeposit && largestDeposit(card) <= QUIZ_DEPOSIT_LIMIT_CENTS) return DEPOSIT_LINE;
+  if (hasPublishedHistory(card) && CARD_LEVEL[card.historyNeeded] < STUDENT_LEVEL[answers.standing]) return LESS_HISTORY_LINE;
+  if (!card.runsCreditCheck) return NO_CREDIT_CHECK_LINE;
+  return LIKELY_FIT_REASON;
+}
+
+function likelyFitReasons(answers: CompleteAnswers, card: RuleCard): string[] {
+  const why = whyItFits(answers, card);
+  return card.preapprovalUrl === null ? [why] : [why, LIKELY_FIT_PREAPPROVAL_REASON];
 }
 
 function fitForCard(answers: CompleteAnswers, card: RuleCard): CardFit {
@@ -270,7 +353,7 @@ function fitForCard(answers: CompleteAnswers, card: RuleCard): CardFit {
   if (found.length > 0) {
     return { ...base, tier: "stretch", ruleIds: found, reasons: found.map((id) => CAUTION_REASONS[id](card)) };
   }
-  return { ...base, tier: "likely_fit", ruleIds: [], reasons: likelyFitReasons(card) };
+  return { ...base, tier: "likely_fit", ruleIds: [], reasons: likelyFitReasons(answers, card) };
 }
 
 type Candidate = { card: RuleCard; fit: CardFit };
@@ -288,12 +371,6 @@ function preferTrue(a: boolean, b: boolean): number {
 
 function suitsRecentDenial(card: RuleCard): boolean {
   return card.secured || card.okForRebuilding;
-}
-
-// Only a level the issuer itself publishes counts. An estimate or a team
-// decision ranks below it (rules, section 6, step 4). Silent never gets here.
-function hasPublishedHistory(card: RuleCard): boolean {
-  return card.eligibilityEvidence.historyNeeded.basis === "issuer";
 }
 
 function statesUpgradePath(card: RuleCard): boolean {

@@ -30,6 +30,8 @@ vi.mock("@/lib/analytics", async (importOriginal) => ({
 
 const ALL_SIX = { under21: true, incomeBand: "under_5k", student: true, standing: "none", recentDenial: false, canDeposit: true };
 const SPENDING = { spendingCategories: ["groceries"], spendingBand: "200_to_500" };
+// Why a students-only card for no credit history fits ALL_SIX (rules v1.3).
+const NO_HISTORY_STUDENT_CARD = "Made for students starting with no credit history, like you.";
 
 function match(answers: unknown, rewardsFor?: RewardsLookup) {
   const view = computeResult(answers, listCards(), rewardsFor);
@@ -119,8 +121,9 @@ describe("ResultsView", () => {
     const top = within(screen.getByRole("region", { name: "Top match" }));
     expect(top.getByRole("heading", { name: WHY_TITLE })).toBeTruthy();
     const lines = top.getAllByRole("listitem").map((item) => item.textContent);
+    // Under the approval line, why this card fits this student (rules v1.3).
     expect(lines).toEqual([
-      `${APPROVAL_LINES.likely_fit}${view.options[0].fit.reasons[0]}`,
+      `${APPROVAL_LINES.likely_fit}${NO_HISTORY_STUDENT_CARD}`,
       "About $143 in your first yearFrom your groceries",
       "$200 sign-up bonus after $1,000 in 90 days",
     ]);
@@ -128,6 +131,16 @@ describe("ResultsView", () => {
     expect(top.getByText("$143").className).toContain("font-number");
     expect(top.getByText("$143").parentElement?.className).toContain("text-body-m");
     expect(screen.getByText(ESTIMATE_DISCLAIMER)).toBeTruthy();
+  });
+
+  it("says why each card fits this student, not one line for every card", () => {
+    const view = match(ALL_SIX);
+    render(<ResultsView view={view} />);
+    const details = view.options.map((option) => option.fit.reasons[0]);
+    expect(details).toEqual([NO_HISTORY_STUDENT_CARD, NO_HISTORY_STUDENT_CARD, "Made for people starting with no credit history, like you."]);
+    expect(details).not.toContain("You meet what the issuer says this card is for.");
+    expect(screen.getAllByText(NO_HISTORY_STUDENT_CARD)).toHaveLength(2);
+    expect(screen.getByText("Made for people starting with no credit history, like you.")).toBeTruthy();
   });
 
   it("has no value lines or estimate disclaimer when spending was skipped", () => {
@@ -141,6 +154,8 @@ describe("ResultsView", () => {
     const value = screen.getAllByText(/in your first year/)[0];
     expect(value.closest(`.${SENSITIVE}`)).not.toBeNull();
     expect(screen.getAllByText(APPROVAL_LINES.likely_fit)[0].closest(`.${SENSITIVE}`)).not.toBeNull();
+    // Why it fits restates the student's credit history answer.
+    expect(screen.getAllByText(NO_HISTORY_STUDENT_CARD)[0].closest(`.${SENSITIVE}`)).not.toBeNull();
     expect(container.querySelectorAll(`ul.${SENSITIVE}`)).toHaveLength(3);
   });
 
