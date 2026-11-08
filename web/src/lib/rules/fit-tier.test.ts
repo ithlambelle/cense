@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { evaluateFit, RULES_VERSION } from "./fit-tier";
-import type { FitResult, RuleAnswers, RuleCard } from "./fit-tier";
+import { moneyAmount } from "../money";
+import { QUESTIONS } from "../quiz/questions";
+import { evaluateFit, QUIZ_DEPOSIT_LIMIT_CENTS, RULES_VERSION } from "./fit-tier";
+import type { FitResult, RuleAnswers, RuleCard, YearOneValues } from "./fit-tier";
 import { card, CORE_STUDENT, PREAPPROVAL, SECTION_7_CARDS, SECTION_7_STUDENTS } from "./fit-tier.fixtures";
 
 type CompleteResult = Extract<FitResult, { status: "complete" }>;
@@ -17,11 +19,12 @@ function fitOf(answers: RuleAnswers, rule: RuleCard) {
   return complete(evaluateFit(answers, [rule])).cards[0];
 }
 
-function pick(answers: RuleAnswers, cards: RuleCard[]) {
-  return complete(evaluateFit(answers, cards)).recommendedCardId;
+function pick(answers: RuleAnswers, cards: RuleCard[], values: YearOneValues = null) {
+  return complete(evaluateFit(answers, cards, values)).recommendedCardId;
 }
 
-// The table in section 7 of "Fit Tier Rules v1.2", copied cell by cell.
+// The table in section 7 of "Fit Tier Rules v1.2", copied cell by cell. v1.3
+// keeps it: it only adds a last tie-breaker, used when spending is answered.
 // Rows are students 1 to 8, columns are the cards in SECTION_7_CARDS order.
 // A cell is the tier followed by the rule IDs that fired.
 const L = "likely_fit";
@@ -70,8 +73,8 @@ describe("fit tier rules: section 7 table", () => {
   });
 
   it("gives every result the rules version", () => {
-    expect(RULES_VERSION).toBe("fit-rules v1.2");
-    expect(evaluateFit(CORE_STUDENT, SECTION_7_CARDS).rulesVersion).toBe("fit-rules v1.2");
+    expect(RULES_VERSION).toBe("fit-rules v1.3");
+    expect(evaluateFit(CORE_STUDENT, SECTION_7_CARDS).rulesVersion).toBe("fit-rules v1.3");
   });
 });
 
@@ -134,7 +137,12 @@ describe("fit tier rules: answers", () => {
 
   it("counts not sure as no credit history", () => {
     const notSure = { ...CORE_STUDENT, standing: "not_sure" } as const;
-    const tiers = (answers: RuleAnswers) => complete(evaluateFit(answers, SECTION_7_CARDS)).cards;
+    // Same tiers, rules and order. Only the likely fit line differs (v1.3):
+    // it never tells a student who is not sure that they have no history.
+    const tiers = (answers: RuleAnswers) => {
+      const result = complete(evaluateFit(answers, SECTION_7_CARDS));
+      return { ranking: result.ranking, cells: result.cards.map(({ cardId, tier, ruleIds }) => ({ cardId, tier, ruleIds })) };
+    };
     expect(tiers(notSure)).toEqual(tiers(CORE_STUDENT));
   });
 });
@@ -234,12 +242,206 @@ describe("fit tier rules: cautions and their reasons", () => {
     expect(fit.reasons).toHaveLength(3);
   });
 
-  it("gives a likely fit its reasons, with preapproval only when there is a link", () => {
+  it("gives a likely fit why it fits, then preapproval only when there is a link", () => {
     expect(fitOf(CORE_STUDENT, card("a", "none", { preapprovalUrl: PREAPPROVAL })).reasons).toEqual([
-      "You meet what the issuer says this card is for.",
+      "Made for people starting with no credit history, like you.",
       "You can check preapproval without affecting your credit.",
     ]);
-    expect(fitOf(CORE_STUDENT, card("b")).reasons).toEqual(["You meet what the issuer says this card is for."]);
+    expect(fitOf(CORE_STUDENT, card("b")).reasons).toEqual(["Made for people starting with no credit history, like you."]);
+  });
+});
+
+// v1.3, "Why it fits": the first line whose test is true, in this order.
+describe("fit tier rules: why a likely fit fits (v1.3)", () => {
+  const FALLBACK = "You meet what the issuer says this card is for.";
+  const damaged = { ...CORE_STUDENT, standing: "damaged" } as const;
+  const notSure = { ...CORE_STUDENT, standing: "not_sure" } as const;
+  const limited = { ...CORE_STUDENT, standing: "limited" } as const;
+  const established = { ...CORE_STUDENT, standing: "established" } as const;
+  const deposit = { secured: true, depositMinCents: 4900, depositMaxCents: 20000 };
+  const why = (answers: RuleAnswers, rule: RuleCard) => {
+    const fit = fitOf(answers, rule);
+    expect(fit.tier).toBe("likely_fit");
+    return fit.reasons[0];
+  };
+
+  it("1. rebuilding, for missed payments and a card for rebuilding, before every other line", () => {
+    const line = "Made for rebuilding credit, which fits where you are.";
+    expect(why(damaged, card("r", "none", { okForRebuilding: true }))).toBe(line);
+    // Before students-only (3), the deposit (4) and no credit check (6).
+    expect(why(damaged, card("r", "none", { okForRebuilding: true, studentsOnly: true, ...deposit, runsCreditCheck: false }))).toBe(line);
+    // Never for a student without missed payments, even on a card for rebuilding.
+    expect(why(CORE_STUDENT, card("r", "none", { okForRebuilding: true }))).not.toBe(line);
+  });
+
+  it("2. same history: the issuer's level is the student's own, said in their words", () => {
+    expect(why(CORE_STUDENT, card("a", "none"))).toBe("Made for people starting with no credit history, like you.");
+    expect(why(CORE_STUDENT, card("s", "none", { studentsOnly: true }))).toBe("Made for students starting with no credit history, like you.");
+    expect(why(limited, card("a", "limited"))).toBe("Made for people with a little credit history, like you.");
+    expect(why(limited, card("s", "limited", { studentsOnly: true }))).toBe("Made for students with a little credit history, like you.");
+    expect(why(established, card("a", "established"))).toBe("Made for people with an established credit history, like you.");
+    expect(why(established, card("s", "established", { studentsOnly: true }))).toBe(
+      "Made for students with an established credit history, like you.",
+    );
+  });
+
+  it("2. never tells a student who is not sure that they have no history", () => {
+    expect(why(notSure, card("a", "none"))).toBe("Made for people with no credit history, so you don’t need one.");
+    expect(why(notSure, card("s", "none", { studentsOnly: true }))).toBe("Made for students with no credit history, so you don’t need one.");
+  });
+
+  it("2. only for a level the issuer publishes, never an estimate or a decision", () => {
+    expect(why(CORE_STUDENT, card("e", "none", { historyBasis: "estimate" }))).toBe(FALLBACK);
+    expect(why(CORE_STUDENT, card("d", "none", { historyBasis: "decision" }))).toBe(FALLBACK);
+  });
+
+  it("2. same history before students-only (3), the deposit (4) and no credit check (6)", () => {
+    expect(why(limited, card("s", "limited", { studentsOnly: true }))).not.toBe("Made for students, like you.");
+    expect(why(CORE_STUDENT, card("sec", "none", deposit))).toBe("Made for people starting with no credit history, like you.");
+    expect(why(CORE_STUDENT, card("c", "none", { runsCreditCheck: false }))).toBe("Made for people starting with no credit history, like you.");
+  });
+
+  it("3. students-only, when the history is not a published match, before the deposit (4)", () => {
+    const line = "Made for students, like you.";
+    expect(why(limited, card("s", "none", { studentsOnly: true }))).toBe(line);
+    // Bank of America's student cards: an estimated level, so only this line.
+    expect(why(established, card("bofa", "established", { studentsOnly: true, historyBasis: "estimate" }))).toBe(line);
+    expect(why(limited, card("s", "none", { studentsOnly: true, ...deposit }))).toBe(line);
+  });
+
+  it("4. the deposit, when the student can put down the most the card asks for, before less history (5)", () => {
+    const line = "You can put down the deposit it needs.";
+    expect(why(limited, card("sec", "none", deposit))).toBe(line);
+    // "At least $200" asks for $200, within the quiz's "up to $200".
+    expect(why(limited, card("sec", "none", { secured: true, depositMinCents: 20000, depositMaxCents: null }))).toBe(line);
+    // Past the quiz's $200, the student never said they could.
+    const less = "It asks for less credit history than you already have.";
+    expect(why(limited, card("sec", "none", { secured: true, depositMinCents: 4900, depositMaxCents: 30000 }))).toBe(less);
+    expect(why(limited, card("sec", "none", { secured: true, depositMinCents: 30000, depositMaxCents: null }))).toBe(less);
+    // A secured card with no deposit (the Chime Card) asks for none.
+    expect(why(limited, card("chime", "none", { secured: true, depositMinCents: 0 }))).toBe(less);
+  });
+
+  it("keeps the deposit line within question 6's limit", () => {
+    const question = QUESTIONS.find((entry) => entry.field === "canDeposit");
+    expect(question?.title).toContain(`up to ${moneyAmount(QUIZ_DEPOSIT_LIMIT_CENTS)}?`);
+  });
+
+  it("5. less history, for a published level below the student's, before no credit check (6)", () => {
+    const line = "It asks for less credit history than you already have.";
+    expect(why(limited, card("a", "none"))).toBe(line);
+    expect(why(established, card("a", "limited"))).toBe(line);
+    expect(why(limited, card("c", "none", { runsCreditCheck: false }))).toBe(line);
+    // An estimated level is never said to ask for less.
+    expect(why(limited, card("e", "none", { historyBasis: "estimate" }))).toBe(FALLBACK);
+  });
+
+  it("6. no credit check, when nothing above applies", () => {
+    expect(why(CORE_STUDENT, card("c", "none", { historyBasis: "estimate", runsCreditCheck: false }))).toBe(
+      "It doesn’t check your credit to apply.",
+    );
+  });
+
+  it("7. v1.2's line only when nothing specific applies", () => {
+    expect(why(CORE_STUDENT, card("e", "none", { historyBasis: "estimate" }))).toBe(FALLBACK);
+  });
+
+  it("leaves every stretch and not yet reason as it was", () => {
+    expect(fitOf(limited, card("l", "established")).reasons).toEqual([
+      "The issuer says this card is for people with a bit more credit history. It may still work.",
+    ]);
+    expect(fitOf({ ...CORE_STUDENT, student: false }, card("s", "none", { studentsOnly: true })).reasons).toEqual([
+      "This card is only for students.",
+    ]);
+  });
+
+  it("gives each likely fit in the section 7 table the line for that student", () => {
+    const lines = (answers: RuleAnswers) =>
+      Object.fromEntries(
+        complete(evaluateFit(answers, SECTION_7_CARDS)).cards
+          .filter((fit) => fit.tier === "likely_fit")
+          .map((fit) => [fit.cardId, fit.reasons[0]]),
+      );
+    const none = "Made for people starting with no credit history, like you.";
+    const noneStudents = "Made for students starting with no credit history, like you.";
+    const little = "Made for people with a little credit history, like you.";
+    const littleStudents = "Made for students with a little credit history, like you.";
+    const students = "Made for students, like you.";
+    const depositLine = "You can put down the deposit it needs.";
+    const less = "It asks for less credit history than you already have.";
+    const rebuilding = "Made for rebuilding credit, which fits where you are.";
+    // Student 1: no history.
+    expect(lines(CORE_STUDENT)).toEqual({
+      "discover-it-student-cash-back": noneStudents,
+      "discover-it-student-chrome": noneStudents,
+      "chase-freedom-rise": none,
+      "capital-one-platinum-secured": none,
+      "discover-it-secured-cash-back": none,
+      "chime-card": none,
+    });
+    // Student 4: an authorized user, so a little history.
+    expect(lines(limited)).toEqual({
+      "discover-it-student-cash-back": students,
+      "discover-it-student-chrome": students,
+      "capital-one-savor-students": littleStudents,
+      "capital-one-quicksilver-students": littleStudents,
+      "chase-freedom-rise": less,
+      "capital-one-platinum": little,
+      "capital-one-platinum-secured": depositLine,
+      "discover-it-secured-cash-back": depositLine,
+      "chime-card": less,
+    });
+    // Student 7: missed payments, so only the cards for rebuilding are likely fits.
+    expect(lines(damaged)).toEqual({
+      "capital-one-platinum-secured": rebuilding,
+      "discover-it-secured-cash-back": rebuilding,
+      "chime-card": rebuilding,
+    });
+  });
+
+  it("can reach every line, and each is one short sentence in the app's style", () => {
+    const cards = [
+      card("none"),
+      card("none-students", "none", { studentsOnly: true }),
+      card("limited", "limited"),
+      card("limited-students", "limited", { studentsOnly: true }),
+      card("established", "established"),
+      card("established-students", "established", { studentsOnly: true }),
+      card("rebuilding", "none", { okForRebuilding: true }),
+      card("secured", "none", deposit),
+      card("estimate", "none", { historyBasis: "estimate" }),
+      card("estimate-no-check", "none", { historyBasis: "estimate", runsCreditCheck: false }),
+    ];
+    const reached = new Set<string>();
+    for (const answers of [CORE_STUDENT, notSure, limited, established, damaged]) {
+      for (const fit of complete(evaluateFit(answers, cards)).cards) {
+        if (fit.tier === "likely_fit") reached.add(fit.reasons[0]);
+      }
+    }
+    expect([...reached].sort()).toEqual(
+      [
+        "Made for rebuilding credit, which fits where you are.",
+        "Made for people starting with no credit history, like you.",
+        "Made for students starting with no credit history, like you.",
+        "Made for people with no credit history, so you don’t need one.",
+        "Made for students with no credit history, so you don’t need one.",
+        "Made for people with a little credit history, like you.",
+        "Made for students with a little credit history, like you.",
+        "Made for people with an established credit history, like you.",
+        "Made for students with an established credit history, like you.",
+        "Made for students, like you.",
+        "You can put down the deposit it needs.",
+        "It asks for less credit history than you already have.",
+        "It doesn’t check your credit to apply.",
+        FALLBACK,
+      ].sort(),
+    );
+    for (const line of reached) {
+      expect(line.length).toBeLessThanOrEqual(70);
+      expect(line).toMatch(/^[A-Z][^.]*\.$/);
+      expect(line).not.toMatch(/[—–~']/);
+      expect(line).not.toMatch(/approved|guarantee|will /i);
+    }
   });
 });
 
@@ -310,9 +512,23 @@ describe("fit tier rules: picking the recommended card (section 6)", () => {
     expect(pick(CORE_STUDENT, [card("a-fee", "none", { annualFeeCents: 3900 }), card("b-free", "none", { secured: true })])).toBe("b-free");
   });
 
-  it("9. unsecured first, then card ID as the last resort", () => {
+  it("9. unsecured first", () => {
     expect(pick(CORE_STUDENT, [card("a-secured", "none", { secured: true }), card("b-unsecured")])).toBe("b-unsecured");
+  });
+
+  it("10 (v1.3). then the higher estimated year-one value, only when the student answered spending", () => {
+    const cards = [card("a-low"), card("b-high")];
+    expect(pick(CORE_STUDENT, cards, { "a-low": 3_000, "b-high": 9_000 })).toBe("b-high");
+    // No spending answer: value plays no part.
+    expect(pick(CORE_STUDENT, cards, null)).toBe("a-low");
+    // A card with no rewards data counts as 0.
+    expect(pick(CORE_STUDENT, cards, { "b-high": 1 })).toBe("b-high");
+    expect(pick(CORE_STUDENT, cards, {})).toBe("a-low");
+  });
+
+  it("11. card ID as the last resort", () => {
     expect(pick(CORE_STUDENT, [card("b"), card("a")])).toBe("a");
+    expect(pick(CORE_STUDENT, [card("b"), card("a")], { a: 500, b: 500 })).toBe("a");
   });
 
   describe("the steps run in the order the rules give", () => {
@@ -342,9 +558,40 @@ describe("fit tier rules: picking the recommended card (section 6)", () => {
       expect(pick({ ...CORE_STUDENT, goal: "build_credit" }, cards)).toBe("a-upgrade-fee");
     });
 
+    it("every earlier step (1 to 9) before value (10): value never outranks them, however large", () => {
+      const rich = { "a-rich": 900_000 };
+      expect(pick(CORE_STUDENT, [card("a-rich", "limited"), card("b-likely")], rich)).toBe("b-likely");
+      expect(pick(denied, [card("a-rich"), card("b-secured", "none", { ...secured, okForRebuilding: true })], rich)).toBe("b-secured");
+      expect(pick(CORE_STUDENT, [card("a-rich", "none", { historyBasis: "estimate" }), card("b-pub")], rich)).toBe("b-pub");
+      expect(pick(CORE_STUDENT, [card("a-rich"), card("b-student", "none", { studentsOnly: true })], rich)).toBe("b-student");
+      expect(pick(limitedStudent, [card("a-rich", "limited"), card("b-none")], rich)).toBe("b-none");
+      expect(pick({ ...CORE_STUDENT, goal: "build_credit" }, [card("a-rich"), card("b-upgrade", "none", { conditions: ["graduation_review"] })], rich)).toBe("b-upgrade");
+      expect(pick(CORE_STUDENT, [card("a-rich", "none", { annualFeeCents: 3900 }), card("b-free")], rich)).toBe("b-free");
+      expect(pick(CORE_STUDENT, [card("a-rich", "none", { secured: true }), card("b-unsecured")], rich)).toBe("b-unsecured");
+    });
+
     it("an estimate (4) ranks below a published level even for a student card (5)", () => {
       expect(pick(CORE_STUDENT, [card("a-est", "none", { historyBasis: "estimate", studentsOnly: true }), card("b-pub")])).toBe("b-pub");
     });
+  });
+
+  it("ranks every likely fit and stretch in pick order, and never a not yet card", () => {
+    const result = complete(evaluateFit(CORE_STUDENT, [card("c-stretch", "limited"), card("a-notyet", "strong"), card("b-likely"), card("d-likely")]));
+    expect(result.ranking).toEqual(["b-likely", "d-likely", "c-stretch"]);
+    expect(result.recommendedCardId).toBe("b-likely");
+    expect(complete(evaluateFit(CORE_STUDENT, [card("only", "strong")])).ranking).toEqual([]);
+  });
+
+  it("ranks the same whatever order the cards come in, with or without values", () => {
+    const reversed = [...SECTION_7_CARDS].reverse();
+    const values = Object.fromEntries(SECTION_7_CARDS.map((rule, index) => [rule.id, (index % 4) * 1_000]));
+    for (const student of SECTION_7_STUDENTS) {
+      for (const given of [null, values]) {
+        expect(complete(evaluateFit(student.answers, reversed, given)).ranking).toEqual(
+          complete(evaluateFit(student.answers, SECTION_7_CARDS, given)).ranking,
+        );
+      }
+    }
   });
 
   it("picks the same card whatever order the cards come in", () => {

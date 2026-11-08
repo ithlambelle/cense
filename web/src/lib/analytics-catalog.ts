@@ -10,8 +10,8 @@ import { PENNY_ANSWER_IDS } from "./penny/answers";
 //
 // Naming: snake_case, the object then a past-tense verb (quiz_completed), never
 // built at runtime and never renamed; a changed meaning gets a new event. No
-// email, name, income band, denial history, credit limit or typed text in any
-// property. Card ids are catalog ids, the same for every student.
+// email, name, income band, spending, denial history, credit limit or typed
+// text in any property. Card ids are catalog ids, the same for every student.
 //
 // Business facts (an issuer click, an application, a sent reminder) are rows
 // in Postgres first; the events below that copy them say which table holds the
@@ -21,7 +21,7 @@ import { PENNY_ANSWER_IDS } from "./penny/answers";
 // reminder job, an email's unsubscribe link).
 
 // Bump when an event or property is added, changed or removed.
-export const TRACKING_PLAN_VERSION = 3;
+export const TRACKING_PLAN_VERSION = 4;
 
 const cardId = z.string().regex(/^[a-z0-9-]{1,100}$/);
 const fitTier = z.enum(["likely_fit", "stretch", "not_yet"]);
@@ -68,13 +68,15 @@ export const EVENTS = {
     properties: z.strictObject({ retake: z.boolean() }),
   },
   recommendation_viewed: {
-    question: "Which approval-fit tiers do students see? card_id is null when no card fits yet.",
+    question:
+      "Which approval-fit tiers do students see, and how many options? tier and card_id are the top match's; card_id is null when no card fits yet. Plan 4 replaced has_alternative with option_count when the result went to three cards.",
     owner: "Ben",
     addedIn: 1,
     properties: z.strictObject({
       tier: fitTier,
       card_id: cardId.nullable(),
-      has_alternative: z.boolean(),
+      // Cards shown, top match included: 0 when none fits, at most 3.
+      option_count: z.int().min(0).max(3),
     }),
   },
   card_details_viewed: {

@@ -4,6 +4,7 @@ import { useEffect, useId, useRef } from "react";
 
 import { answerCardClass, QuizHeader } from "@/components/quiz/quiz-screen";
 import { BottomNav } from "@/components/ui/bottom-nav";
+import { ErrorMessage } from "@/components/ui/error-message";
 import { Button } from "@/components/ui/button";
 import { SelectionMark } from "@/components/ui/selection-mark";
 import { SENSITIVE } from "@/lib/analytics";
@@ -28,14 +29,16 @@ type SpendingScreenProps = {
   onBack: () => void;
   onClose: () => void;
   pending?: boolean;
+  // A failed save of the answer, shown under Continue as on the other questions.
+  error?: string | null;
 };
 
 // The spending question (Figma 144:2635, values from get_design_context): up to two categories, then one rough
 // monthly amount, on one screen. Unlike the other questions a tap only picks,
 // so every unpicked card shows the empty ring (G7) and Continue moves on. The
 // frame draws no Continue; it is the design system's primary button. Cards
-// use the frame's 20px side padding; the six questions still use 18px. See
-// lib/quiz/spending.ts for why the answer is not saved yet.
+// use the frame's 20px side padding; the six questions still use 18px. The
+// answer is saved on Continue (lib/quiz/spending.ts).
 export function SpendingScreen({
   step,
   total,
@@ -45,6 +48,7 @@ export function SpendingScreen({
   onBack,
   onClose,
   pending = false,
+  error = null,
 }: SpendingScreenProps) {
   const titleId = useId();
   const subtitleId = useId();
@@ -120,6 +124,11 @@ export function SpendingScreen({
           <Button className="mt-2" pending={pending} onClick={onContinue}>
             Continue
           </Button>
+          {error ? (
+            <div className="animate-fade-up">
+              <ErrorMessage>{error}</ErrorMessage>
+            </div>
+          ) : null}
         </main>
         <div className="sticky bottom-0">
           <BottomNav />

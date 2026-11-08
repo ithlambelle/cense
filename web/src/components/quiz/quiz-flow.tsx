@@ -11,7 +11,13 @@ import type { QuizField } from "@/lib/analytics-catalog";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import { firstUnanswered, helpText, QUESTIONS, savedChoiceId, withChoice } from "@/lib/quiz/questions";
 import type { QuizAnswers } from "@/lib/quiz/questions";
-import { NO_SPENDING, QUIZ_STEP_COUNT, type SpendingAnswer } from "@/lib/quiz/spending";
+import {
+  QUIZ_STEP_COUNT,
+  sameSpending,
+  spendingFromAnswers,
+  withSpending,
+  type SpendingAnswer,
+} from "@/lib/quiz/spending";
 import { ROUTES, signInPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
@@ -72,8 +78,9 @@ function QuizSteps({ saved, backHref }: { saved: Draft; backHref: string }) {
   const [draft, setDraft] = useState<Draft>(saved);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  // Held here only, never saved or sent (see lib/quiz/spending.ts).
-  const [spending, setSpending] = useState<SpendingAnswer>(NO_SPENDING);
+  // Starts from the saved answer, so a retake shows what was picked before.
+  // Saved with the draft on Continue, never sent to analytics (lib/quiz/spending.ts).
+  const [spending, setSpending] = useState<SpendingAnswer>(() => spendingFromAnswers(saved.answers));
   // Going back from the spending screen can save the last answer again; the
   // quiz still counts as completed once.
   const completed = useRef(false);
@@ -128,8 +135,29 @@ function QuizSteps({ saved, backHref }: { saved: Draft; backHref: string }) {
     setDraft({ answers: nextAnswers, choiceIds: nextChoiceIds, retake, index: index + 1 });
   }
 
-  function finish() {
+  // Saves the spending answer with the draft, then opens the result, which
+  // ranks by it. Nothing changed (skipped on a fresh quiz, or a retake that
+  // kept its picks) saves nothing. A failed save stays here with the error,
+  // so the result is never ranked on an answer the student did not give.
+  async function finish() {
+    if (saving) return;
+    const nextAnswers = withSpending(answers, spending);
+    setSaveError(null);
     setSaving(true);
+    if (!sameSpending(answers, nextAnswers)) {
+      const result = await apiRequest("put", "/quiz", { body: { answers: nextAnswers } });
+      if (!isMounted()) return;
+      if (!result.ok) {
+        setSaving(false);
+        if (isUnauthorized(result)) {
+          router.replace(signInPath(ROUTES.quiz));
+          return;
+        }
+        setSaveError(failureMessage(result));
+        return;
+      }
+      setDraft({ answers: nextAnswers, choiceIds, retake, index });
+    }
     // Stays locked while the result screen loads. Replace, not push: the
     // browser's back button must not land on the finished quiz, which
     // restarts from the first question (solution interviews, 2026-10-17).
@@ -151,11 +179,15 @@ function QuizSteps({ saved, backHref }: { saved: Draft; backHref: string }) {
         step={index + 1}
         total={QUIZ_STEP_COUNT}
         value={spending}
-        onChange={setSpending}
+        onChange={(next) => {
+          setSaveError(null);
+          setSpending(next);
+        }}
         onContinue={finish}
         onBack={back}
         onClose={() => router.push(ROUTES.home)}
         pending={saving}
+        error={saveError}
       />
     );
   }

@@ -28,6 +28,19 @@ describe("student API validation", () => {
     expect(saveQuizSchema.parse({ answers: { standing: "not_sure" } }).answers.standing).toBe("not_sure");
   });
 
+  it("keeps the optional spending answers: up to two areas, each once, and one band", () => {
+    const six = { under21: true, incomeBand: "under_5k", student: true, standing: "none", recentDenial: false, canDeposit: true };
+    expect(saveQuizSchema.safeParse({ answers: six }).success).toBe(true);
+    expect(saveQuizSchema.safeParse({
+      answers: { ...six, spendingCategories: ["groceries", "food_and_dining"], spendingBand: "200_to_500" },
+    }).success).toBe(true);
+    expect(saveQuizSchema.safeParse({ answers: { spendingBand: "over_500" } }).success).toBe(true);
+    for (const spendingCategories of [[], ["groceries", "groceries"], ["groceries", "travel_home", "gas_and_rides"], ["food-and-dining"]]) {
+      expect(saveQuizSchema.safeParse({ answers: { spendingCategories } }).success, String(spendingCategories)).toBe(false);
+    }
+    expect(saveQuizSchema.safeParse({ answers: { spendingBand: "under-200" } }).success).toBe(false);
+  });
+
   it("rejects unrecognized or invalid quiz fields", () => {
     expect(saveQuizSchema.safeParse({ answers: { age: 19 } }).success).toBe(false);
     expect(saveQuizSchema.safeParse({ answers: { incomeBand: "unknown" } }).success).toBe(false);
