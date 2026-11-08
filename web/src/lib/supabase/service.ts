@@ -5,7 +5,8 @@ import { createClient } from "@supabase/supabase-js";
 import { supabaseConfig } from "./config";
 
 // The service role skips row level security, so it is used in exactly three
-// places: the daily reminder job (app/api/v1/cron/reminders) and the signed
+// places: the daily reminder job (app/api/v1/cron/reminders, which also runs
+// the purge of bank transactions older than 180 days) and the signed
 // unsubscribe link (app/api/v1/reminders/unsubscribe), which only call the
 // database functions made for them and read the Analytics switch
 // (profiles.analytics_opted_out_at, withAnalyticsOn in analytics-server.ts)

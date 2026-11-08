@@ -1,15 +1,20 @@
 -- Plaid transactions for budgeting (US-14), from the US-09 data spec (#87),
--- agreed on Nov 6: keep a rolling 90 days of each student's transactions,
--- privately, so budgeting can run on what they actually spend. Link asks Plaid
--- for 180 days of history (#91); anything older than 90 days is never stored
--- and is purged daily.
+-- agreed on Nov 6 and set to 180 days on Nov 7 (Ben): keep a rolling 180 days
+-- of each student's transactions, privately, so budgeting can run on what they
+-- actually spend and our recurring-bill detector, which reruns monthly on these
+-- rows, sees the 180 days Plaid recommends for recurring detection. Link asks
+-- Plaid for 180 days of history (#91); anything older is never stored and is
+-- purged daily.
 --
 -- What is stored, and nothing else: Plaid's transaction id and account id
--- (to apply Sync's modified and removed entries and to avoid counting a
--- pending item twice), the posted date, the amount in cents, whether it is
--- pending, Plaid's category, and the merchant name capped at 100 characters.
--- Never: raw descriptions, locations, counterparties, payment details, or any
--- Plaid response.
+-- (to apply Sync's modified and removed entries and to tell card spending
+-- from debit spending), the posted date, the amount in cents, whether it is
+-- pending, Plaid's category, and the merchant name capped at 100 characters
+-- (our own recurring-bill detector groups charges by it). Never: raw
+-- descriptions, locations, counterparties, payment details, or any Plaid
+-- response. The app drops rows older than 180 days before sending them; the
+-- 180-day skip below is a second check. At most 10,000 rows per student
+-- (MAX_SYNC_PAGES 20 x 500 in web/src/lib/plaid/transactions.ts).
 --
 -- Who can do what:
 -- - plaid.transactions lives in the plaid schema, which the Data API does not
@@ -19,7 +24,7 @@
 --   sync cursor in one transaction; plaid_transactions_cursor() reads it back.
 -- - spending_by_category() and income_by_month() return monthly totals of the
 --   caller's own posted transactions, never the rows themselves.
--- - purge_old_plaid_transactions() deletes anything older than 90 days; it is
+-- - purge_old_plaid_transactions() deletes anything older than 180 days; it is
 --   for the daily cron (service role) only.
 -- Disconnecting (delete_bank_link) deletes plaid.items, and deleting the
 -- account deletes it too; both cascade to plaid.transactions.
@@ -69,9 +74,11 @@ $$;
 
 -- One finished Transactions Sync (every page) for the caller: added and
 -- modified rows are saved, removed ids deleted, and the cursor moved, all at
--- once. Rows older than 90 days are skipped. When an id appears more than
--- once, the last modified entry wins. False when the caller has no linked
--- bank (it was disconnected while Plaid answered).
+-- once. Rows older than 180 days are skipped. When an id appears more than
+-- once, the last modified entry wins. Refused with program_limit_exceeded
+-- (54000), saving nothing, when the caller would keep more than 10,000 rows.
+-- False when the caller has no linked bank (it was disconnected while Plaid
+-- answered).
 create or replace function public.apply_plaid_transactions_sync(
   p_added jsonb,
   p_modified jsonb,
@@ -85,11 +92,13 @@ set search_path = ''
 as $$
 declare
   v_student uuid := auth.uid();
+  v_kept integer;
 begin
   if v_student is null then
     raise exception 'not signed in' using errcode = '28000';
   end if;
-  -- held until the end, so a disconnect cannot land halfway through
+  -- held until the end, so a disconnect cannot land halfway through, and two
+  -- syncs for the same student never count rows at the same time
   perform 1 from plaid.items where student_id = v_student for update;
   if not found then
     return false;
@@ -111,7 +120,7 @@ begin
       jsonb_to_record(e.item) as r(transaction_id text, account_id text, posted_on date, amount_cents bigint,
         pending boolean, category text, category_detailed text, merchant_name text)
   ) x
-  where x.posted_on >= current_date - 90
+  where x.posted_on >= current_date - 180
   order by x.transaction_id, x.source desc, x.ord desc
   on conflict (student_id, transaction_id) do update set
     account_id = excluded.account_id,
@@ -126,6 +135,12 @@ begin
   where t.student_id = v_student
     and t.transaction_id in (select jsonb_array_elements_text(coalesce(p_removed, '[]'::jsonb)));
 
+  -- counted after the removals, so ids sent again (already kept) never count twice
+  select count(*) into v_kept from plaid.transactions where student_id = v_student;
+  if v_kept > 10000 then
+    raise exception 'too many transactions kept' using errcode = '54000';
+  end if;
+
   update plaid.items
   set transactions_cursor = p_cursor, transactions_synced_at = now()
   where student_id = v_student;
@@ -134,7 +149,7 @@ end;
 $$;
 
 -- The caller's spending by Plaid category for this month and the months
--- before it (1 to 3 in all, so never past the 90 days kept). Posted money out
+-- before it (1 to 3 in all, so never past the 180 days kept). Posted money out
 -- only: pending items, money in, transfers between accounts and loan or card
 -- payments are left out, so moving money around is not counted as spending.
 create or replace function public.spending_by_category(p_months integer default 3)
@@ -181,8 +196,9 @@ as $$
   order by 1;
 $$;
 
--- The daily cron's purge: every transaction older than 90 days, for every
--- student. The number deleted, for the job's log.
+-- The daily purge, run by the reminders cron (service role): every transaction
+-- older than 180 days, for every student, including students who stopped
+-- syncing. Returns the number deleted.
 create or replace function public.purge_old_plaid_transactions()
 returns integer
 language plpgsql
@@ -192,7 +208,7 @@ as $$
 declare
   v_deleted integer;
 begin
-  delete from plaid.transactions where posted_on < current_date - 90;
+  delete from plaid.transactions where posted_on < current_date - 180;
   get diagnostics v_deleted = row_count;
   return v_deleted;
 end;

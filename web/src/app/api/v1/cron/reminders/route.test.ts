@@ -99,8 +99,13 @@ describe("GET /cron/reminders", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0 });
-    expect(calls.map((call) => call.name)).toEqual(["refresh_all_reminders", "claim_due_reminders", "mark_reminder_sent"]);
-    expect(calls[2].args).toEqual({ p_reminder_id: claimed().reminder_id });
+    expect(calls.map((call) => call.name)).toEqual([
+      "purge_old_plaid_transactions",
+      "refresh_all_reminders",
+      "claim_due_reminders",
+      "mark_reminder_sent",
+    ]);
+    expect(calls[3].args).toEqual({ p_reminder_id: claimed().reminder_id });
     expect(service.createServiceClient).toHaveBeenCalledWith(ENV.SUPABASE_SERVICE_ROLE_KEY);
 
     const [url, init] = fetchMock.emails()[0] as unknown as [string, RequestInit];
@@ -131,7 +136,12 @@ describe("GET /cron/reminders", () => {
 
     const body = await (await cron()).json();
     expect(body).toMatchObject({ claimed: 1, sent: 0, failed: 1 });
-    expect(calls.map((call) => call.name)).toEqual(["refresh_all_reminders", "claim_due_reminders", "release_reminder_claim"]);
+    expect(calls.map((call) => call.name)).toEqual([
+      "purge_old_plaid_transactions",
+      "refresh_all_reminders",
+      "claim_due_reminders",
+      "release_reminder_claim",
+    ]);
     const logs = JSON.stringify(vi.mocked(console.error).mock.calls);
     expect(logs).toContain("validation_error");
     expect(logs).not.toContain("student@example.test");
@@ -199,6 +209,28 @@ describe("GET /cron/reminders", () => {
     expect(String(elsewhere.emails()[0][0])).toBe("https://api.resend.com/emails");
   });
 
+  it("purges bank transactions older than 180 days on every run, with the service role and no arguments", async () => {
+    const calls = database({ purge_old_plaid_transactions: [{ data: 3, error: null }] });
+    resend();
+    const response = await cron();
+    expect(response.status).toBe(200);
+    expect(calls[0]).toEqual({ name: "purge_old_plaid_transactions", args: undefined });
+    expect(vi.mocked(console.error)).not.toHaveBeenCalled();
+  });
+
+  it("logs a failed purge with its code only, and still sends reminders", async () => {
+    const calls = database({
+      purge_old_plaid_transactions: [{ data: null, error: { code: "PGRST202", message: "function not found" } }],
+      claim_due_reminders: [{ data: [claimed()], error: null }],
+    });
+    resend();
+    const response = await cron();
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0 });
+    expect(calls.map((call) => call.name)).toContain("mark_reminder_sent");
+    expect(vi.mocked(console.error)).toHaveBeenCalledWith(JSON.stringify({ event: "plaid_purge_failed", code: "PGRST202" }));
+  });
+
   describe("heartbeat", () => {
     const HEARTBEAT = "https://hc-ping.com/test-check";
 
@@ -206,6 +238,17 @@ describe("GET /cron/reminders", () => {
 
     it("pings start, then success with the counts, when every email went", async () => {
       database({ claim_due_reminders: [{ data: [claimed()], error: null }] });
+      resend();
+      await cron();
+      expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, HEARTBEAT]);
+      expect(JSON.parse(others[1].body)).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0 });
+    });
+
+    it("still pings success when only the purge failed: retention is not a reminder problem", async () => {
+      database({
+        purge_old_plaid_transactions: [{ data: null, error: { code: "57014", message: "canceled" } }],
+        claim_due_reminders: [{ data: [claimed()], error: null }],
+      });
       resend();
       await cron();
       expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, HEARTBEAT]);

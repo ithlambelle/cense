@@ -91,9 +91,10 @@ async function call<T>(config: PlaidConfig, path: string, body: Record<string, u
 
 // Link for a new bank, or, given the access token, update mode for one that
 // needs the student to sign in again (the same Item, no new token).
-// Transactions is the product requested because Link needs one and Balance
-// alone is not allowed; Cense never calls the transactions endpoints. Only
-// everyday accounts and credit cards can be picked: no loans or investments.
+// Transactions is the product requested: budgeting reads it through
+// Transactions Sync (syncTransactionsPage below, US-14), and Link needs one
+// product anyway because Balance alone is not allowed. Only everyday
+// accounts and credit cards can be picked: no loans or investments.
 export async function createLinkToken(config: PlaidConfig, studentId: string, accessToken?: string) {
   const base = {
     client_name: "Cense",
@@ -172,8 +173,8 @@ export function needsReconnect(failure: PlaidFailure): boolean {
 
 // One page of Transactions Sync (US-14): what was added, changed or removed
 // since the cursor (none: from the start of the Item's history). Only the
-// fields Cense keeps are read; names, locations, counterparties and payment
-// details are dropped here. https://plaid.com/docs/api/products/transactions/#transactionssync
+// fields Cense keeps are read; descriptions, locations, counterparties and
+// payment details are dropped here. https://plaid.com/docs/api/products/transactions/#transactionssync
 const syncTransactionSchema = z.object({
   transaction_id: z.string().min(1).max(200),
   account_id: z.string().min(1).max(200),

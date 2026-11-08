@@ -137,6 +137,7 @@ describe("Transactions Sync", () => {
     const page = result.ok ? result.data : null;
     expect(page?.added[0]).not.toHaveProperty("name");
     expect(page?.added[0]).not.toHaveProperty("location");
+    expect(page?.added[0]).toMatchObject({ account_id: "acc-1", merchant_name: "Chipotle" });
     expect(page?.removed).toEqual([{ transaction_id: "t0" }]);
   });
 
