@@ -122,10 +122,12 @@ test("the job emails a due reminder once, and the email's button, settings link 
   await runJob(request);
   expect(fake.emailsTo(email)).toHaveLength(1);
 
-  // Open Cense: Home, with the mark dropped from the address.
+  // Open Cense: Updates, with the mark dropped from the address and the same
+  // reminder as a new card with its action (US-08, Flow B).
   await page.goto(pathOf(openCense));
-  await expect(page).toHaveURL(/\/home$/);
-  await expect(page.getByRole("region", { name: DISCOVER.name })).toBeVisible();
+  await expect(page).toHaveURL(/\/updates$/);
+  const inApp = page.getByRole("region", { name: "New" }).getByRole("article", { name: `Statement closes ${closes.weekday}` });
+  await expect(inApp.getByRole("button", { name: "I paid it down" })).toBeVisible();
 
   // The footer link opens Reminder settings, all on.
   await page.goto(pathOf(settingsLink!));

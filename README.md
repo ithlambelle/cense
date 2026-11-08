@@ -194,7 +194,7 @@ Delete my account on Security and privacy deletes, at once: the student's PostHo
 
 ## Reminder emails
 
-Vercel Cron calls `GET /api/v1/cron/reminders` once a day at 13:00 UTC (`web/vercel.json`; the Hobby plan runs it at some point in that hour, so 8:00 to 10:00 Eastern). The job schedules every card's next reminders, claims the ones due today, at most one per student, sends each through Resend's API and marks it sent. A failed send is tried again the next day, 3 times at most. Each email has one button, Open Cense, which opens Home; the app does not show reminders yet. Every email links to Reminder settings (`/settings/reminders`) and has an unsubscribe link and the one-click `List-Unsubscribe` headers. Rules and functions: [api/data-contract.md](api/data-contract.md).
+Vercel Cron calls `GET /api/v1/cron/reminders` once a day at 13:00 UTC (`web/vercel.json`; the Hobby plan runs it at some point in that hour, so 8:00 to 10:00 Eastern). The job schedules every card's next reminders, claims the ones due today, at most one per student, sends each through Resend's API and marks it sent. A failed send is tried again the next day, 3 times at most. Each email has one button, Open Cense, which opens Updates (`/updates`), where every sent reminder is also a card the student can act on, snooze or dismiss for the billing cycle; the same run raises the one in-app follow-up 2 days after a statement closes if it was not marked paid. Every email links to Reminder settings (`/settings/reminders`) and has an unsubscribe link and the one-click `List-Unsubscribe` headers. Rules and functions: [api/data-contract.md](api/data-contract.md).
 
 Before it can run:
 
