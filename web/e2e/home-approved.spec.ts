@@ -9,9 +9,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { axeChecker, blockExternalRequests, signUp, uniqueEmail } from "./helpers";
 
 const DISCOVER = { id: "discover-it-student-cash-back", name: "Discover it Student Cash Back" };
-// The stars ticked on Home. "Set a payment reminder" opens the reminder screen
-// instead (home-reminder.spec.ts).
-const STARS = ["Turn on autopay", "Plan one purchase"] as const;
+// The star ticked on Home. "Turn on autopay" opens card setup instead
+// (card-setup.spec.ts) and "Choose your reminders" the reminder screen
+// (home-reminder.spec.ts).
+const STARS = ["Set a spend limit"] as const;
 
 test.beforeEach(async ({ context }) => {
   await blockExternalRequests(context);
@@ -49,7 +50,7 @@ test("approved student: every star ticked on Home stays lit after a reload, and 
     expect((await write).ok(), `${title} save`).toBe(true);
     await expect(star).toHaveAttribute("aria-checked", "true");
   }
-  await expect(card.getByText("2 of 3 lit")).toBeVisible();
+  await expect(card.getByText("1 of 3 lit")).toBeVisible();
 
   await page.reload();
   for (const title of STARS) {
@@ -57,12 +58,13 @@ test("approved student: every star ticked on Home stays lit after a reload, and 
   }
 
   // Unlighting saves too.
-  const autopay = card.getByRole("checkbox", { name: /Turn on autopay/ });
+  const limit = card.getByRole("checkbox", { name: /Set a spend limit/ });
+  await expect(limit).toBeEnabled();
   const write = nextWrite(page);
-  await autopay.click();
+  await limit.click();
   expect((await write).ok()).toBe(true);
   await page.reload();
-  await expect(card.getByRole("checkbox", { name: /Turn on autopay/ })).toHaveAttribute("aria-checked", "false");
+  await expect(card.getByRole("checkbox", { name: /Set a spend limit/ })).toHaveAttribute("aria-checked", "false");
 });
 
 test("approved student: Edit changes the credit limit only, and it is saved", async ({ page }) => {
@@ -110,23 +112,6 @@ test("approved student: the card opens its details page and comes back", async (
 
   await page.getByRole("link", { name: /Back/ }).click();
   await expect(page).toHaveURL(/\/home$/);
-});
-
-test("approved student: autopay shows what was saved after Back from the card page", async ({ page }) => {
-  const { card } = await approvedStudent(page, "autopay-back");
-  for (const lit of [true, false]) {
-    const autopay = card.getByRole("checkbox", { name: /Turn on autopay/ });
-    await expect(autopay).toBeEnabled();
-    const write = nextWrite(page);
-    await autopay.click();
-    expect((await write).ok()).toBe(true);
-    await card.getByRole("link", { name: `${DISCOVER.name} details` }).click();
-    await expect(page).toHaveURL(new RegExp(`/cards/${DISCOVER.id}`));
-    // The browser's Back, not the in-app arrow: it restores the cached Home.
-    await page.goBack();
-    await expect(page).toHaveURL(/\/home$/);
-    await expect(card.getByRole("checkbox", { name: /Turn on autopay/ })).toHaveAttribute("aria-checked", String(lit));
-  }
 });
 
 test("denied student: a reason saved from Home shows on Home after Back", async ({ page }) => {

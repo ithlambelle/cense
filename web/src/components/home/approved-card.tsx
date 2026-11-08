@@ -12,37 +12,40 @@ import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE } from "@/lib/analytics";
-import { saveAutopay, saveCreditLimit } from "@/lib/api-client/applications";
+import { saveCreditLimit } from "@/lib/api-client/applications";
 import { loadPlanSteps, savePlanStep, type PlanStepName } from "@/lib/api-client/plans";
 import type { Application } from "@/lib/api/application";
 import { centsToInput, moneyAmount } from "@/lib/money";
-import { cardPath, CELEBRATE_PARAM, paymentRemindersPath, ROUTES, signInPath } from "@/lib/routes";
+import { cardPath, cardSetupPath, CELEBRATE_PARAM, paymentRemindersPath, ROUTES, signInPath } from "@/lib/routes";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
 import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
 
-// Home's approved card (Flow 1, Figma 144:1555, 144:1655, 144:1733): the card,
-// its limit and the first month's three steps as stars in one module.
+// Home's approved card (Flow 1, Figma 144:1555, 144:1655, 144:1733; stars as
+// in Flow C's entry 477:1514, edited Nov 7): the card, its limit and the first
+// month's three steps as stars in one module, the same three as the card
+// setup list (US-10, I1).
 
-type StepKey = "autopay" | "plannedPurchase" | "paymentReminder";
+type StepKey = "autopay" | "spendLimit" | "paymentReminder";
 type Lit = Record<StepKey, boolean>;
 
-// Copy from the frames. Autopay is not a plan step: it is the card's own
-// autopay status, read on the server with the card and saved with PATCH
-// /applications/{id}. The payment reminder is not ticked here: its row opens
-// the reminder screen (US-08), which lights the star when it saves, so the
-// star is never lit without a reminder behind it.
-const STEPS: { key: StepKey; step: PlanStepName | null; title: string; detail: string; opensReminders?: true }[] = [
-  { key: "autopay", step: null, title: "Turn on autopay", detail: "Statement balance, every month" },
-  { key: "plannedPurchase", step: "planned_purchase", title: "Plan one purchase", detail: "A small cost you already budget for" },
-  { key: "paymentReminder", step: "payment_reminder", title: "Set a payment reminder", detail: "Use the due date on your statement", opensReminders: true },
+// Copy from the frames. Autopay is not ticked here: its row opens the card
+// setup list (US-10, I1), where the student follows the issuer's steps and
+// says what they set up; the star reads the card's autopay status. The
+// payment reminder is not ticked here either: its row opens the reminder
+// screen (US-08), which lights the star when it saves, so neither star is
+// ever lit without something behind it.
+const STEPS: { key: StepKey; step: PlanStepName | null; title: string; detail: string; opens?: "setup" | "reminders" }[] = [
+  { key: "autopay", step: null, title: "Turn on autopay", detail: "Statement balance, every month", opens: "setup" },
+  { key: "spendLimit", step: "spend_limit", title: "Set a spend limit", detail: "A monthly limit to try" },
+  { key: "paymentReminder", step: "payment_reminder", title: "Choose your reminders", detail: "One email before each date", opens: "reminders" },
 ];
 
 // List row, Tinted (273:2196), shared by the tick rows and the reminder link.
 const ROW =
   "flex w-full items-center gap-3 rounded-[14px] bg-off-white px-3.5 py-3 text-left text-indigo-black hover:bg-selected-outline/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
-const NONE_LIT: Lit = { autopay: false, plannedPurchase: false, paymentReminder: false };
+const NONE_LIT: Lit = { autopay: false, spendLimit: false, paymentReminder: false };
 
 // The reminder star needs the step and a reminder that is really on (saved
 // days, the due-date email on, emails not off): the old first-month page ticked
@@ -54,7 +57,7 @@ function loadLit(applicationId: string, autopay: boolean, reminderOn: boolean) {
     if (result.kind === "failed") return { status: "failed", message: result.message };
     return {
       status: "ready",
-      data: { autopay, plannedPurchase: result.done.has("planned_purchase"), paymentReminder: reminderOn && result.done.has("payment_reminder") },
+      data: { autopay, spendLimit: result.done.has("spend_limit"), paymentReminder: reminderOn && result.done.has("payment_reminder") },
     };
   };
 }
@@ -142,26 +145,20 @@ function CardModule({
   // Steps whose save is in flight; each is locked until its answer arrives.
   const [saving, setSaving] = useState<ReadonlySet<StepKey>>(new Set());
 
-  async function toggle(key: StepKey, step: PlanStepName | null) {
+  // Only the spend limit is ticked on Home; autopay and reminders open their screens.
+  async function toggle(key: StepKey, step: PlanStepName) {
     const value = !lit[key];
     setLit((current) => ({ ...current, [key]: value }));
     setError(null);
     if (sample) return;
     setSaving((current) => new Set(current).add(key));
-    const result = step
-      ? await savePlanStep(application.id, "first_month", step, value)
-      : await saveAutopay(application.id, value);
+    const result = await savePlanStep(application.id, "first_month", step, value);
     setSaving((current) => {
       const next = new Set(current);
       next.delete(key);
       return next;
     });
-    if (result.kind === "ok") {
-      // Autopay reaches Home in the server render: refresh it, or Back from
-      // another screen restores the cached Home with the old star.
-      if (!step) router.refresh();
-      return;
-    }
+    if (result.kind === "ok") return;
     // Undo only this star, so other saves in flight are not overwritten.
     setLit((current) => ({ ...current, [key]: !value }));
     if (result.kind === "signed-out") router.replace(signInPath(ROUTES.home));
@@ -207,9 +204,9 @@ function CardModule({
       <ul className="flex flex-col gap-3.5">
         {STEPS.map((step) => (
           <li key={step.key}>
-            {step.opensReminders ? (
-              // Lit or not, it opens the screen, so the student can change the days.
-              <Link href={paymentRemindersPath(application.id)} className={ROW}>
+            {step.opens ? (
+              // Lit or not, it opens the screen, so the student can change it there.
+              <Link href={step.opens === "setup" ? cardSetupPath(application.id) : paymentRemindersPath(application.id)} className={ROW}>
                 <StepRowContent title={step.title} detail={step.detail} lit={lit[step.key]} saysDone />
               </Link>
             ) : (
@@ -218,7 +215,9 @@ function CardModule({
                 role="checkbox"
                 aria-checked={lit[step.key]}
                 disabled={!ready || saving.has(step.key)}
-                onClick={() => toggle(step.key, step.step)}
+                onClick={() => {
+                  if (step.step) void toggle(step.key, step.step);
+                }}
                 className={cn(ROW, "disabled:cursor-progress")}
               >
                 <StepRowContent title={step.title} detail={step.detail} lit={lit[step.key]} />
@@ -276,7 +275,8 @@ function TitleRow({ application, children }: { application: Application; childre
     <Link
       href={cardPath(application.cardId, "home")}
       aria-label={`${application.cardName} details`}
-      className="-m-2 flex items-center gap-3 rounded-input p-2 hover:bg-off-white/60 focus-visible:outline-2 focus-visible:outline-ring"
+      // No corners or fill of its own: the card (477:1514) is the only box here.
+      className="-m-2 flex items-center gap-3 p-2 hover:bg-off-white/60 focus-visible:outline-2 focus-visible:outline-ring"
     >
       {children}
       <ChevronRight aria-hidden="true" width={16} height={16} className="shrink-0 text-indigo-black/70" />
@@ -361,7 +361,7 @@ function CreditLimit({ application, sample }: { application: Application; sample
         {cents === null ? (
           <p className="flex-1 text-body-m text-indigo-black">Not added</p>
         ) : (
-          <p className={cn(SENSITIVE, "flex-1 font-number text-[2.25rem] leading-[2.75rem] font-medium text-navy")}>
+          <p className={cn(SENSITIVE, "flex-1 font-number text-[2.25rem] leading-[2.75rem] font-semibold text-navy")}>
             {moneyAmount(cents)}
           </p>
         )}

@@ -122,24 +122,24 @@ describe("Home approved card", () => {
   it("loads the saved stars and lights or puts out each one", async () => {
     const fetchFn = server([
       { status: 200, body: plan("payment_reminder") },
-      { status: 201, body: saved("planned_purchase") },
+      { status: 201, body: saved("spend_limit") },
       { status: 204, body: null },
     ]);
     render(<HomeView state={state} initial="M" detail={DAYS_SAVED} />);
     expect(await screen.findByText("1 of 3 lit")).toBeTruthy();
     expect(fetchFn.mock.calls[0][0]).toBe(PLAN_URL);
-    expect(star(/Plan one purchase/).getAttribute("aria-checked")).toBe("false");
+    expect(star(/Set a spend limit/).getAttribute("aria-checked")).toBe("false");
 
-    const purchase = star(/Plan one purchase/);
-    await waitFor(() => expect(purchase.hasAttribute("disabled")).toBe(false));
-    fireEvent.click(purchase);
+    const limit = star(/Set a spend limit/);
+    await waitFor(() => expect(limit.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(limit);
     await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(2));
-    expect(fetchFn.mock.calls[1][0]).toBe(`${PLAN_URL}/steps/planned_purchase`);
+    expect(fetchFn.mock.calls[1][0]).toBe(`${PLAN_URL}/steps/spend_limit`);
     expect(fetchFn.mock.calls[1][1]?.method).toBe("PUT");
     expect(screen.getByText("2 of 3 lit")).toBeTruthy();
 
-    await waitFor(() => expect(purchase.hasAttribute("disabled")).toBe(false));
-    fireEvent.click(purchase);
+    await waitFor(() => expect(limit.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(limit);
     await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(3));
     expect(fetchFn.mock.calls[2][1]?.method).toBe("DELETE");
     await waitFor(() => expect(screen.getByText("1 of 3 lit")).toBeTruthy());
@@ -149,8 +149,8 @@ describe("Home approved card", () => {
     const fetchFn = server([{ status: 200, body: plan() }, { status: 200, body: plan("payment_reminder") }]);
     const { unmount } = render(<HomeView state={state} initial="M" />);
     await screen.findByText("0 of 3 lit");
-    expect(screen.queryByRole("checkbox", { name: /Set a payment reminder/ })).toBeNull();
-    const row = screen.getByRole("link", { name: /^Set a payment reminder/ });
+    expect(screen.queryByRole("checkbox", { name: /Choose your reminders/ })).toBeNull();
+    const row = screen.getByRole("link", { name: /^Choose your reminders/ });
     expect(row.getAttribute("href")).toBe(`/applications/${ID}/reminders`);
     expect(row.textContent).not.toContain("done");
     fireEvent.click(row);
@@ -160,40 +160,41 @@ describe("Home approved card", () => {
 
     render(<HomeView state={state} initial="M" detail={DAYS_SAVED} />);
     await screen.findByText("1 of 3 lit");
-    const lit = screen.getByRole("link", { name: /^Set a payment reminder\s*, done/ });
+    const lit = screen.getByRole("link", { name: /^Choose your reminders\s*, done/ });
     expect(lit.getAttribute("href")).toBe(`/applications/${ID}/reminders`);
   });
 
-  it("shows all stars lit once the three are done, saving autopay on the card", async () => {
+  it("shows all stars lit once the three are done", async () => {
     const fetchFn = server([
-      { status: 200, body: plan("planned_purchase", "payment_reminder") },
-      { status: 200, body: { ...approved, autopayStatus: "on" } },
-      { status: 200, body: { ...approved, autopayStatus: "off" } },
+      { status: 200, body: plan("payment_reminder") },
+      { status: 201, body: saved("spend_limit") },
     ]);
-    render(<HomeView state={state} initial="M" detail={DAYS_SAVED} />);
+    render(<HomeView state={state} initial="M" detail={{ ...DAYS_SAVED, autopayStatus: "on" }} />);
     await screen.findByText("2 of 3 lit");
     expect(screen.queryByText(/All three stars lit/)).toBeNull();
-    fireEvent.click(star(/Turn on autopay/));
+    await waitFor(() => expect(star(/Set a spend limit/).hasAttribute("disabled")).toBe(false));
+    fireEvent.click(star(/Set a spend limit/));
     expect(screen.getByText("All stars lit")).toBeTruthy();
     expect(screen.getByText("All three stars lit. Your card is set up to build good credit.")).toBeTruthy();
     await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(2));
-    expect(fetchFn.mock.calls[1][0]).toBe(`/api/v1/applications/${ID}`);
-    expect(fetchFn.mock.calls[1][1]?.method).toBe("PATCH");
-    expect(JSON.parse(String(fetchFn.mock.calls[1][1]?.body))).toEqual({ autopayStatus: "on" });
+  });
 
-    // Tapping it again undoes it: autopay is saved as off.
-    await waitFor(() => expect(star(/Turn on autopay/).hasAttribute("disabled")).toBe(false));
-    fireEvent.click(star(/Turn on autopay/));
-    await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(3));
-    expect(JSON.parse(String(fetchFn.mock.calls[2][1]?.body))).toEqual({ autopayStatus: "off" });
-    await waitFor(() => expect(screen.getByText("2 of 3 lit")).toBeTruthy());
+  it("opens the card setup list from the autopay row instead of ticking it (US-10)", async () => {
+    const fetchFn = server([{ status: 200, body: plan() }]);
+    render(<HomeView state={state} initial="M" />);
+    await screen.findByText("0 of 3 lit");
+    expect(screen.queryByRole("checkbox", { name: /Turn on autopay/ })).toBeNull();
+    const row = screen.getByRole("link", { name: /^Turn on autopay/ });
+    expect(row.getAttribute("href")).toBe(`/applications/${ID}/setup`);
+    fireEvent.click(row);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
   });
 
   it("leaves the reminder star out when the step is done but no days are saved", async () => {
     server([{ status: 200, body: plan("payment_reminder") }]);
     render(<HomeView state={state} initial="M" detail={NO_DETAIL} />);
     expect(await screen.findByText("0 of 3 lit")).toBeTruthy();
-    expect(screen.getByRole("link", { name: /^Set a payment reminder/ }).textContent).not.toContain("done");
+    expect(screen.getByRole("link", { name: /^Choose your reminders/ }).textContent).not.toContain("done");
   });
 
   it("leaves the reminder star out while the due-date email or every email is off, from any card", async () => {
@@ -219,80 +220,61 @@ describe("Home approved card", () => {
 
   it("lights the autopay star when the card's autopay is on, and only then", async () => {
     server([{ status: 200, body: plan() }, { status: 200, body: plan() }]);
+    const autopay = () => screen.getByRole("link", { name: /^Turn on autopay/ });
     const { unmount } = render(<HomeView state={state} initial="M" detail={{ ...NO_DETAIL, autopayStatus: "on" }} />);
     // On from the first paint, before the plan steps load.
-    expect(star(/Turn on autopay/).getAttribute("aria-checked")).toBe("true");
+    expect(autopay().textContent).toContain("done");
     expect(await screen.findByText("1 of 3 lit")).toBeTruthy();
-    expect(star(/Turn on autopay/).getAttribute("aria-checked")).toBe("true");
     unmount();
     render(<HomeView state={state} initial="M" detail={{ ...NO_DETAIL, autopayStatus: "unknown" }} />);
     expect(await screen.findByText("0 of 3 lit")).toBeTruthy();
-    expect(star(/Turn on autopay/).getAttribute("aria-checked")).toBe("false");
+    expect(autopay().textContent).not.toContain("done");
   });
 
-  it("puts the autopay star back out and shows the API's message when the save fails", async () => {
+  it("puts the spend limit star back out and shows the API's message when the save fails", async () => {
     server([
       { status: 200, body: plan() },
       { status: 400, body: { error: { code: "invalid_request", message: "The update is invalid." } } },
     ]);
     render(<HomeView state={state} initial="M" />);
     await screen.findByText("0 of 3 lit");
-    fireEvent.click(star(/Turn on autopay/));
+    await waitFor(() => expect(star(/Set a spend limit/).hasAttribute("disabled")).toBe(false));
+    fireEvent.click(star(/Set a spend limit/));
     expect((await screen.findByRole("alert")).textContent).toContain("The update is invalid.");
-    expect(star(/Turn on autopay/).getAttribute("aria-checked")).toBe("false");
+    expect(star(/Set a spend limit/).getAttribute("aria-checked")).toBe("false");
     expect(screen.getByText("0 of 3 lit")).toBeTruthy();
   });
 
-  it("sends a student whose session ended while saving autopay to sign in", async () => {
+  it("sends a student whose session ended while saving a star to sign in", async () => {
     server([
-      { status: 200, body: plan() },
+      { status: 200, body: plan("spend_limit") },
       { status: 401, body: { error: { code: "unauthorized", message: "Sign in to continue." } } },
     ]);
-    render(<HomeView state={state} initial="M" detail={{ ...NO_DETAIL, autopayStatus: "on" }} />);
+    render(<HomeView state={state} initial="M" />);
     await screen.findByText("1 of 3 lit");
-    fireEvent.click(star(/Turn on autopay/));
+    await waitFor(() => expect(star(/Set a spend limit/).hasAttribute("disabled")).toBe(false));
+    fireEvent.click(star(/Set a spend limit/));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/sign-in?next=%2Fhome"));
-    expect(star(/Turn on autopay/).getAttribute("aria-checked")).toBe("true");
+    expect(star(/Set a spend limit/).getAttribute("aria-checked")).toBe("true");
   });
 
   it("keeps the dev gallery's sample stars on the page, with no requests", () => {
     const fetchFn = server([]);
     render(<HomeView state={state} initial="M" sampleStars={1} />);
     expect(screen.getByText("1 of 3 lit")).toBeTruthy();
-    fireEvent.click(star(/Turn on autopay/));
-    fireEvent.click(star(/Plan one purchase/));
-    expect(screen.getByText("1 of 3 lit")).toBeTruthy();
+    fireEvent.click(star(/Set a spend limit/));
+    expect(screen.getByText("2 of 3 lit")).toBeTruthy();
     expect(fetchFn).not.toHaveBeenCalled();
-  });
-
-  it("undoes only the star whose save failed, keeping another that saved meanwhile", async () => {
-    let failPurchase: (r: Response) => void = () => undefined;
-    const fetchFn = vi.fn<typeof fetch>(async (url, init) => {
-      if (!init?.method || init.method === "GET") return Response.json(plan(), { status: 200 });
-      if (String(url).endsWith("planned_purchase")) return new Promise<Response>((resolve) => { failPurchase = resolve; });
-      return Response.json({ ...approved, autopayStatus: "on" }, { status: 200 });
-    });
-    vi.stubGlobal("fetch", fetchFn);
-    render(<HomeView state={state} initial="M" />);
-    await screen.findByText("0 of 3 lit");
-    fireEvent.click(star(/Plan one purchase/));
-    expect(star(/Plan one purchase/).hasAttribute("disabled")).toBe(true);
-    fireEvent.click(star(/Turn on autopay/));
-    await waitFor(() => expect(star(/Turn on autopay/).getAttribute("aria-checked")).toBe("true"));
-    failPurchase(Response.json({ error: { code: "internal_error", message: "Something broke." } }, { status: 500 }));
-    expect((await screen.findByRole("alert")).textContent).toContain("Something broke.");
-    expect(star(/Plan one purchase/).getAttribute("aria-checked")).toBe("false");
-    expect(star(/Turn on autopay/).getAttribute("aria-checked")).toBe("true");
   });
 
   it("shows a failed load with a retry, and keeps the stars locked until it loads", async () => {
     server([
       { status: 503, body: { error: { code: "service_unavailable", message: "Try again in a moment." } } },
-      { status: 200, body: plan("planned_purchase") },
+      { status: 200, body: plan("spend_limit") },
     ]);
     render(<HomeView state={state} initial="M" />);
     expect((await screen.findByRole("alert")).textContent).toContain("Try again in a moment.");
-    expect(star(/Plan one purchase/).hasAttribute("disabled")).toBe(true);
+    expect(star(/Set a spend limit/).hasAttribute("disabled")).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByText("1 of 3 lit")).toBeTruthy();
   });
@@ -310,9 +292,10 @@ describe("Home approved card", () => {
     ]);
     render(<HomeView state={state} initial="M" />);
     await screen.findByText("0 of 3 lit");
-    fireEvent.click(star(/Turn on autopay/));
+    await waitFor(() => expect(star(/Set a spend limit/).hasAttribute("disabled")).toBe(false));
+    fireEvent.click(star(/Set a spend limit/));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/sign-in?next=%2Fhome"));
-    expect(star(/Turn on autopay/).getAttribute("aria-checked")).toBe("false");
+    expect(star(/Set a spend limit/).getAttribute("aria-checked")).toBe("false");
   });
 
   it("edits the limit in place and saves only the limit", async () => {

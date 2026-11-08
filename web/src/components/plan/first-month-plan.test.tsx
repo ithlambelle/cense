@@ -68,7 +68,7 @@ describe("FirstMonthPlan", () => {
   it("offers to try again when the plan is briefly unavailable (503)", async () => {
     server([
       { status: 503, body: { error: { code: "data_unavailable", message: "Your data is temporarily unavailable. Please try again." } } },
-      { status: 200, body: plan("planned_purchase") },
+      { status: 200, body: plan("spend_limit") },
     ]);
     render(<FirstMonthPlan application={application} />);
     expect(await screen.findByRole("alert")).toBeTruthy();
@@ -78,19 +78,19 @@ describe("FirstMonthPlan", () => {
 
   it("loads saved steps and lights or puts out each one", async () => {
     const fetchFn = server([
-      { status: 200, body: plan("planned_purchase") },
+      { status: 200, body: plan("spend_limit") },
       { status: 204, body: null },
-      { status: 201, body: saved("planned_purchase") },
+      { status: 201, body: saved("spend_limit") },
     ]);
     render(<FirstMonthPlan application={application} />);
     expect(await screen.findByText("1 of 3 done")).toBeTruthy();
     expect(fetchFn.mock.calls[0][0]).toBe(PLAN_URL);
 
-    const purchase = screen.getByRole("checkbox", { name: /Choose one planned purchase/ });
+    const purchase = screen.getByRole("checkbox", { name: /Set a spend limit/ });
     await waitFor(() => expect(purchase.hasAttribute("disabled")).toBe(false));
     fireEvent.click(purchase);
     await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(2));
-    expect(fetchFn.mock.calls[1][0]).toBe(`${PLAN_URL}/steps/planned_purchase`);
+    expect(fetchFn.mock.calls[1][0]).toBe(`${PLAN_URL}/steps/spend_limit`);
     expect(fetchFn.mock.calls[1][1]?.method).toBe("DELETE");
     await waitFor(() => expect(screen.getByText("0 of 3 done")).toBeTruthy());
 
@@ -171,7 +171,7 @@ describe("FirstMonthPlan", () => {
     ]);
     render(<FirstMonthPlan application={application} />);
     await screen.findByText("0 of 3 done");
-    const purchase = screen.getByRole("checkbox", { name: /Choose one planned purchase/ });
+    const purchase = screen.getByRole("checkbox", { name: /Set a spend limit/ });
     fireEvent.click(purchase);
     expect((await screen.findByRole("alert")).textContent).toContain("Something broke.");
     expect(purchase.getAttribute("aria-checked")).toBe("false");
@@ -181,13 +181,13 @@ describe("FirstMonthPlan", () => {
     let failPurchase: (r: Response) => void = () => undefined;
     const fetchFn = vi.fn<typeof fetch>(async (url, init) => {
       if (!init?.method || init.method === "GET") return Response.json(plan(), { status: 200 });
-      if (String(url).endsWith("planned_purchase")) return new Promise<Response>((resolve) => { failPurchase = resolve; });
+      if (String(url).endsWith("spend_limit")) return new Promise<Response>((resolve) => { failPurchase = resolve; });
       return Response.json({ ...application, autopayStatus: "on" }, { status: 200 });
     });
     vi.stubGlobal("fetch", fetchFn);
     render(<FirstMonthPlan application={application} />);
     await screen.findByText("0 of 3 done");
-    const purchase = screen.getByRole("checkbox", { name: /Choose one planned purchase/ });
+    const purchase = screen.getByRole("checkbox", { name: /Set a spend limit/ });
     const autopay = screen.getByRole("checkbox", { name: /Turn on autopay/ });
     fireEvent.click(purchase);
     expect(purchase.hasAttribute("disabled")).toBe(true);
@@ -202,7 +202,7 @@ describe("FirstMonthPlan", () => {
   it("never stays on loading when the load itself throws, and offers to try again", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     loadBug.throwOnce = true;
-    server([{ status: 200, body: plan("planned_purchase") }]);
+    server([{ status: 200, body: plan("spend_limit") }]);
     render(<FirstMonthPlan application={application} />);
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.getByText("We couldn’t load your saved plan. Your checks won’t be kept.")).toBeTruthy();

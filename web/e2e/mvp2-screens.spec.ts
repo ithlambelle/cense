@@ -109,26 +109,26 @@ test("the first-month plan saves a ticked action and autopay, opens the reminder
   await expect(page).toHaveURL(new RegExp(`/plan\\?application=${older}$`));
   await expect(page.getByRole("heading", { level: 1, name: "Your first-month plan" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: "Older Credit Union Card" })).toBeVisible();
-  const purchase = page.getByRole("checkbox", { name: /Choose one planned purchase/ });
+  const purchase = page.getByRole("checkbox", { name: /Set a spend limit/ });
   await expect(purchase).toBeEnabled();
   await expect(page.getByText("0 of 3 done")).toBeVisible();
   await checkA11y("first-month plan");
   await fitsEverySize(page, "first-month plan");
 
   // A tick is saved: it survives a reload.
-  const saved = page.waitForResponse((r) => r.url().includes("/steps/planned_purchase") && r.request().method() === "PUT");
+  const saved = page.waitForResponse((r) => r.url().includes("/steps/spend_limit") && r.request().method() === "PUT");
   await purchase.click();
   expect((await saved).status()).toBe(201);
   await expect(page.getByText("1 of 3 done")).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("checkbox", { name: /Choose one planned purchase/ })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByRole("checkbox", { name: /Set a spend limit/ })).toHaveAttribute("aria-checked", "true");
   await expect(page.getByText("1 of 3 done")).toBeVisible();
 
   // Unticking is saved too.
-  await page.getByRole("checkbox", { name: /Choose one planned purchase/ }).click();
+  await page.getByRole("checkbox", { name: /Set a spend limit/ }).click();
   await expect(page.getByText("0 of 3 done")).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("checkbox", { name: /Choose one planned purchase/ })).toHaveAttribute("aria-checked", "false");
+  await expect(page.getByRole("checkbox", { name: /Set a spend limit/ })).toHaveAttribute("aria-checked", "false");
 
   // Autopay is saved on the card, as on Home: it survives a reload, ticked and unticked.
   for (const on of [true, false]) {
