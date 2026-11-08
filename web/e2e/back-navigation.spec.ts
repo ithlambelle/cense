@@ -23,10 +23,10 @@ test("after saving a reapply reminder, Back does not reopen the reminder form", 
   await signUp(page, uniqueEmail("back-reminder"), async () => {});
   const id = await track(page, "rejected");
   await page.goto(`/denied/plan?application=${id}`);
-  await page.getByRole("link", { name: "Set a 6-month reminder" }).click();
+  await page.getByRole("link", { name: "Set a reminder" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Choose when to check in" })).toBeVisible();
   await page.getByRole("button", { name: "Save reapply reminder" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Your reminder is saved" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Reminder saved" })).toBeVisible();
   await page.goBack();
   await expect(page).toHaveURL(/\/denied\/plan\?application=/);
   await expect(page.getByRole("heading", { level: 1, name: "Choose when to check in" })).toHaveCount(0);
