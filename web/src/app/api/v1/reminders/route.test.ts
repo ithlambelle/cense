@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const auth = vi.hoisted(() => ({ authenticatedStudent: vi.fn() }));
 vi.mock("@/lib/api/auth", () => auth);
+const confirmation = vi.hoisted(() => ({ sendReapplyConfirmation: vi.fn(async () => "sent") }));
+vi.mock("@/lib/reminders/send-confirmation", () => confirmation);
 
 import { POST as ACTED } from "./[id]/acted/route";
 import { GET, POST } from "./route";
@@ -75,6 +77,24 @@ describe("POST /reminders (reapply)", () => {
     expect(response.status).toBe(201);
     expect(await response.json()).toMatchObject({ id: REM, kind: "reapply", remindOn: "2027-04-16" });
     expect(calls).toEqual([{ op: "create_reapply_reminder", args: { p_application_id: APP, p_remind_on: "2027-04-16" } }]);
+    // The confirmation email (F4) goes out for the saved reminder.
+    expect(confirmation.sendReapplyConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({ studentId: "student-1" }),
+      expect.objectContaining({ id: REM, applicationId: APP, remindOn: "2027-04-16" }),
+    );
+  });
+
+  it("still answers 201 when the confirmation email fails", async () => {
+    confirmation.sendReapplyConfirmation.mockResolvedValueOnce("failed");
+    student({ rpcResult: { data: row(), error: null } });
+    expect((await POST(post({ applicationId: APP, remindOn: "2027-04-16" }))).status).toBe(201);
+  });
+
+  it("sends no confirmation when the database refuses the reminder", async () => {
+    confirmation.sendReapplyConfirmation.mockClear();
+    student({ rpcResult: { data: null, error: { code: "22023", message: "day" } } });
+    await POST(post({ applicationId: APP, remindOn: "2026-10-24" }));
+    expect(confirmation.sendReapplyConfirmation).not.toHaveBeenCalled();
   });
 
   it("maps the database's refusals", async () => {

@@ -8,6 +8,7 @@ import {
   safeTimeZone,
   type ReminderRow,
 } from "@/lib/api/reminders";
+import { sendReapplyConfirmation } from "@/lib/reminders/send-confirmation";
 
 async function studentTimeZone(student: Student): Promise<string> {
   const { data } = await student.supabase.from("profiles").select("time_zone").eq("student_id", student.studentId).maybeSingle();
@@ -57,7 +58,11 @@ export async function POST(request: Request): Promise<Response> {
   if (error) return databaseError("reminder_create", error);
 
   const timeZone = await studentTimeZone(student);
-  return Response.json(reminderFromRow(data as ReminderRow, timeZone), {
+  const reminder = reminderFromRow(data as ReminderRow, timeZone);
+  // The confirmation email (F4). Awaited so it is sent before the function
+  // ends, but it never fails the save: the reminder is already set.
+  await sendReapplyConfirmation(student, reminder);
+  return Response.json(reminder, {
     status: 201,
     headers: { "Cache-Control": "no-store" },
   });
