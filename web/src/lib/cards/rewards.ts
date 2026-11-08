@@ -5,9 +5,12 @@
 // changes a saved recommendation's card data version.
 //
 // Every value is in the issuer's own terms, read on the issuer's page listed
-// as sourceUrl on verifiedAt. Change a value only after re-reading that page.
-// Where the page gives no number (Discover's quarterly maximum), there is no
-// number here either.
+// as sourceUrl on verifiedAt, including the rewards terms that page links to
+// (Capital One's "Rewards terms", Discover's rates and rewards pop-up, Bank of
+// America's Terms and Conditions). Those terms list rates the page body can
+// leave out, such as the Capital One Travel and Entertainment rates. Change a
+// value only after re-reading them. Where the issuer gives no number, there
+// is no number here either.
 //
 // How issuer categories map to the quiz's spending categories (earnsOn). The
 // rule is to never overstate: when a category is unclear, it is left out and
@@ -15,7 +18,10 @@
 // - dining, restaurants, takeout, food delivery, fast food -> food-and-dining
 // - supermarkets, grocery stores, wholesale clubs -> groceries, even with a
 //   superstore exclusion, but not when limited to a named store
-// - gas stations, EV charging, rideshare, transit -> gas-and-rides
+// - gas stations and EV charging, alone or with rideshare and transit ->
+//   gas-and-rides. Rideshare and transit without gas (U.S. Bank Cash+ ground
+//   transportation) are not mapped: for a student who drives, gas is most of
+//   that spending, and the rides rate would be counted on it.
 // - travel, airfare and hotels booked through any channel -> travel-home.
 //   Travel only through the issuer's own portal (Capital One Travel, Chase
 //   Travel, Citi Travel, the U.S. Bank Travel Center) earns on nothing here.
@@ -92,19 +98,24 @@ export type CardRewards = {
 // Most rates are earned on fixed categories with no cap or condition.
 const FIXED = { pickOne: false, rotating: false, requires: null, yearOneAmount: null, cap: null } as const;
 
-// The 13 recommended cards were read on CHECKED. Their structured fields
-// (earnsOn and the rest) were added on READ from the same values, without
-// re-reading the pages, except Chime's (see its entry). The 40 explore cards
-// were read on READ.
-const CHECKED = "2026-11-04";
+// All 53 cards were read on READ: the 40 explore cards for the first time, and
+// the 13 recommended cards (first read on 2026-11-04) again in an independent
+// audit of every field against the issuer's page and its rewards terms.
 const READ = "2026-11-07";
+
+// Capital One's rewards terms, worded the same on every card that earns them
+// (Capital One cards, and Discover cards since Capital One bought Discover).
+const C1_ENTERTAINMENT = "Capital One Entertainment purchases";
+const C1_ENTERTAINMENT_CONDITION = "Tickets purchased on the Capital One Entertainment ticketing platform only.";
+const C1_TRAVEL = "Hotels, vacation rentals and rental cars booked through Capital One Travel";
+const C1_TRAVEL_WITH_ACTIVITIES = "Hotels, vacation rentals, rental cars and activities booked through Capital One Travel";
 
 export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
   "capital-one-savor-students": {
     kind: "cash_back",
     rates: [
-      { amount: 8, unit: "percent", category: "Capital One Entertainment purchases", condition: null, earnsOn: [], ...FIXED },
-      { amount: 5, unit: "percent", category: "Hotels, vacation rentals and rental cars booked through Capital One Travel", condition: null, earnsOn: [], ...FIXED },
+      { amount: 8, unit: "percent", category: C1_ENTERTAINMENT, condition: C1_ENTERTAINMENT_CONDITION, earnsOn: [], ...FIXED },
+      { amount: 5, unit: "percent", category: C1_TRAVEL, condition: null, earnsOn: [], ...FIXED },
       {
         amount: 3,
         unit: "percent",
@@ -119,16 +130,21 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
     pointValueCents: null,
     image: "/cards/capital-one-savor-students.png",
     sourceUrl: "https://www.capitalone.com/credit-cards/savor-student/",
-    verifiedAt: CHECKED,
+    verifiedAt: READ,
   },
   "capital-one-quicksilver-students": {
     kind: "cash_back",
-    rates: [{ amount: 1.5, unit: "percent", category: "Every purchase", condition: null, earnsOn: "all", ...FIXED }],
+    // The two 5% rates are in the page's Rewards terms, not its body.
+    rates: [
+      { amount: 5, unit: "percent", category: C1_TRAVEL, condition: null, earnsOn: [], ...FIXED },
+      { amount: 5, unit: "percent", category: C1_ENTERTAINMENT, condition: C1_ENTERTAINMENT_CONDITION, earnsOn: [], ...FIXED },
+      { amount: 1.5, unit: "percent", category: "Every purchase", condition: null, earnsOn: "all", ...FIXED },
+    ],
     bonus: { summary: "$50 cash bonus once you spend $100 on purchases within 3 months from account opening.", valueCents: 5_000, spendCents: 10_000, withinDays: 90 },
     pointValueCents: null,
     image: "/cards/capital-one-quicksilver-students.png",
     sourceUrl: "https://www.capitalone.com/credit-cards/quicksilver-student/",
-    verifiedAt: CHECKED,
+    verifiedAt: READ,
   },
   "capital-one-platinum": {
     kind: "none",
@@ -137,7 +153,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
     pointValueCents: null,
     image: "/cards/capital-one-platinum.png",
     sourceUrl: "https://www.capitalone.com/credit-cards/platinum/",
-    verifiedAt: CHECKED,
+    verifiedAt: READ,
   },
   "capital-one-platinum-secured": {
     kind: "none",
@@ -146,7 +162,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
     pointValueCents: null,
     image: "/cards/capital-one-platinum-secured.png",
     sourceUrl: "https://www.capitalone.com/credit-cards/platinum-secured/",
-    verifiedAt: CHECKED,
+    verifiedAt: READ,
   },
   "discover-it-student-cash-back": {
     kind: "cash_back",
@@ -155,22 +171,31 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         amount: 5,
         unit: "percent",
         category: "Everyday purchases at places that change each quarter, like grocery stores, restaurants and gas stations",
-        condition: "Up to the quarterly maximum, when you activate each quarter.",
+        condition: "On up to $1,500 in purchases each quarter when you activate, then 1%.",
         earnsOn: [],
         ...FIXED,
         rotating: true,
+        // The card's terms say only "the quarterly maximum"; Discover's
+        // cashback calendar page states "up to $1,500 ... each quarter".
+        cap: { cents: 150_000, per: "quarter", sharedWith: null },
       },
+      { amount: 5, unit: "percent", category: C1_ENTERTAINMENT, condition: C1_ENTERTAINMENT_CONDITION, earnsOn: [], ...FIXED },
+      { amount: 5, unit: "percent", category: C1_TRAVEL_WITH_ACTIVITIES, condition: null, earnsOn: [], ...FIXED },
       { amount: 1, unit: "percent", category: "All other purchases", condition: null, earnsOn: "all", ...FIXED },
     ],
     bonus: { summary: "Cashback Match: Discover matches all the cash back you earn in your first year, dollar for dollar, with no limit.", valueCents: null, spendCents: null, withinDays: 365 },
     pointValueCents: null,
+    // Discover's own art (cardart-student-it-iridescent-shadow.png), without
+    // the decorative disc behind the card in the earlier image.
     image: "/cards/discover-it-student-cash-back.png",
     sourceUrl: "https://www.discover.com/credit-cards/student-credit-card/it-card/",
-    verifiedAt: CHECKED,
+    verifiedAt: READ,
   },
   "discover-it-student-chrome": {
     kind: "cash_back",
     rates: [
+      { amount: 5, unit: "percent", category: C1_ENTERTAINMENT, condition: C1_ENTERTAINMENT_CONDITION, earnsOn: [], ...FIXED },
+      { amount: 5, unit: "percent", category: C1_TRAVEL_WITH_ACTIVITIES, condition: null, earnsOn: [], ...FIXED },
       {
         amount: 2,
         unit: "percent",
@@ -186,7 +211,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
     pointValueCents: null,
     image: "/cards/discover-it-student-chrome.png",
     sourceUrl: "https://www.discover.com/credit-cards/student-credit-card/chrome-card/",
-    verifiedAt: CHECKED,
+    verifiedAt: READ,
   },
   "discover-it-secured-cash-back": {
     kind: "cash_back",
@@ -195,24 +220,28 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         amount: 5,
         unit: "percent",
         category: "Everyday purchases at places that change each quarter",
-        condition: "Up to the quarterly maximum, when you activate each quarter.",
+        condition: "On up to $1,500 in purchases each quarter when you activate, then 1%.",
         earnsOn: [],
         ...FIXED,
         rotating: true,
+        // As the student card: the $1,500 is on Discover's cashback calendar page.
+        cap: { cents: 150_000, per: "quarter", sharedWith: null },
       },
+      { amount: 5, unit: "percent", category: C1_ENTERTAINMENT, condition: C1_ENTERTAINMENT_CONDITION, earnsOn: [], ...FIXED },
+      // This card's terms leave activities out of the Capital One Travel rate.
+      { amount: 5, unit: "percent", category: C1_TRAVEL, condition: null, earnsOn: [], ...FIXED },
       { amount: 1, unit: "percent", category: "All other purchases", condition: null, earnsOn: "all", ...FIXED },
     ],
     bonus: { summary: "Cashback Match: Discover matches all the cash back you earn in your first year, dollar for dollar, with no limit.", valueCents: null, spendCents: null, withinDays: 365 },
     pointValueCents: null,
     image: "/cards/discover-it-secured-cash-back.png",
     sourceUrl: "https://www.discover.com/credit-cards/secured-credit-card/",
-    verifiedAt: CHECKED,
+    verifiedAt: READ,
   },
   "chime-card": {
     kind: "cash_back",
-    // The structure below was read on READ on chime.com/credit/chime-card/ and
-    // the Cash Rewards Program Addendum; the values are the ones read on
-    // CHECKED. The categories, as Chime words them: "Utilities and bills"
+    // Read on chime.com/credit/chime-card/ and its Cash Rewards Program
+    // Addendum. The categories, as Chime words them: "Utilities and bills"
     // (streaming services, utilities bills and more), "Groceries" (supermarkets
     // and grocery stores), "Gas" (at-the-pump purchases), "Travel and more"
     // (flights, hotels, car rentals, ride shares, restaurants). The member
@@ -251,12 +280,26 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
     // chime.com shows the card only in phone mockups or a three-card stack, and
     // Chime's press kit is hosted off chime.com (brandfolder.com).
     image: null,
-    sourceUrl: "https://www.chime.com/credit/credit-builder/",
-    verifiedAt: CHECKED,
+    // The Chime Card's own page. The Credit Builder page (the catalog's
+    // applyUrl) now says "Credit Builder is now Chime Card" and lists no
+    // categories.
+    sourceUrl: "https://www.chime.com/credit/chime-card/",
+    verifiedAt: READ,
   },
   "chase-freedom-rise": {
     kind: "cash_back",
-    rates: [{ amount: 1.5, unit: "percent", category: "Every purchase", condition: null, earnsOn: "all", ...FIXED }],
+    rates: [
+      {
+        amount: 2,
+        unit: "percent",
+        category: "Lyft products and services bought in the Lyft app",
+        condition: "2% total through 09/30/2027 on rideshare, bike and scooter rides, and Lyft subscriptions and memberships.",
+        // A named merchant, so not mapped.
+        earnsOn: [],
+        ...FIXED,
+      },
+      { amount: 1.5, unit: "percent", category: "Every purchase", condition: null, earnsOn: "all", ...FIXED },
+    ],
     bonus: {
       summary: "$25 statement credit when you sign up for automatic payments within the first 3 months and stay enrolled for at least 90 days.",
       valueCents: 2_500,
@@ -266,7 +309,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
     pointValueCents: null,
     image: "/cards/chase-freedom-rise.png",
     sourceUrl: "https://www.chase.com/personal/credit-cards/freedom/rise",
-    verifiedAt: CHECKED,
+    verifiedAt: READ,
   },
   "bofa-customized-cash-students": {
     kind: "cash_back",
@@ -274,8 +317,8 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
       {
         amount: 3,
         unit: "percent",
-        category: "A category you choose: gas and EV charging, online shopping, dining, travel, drug stores, or home improvement",
-        condition: "6% in the first year from account opening. 3% and 2% apply to the first $2,500 in combined choice category and grocery purchases each quarter, then 1%.",
+        category: "A category you choose: gas and EV charging stations; online shopping, including cable, internet, phone plans and streaming; dining; travel; drug stores and pharmacies; or home improvement and furnishings",
+        condition: "6% in the first year from account opening (3% plus a 3% first-year bonus). 3% and 2% apply to the first $2,500 in combined choice category and grocery store and wholesale club purchases each quarter, then 1%. You can change the category once each calendar month.",
         // drug stores and home improvement map to no quiz category
         earnsOn: ["gas-and-rides", "shopping-and-subscriptions", "food-and-dining", "travel-home"],
         pickOne: true,
@@ -288,13 +331,14 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         amount: 2,
         unit: "percent",
         category: "Grocery stores and wholesale clubs",
-        condition: "Within the same $2,500 quarterly maximum.",
+        condition: "Within the same $2,500 quarterly maximum as the choice category, then 1%. Excludes superstores.",
         earnsOn: ["groceries"],
         ...FIXED,
         cap: {
           cents: 250_000,
           per: "quarter",
-          sharedWith: "A category you choose: gas and EV charging, online shopping, dining, travel, drug stores, or home improvement",
+          sharedWith:
+            "A category you choose: gas and EV charging stations; online shopping, including cable, internet, phone plans and streaming; dining; travel; drug stores and pharmacies; or home improvement and furnishings",
         },
       },
       { amount: 1, unit: "percent", category: "All other purchases", condition: null, earnsOn: "all", ...FIXED },
@@ -305,33 +349,46 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
     // printed on its og:image.
     image: "/cards/bofa-customized-cash-students.png",
     sourceUrl: "https://www.bankofamerica.com/credit-cards/products/student-cash-back-credit-card/",
-    verifiedAt: CHECKED,
+    verifiedAt: READ,
   },
   "bofa-unlimited-cash-students": {
     kind: "cash_back",
     rates: [{ amount: 1.5, unit: "percent", category: "All purchases", condition: null, earnsOn: "all", ...FIXED }],
     bonus: { summary: "$250 online cash rewards bonus after $1,000 in purchases in the first 90 days (limited time).", valueCents: 25_000, spendCents: 100_000, withinDays: 90 },
     pointValueCents: null,
-    // Every rendition of the issuer's art has a "NEW OFFER" or "LIMITED-TIME
-    // OFFER" banner printed on it, which would outlive the offer.
+    // The art on this card's page has a "LIMITED-TIME OFFER" banner printed on
+    // it, which would outlive the offer. The only clean rendition of the design
+    // on bankofamerica.com is the Secured card's (bofa_cshcm_v_sky_250.png).
     image: null,
     sourceUrl: "https://www.bankofamerica.com/credit-cards/products/unlimited-cash-back-student-credit-card/",
-    verifiedAt: CHECKED,
+    verifiedAt: READ,
   },
   "bofa-travel-rewards-students": {
     kind: "points",
-    rates: [{ amount: 1.5, unit: "points_per_dollar", category: "Everyday purchases", condition: null, earnsOn: "all", ...FIXED }],
+    rates: [
+      {
+        amount: 3,
+        unit: "points_per_dollar",
+        category: "Purchases made through the Travel Center",
+        condition: "Bank of America's Travel Center only (1.5 bonus points plus the 1.5 base points). Stated in the card's Terms and Conditions.",
+        earnsOn: [], // issuer portal only
+        ...FIXED,
+      },
+      { amount: 1.5, unit: "points_per_dollar", category: "Everyday purchases", condition: null, earnsOn: "all", ...FIXED },
+    ],
     bonus: {
       summary: "25,000 online bonus points after $1,000 in purchases in the first 90 days, redeemable for a $250 statement credit toward travel and dining.",
       valueCents: 25_000,
       spendCents: 100_000,
       withinDays: 90,
     },
-    // 25,000 points for a $250 statement credit
+    // 25,000 points for a $250 statement credit. The Terms and Conditions: "Each
+    // point redeemed for a travel credit is worth $0.01"; for cash, $0.006.
     pointValueCents: 1,
+    // The Visa Signature rendition the page shows (8blm_trvsigcm_v_250x158.png).
     image: "/cards/bofa-travel-rewards-students.png",
     sourceUrl: "https://www.bankofamerica.com/credit-cards/products/student-rewards-credit-card/",
-    verifiedAt: CHECKED,
+    verifiedAt: READ,
   },
   "bofa-bankamericard-students": {
     kind: "none",
@@ -340,12 +397,12 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
     pointValueCents: null,
     image: "/cards/bofa-bankamericard-students.png",
     sourceUrl: "https://www.bankofamerica.com/credit-cards/products/low-interest-student-credit-card/",
-    verifiedAt: CHECKED,
+    verifiedAt: READ,
   },
 
-  // The explore cards, read on READ.
-  // Capital One group. Every value read on the issuer page in sourceUrl on 2026-11-07
-  // (static HTML via curl, footnotes for Savor and Quicksilver read in the rendered page).
+  // The explore cards.
+  // Capital One group. Every rate checked against the page and the Rewards
+  // terms it links to, read in the rendered page.
   "capital-one-ventureone": {
     kind: "points",
     rates: [
@@ -361,6 +418,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         yearOneAmount: null,
         cap: null,
       },
+      { amount: 5, unit: "points_per_dollar", category: C1_ENTERTAINMENT, condition: C1_ENTERTAINMENT_CONDITION, earnsOn: [], ...FIXED },
       {
         amount: 1.25,
         unit: "points_per_dollar",
@@ -380,8 +438,9 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
       spendCents: 50_000,
       withinDays: 90,
     },
-    // Not stated: the page only says "redeem your miles as a statement credit toward the cost"
-    // of a travel purchase, with no dollar value per mile.
+    // Not stated as a cash or statement credit value. The Rewards terms price
+    // miles only for travel booked through Capital One Travel (the cost times
+    // 100); a statement credit for past travel and cash state no rate.
     pointValueCents: null,
     image: "/cards/capital-one-ventureone.png",
     sourceUrl: "https://www.capitalone.com/credit-cards/ventureone/",
@@ -493,7 +552,10 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
   },
   "capital-one-quicksilver-secured": {
     kind: "cash_back",
+    // The two 5% rates are in the page's Rewards terms, not its body.
     rates: [
+      { amount: 5, unit: "percent", category: C1_TRAVEL_WITH_ACTIVITIES, condition: null, earnsOn: [], ...FIXED },
+      { amount: 5, unit: "percent", category: C1_ENTERTAINMENT, condition: C1_ENTERTAINMENT_CONDITION, earnsOn: [], ...FIXED },
       {
         amount: 1.5,
         unit: "percent",
@@ -515,7 +577,10 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
   },
   "capital-one-quicksilver-good-credit": {
     kind: "cash_back",
+    // The two 5% rates are in the page's Rewards terms, not its body.
     rates: [
+      { amount: 5, unit: "percent", category: C1_TRAVEL_WITH_ACTIVITIES, condition: null, earnsOn: [], ...FIXED },
+      { amount: 5, unit: "percent", category: C1_ENTERTAINMENT, condition: C1_ENTERTAINMENT_CONDITION, earnsOn: [], ...FIXED },
       {
         amount: 1.5,
         unit: "percent",
@@ -539,6 +604,8 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
   "capital-one-savor-good-credit": {
     kind: "cash_back",
     rates: [
+      { amount: 8, unit: "percent", category: C1_ENTERTAINMENT, condition: C1_ENTERTAINMENT_CONDITION, earnsOn: [], ...FIXED },
+      { amount: 5, unit: "percent", category: C1_TRAVEL, condition: null, earnsOn: [], ...FIXED },
       {
         amount: 3,
         unit: "percent",
@@ -586,6 +653,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         yearOneAmount: null,
         cap: null,
       },
+      { amount: 5, unit: "points_per_dollar", category: C1_ENTERTAINMENT, condition: C1_ENTERTAINMENT_CONDITION, earnsOn: [], ...FIXED },
       {
         amount: 1.25,
         unit: "points_per_dollar",
@@ -601,8 +669,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
     ],
     // "You'll earn the usual VentureOne travel rewards, but won't be eligible for new cardmember bonus miles or 0% intro APR"
     bonus: null,
-    // Not stated: the page only says "redeem your miles as a statement credit toward the cost"
-    // of a travel purchase, with no dollar value per mile.
+    // As VentureOne: no cash or statement credit value per mile is stated.
     pointValueCents: null,
     image: "/cards/capital-one-ventureone-good-credit.png",
     sourceUrl: "https://www.capitalone.com/credit-cards/ventureone-good-credit/",
@@ -616,15 +683,18 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         amount: 5,
         unit: "percent",
         category: "Everyday purchases at different places you shop each quarter",
-        // The page states no quarterly maximum amount, so cap is null.
-        condition: "Up to the quarterly maximum when you activate.",
+        condition: "On up to $1,500 in purchases each quarter when you activate, then 1%.",
         earnsOn: [],
         pickOne: false,
         rotating: true,
         requires: null,
         yearOneAmount: null,
-        cap: null,
+        // The card's terms say only "the quarterly maximum"; Discover's
+        // cashback calendar page states "up to $1,500 ... each quarter".
+        cap: { cents: 150_000, per: "quarter", sharedWith: null },
       },
+      { amount: 5, unit: "percent", category: C1_ENTERTAINMENT, condition: C1_ENTERTAINMENT_CONDITION, earnsOn: [], ...FIXED },
+      { amount: 5, unit: "percent", category: C1_TRAVEL_WITH_ACTIVITIES, condition: null, earnsOn: [], ...FIXED },
       { amount: 1, unit: "percent", category: "All other purchases", condition: null, earnsOn: "all", pickOne: false, rotating: false, requires: null, yearOneAmount: null, cap: null },
     ],
     // The page shows BOTH a $200 bonus (footnote 9: "available by applying through this page") and the
@@ -643,6 +713,8 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
   "discover-it-chrome": {
     kind: "cash_back",
     rates: [
+      { amount: 5, unit: "percent", category: C1_ENTERTAINMENT, condition: C1_ENTERTAINMENT_CONDITION, earnsOn: [], ...FIXED },
+      { amount: 5, unit: "percent", category: C1_TRAVEL_WITH_ACTIVITIES, condition: null, earnsOn: [], ...FIXED },
       {
         amount: 2,
         unit: "percent",
@@ -666,6 +738,8 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
   "discover-it-miles": {
     kind: "points",
     rates: [
+      { amount: 5, unit: "points_per_dollar", category: C1_TRAVEL, condition: null, earnsOn: [], ...FIXED },
+      { amount: 5, unit: "points_per_dollar", category: C1_ENTERTAINMENT, condition: C1_ENTERTAINMENT_CONDITION, earnsOn: [], ...FIXED },
       { amount: 1.5, unit: "points_per_dollar", category: "Travel purchases and all your everyday purchases", condition: null, earnsOn: "all", pickOne: false, rotating: false, requires: null, yearOneAmount: null, cap: null },
     ],
     bonus: { summary: "Discover matches all the miles you earn in your first year, mile for mile, with no limit.", valueCents: null, spendCents: null, withinDays: 365 },
@@ -691,9 +765,17 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         yearOneAmount: null,
         cap: null,
       },
+      {
+        amount: 2,
+        unit: "percent",
+        category: "Lyft products and services bought in the Lyft app",
+        condition: "2% total through 09/30/2027 on rideshare, bike and scooter rides, and Lyft subscriptions and memberships.",
+        // A named merchant, so not mapped.
+        earnsOn: [],
+        ...FIXED,
+      },
       { amount: 1.5, unit: "percent", category: "All other purchases", condition: null, earnsOn: "all", pickOne: false, rotating: false, requires: null, yearOneAmount: null, cap: null },
     ],
-    // Not listed as a rate: a partner promotion of 2% total on Lyft purchases in the Lyft app through 09/30/2027.
     bonus: { summary: "$200 bonus after you spend $500 on purchases in the first 3 months from account opening.", valueCents: 20_000, spendCents: 50_000, withinDays: 90 },
     // Cash back card: the page says "each $1 in Cash Back rewards earned is equal to 100 points", but kind is cash_back so null.
     pointValueCents: null,
@@ -729,9 +811,17 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         yearOneAmount: null,
         cap: null,
       },
+      {
+        amount: 2,
+        unit: "percent",
+        category: "Lyft products and services bought in the Lyft app",
+        condition: "2% total through 09/30/2027 on rideshare, bike and scooter rides, and Lyft subscriptions and memberships.",
+        // A named merchant, so not mapped.
+        earnsOn: [],
+        ...FIXED,
+      },
       { amount: 1, unit: "percent", category: "All other purchases", condition: null, earnsOn: "all", pickOne: false, rotating: false, requires: null, yearOneAmount: null, cap: null },
     ],
-    // Not listed as a rate: a partner promotion of 2% total on Lyft rides through September 30, 2027.
     bonus: { summary: "$200 bonus after you spend $500 on purchases in the first 3 months from account opening.", valueCents: 20_000, spendCents: 50_000, withinDays: 90 },
     pointValueCents: null,
     image: "/cards/chase-freedom-flex.png",
@@ -744,8 +834,10 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
     rates: [],
     bonus: null,
     pointValueCents: null,
-    // Chase's only card art for Slate Edge has a "NO ANNUAL FEE" banner printed across the corner.
-    image: null,
+    // The page's art has a "NO ANNUAL FEE" banner printed across the corner;
+    // this is the same design without it, from chase.com's card-art folder
+    // (unified-assets/card-art/chase-slate/slate-edge/card_slate_edge_V.png).
+    image: "/cards/chase-slate-edge.png",
     sourceUrl: "https://creditcards.chase.com/credit-building-credit-cards/slate/edge",
     verifiedAt: READ,
   },
@@ -755,8 +847,10 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
     rates: [],
     bonus: null,
     pointValueCents: null,
-    // Chase's only card art for Slate has a "NO ANNUAL FEE" banner printed across the corner.
-    image: null,
+    // The page's art has a "NO ANNUAL FEE" banner printed across the corner;
+    // this is the same design without it, from chase.com's card-art folder
+    // (unified-assets/card-art/chase-slate/slate/card_slate_V.png).
+    image: "/cards/chase-slate.png",
     sourceUrl: "https://creditcards.chase.com/balance-transfer-credit-cards/slate",
     verifiedAt: READ,
   },
@@ -793,7 +887,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         amount: 3,
         unit: "points_per_dollar",
         category: "Gas & EV Charging Stations and Select Transit",
-        condition: "Select transit includes taxis and car services, subways, commuter and passenger railways, buses, tolls and parking. No spending cap stated.",
+        condition: "Select transit includes car rentals, ferries, commuter and passenger railways, subways, taxis, limousines and car services, bridge and road tolls, parking, bus lines and RV rentals. No spending cap stated.",
         earnsOn: ["gas-and-rides"],
         pickOne: false,
         rotating: false,
@@ -951,7 +1045,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         amount: 3,
         unit: "percent",
         category: "U.S. online retail purchases",
-        condition: "On up to $6,000 per year in purchases (then 1%).",
+        condition: "On up to $6,000 per year in purchases (then 1%). Physical goods bought online from U.S. retailers; services such as streaming do not count.",
         earnsOn: ["shopping-and-subscriptions"],
         pickOne: false,
         rotating: false,
@@ -984,6 +1078,9 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         cap: null,
       },
     ],
+    // The $84 Disney Streaming Credit (up to $7 a month) and the Home Chef
+    // credit are statement credits, not rates or a sign-up bonus, so they are
+    // not modelled.
     bonus: {
       summary: "Earn $200 cash back after you spend $2,000 in purchases on your new Card in the first 6 months of Card Membership.",
       valueCents: 20_000,
@@ -1066,10 +1163,12 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
     verifiedAt: READ,
   },
 
-  // Group "bofa": 8 Bank of America cards + chime-card in the new shape.
-  // BofA pages render in JavaScript; all values read from the rendered pages in the
-  // built-in browser on 2026-11-07. Chime values read on the Chime Card page, the
-  // linked Cash Rewards Program Addendum and chime.com/credit/chime-card/.
+  // Bank of America explore cards. BofA pages render in JavaScript; all values
+  // read from the rendered pages and each card's Terms and Conditions on
+  // 2026-11-07. Not modelled on any BofA card: the BofA Rewards bonus (10% to
+  // 75% more on every purchase, by banking relationship tier). It is a
+  // multiplier tied to the student's deposits, not a card earn rate, and the
+  // card pages state no number for it, so the estimates leave it out.
   "bofa-customized-cash": {
     kind: "cash_back",
     rates: [
@@ -1089,7 +1188,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         amount: 2,
         unit: "percent",
         category: "Grocery stores and wholesale clubs",
-        condition: "Within the same $2,500 quarterly maximum as the choice category, then 1%.",
+        condition: "Within the same $2,500 quarterly maximum as the choice category, then 1%. Excludes superstores.",
         earnsOn: ["groceries"],
         pickOne: false,
         rotating: false,
@@ -1115,14 +1214,26 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
     rates: [{ amount: 1.5, unit: "percent", category: "All purchases", condition: null, earnsOn: "all", pickOne: false, rotating: false, requires: null, yearOneAmount: null, cap: null }],
     bonus: { summary: "$250 online cash rewards bonus after making at least $1,000 in purchases in the first 90 days of account opening (limited time).", valueCents: 25_000, spendCents: 100_000, withinDays: 90 },
     pointValueCents: null,
-    // Every rendition of this card's art on bankofamerica.com has a "LIMITED-TIME OFFER" or "NEW OFFER" banner printed on it.
+    // The art on this card's page has a "LIMITED-TIME OFFER" banner printed on
+    // it, which would outlive the offer. The only clean rendition of the design
+    // on bankofamerica.com is the Secured card's (bofa_cshcm_v_sky_250.png).
     image: null,
     sourceUrl: "https://www.bankofamerica.com/credit-cards/products/unlimited-cash-back-credit-card/",
     verifiedAt: READ,
   },
   "bofa-travel-rewards": {
     kind: "points",
-    rates: [{ amount: 1.5, unit: "points_per_dollar", category: "Everyday purchases", condition: null, earnsOn: "all", pickOne: false, rotating: false, requires: null, yearOneAmount: null, cap: null }],
+    rates: [
+      {
+        amount: 3,
+        unit: "points_per_dollar",
+        category: "Purchases made through the Travel Center",
+        condition: "Bank of America's Travel Center only (1.5 bonus points plus the 1.5 base points). Stated in the card's Terms and Conditions.",
+        earnsOn: [], // issuer portal only
+        ...FIXED,
+      },
+      { amount: 1.5, unit: "points_per_dollar", category: "Everyday purchases", condition: null, earnsOn: "all", pickOne: false, rotating: false, requires: null, yearOneAmount: null, cap: null },
+    ],
     bonus: {
       summary: "25,000 online bonus points after making at least $1,000 in purchases in the first 90 days of account opening, redeemable for a $250 statement credit toward travel and dining purchases.",
       valueCents: 25_000,
@@ -1130,6 +1241,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
       withinDays: 90,
     },
     // "25,000 online bonus points ... which can be redeemed for a $250 statement credit toward travel and dining purchases" -> 1 cent per point.
+    // The Terms and Conditions: "Each point redeemed for a travel credit is worth $0.01"; for cash, $0.006.
     pointValueCents: 1,
     image: "/cards/bofa-travel-rewards.png",
     sourceUrl: "https://www.bankofamerica.com/credit-cards/products/travel-rewards-credit-card/",
@@ -1175,7 +1287,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         amount: 2,
         unit: "percent",
         category: "Grocery stores and wholesale clubs",
-        condition: "Within the same $2,500 quarterly maximum as the choice category, then 1%.",
+        condition: "Within the same $2,500 quarterly maximum as the choice category, then 1%. Excludes superstores.",
         earnsOn: ["groceries"],
         pickOne: false,
         rotating: false,
@@ -1208,11 +1320,23 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
   },
   "bofa-travel-rewards-secured": {
     kind: "points",
-    rates: [{ amount: 1.5, unit: "points_per_dollar", category: "Everyday purchases", condition: null, earnsOn: "all", pickOne: false, rotating: false, requires: null, yearOneAmount: null, cap: null }],
+    rates: [
+      {
+        amount: 3,
+        unit: "points_per_dollar",
+        category: "Purchases made through the Travel Center",
+        condition: "Bank of America's Travel Center only (1.5 bonus points plus the 1.5 base points). Stated in the card's Terms and Conditions.",
+        earnsOn: [], // issuer portal only
+        ...FIXED,
+      },
+      { amount: 1.5, unit: "points_per_dollar", category: "Everyday purchases", condition: null, earnsOn: "all", pickOne: false, rotating: false, requires: null, yearOneAmount: null, cap: null },
+    ],
     // "Secured card products are not eligible for a new account bonus offer, like a bonus points offer"
     bonus: null,
-    // The page says points redeem "for a statement credit to pay for travel and dining purchases" but states no dollar value per point.
-    pointValueCents: null,
+    // The card's Terms and Conditions: "Each point redeemed for a travel credit
+    // is worth $0.01 (2,500 points = $25)", a statement credit toward travel and
+    // dining purchases, as on the other Travel Rewards cards. Cash is $0.006.
+    pointValueCents: 1,
     image: "/cards/bofa-travel-rewards-secured.png",
     sourceUrl: "https://www.bankofamerica.com/credit-cards/products/travel-rewards-secured-credit-card/",
     verifiedAt: READ,
@@ -1233,8 +1357,8 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
     kind: "points",
     rates: [
       { amount: 3, unit: "points_per_dollar", category: "Restaurants", condition: null, earnsOn: ["food-and-dining"], pickOne: false, rotating: false, requires: null, yearOneAmount: null, cap: null },
-      { amount: 3, unit: "points_per_dollar", category: "Travel", condition: "Airlines, hotels, car rentals, cruise lines, travel agencies and discount travel sites.", earnsOn: ["travel-home"], pickOne: false, rotating: false, requires: null, yearOneAmount: null, cap: null },
-      { amount: 3, unit: "points_per_dollar", category: "Gas and transit", condition: "Gas stations, EV charging stations, trains, taxis, ferries, tolls and parking.", earnsOn: ["gas-and-rides"], pickOne: false, rotating: false, requires: null, yearOneAmount: null, cap: null },
+      { amount: 3, unit: "points_per_dollar", category: "Travel", condition: "Airlines, hotels, timeshares, car rentals, cruise lines, travel agencies, discount travel sites and campgrounds.", earnsOn: ["travel-home"], pickOne: false, rotating: false, requires: null, yearOneAmount: null, cap: null },
+      { amount: 3, unit: "points_per_dollar", category: "Gas and transit", condition: "Gas stations, EV charging stations, passenger railways, taxis, limousines, ferries, tolls and parking.", earnsOn: ["gas-and-rides"], pickOne: false, rotating: false, requires: null, yearOneAmount: null, cap: null },
       { amount: 3, unit: "points_per_dollar", category: "Popular streaming services", condition: null, earnsOn: ["shopping-and-subscriptions"], pickOne: false, rotating: false, requires: null, yearOneAmount: null, cap: null },
       { amount: 3, unit: "points_per_dollar", category: "Phone plans", condition: null, earnsOn: [], pickOne: false, rotating: false, requires: null, yearOneAmount: null, cap: null },
       { amount: 1, unit: "points_per_dollar", category: "Other purchases", condition: null, earnsOn: "all", pickOne: false, rotating: false, requires: null, yearOneAmount: null, cap: null },
@@ -1280,7 +1404,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         amount: 4,
         unit: "points_per_dollar",
         category: "Dining, takeout and restaurant delivery",
-        condition: "On your first $2,000 each quarter.",
+        condition: "On your first $2,000 each quarter, then 1X. Includes restaurant, fast-food restaurant and bar purchases.",
         earnsOn: ["food-and-dining"],
         pickOne: false,
         rotating: false,
@@ -1329,8 +1453,8 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         amount: 5,
         unit: "percent",
         // Of these, only fast food and TV, internet and streaming map to quiz
-        // categories. Ground transportation is not defined on the page, so it
-        // is left unmapped.
+        // categories. Ground transportation is left unmapped, as on Cash+ (see
+        // that entry).
         category: "Two categories you choose each quarter: fast food, home utilities, TV, internet and streaming, department stores, cell phone, electronics stores, sporting goods, furniture stores, movie theaters, ground transportation, gyms/fitness centers, or select clothing stores",
         condition: "Choose two and activate them each quarter. On your first $2,000 in combined eligible purchases each quarter in the two categories, then 1%.",
         earnsOn: ["food-and-dining", "shopping-and-subscriptions"],
@@ -1356,7 +1480,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         amount: 2,
         unit: "percent",
         category: "One everyday category you choose each quarter: grocery stores and grocery delivery, restaurants, or gas stations and EV charging stations",
-        condition: "Choose and activate it each quarter. Grocery and gas exclude discount stores/supercenters and wholesale clubs. No limit on 2% earnings.",
+        condition: "Choose and activate it each quarter. Grocery excludes discount stores/supercenters and wholesale clubs; gas also excludes grocery stores/supermarkets. No limit on 2% earnings.",
         earnsOn: ["groceries", "food-and-dining", "gas-and-rides"],
         pickOne: true,
         rotating: false,
@@ -1385,8 +1509,12 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         category: "Two categories you choose each quarter: fast food, home utilities, TV, internet and streaming, department stores, cell phone, electronics stores, sporting goods, furniture stores, movie theaters, ground transportation, gyms/fitness centers or select clothing stores",
         condition: "Choose two and enroll each quarter, or everything earns 1%. On your first $2,000 in combined eligible purchases each quarter, then 1%. Category options may change each quarter.",
         // Only fast food and TV, internet and streaming map to quiz categories.
-        // Ground transportation is not defined on the page and leaves out gas,
-        // so it is not mapped to gas-and-rides. The student picks from the list.
+        // Ground transportation is defined on U.S. Bank's Cash+ rewards site
+        // (cashplus.usbank.com/cash-plus/samplemerchants) as bus and passenger
+        // rail tickets, taxi fares and car services like Uber and limousines,
+        // excluding parking and tolls. Gas stations are a separate 2% option.
+        // It covers rides but not gas, so it is not mapped to gas-and-rides:
+        // that would count 5% on gas, which this card pays at most 2% on.
         earnsOn: ["food-and-dining", "shopping-and-subscriptions"],
         pickOne: true,
         rotating: false,
@@ -1410,7 +1538,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         amount: 2,
         unit: "percent",
         category: "One everyday category you choose each quarter: grocery stores and grocery delivery, restaurants, or gas stations and EV charging stations",
-        condition: "Grocery and gas exclude discount stores/supercenters and wholesale clubs. No limit on 2% earnings.",
+        condition: "Choose and enroll in it each quarter. Grocery excludes discount stores/supercenters and wholesale clubs; gas also excludes grocery stores/supermarkets. No limit on 2% earnings.",
         earnsOn: ["groceries", "food-and-dining", "gas-and-rides"],
         pickOne: true,
         rotating: false,
@@ -1613,7 +1741,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         amount: 4,
         unit: "percent",
         category: "Every purchase, with a $100,000+ qualifying balance",
-        condition: "On your first $10,000 in eligible Net Purchases each billing cycle, then 2%. Education, gift cards, insurance, tax and bill-pay purchases earn 2%.",
+        condition: "On your first $10,000 in eligible Net Purchases each billing cycle, then 2%. Education, gift cards, insurance, tax, business-to-business and bill-pay purchases earn 2%.",
         earnsOn: ["food-and-dining", "groceries", "gas-and-rides", "travel-home", "shopping-and-subscriptions"],
         pickOne: false,
         rotating: false,
@@ -1626,7 +1754,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         amount: 3,
         unit: "percent",
         category: "Every purchase, with a $50,000 to $99,999 qualifying balance",
-        condition: "On your first $10,000 in eligible Net Purchases each billing cycle, then 2%. Education, gift cards, insurance, tax and bill-pay purchases earn 2%.",
+        condition: "On your first $10,000 in eligible Net Purchases each billing cycle, then 2%. Education, gift cards, insurance, tax, business-to-business and bill-pay purchases earn 2%.",
         earnsOn: ["food-and-dining", "groceries", "gas-and-rides", "travel-home", "shopping-and-subscriptions"],
         pickOne: false,
         rotating: false,
@@ -1638,7 +1766,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         amount: 2.5,
         unit: "percent",
         category: "Every purchase, with a $10,000 to $49,999 qualifying balance",
-        condition: "On your first $10,000 in eligible Net Purchases each billing cycle, then 2%. Education, gift cards, insurance, tax and bill-pay purchases earn 2%.",
+        condition: "On your first $10,000 in eligible Net Purchases each billing cycle, then 2%. Education, gift cards, insurance, tax, business-to-business and bill-pay purchases earn 2%.",
         earnsOn: ["food-and-dining", "groceries", "gas-and-rides", "travel-home", "shopping-and-subscriptions"],
         pickOne: false,
         rotating: false,
