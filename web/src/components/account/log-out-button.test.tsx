@@ -14,17 +14,24 @@ afterEach(() => {
 });
 
 describe("LogOutButton", () => {
-  it("forgets this tab’s Cense notes, keeps anything else, and goes to Welcome", async () => {
+  it("forgets this tab’s Cense notes, keeps anything else, and goes to the sign-in screen", async () => {
     vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => Response.json({ status: "signed_out" })));
     sessionStorage.setItem("cense:pending-apply", "sample-card");
     sessionStorage.setItem("cense:mock:plan", "{}");
     sessionStorage.setItem("other-site", "kept");
     render(<LogOutButton />);
     fireEvent.click(screen.getByRole("button", { name: "Log out" }));
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/sign-in"));
     expect(sessionStorage.getItem("cense:pending-apply")).toBeNull();
     expect(sessionStorage.getItem("cense:mock:plan")).toBeNull();
     expect(sessionStorage.getItem("other-site")).toBe("kept");
+  });
+
+  it("Switch account logs out the same way, to the sign-in screen", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => Response.json({ status: "signed_out" })));
+    render(<LogOutButton />);
+    fireEvent.click(screen.getByRole("button", { name: "Switch account" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/sign-in"));
   });
 
   it("keeps the notes and stays put when logging out fails", async () => {
