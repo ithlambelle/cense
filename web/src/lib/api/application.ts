@@ -34,12 +34,13 @@ export function applicationFromRow(row: ApplicationRow): Application {
 
 // The extra columns GET and PATCH /applications/{id} read.
 export const APPLICATION_DETAIL_FIELDS =
-  `${APPLICATION_FIELDS}, denial_reason, denial_reason_note, autopay_status, statement_closing_day, payment_due_day`;
+  `${APPLICATION_FIELDS}, denial_reason, denial_reason_note, autopay_status, autopay_payment_type, statement_closing_day, payment_due_day`;
 
 export type ApplicationDetailRow = ApplicationRow & {
   denial_reason: string | null;
   denial_reason_note: string | null;
   autopay_status: string;
+  autopay_payment_type: string | null;
   statement_closing_day: number | null;
   payment_due_day: number | null;
 };
@@ -50,6 +51,7 @@ export function applicationDetailFromRow(row: ApplicationDetailRow): Application
     denialReason: row.denial_reason,
     denialReasonNote: row.denial_reason_note,
     autopayStatus: row.autopay_status,
+    autopayPaymentType: row.autopay_payment_type,
     statementClosingDay: row.statement_closing_day,
     paymentDueDay: row.payment_due_day,
   });

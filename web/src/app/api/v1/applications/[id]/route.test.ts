@@ -11,7 +11,7 @@ type Result = { data: unknown; error: { code?: string; message: string } | null 
 const row = (over: Record<string, unknown> = {}) => ({
   id: ID, card_id: "discover-it-student", card_name: "Discover it Student Cash", status: "approved",
   credit_limit_cents: 50000, applied_at: null, updated_at: "2026-10-24T15:00:00+00:00",
-  denial_reason: null, denial_reason_note: null, autopay_status: "unknown",
+  denial_reason: null, denial_reason_note: null, autopay_status: "unknown", autopay_payment_type: null,
   statement_closing_day: null, payment_due_day: null, ...over,
 });
 
@@ -90,6 +90,28 @@ describe("PATCH /applications/{id}", () => {
     const same = student({ data: row({ autopay_status: "on" }), error: null });
     await patch({ autopayStatus: "on" });
     expect(same).toEqual([{ autopay_status: "on" }]);
+  });
+
+  it("saves the autopay payment type with autopay on (US-10)", async () => {
+    const writes = student({ data: row(), error: null });
+    const response = await patch({ autopayStatus: "on", autopayPaymentType: "minimum" });
+    expect(response.status).toBe(200);
+    expect(writes[0]).toMatchObject({ autopay_status: "on", autopay_payment_type: "minimum" });
+    expect(await response.json()).toMatchObject({ autopayStatus: "on", autopayPaymentType: "minimum" });
+    const on = student({ data: row({ autopay_status: "on" }), error: null });
+    expect((await patch({ autopayPaymentType: "fixed_amount" })).status).toBe(200);
+    expect(on).toEqual([{ autopay_payment_type: "fixed_amount" }]);
+  });
+
+  it("refuses a payment type without autopay on, and clears it when autopay goes off", async () => {
+    const none = student({ data: row({ autopay_status: "off" }), error: null });
+    expect((await patch({ autopayPaymentType: "minimum" })).status).toBe(400);
+    expect((await patch({ autopayStatus: "off", autopayPaymentType: "statement_balance" })).status).toBe(400);
+    expect(none).toEqual([]);
+    const off = student({ data: row({ autopay_status: "on", autopay_payment_type: "minimum" }), error: null });
+    expect((await patch({ autopayStatus: "off" })).status).toBe(200);
+    expect(off[0]).toMatchObject({ autopay_status: "off", autopay_payment_type: null });
+    expect((await patch({ autopayPaymentType: "nope" })).status).toBe(400);
   });
 
   it("saves a denial reason and a trimmed note on a denied card; an empty note is no note", async () => {

@@ -78,6 +78,18 @@ function changes(body: Update, current: ApplicationDetailRow): Record<string, un
     set.autopay_status = body.autopayStatus;
     if (body.autopayStatus !== current.autopay_status) set.autopay_updated_at = new Date().toISOString();
   }
+
+  // The payment type the student said (US-10) goes with autopay on: turning
+  // autopay off or unknown clears it, and a type needs autopay on.
+  const autopay = body.autopayStatus ?? current.autopay_status;
+  if (body.autopayPaymentType !== undefined && body.autopayPaymentType !== null && autopay !== "on") {
+    return "A payment type needs autopay on.";
+  }
+  if (autopay !== "on") {
+    if (current.autopay_payment_type !== null || body.autopayPaymentType !== undefined) set.autopay_payment_type = null;
+  } else if (body.autopayPaymentType !== undefined) {
+    set.autopay_payment_type = body.autopayPaymentType;
+  }
   return set;
 }
 
