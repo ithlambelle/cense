@@ -138,7 +138,8 @@ export type UpdateItem = {
   time: string;
   // The card's one action and Snooze, only while it can still be acted on.
   action: UpdateAction | null;
-  canSnooze: boolean;
+  // The snooze sheet's times for it; empty when there is no Snooze.
+  snooze: { choice: SnoozeChoice; label: string }[];
   // The follow-up's own screen (N3), opened from its title.
   href: string | null;
 };
@@ -249,7 +250,7 @@ export function updateItem(reminder: Reminder, card: ReminderCard, now: Date, ti
     sensitive,
     time: snoozeDay ? weekdayName(snoozeDay) : ago(surfaced, now),
     action: open && !snoozed ? base.action : null,
-    canSnooze: open && !snoozed && snoozeOptions(reminder, card, now, timeZone).length > 0,
+    snooze: open && !snoozed ? snoozeOptions(reminder, card, now, timeZone).map(({ choice, label }) => ({ choice, label })) : [],
     href: reminder.kind === "statement_closing" && reminder.followUpAt && open ? updatePath(reminder.id) : null,
   };
 }

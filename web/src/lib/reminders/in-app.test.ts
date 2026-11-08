@@ -76,7 +76,7 @@ describe("updateItem", () => {
   it("shows a sent statement reminder as new, with its pay-down target masked", () => {
     expect(updateItem(reminder(), card(), NOW, NY)).toMatchObject({
       group: "new", icon: "bell", title: "Statement closes Fri", description: "Pay down to $150 or less.",
-      sensitive: true, time: "Now", action: { type: "paid", label: "I paid it down" }, canSnooze: true, href: null,
+      sensitive: true, time: "Now", action: { type: "paid", label: "I paid it down" }, href: null,
     });
   });
 
@@ -88,16 +88,16 @@ describe("updateItem", () => {
   it("moves a snoozed one to Snoozed, then back to New when the snooze ends", () => {
     const snoozed = reminder({ snoozedUntil: "2026-11-10T14:00:00.000Z", readAt: "2026-11-08T22:40:00.000Z" });
     expect(updateItem(snoozed, card(), NOW, NY)).toMatchObject({
-      group: "snoozed", description: "Snoozed until Tue.", time: "Tue", action: null, canSnooze: false, sensitive: false,
+      group: "snoozed", description: "Snoozed until Tue.", time: "Tue", action: null, snooze: [], sensitive: false,
     });
     const later = new Date("2026-11-10T15:00:00Z");
-    expect(updateItem(snoozed, card(), later, NY)).toMatchObject({ group: "new", time: "1h", canSnooze: true });
+    expect(updateItem(snoozed, card(), later, NY)).toMatchObject({ group: "new", time: "1h", snooze: [{ choice: "tomorrow", label: "Tomorrow morning" }, { choice: "in_2_days", label: "In 2 days" }] });
   });
 
   it("is Earlier once read, marked paid, or past its date", () => {
     expect(updateItem(reminder({ readAt: NOW.toISOString() }), card(), NOW, NY)?.group).toBe("earlier");
     expect(updateItem(reminder({ actedAt: NOW.toISOString() }), card(), NOW, NY)).toMatchObject({
-      group: "earlier", description: "You marked it paid.", action: null, canSnooze: false,
+      group: "earlier", description: "You marked it paid.", action: null, snooze: [],
     });
     expect(updateItem(reminder({ occurrence: "2026-11-07" }), card(), NOW, NY)).toMatchObject({
       group: "earlier", title: "Statement closed Sat", action: null,
