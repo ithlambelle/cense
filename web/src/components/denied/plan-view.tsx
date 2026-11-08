@@ -210,9 +210,9 @@ export function DeniedPlanScreen({
         <AppHeader backHref={deniedPath("options", applicationId)} backLabel="Denial options" />
         <main className="stagger flex flex-1 flex-col gap-4 px-6 pt-3 pb-6">
           <TrackOnMount event="denial_plan_viewed" />
-          {/* Breaks after "steady" as the frame does, never at the hyphen. */}
+          {/* Breaks before "plan" as the frame does, never at the hyphen. */}
           <h1 className="font-heading text-h1 font-semibold text-navy">
-            A steady <span className="whitespace-nowrap">five-step plan</span>
+            A steady <span className="whitespace-nowrap">five-step</span> plan
           </h1>
           <p className="text-body-m text-indigo-black">One step at a time. No rush.</p>
           {line ? <p className={cn("text-body-s text-indigo-black/70", SENSITIVE)}>{line}</p> : null}
