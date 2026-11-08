@@ -61,7 +61,8 @@ test("student answers the spending question and sees three cards, each with why 
   const href = await second.getAttribute("href");
   await second.click();
   await expect(page).toHaveURL(new RegExp(`${href!.replace("?", "\\?")}$`));
-  await expect(page.getByRole("region", { name: "Rewards" }).getByText(/in your first year/)).toBeVisible();
+  // Anchored: a Discover card's Cashback Match bonus also says "in your first year".
+  await expect(page.getByRole("region", { name: "Rewards" }).getByText(/^About \$\d[\d,]* in your first year$/)).toBeVisible();
   await checkA11y("cards: detail with an estimate");
   await page.getByRole("link", { name: "Back to Your match" }).click();
   await expect(page).toHaveURL(/\/results$/);
