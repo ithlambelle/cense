@@ -17,11 +17,12 @@ export function addMonths(date: Date, months: number): Date {
   return target;
 }
 
-// "2027-04-16" -> "April 16, 2027". Null for anything that is not a real date.
-export function formatIsoDate(iso: string): string | null {
+// "2027-04-16" -> "April 16, 2027", or "Apr 16, 2027" with month "short". Null
+// for anything that is not a real date.
+export function formatIsoDate(iso: string, month: "long" | "short" = "long"): string | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   if (!match) return null;
   const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
   if (toIsoDate(date) !== iso) return null;
-  return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  return date.toLocaleDateString("en-US", { month, day: "numeric", year: "numeric" });
 }
