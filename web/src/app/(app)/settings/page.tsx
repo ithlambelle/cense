@@ -3,39 +3,26 @@ import type { Metadata } from "next";
 import { AccountView } from "@/components/account/account-view";
 import { plaidConfig } from "@/lib/plaid/config";
 import { linkStatus } from "@/lib/plaid/store";
-import { profileUpdates, type ProfileUpdates, type SentReminder } from "@/lib/profile-updates";
-import { reminderKindParam, ROUTES } from "@/lib/routes";
+import { profileUpdates, type ProfileUpdates } from "@/lib/profile-updates";
+import { loadInAppReminders } from "@/lib/reminders/in-app-data";
+import { ROUTES } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
 import type { Student } from "@/lib/api/auth";
-import { safeTimeZone } from "@/lib/api/reminders";
 import { loadStudentSnapshot } from "@/lib/student-data";
 
 export const metadata: Metadata = { title: "Your account | CENSE" };
 
-// The sent reminder emails, dated on the student's calendar. The section is
-// extra: a failed read leaves it out and the page still works.
+// The sent reminder emails, read as Updates reads them, so Profile's "new"
+// count matches that screen. The section is extra: a failed read leaves it
+// out and the page still works.
 async function loadUpdates(student: Student): Promise<ProfileUpdates | null> {
-  const [reminders, profile] = await Promise.all([
-    student.supabase
-      .from("reminders")
-      .select("kind, occurrence, sent_at")
-      .eq("student_id", student.studentId)
-      .not("sent_at", "is", null)
-      .order("sent_at", { ascending: false })
-      .limit(50),
-    student.supabase.from("profiles").select("time_zone").eq("student_id", student.studentId).maybeSingle(),
-  ]);
-  if (reminders.error) {
+  try {
+    const { reminders, cards, timeZone } = await loadInAppReminders(student);
+    return profileUpdates(reminders, cards, timeZone);
+  } catch {
     console.warn(JSON.stringify({ event: "profile_updates_read_failed" }));
     return null;
   }
-  const sent: SentReminder[] = [];
-  for (const row of reminders.data as { kind: string; occurrence: string; sent_at: string }[]) {
-    const kind = reminderKindParam(row.kind);
-    if (kind) sent.push({ kind, occurrence: row.occurrence, sentAt: new Date(row.sent_at).toISOString() });
-  }
-  // A failed time zone read falls back to New York, as the reminders do.
-  return profileUpdates(sent, safeTimeZone((profile.data as { time_zone: string | null } | null)?.time_zone));
 }
 
 export default async function AccountPage() {

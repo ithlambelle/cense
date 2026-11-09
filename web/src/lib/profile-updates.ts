@@ -1,16 +1,14 @@
-import { calendarDate } from "@/lib/api/reminders";
-import type { ReminderKind } from "@/lib/routes";
+import { calendarDate, type Reminder } from "@/lib/api/reminders";
+import { updateGroups, type ReminderCard } from "@/lib/reminders/in-app";
 
-// Profile's Updates section (Flow F, F5, Figma 477:2807): what exists today
-// is the reminder emails already sent, so those are the updates. No "new"
-// count yet: nothing records when the student saw them until the Updates
-// screen exists.
-
-export type SentReminder = { kind: ReminderKind; occurrence: string; sentAt: string };
+// Profile's Updates section (Flow F, F5, Figma 477:2807): the latest reminder
+// sent, and how many are new. "New" is the Updates screen's own New group
+// (sent, not read since it last came up, not dismissed, still open), so the
+// count always matches what Updates shows and "Mark all read" clears it.
 
 export type ProfileUpdate = { title: string; body: string; when: string };
 
-export type ProfileUpdates = { latest: ProfileUpdate | null };
+export type ProfileUpdates = { newCount: number; latest: ProfileUpdate | null };
 
 // "Nov 12" for a calendar date (YYYY-MM-DD), never shifted.
 function dayLabel(date: string): string {
@@ -18,7 +16,7 @@ function dayLabel(date: string): string {
 }
 
 // One line each, in the emails' words, shortened.
-function updateFor(reminder: SentReminder): Omit<ProfileUpdate, "when"> {
+function updateFor(reminder: Pick<Reminder, "kind" | "occurrence">): Omit<ProfileUpdate, "when"> {
   const day = dayLabel(reminder.occurrence);
   switch (reminder.kind) {
     case "statement_closing":
@@ -33,11 +31,20 @@ function updateFor(reminder: SentReminder): Omit<ProfileUpdate, "when"> {
 }
 
 // "Today" and the day an update was sent are on the student's calendar (their
-// time zone), as the reminders themselves are.
-export function profileUpdates(sent: SentReminder[], timeZone: string, now: Date = new Date()): ProfileUpdates {
-  const first = [...sent].sort((a, b) => b.sentAt.localeCompare(a.sentAt))[0];
-  if (!first) return { latest: null };
+// time zone), as the reminders themselves are. The latest is the newest sent
+// reminder that is not dismissed.
+export function profileUpdates(
+  reminders: Reminder[],
+  cards: Map<string, ReminderCard>,
+  timeZone: string,
+  now: Date = new Date(),
+): ProfileUpdates {
+  const newCount = updateGroups(reminders, cards, now, timeZone).new.length;
+  const first = reminders
+    .filter((reminder): reminder is Reminder & { sentAt: string } => reminder.sentAt !== null && reminder.dismissedAt === null)
+    .sort((a, b) => b.sentAt.localeCompare(a.sentAt))[0];
+  if (!first) return { newCount, latest: null };
   const sentDay = calendarDate(first.sentAt, timeZone);
   const today = calendarDate(now.toISOString(), timeZone);
-  return { latest: { ...updateFor(first), when: sentDay === today ? "Today" : dayLabel(sentDay) } };
+  return { newCount, latest: { ...updateFor(first), when: sentDay === today ? "Today" : dayLabel(sentDay) } };
 }
