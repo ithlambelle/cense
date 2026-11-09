@@ -1,3 +1,4 @@
+import { calendarDate } from "@/lib/api/reminders";
 import type { ReminderKind } from "@/lib/routes";
 
 // Profile's Updates section (Flow F, F5, Figma 477:2807): what exists today
@@ -31,10 +32,12 @@ function updateFor(reminder: SentReminder): Omit<ProfileUpdate, "when"> {
   }
 }
 
-export function profileUpdates(sent: SentReminder[], now: Date = new Date()): ProfileUpdates {
+// "Today" and the day an update was sent are on the student's calendar (their
+// time zone), as the reminders themselves are.
+export function profileUpdates(sent: SentReminder[], timeZone: string, now: Date = new Date()): ProfileUpdates {
   const first = [...sent].sort((a, b) => b.sentAt.localeCompare(a.sentAt))[0];
   if (!first) return { latest: null };
-  const sentDay = first.sentAt.slice(0, 10);
-  const today = now.toISOString().slice(0, 10);
+  const sentDay = calendarDate(first.sentAt, timeZone);
+  const today = calendarDate(now.toISOString(), timeZone);
   return { latest: { ...updateFor(first), when: sentDay === today ? "Today" : dayLabel(sentDay) } };
 }
