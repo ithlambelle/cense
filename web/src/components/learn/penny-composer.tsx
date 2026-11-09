@@ -70,7 +70,9 @@ export function PennyComposer({ variant, onAsk, busy = false }: Props) {
           // field, whose ring is drawn on the form, turns its own outline off.
           learn
             ? "h-11 bg-transparent text-body-m outline-none placeholder:text-indigo-black/70"
-            : "h-12 rounded-input bg-off-white px-4 text-body-s placeholder:text-indigo-black/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+            // 16px text: iPhones zoom the page into any field under 16px when
+            // it is tapped (Ben, 2026-11-09: the chat box zoomed in).
+            : "h-12 rounded-input bg-off-white px-4 text-body-m placeholder:text-indigo-black/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
         )}
       />
       <button
