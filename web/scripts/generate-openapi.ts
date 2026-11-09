@@ -24,6 +24,7 @@ import { planNameSchema, planProgressSchema, planStepNameSchema, planStepSchema 
 import {
   createReapplyReminderSchema,
   markRemindersReadSchema,
+  reminderConfirmationSchema,
   reminderSchema,
   snoozeReminderSchema,
   reminderSettingsSchema,
@@ -232,6 +233,18 @@ registry.registerPath({
 const reminderContract = registry.register("Reminder", reminderSchema);
 const reminderSettingsContract = registry.register("ReminderSettings", reminderSettingsSchema);
 const savedReapplyReminderContract = registry.register("SavedReapplyReminder", savedReapplyReminderSchema);
+const reminderConfirmationContract = registry.register("ReminderConfirmation", reminderConfirmationSchema);
+registry.registerPath({
+  method: "post", path: "/applications/{id}/reminder-confirmation", operationId: "confirmPaymentReminders",
+  summary: "Email the student a confirmation of an approved card's payment reminders",
+  description: "Called after the card's statement and due days are saved. The email names each reminder the daily job will send for the card and the card's next dates, read from the reminders the database scheduled, never a send day. One email per save of the days (keyed to the card's updated_at). confirmation is sent, skipped (no reminder on, emails off or not set up) or failed.",
+  security: [{ studentSession: [] }],
+  request: { params: z.object({ id: z.uuid() }) },
+  responses: {
+    200: ok(reminderConfirmationContract), 400: failure("Invalid application ID"), 404: failure("Application not found"),
+    409: failure("Card not approved, or its days are not saved"), ...protectedResponses,
+  },
+});
 registry.registerPath({
   method: "get", path: "/reminders", operationId: "listReminders",
   summary: "List the student's reminders, sent and upcoming",

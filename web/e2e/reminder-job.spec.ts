@@ -75,6 +75,9 @@ const pathOf = (link: string) => {
   return url.pathname + url.search;
 };
 
+// The payment reminders' confirmation, sent when the days are saved, not by the job.
+const isConfirmation = (sent: { subject: string }) => sent.subject === "Your payment reminders are set";
+
 test("the job emails a due reminder once, and the email's button, settings link and unsubscribe work", async ({ page, request }) => {
   const closes = newYorkDay(2);
   const { email, id } = await studentWithReminderDueToday(page, "job-sent");
@@ -86,6 +89,9 @@ test("the job emails a due reminder once, and the email's button, settings link 
   await page.getByRole("heading", { level: 1, name: "Never miss a payment" }).click();
   await page.getByRole("button", { name: "Save reminders" }).click();
   await expect(page).toHaveURL(/\/home$/);
+  // New days send their confirmation at once; the job's own emails are the rest.
+  await expect.poll(() => fake.emailsTo(email).filter(isConfirmation).length).toBe(1);
+  const jobEmails = () => fake.emailsTo(email).filter((sent) => !isConfirmation(sent));
 
   // A caller without the secret is refused and pings nothing.
   expect((await request.get("/api/v1/cron/reminders")).status()).toBe(401);
@@ -95,7 +101,7 @@ test("the job emails a due reminder once, and the email's button, settings link 
   expect(first.sent).toBeGreaterThanOrEqual(1);
   expect(first.failed).toBe(0);
 
-  const [sent, ...more] = fake.emailsTo(email);
+  const [sent, ...more] = jobEmails();
   expect(more).toEqual([]);
   expect(sent.subject).toBe(`Your statement closes ${closes.weekday}. Quick move?`);
   // The job's variables as CI and the README start the app with them.
@@ -120,7 +126,7 @@ test("the job emails a due reminder once, and the email's button, settings link 
 
   // The job again the same day (Ben's runbook: run it by hand): no second email.
   await runJob(request);
-  expect(fake.emailsTo(email)).toHaveLength(1);
+  expect(jobEmails()).toHaveLength(1);
 
   // Open Cense: Updates, with the mark dropped from the address and the same
   // reminder as a new card with its action (US-08, Flow B).

@@ -6,6 +6,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { axeChecker, blockExternalRequests, signUp, uniqueEmail } from "./helpers";
+import { startFakeEmailServer } from "./support/fake-email-server";
 
 const DISCOVER = { id: "discover-it-student-cash-back", name: "Discover it Student Cash Back" };
 const CHIME = { id: "chime-card", name: "Chime Card" };
@@ -285,3 +286,75 @@ for (const size of [
     await fitsAndClear(page, page.getByRole("link", { name: "Back to Home" }), "Back");
   });
 }
+
+test.describe("the payment reminders' confirmation email", () => {
+  let fake: Awaited<ReturnType<typeof startFakeEmailServer>> | null = null;
+
+  test.beforeAll(async () => {
+    // Only where the app was started with the email variables pointing at the
+    // stand-in (CI does; README): elsewhere the app skips the email.
+    if (process.env.CI || process.env.E2E_CRON_SECRET) fake = await startFakeEmailServer();
+  });
+
+  test.afterAll(async () => {
+    await fake?.close();
+  });
+
+  test("goes out when the days are set or changed, never for the same days again, with the dates the database scheduled", async ({ page }) => {
+    test.skip(!fake, "Start the app with the reminder job's variables (README).");
+    const email = uniqueEmail("reminder-confirm");
+    await signUp(page, email, async () => {});
+    // Applied, then approved: a card got through Cense, whose first due date
+    // comes after its first close and which gets one autopay check.
+    const created = await page.request.post("/api/v1/applications", {
+      data: { cardId: DISCOVER.id, cardName: DISCOVER.name, status: "applied", creditLimitCents: null },
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    const id = ((await created.json()) as { id: string }).id;
+    const approved = await page.request.patch(`/api/v1/applications/${id}`, { data: { status: "approved", creditLimitCents: 50000 } });
+    expect(approved.status(), await approved.text()).toBe(200);
+
+    await page.goto(`/applications/${id}/reminders`);
+    await page.getByLabel("Statement closes on day").fill("20");
+    await page.getByLabel("Payment due on day").fill("15");
+    await page.getByRole("heading", { level: 1, name: "Never miss a payment" }).click();
+    await page.getByRole("button", { name: "Save reminders" }).click();
+    // Sent, so the screen says so before it moves on.
+    await expect(page.getByRole("status").getByText("We emailed you a confirmation.")).toBeVisible();
+    await expect(page).toHaveURL(/\/home$/);
+    await expect.poll(() => fake!.emailsTo(email).length).toBe(1);
+    const sent = fake!.emailsTo(email)[0];
+    expect(sent.subject).toBe("Your payment reminders are set");
+    expect(sent.text).toContain(`your reminders for ${DISCOVER.name} are set`);
+    expect(sent.text).toContain("We'll email you before each statement closes");
+    expect(sent.text).toContain("We'll email you before each payment is due.");
+    // A card got through Cense: one autopay check after its first statement.
+    expect(sent.text).toContain("After your first statement, we'll email you to check autopay.");
+    expect(sent.text).toContain(`/applications/${id}/reminders`);
+    // The dates named are the ones the database scheduled. For a new card the
+    // first due date comes after the first close, whatever the calendar says.
+    const scheduled = (await (await page.request.get("/api/v1/reminders")).json()) as {
+      reminders: { kind: string; occurrence: string }[];
+    };
+    const named = (kind: string) => {
+      const date = scheduled.reminders.find((r) => r.kind === kind)!.occurrence;
+      return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
+    };
+    expect(sent.text).toContain(`Next due date: ${named("payment_due")}.`);
+    const close = scheduled.reminders.find((r) => r.kind === "statement_closing")!.occurrence;
+    // A close later than today is named; one today is left out.
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
+    if (close > today) expect(sent.text).toContain(`Next close: ${named("statement_closing")}.`);
+
+    // The same days again: saved, no second email.
+    await page.goto(`/applications/${id}/reminders`);
+    await saveDays(page, "20", "15");
+    expect(fake!.emailsTo(email)).toHaveLength(1);
+
+    // Changed days: a new confirmation.
+    await page.goto(`/applications/${id}/reminders`);
+    await saveDays(page, "12", "7");
+    await expect.poll(() => fake!.emailsTo(email).length).toBe(2);
+  });
+});
+

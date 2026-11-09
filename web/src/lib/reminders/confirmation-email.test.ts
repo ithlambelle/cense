@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildConfirmationEmail } from "./confirmation-email";
+import { buildConfirmationEmail, buildPaymentRemindersEmail } from "./confirmation-email";
 
 const APP = "00000000-0000-4000-8000-000000000001";
 const links = { appUrl: "https://censefinance.com", unsubscribeUrl: "https://censefinance.com/api/v1/reminders/unsubscribe?token=t" };
@@ -30,5 +30,53 @@ describe("buildConfirmationEmail (F4)", () => {
   it("uses no em dashes and no tildes", () => {
     expect(email.text).not.toMatch(/[—~]/);
     expect(email.html).not.toMatch(/[—~]/);
+  });
+});
+
+describe("buildPaymentRemindersEmail", () => {
+  const base = {
+    applicationId: APP, cardName: "Discover it Student Cash", today: "2026-11-09",
+    statementClosing: { next: "2026-11-20" }, paymentDue: { next: "2026-12-15" }, autopayCheck: false, autopayOn: false,
+  };
+
+  it("names the card, each reminder that is on and the card's next dates, never a send day", () => {
+    const email = buildPaymentRemindersEmail(base, links);
+    expect(email.subject).toBe("Your payment reminders are set");
+    expect(email.text).toContain("Hey, your reminders for Discover it Student Cash are set.");
+    expect(email.text).toContain("We'll email you before each statement closes, so you can pay it down. Next close: Nov 20.");
+    expect(email.text).toContain("We'll email you before each payment is due. Next due date: Dec 15.");
+    expect(email.text).not.toMatch(/today|3 days/);
+    expect(email.text).toContain(`Change your reminders: https://censefinance.com/applications/${APP}/reminders`);
+    expect(email.text).toContain("Unsubscribe: https://censefinance.com/api/v1/reminders/unsubscribe?token=t");
+    expect(email.text).not.toMatch(/[—~]/);
+    expect(email.html).not.toMatch(/[—~]/);
+  });
+
+  it("leaves out a next date that is today, or when none is scheduled, and keeps the line", () => {
+    for (const next of ["2026-11-09", null]) {
+      const email = buildPaymentRemindersEmail({ ...base, statementClosing: { next } }, links);
+      expect(email.text).toContain("We'll email you before each statement closes, so you can pay it down.\n");
+      expect(email.text).not.toContain("Next close");
+    }
+  });
+
+  it("says autopay covers due dates when it is on, names the autopay check, and never promises an email that is off", () => {
+    const autopay = buildPaymentRemindersEmail({ ...base, paymentDue: null, autopayOn: true }, links);
+    expect(autopay.text).toContain("Autopay is on, so we won't email you about due dates.");
+    expect(autopay.text).not.toContain("payment is due");
+
+    const newCard = buildPaymentRemindersEmail({ ...base, autopayCheck: true }, links);
+    expect(newCard.text).toContain("After your first statement, we'll email you to check autopay.");
+
+    const statementOff = buildPaymentRemindersEmail({ ...base, statementClosing: null }, links);
+    expect(statementOff.text).not.toContain("statement closes");
+    expect(statementOff.text).toContain("before each payment is due");
+  });
+
+  it("calls an unnamed card your card, and escapes a card name in the HTML", () => {
+    expect(buildPaymentRemindersEmail({ ...base, cardName: null }, links).text).toContain("your reminders for your card are set");
+    const html = buildPaymentRemindersEmail({ ...base, cardName: "<script>x</script> & Co" }, links).html;
+    expect(html).toContain("&lt;script&gt;x&lt;/script&gt; &amp; Co");
+    expect(html).not.toContain("<script>");
   });
 });

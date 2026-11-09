@@ -672,6 +672,18 @@ components:
         - createdAt
         - confirmation
       additionalProperties: false
+    ReminderConfirmation:
+      type: object
+      properties:
+        confirmation:
+          type: string
+          enum:
+            - sent
+            - skipped
+            - failed
+      required:
+        - confirmation
+      additionalProperties: false
     MarkRemindersRead:
       type: object
       properties:
@@ -2176,6 +2188,62 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "404":
           description: Application or plan step not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /applications/{id}/reminder-confirmation:
+    post:
+      operationId: confirmPaymentReminders
+      summary: Email the student a confirmation of an approved card's payment reminders
+      description: Called after the card's statement and due days are saved. The email
+        names each reminder the daily job will send for the card and the card's
+        next dates, read from the reminders the database scheduled, never a send
+        day. One email per save of the days (keyed to the card's updated_at).
+        confirmation is sent, skipped (no reminder on, emails off or not set up)
+        or failed.
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderConfirmation"
+        "400":
+          description: Invalid application ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Card not approved, or its days are not saved
           content:
             application/json:
               schema:

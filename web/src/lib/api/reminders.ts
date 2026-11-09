@@ -63,6 +63,10 @@ export const savedReapplyReminderSchema = z
   .strictObject({ ...reminderSchema.shape, confirmation: confirmationOutcomeSchema })
   .openapi("SavedReapplyReminder");
 export type ConfirmationOutcome = z.infer<typeof confirmationOutcomeSchema>;
+// The answer to confirming a card's payment reminders by email.
+export const reminderConfirmationSchema = z
+  .strictObject({ confirmation: confirmationOutcomeSchema })
+  .openapi("ReminderConfirmation");
 
 export const REMINDER_FIELDS =
   "id, card_application_id, kind, occurrence, due_at, sent_at, acted_at, read_at, snoozed_until, dismissed_at, follow_up_at, created_at";
