@@ -699,6 +699,9 @@ export interface components {
             denialReasonNote: string | null;
             /** @enum {string} */
             autopayStatus: "on" | "off" | "unknown";
+            /** @enum {string|null} */
+            autopayPaymentType: "statement_balance" | "minimum" | "fixed_amount" | null;
+            spendLimitCents: number | null;
             statementClosingDay: number | null;
             paymentDueDay: number | null;
         };
@@ -714,7 +717,7 @@ export interface components {
         };
         PlanStep: {
             /** @enum {string} */
-            step: "planned_purchase" | "payment_reminder" | "read_letter" | "check_reports" | "pause_applications" | "build_credit" | "reapply";
+            step: "planned_purchase" | "spend_limit" | "payment_reminder" | "read_letter" | "check_reports" | "pause_applications" | "build_credit" | "reapply";
             /** Format: date-time */
             completedAt: string;
         };
@@ -1952,6 +1955,9 @@ export interface operations {
                     denialReasonNote?: string | null;
                     /** @enum {string} */
                     autopayStatus?: "on" | "off" | "unknown";
+                    /** @enum {string|null} */
+                    autopayPaymentType?: "statement_balance" | "minimum" | "fixed_amount" | null;
+                    spendLimitCents?: number | null;
                     statementClosingDay?: number | null;
                     paymentDueDay?: number | null;
                 };
@@ -2080,7 +2086,7 @@ export interface operations {
             path: {
                 id: string;
                 plan: "first_month" | "denial";
-                step: "planned_purchase" | "payment_reminder" | "read_letter" | "check_reports" | "pause_applications" | "build_credit" | "reapply";
+                step: "planned_purchase" | "spend_limit" | "payment_reminder" | "read_letter" | "check_reports" | "pause_applications" | "build_credit" | "reapply";
             };
             cookie?: never;
         };
@@ -2158,7 +2164,7 @@ export interface operations {
             path: {
                 id: string;
                 plan: "first_month" | "denial";
-                step: "planned_purchase" | "payment_reminder" | "read_letter" | "check_reports" | "pause_applications" | "build_credit" | "reapply";
+                step: "planned_purchase" | "spend_limit" | "payment_reminder" | "read_letter" | "check_reports" | "pause_applications" | "build_credit" | "reapply";
             };
             cookie?: never;
         };

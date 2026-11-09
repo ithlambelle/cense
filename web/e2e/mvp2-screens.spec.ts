@@ -97,7 +97,7 @@ test("a student adds a card they already have, and it stays on Home", async ({ p
   await visitor.context().close();
 });
 
-test("the first-month plan saves a ticked action and autopay, opens the reminder screen, and shows only the student's own card", async ({ page, browser }) => {
+test("the first-month plan saves autopay, opens the spend limit and reminder screens, and shows only the student's own card", async ({ page, browser }) => {
   const checkA11y = axeChecker(page);
   await signUp(page, uniqueEmail("plan"), checkA11y);
   // Two cards added by name: Home leads with the newer one and lists the other,
@@ -109,26 +109,18 @@ test("the first-month plan saves a ticked action and autopay, opens the reminder
   await expect(page).toHaveURL(new RegExp(`/plan\\?application=${older}$`));
   await expect(page.getByRole("heading", { level: 1, name: "Your first-month plan" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: "Older Credit Union Card" })).toBeVisible();
-  const purchase = page.getByRole("checkbox", { name: /Choose one planned purchase/ });
-  await expect(purchase).toBeEnabled();
+  await expect(page.getByRole("checkbox", { name: /Turn on autopay/ })).toBeEnabled();
   await expect(page.getByText("0 of 3 done")).toBeVisible();
   await checkA11y("first-month plan");
   await fitsEverySize(page, "first-month plan");
 
-  // A tick is saved: it survives a reload.
-  const saved = page.waitForResponse((r) => r.url().includes("/steps/planned_purchase") && r.request().method() === "PUT");
-  await purchase.click();
-  expect((await saved).status()).toBe(201);
-  await expect(page.getByText("1 of 3 done")).toBeVisible();
-  await page.reload();
-  await expect(page.getByRole("checkbox", { name: /Choose one planned purchase/ })).toHaveAttribute("aria-checked", "true");
-  await expect(page.getByText("1 of 3 done")).toBeVisible();
-
-  // Unticking is saved too.
-  await page.getByRole("checkbox", { name: /Choose one planned purchase/ }).click();
-  await expect(page.getByText("0 of 3 done")).toBeVisible();
-  await page.reload();
-  await expect(page.getByRole("checkbox", { name: /Choose one planned purchase/ })).toHaveAttribute("aria-checked", "false");
+  // The spend limit opens its screens rather than ticking (no limit saved
+  // without one behind it); with no credit limit, it asks for that first.
+  await expect(page.getByRole("checkbox", { name: /Set a spend limit/ })).toHaveCount(0);
+  await page.getByRole("link", { name: /^Set a spend limit/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/applications/${older}/setup/spend-limit$`));
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`/plan\\?application=${older}$`));
 
   // Autopay is saved on the card, as on Home: it survives a reload, ticked and unticked.
   for (const on of [true, false]) {

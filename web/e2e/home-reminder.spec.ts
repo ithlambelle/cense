@@ -1,4 +1,4 @@
-// Home's "Set a payment reminder" row, as a real signed-in student on the
+// Home's "Choose your reminders" row, as a real signed-in student on the
 // local stack. On main the row was a star the student could tick without
 // setting any reminder. It now opens the reminder screen (US-08), which lights
 // the star only once the days and reminders are saved; a lit row still opens
@@ -9,9 +9,9 @@ import { axeChecker, blockExternalRequests, signUp, uniqueEmail } from "./helper
 
 const DISCOVER = { id: "discover-it-student-cash-back", name: "Discover it Student Cash Back" };
 const CHIME = { id: "chime-card", name: "Chime Card" };
-const REMINDER = /^Set a payment reminder/;
+const REMINDER = /^Choose your reminders/;
 // A link has no checked state: a lit row says "done" to screen readers.
-const REMINDER_DONE = /^Set a payment reminder\s*, done/;
+const REMINDER_DONE = /^Choose your reminders\s*, done/;
 const DAY_ERROR = "Enter a day from 1 to 31.";
 
 test.beforeEach(async ({ context }) => {
@@ -31,11 +31,12 @@ async function approvedStudent(page: Page, journey: string) {
   const checkA11y = axeChecker(page);
   await signUp(page, uniqueEmail(journey), checkA11y);
   const id = await track(page, DISCOVER);
+  const stars = page.waitForResponse((r) => r.url().endsWith(`/applications/${id}/plans/first_month`));
   await page.goto("/home");
   const card = page.getByRole("region", { name: DISCOVER.name });
   await expect(card.getByText("$500")).toBeVisible();
-  // The saved stars have loaded: the tick rows wait for them.
-  await expect(card.getByRole("checkbox", { name: /Turn on autopay/ })).toBeEnabled();
+  // The saved stars have loaded.
+  expect((await stars).ok()).toBe(true);
   return { id, card, checkA11y };
 }
 
@@ -83,12 +84,10 @@ async function fitsAndClear(page: Page, target: Locator, what: string, minHeight
 test("the reminder row opens the reminder screen instead of ticking, and saving lights its star", async ({ page }) => {
   const { id, card, checkA11y } = await approvedStudent(page, "reminder-row");
 
-  // It is a link, not a checkbox; the other two rows still tick.
-  await expect(card.getByRole("checkbox", { name: REMINDER })).toHaveCount(0);
+  // It is a link, not a checkbox, like the other two stars.
+  await expect(card.getByRole("checkbox")).toHaveCount(0);
   const row = card.getByRole("link", { name: REMINDER });
   await expect(row).toHaveAttribute("href", `/applications/${id}/reminders`);
-  await expect(card.getByRole("checkbox", { name: /Turn on autopay/ })).toHaveAttribute("aria-checked", "false");
-  await expect(card.getByRole("checkbox", { name: /Plan one purchase/ })).toHaveAttribute("aria-checked", "false");
   await expect(card.getByText("0 of 3 lit")).toBeVisible();
 
   // Tapping it saves nothing and opens the screen.
@@ -142,14 +141,16 @@ test("the reminder row opens the reminder screen instead of ticking, and saving 
   await expect(page).toHaveURL(/\/home$/);
   await expect(card.getByRole("link", { name: REMINDER_DONE })).toBeVisible();
 
-  // The other two still tick; with the reminder set, all three are lit.
-  for (const title of [/Turn on autopay/, /Plan one purchase/]) {
-    const star = card.getByRole("checkbox", { name: title });
-    await expect(star).toBeEnabled();
-    const write = page.waitForResponse((r) => r.url().includes("/api/v1/") && r.request().method() !== "GET");
-    await star.click();
-    expect((await write).ok()).toBe(true);
-  }
+  // With autopay on (saved through card setup, card-setup.spec.ts), the
+  // reminder set and a spend limit saved (spend-limit.spec.ts), all three are lit.
+  const autopay = await page.request.patch(`/api/v1/applications/${id}`, { data: { autopayStatus: "on", autopayPaymentType: "statement_balance" } });
+  expect(autopay.ok()).toBe(true);
+  await page.reload();
+  await card.getByRole("link", { name: /^Set a spend limit/ }).click();
+  const write = page.waitForResponse((r) => r.url().includes("/steps/spend_limit") && r.request().method() === "PUT");
+  await page.getByRole("button", { name: "Use $150" }).click();
+  expect((await write).ok()).toBe(true);
+  await expect(page).toHaveURL(/\/home$/);
   await expect(card.getByText("All three stars lit.", { exact: false })).toBeVisible();
   await page.reload();
   await expect(card.getByText("All stars lit")).toBeVisible();
@@ -215,8 +216,7 @@ test("the row opens the screen while the saved stars are still loading", async (
   });
   await page.goto("/home");
   const card = page.getByRole("region", { name: DISCOVER.name });
-  // Still loading: the tick rows wait, the reminder row does not.
-  await expect(card.getByRole("checkbox", { name: /Turn on autopay/ })).toBeDisabled();
+  // Still loading: the rows are links, so they do not wait.
   await card.getByRole("link", { name: REMINDER }).click();
   await expect(page).toHaveURL(remindersUrl(id));
   await expect(page.getByRole("heading", { level: 1, name: "Never miss a payment" })).toBeVisible();

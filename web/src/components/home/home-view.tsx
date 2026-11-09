@@ -188,6 +188,8 @@ function HomeContent({
         <ApprovedCard
           application={primary}
           autopayOn={detail?.autopayStatus === "on"}
+          autopayPaymentType={detail?.autopayPaymentType ?? null}
+          spendLimitSet={detail?.spendLimitCents != null}
           paymentReminderOn={paymentReminderOn(detail, reminderSettings)}
           celebrate={celebrate}
           sampleStars={sampleStars}

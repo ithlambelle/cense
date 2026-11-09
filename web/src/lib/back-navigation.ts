@@ -64,11 +64,25 @@ const SCREEN_NAMES: Record<string, string> = {
   [ROUTES.safeToSpend]: "Safe to spend",
 };
 
+// One approved card's setup screens (US-10), by the names their own back
+// controls use for them ("Back to Card setup", "Back to Your suggestion").
+const SETUP_SCREEN_NAMES: Record<string, string> = {
+  "": "Card setup",
+  "/autopay": "Autopay steps",
+  "/autopay/confirm": "Did you turn on autopay?",
+  "/autopay/on": "Autopay is on",
+  "/spend-limit": "Your credit limit",
+  "/spend-limit/suggestion": "Your suggestion",
+  "/spend-limit/pick": "Pick your limit",
+};
+
 export function screenName(url: URL): string | null {
   const known = SCREEN_NAMES[url.pathname];
   if (known) return known;
   if (/^\/cards\/[^/]+$/.test(url.pathname)) return "Card details";
   if (/^\/applications\/[^/]+$/.test(url.pathname)) return "Mark result";
+  const setup = /^\/applications\/[^/]+\/setup((?:\/[a-z-]+)*)$/.exec(url.pathname)?.[1];
+  if (setup !== undefined && SETUP_SCREEN_NAMES[setup]) return SETUP_SCREEN_NAMES[setup];
   // A Learn topic by its slug's words, as its heading says ("student-loans" is
   // "Student loans"), without loading every answer into each screen.
   const topic = /^\/learn\/([a-z-]+)$/.exec(url.pathname)?.[1];

@@ -8,7 +8,7 @@ extendZodWithOpenApi(z);
 // plan reads the application's autopayStatus.
 
 export const PLAN_STEPS = {
-  first_month: ["planned_purchase", "payment_reminder"],
+  first_month: ["planned_purchase", "spend_limit", "payment_reminder"],
   denial: ["read_letter", "check_reports", "pause_applications", "build_credit", "reapply"],
 } as const;
 

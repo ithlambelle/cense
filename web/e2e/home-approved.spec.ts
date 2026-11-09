@@ -3,15 +3,16 @@
 // link is followed. Written after three bugs reached production that only
 // show up this way (Oct 24): the autopay star did not stay lit, "Edit" on the
 // credit limit opened the status picker, and the card no longer opened its
-// details.
+// page. The card's title row now opens card setup (US-10, Flow C).
 import { expect, test, type Page } from "@playwright/test";
 
 import { axeChecker, blockExternalRequests, signUp, uniqueEmail } from "./helpers";
 
 const DISCOVER = { id: "discover-it-student-cash-back", name: "Discover it Student Cash Back" };
-// The stars ticked on Home. "Set a payment reminder" opens the reminder screen
-// instead (home-reminder.spec.ts).
-const STARS = ["Turn on autopay", "Plan one purchase"] as const;
+// Home's three stars. None ticks on Home: "Turn on autopay" opens card setup
+// (card-setup.spec.ts), "Set a spend limit" its screens (spend-limit.spec.ts)
+// and "Choose your reminders" the reminder screen (home-reminder.spec.ts).
+const STARS = ["Turn on autopay", "Set a spend limit", "Choose your reminders"] as const;
 
 test.beforeEach(async ({ context }) => {
   await blockExternalRequests(context);
@@ -36,33 +37,14 @@ function nextWrite(page: Page) {
   return page.waitForResponse((r) => r.url().includes("/api/v1/") && r.request().method() !== "GET", { timeout: 10_000 });
 }
 
-test("approved student: every star ticked on Home stays lit after a reload, and unlights", async ({ page }) => {
+test("approved student: each star opens the screen where it is done", async ({ page }) => {
   const { card, checkA11y } = await approvedStudent(page, "stars");
   await checkA11y("home: approved");
-
+  await expect(card.getByRole("checkbox")).toHaveCount(0);
   for (const title of STARS) {
-    const star = card.getByRole("checkbox", { name: new RegExp(title) });
-    await expect(star).toBeEnabled();
-    await expect(star).toHaveAttribute("aria-checked", "false");
-    const write = nextWrite(page);
-    await star.click();
-    expect((await write).ok(), `${title} save`).toBe(true);
-    await expect(star).toHaveAttribute("aria-checked", "true");
+    await expect(card.getByRole("link", { name: new RegExp(`^${title}`) }), title).toBeVisible();
   }
-  await expect(card.getByText("2 of 3 lit")).toBeVisible();
-
-  await page.reload();
-  for (const title of STARS) {
-    await expect(card.getByRole("checkbox", { name: new RegExp(title) }), `${title} after reload`).toHaveAttribute("aria-checked", "true");
-  }
-
-  // Unlighting saves too.
-  const autopay = card.getByRole("checkbox", { name: /Turn on autopay/ });
-  const write = nextWrite(page);
-  await autopay.click();
-  expect((await write).ok()).toBe(true);
-  await page.reload();
-  await expect(card.getByRole("checkbox", { name: /Turn on autopay/ })).toHaveAttribute("aria-checked", "false");
+  await expect(card.getByText("0 of 3 lit")).toBeVisible();
 });
 
 test("approved student: Edit changes the credit limit only, and it is saved", async ({ page }) => {
@@ -70,7 +52,7 @@ test("approved student: Edit changes the credit limit only, and it is saved", as
 
   await card.getByRole("button", { name: "Edit credit limit" }).click();
   await expect(page).toHaveURL(/\/home$/);
-  const field = card.getByLabel("Credit limit");
+  const field = card.getByRole("textbox", { name: "Credit limit", exact: true });
   await expect(field).toBeFocused();
   await expect(field).toHaveValue("500");
   await checkA11y("home: editing limit");
@@ -83,11 +65,11 @@ test("approved student: Edit changes the credit limit only, and it is saved", as
 
   // A bad amount is refused in place.
   await card.getByRole("button", { name: "Edit credit limit" }).click();
-  await card.getByLabel("Credit limit").fill("abc");
+  await card.getByRole("textbox", { name: "Credit limit", exact: true }).fill("abc");
   await card.getByRole("button", { name: "Save" }).click();
   await expect(card.getByText("Enter the limit in dollars, like 500 or 1,500.")).toBeVisible();
 
-  await card.getByLabel("Credit limit").fill("$1,250");
+  await card.getByRole("textbox", { name: "Credit limit", exact: true }).fill("$1,250");
   const write = nextWrite(page);
   await card.getByRole("button", { name: "Save" }).click();
   expect((await write).ok()).toBe(true);
@@ -99,34 +81,30 @@ test("approved student: Edit changes the credit limit only, and it is saved", as
   await expect(page.getByRole("region", { name: DISCOVER.name }).getByText("Your first month")).toBeVisible();
 });
 
-test("approved student: the card opens its details page and comes back", async ({ page }) => {
-  const { card, checkA11y } = await approvedStudent(page, "details");
+test("approved student: Set up your card opens the setup list and comes back (Flow C 477:1514)", async ({ page }) => {
+  const { card, checkA11y } = await approvedStudent(page, "setup-link");
+  const row = card.getByRole("link", { name: "Set up your card" });
+  await expect(row).toContainText(DISCOVER.name);
+  await expect(row).toContainText("Approved");
+  // At least 44px tall, and Edit stays its own control beside it.
+  await expect(card.getByText("0 of 3 lit")).toBeVisible();
+  // Polled: the card is drawn again once its saved stars load, and a row
+  // measured mid-swap reads 0.
+  await expect.poll(() => row.evaluate((el) => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+  await expect(card.getByRole("button", { name: "Edit credit limit" })).toBeVisible();
 
-  await card.getByRole("link", { name: `${DISCOVER.name} details` }).click();
-  await expect(page).toHaveURL(new RegExp(`/cards/${DISCOVER.id}`));
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Discover it");
-  await expect(page.getByText("APPROVED", { exact: true })).toBeVisible();
-  await checkA11y("card details: tracked");
-
-  await page.getByRole("link", { name: /Back/ }).click();
+  await row.click();
+  await expect(page).toHaveURL(/\/applications\/[0-9a-f-]+\/setup$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Set up your Discover card" })).toBeVisible();
+  await checkA11y("card setup from Home");
+  // The arrow returns to Home, the screen before (G1); Forward and Back walk the same two.
+  await page.getByRole("link", { name: "Back to Home" }).click();
   await expect(page).toHaveURL(/\/home$/);
-});
-
-test("approved student: autopay shows what was saved after Back from the card page", async ({ page }) => {
-  const { card } = await approvedStudent(page, "autopay-back");
-  for (const lit of [true, false]) {
-    const autopay = card.getByRole("checkbox", { name: /Turn on autopay/ });
-    await expect(autopay).toBeEnabled();
-    const write = nextWrite(page);
-    await autopay.click();
-    expect((await write).ok()).toBe(true);
-    await card.getByRole("link", { name: `${DISCOVER.name} details` }).click();
-    await expect(page).toHaveURL(new RegExp(`/cards/${DISCOVER.id}`));
-    // The browser's Back, not the in-app arrow: it restores the cached Home.
-    await page.goBack();
-    await expect(page).toHaveURL(/\/home$/);
-    await expect(card.getByRole("checkbox", { name: /Turn on autopay/ })).toHaveAttribute("aria-checked", String(lit));
-  }
+  await page.goForward();
+  await expect(page).toHaveURL(/\/setup$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/home$/);
+  await expect(page.getByRole("region", { name: DISCOVER.name }).getByRole("link", { name: "Set up your card" })).toBeVisible();
 });
 
 test("denied student: a reason saved from Home shows on Home after Back", async ({ page }) => {

@@ -44,10 +44,13 @@ export default async function HomePage({ searchParams }: PageProps<"/home">) {
           denialReason: detail.denialReason,
           denialReasonNote: detail.denialReasonNote,
           autopayStatus: detail.autopayStatus,
+          autopayPaymentType: detail.autopayPaymentType,
+          statementClosingDay: detail.statementClosingDay,
           paymentDueDay: detail.paymentDueDay,
+          spendLimitCents: detail.spendLimitCents,
         }
       }
-      reminderSettings={{ paymentDue: settings.paymentDue, emailsOn: settings.emailsOn }}
+      reminderSettings={{ paymentDue: settings.paymentDue, statementClosing: settings.statementClosing, emailsOn: settings.emailsOn }}
       celebrateId={typeof celebrateId === "string" ? celebrateId : null}
       fromReminder={fromReminder}
       safeToSpend={safeToSpend?.ok ? safeToSpend.value : undefined}
