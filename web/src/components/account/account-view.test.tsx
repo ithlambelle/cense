@@ -90,5 +90,4 @@ describe("AccountView", () => {
     render(<AccountView email={null} card={CARD} quizAnswered={3} />);
     expect(screen.getByRole("link", { name: "Continue the quiz" }).getAttribute("href")).toBe("/quiz?from=account");
   });
-
 });

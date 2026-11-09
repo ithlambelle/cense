@@ -121,6 +121,10 @@ test("Your account, for a student with no card, offers the quiz it mentions, and
   await expect(page).toHaveURL(/\/settings$/);
   await expect(page.getByRole("region", { name: "Your card" })).toContainText("Campus Credit Union Card");
   await expect(page.locator('main a[href="/results"]')).toHaveCount(0);
+  // With a card tracked and still no quiz, the quiz row opens the quiz too.
+  await page.getByRole("link", { name: "Start the quiz" }).click();
+  await expect(page).toHaveURL(/\/quiz\?from=account$/);
+  await expect(page.getByText("Question 1 of 7")).toBeVisible();
 });
 
 for (const [result, picks, see] of [
