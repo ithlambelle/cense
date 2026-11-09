@@ -81,16 +81,17 @@ describe("sendReapplyConfirmation", () => {
 describe("sendPaymentRemindersConfirmation", () => {
   const INPUT = {
     applicationId: REMINDER.applicationId, cardName: "Discover it", today: "2026-11-09",
-    statementClosing: { remindOn: "2026-11-09" }, paymentDue: null, autopayOn: true,
+    statementClosing: "2026-11-20", paymentDue: null, autopayCheck: false, autopayOn: true,
   };
+  const SAVED_AT = "2026-11-09T18:00:00.123456+00:00";
 
-  it("sends once per student, card and pair of days", async () => {
+  it("sends once per save of the card's days", async () => {
     stubEnv();
     const fetchFn = vi.fn<typeof fetch>(async () => Response.json({ id: "1" }));
-    expect(await sendPaymentRemindersConfirmation(student(), INPUT, { statementClosingDay: 12, paymentDueDay: 7 }, fetchFn)).toBe("sent");
+    expect(await sendPaymentRemindersConfirmation(student(), INPUT, SAVED_AT, fetchFn)).toBe("sent");
     const [, init] = fetchFn.mock.calls[0];
     expect((init?.headers as Record<string, string>)["Idempotency-Key"]).toBe(
-      `payment-reminders-confirmation-student-1-${REMINDER.applicationId}-12-7`,
+      `payment-reminders-confirmation-student-1-${REMINDER.applicationId}-${SAVED_AT}`,
     );
     expect(JSON.parse(String(init?.body)).subject).toBe("Your payment reminders are set");
   });
@@ -98,8 +99,7 @@ describe("sendPaymentRemindersConfirmation", () => {
   it("is skipped after the student unsubscribed", async () => {
     stubEnv();
     const fetchFn = vi.fn<typeof fetch>();
-    expect(await sendPaymentRemindersConfirmation(student("2026-11-01T00:00:00Z"), INPUT, { statementClosingDay: 12, paymentDueDay: 7 }, fetchFn)).toBe("skipped");
+    expect(await sendPaymentRemindersConfirmation(student("2026-11-01T00:00:00Z"), INPUT, SAVED_AT, fetchFn)).toBe("skipped");
     expect(fetchFn).not.toHaveBeenCalled();
   });
 });
-

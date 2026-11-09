@@ -196,7 +196,7 @@ export function PaymentReminderSetup({
           {/* Always in the page, so a screen reader hears the line when it appears;
               out of the layout while empty. */}
           <p role="status" className="text-center text-body-s text-indigo-black empty:absolute">
-            {emailed ? "Saved. We emailed you a confirmation." : ""}
+            {emailed ? "We emailed you a confirmation." : ""}
           </p>
           <Button
             type="submit"

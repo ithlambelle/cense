@@ -1,11 +1,12 @@
 import { deniedPath, paymentRemindersPath, ROUTES } from "@/lib/routes";
 
-// The reapply reminder's confirmation email (Flow F, F4, Figma 477:2704):
-// sent once, right when the student saves the reminder, so "We emailed you a
-// confirmation" on the saved screen is true. One line of news, one line about
-// changing it, one button. It is not a reminder row: the daily job never sees
-// it, so it does not count toward the one-email-a-day limit (open decision
-// F4, built as drawn: it goes on save).
+// The confirmation emails, sent right when the student saves, so "We emailed
+// you a confirmation" on screen is true. Neither is a reminder row: the daily
+// job never sees them, so they do not count toward the one-email-a-day limit.
+//
+// The reapply reminder's (Flow F, F4, Figma 477:2704; open decision F4, built
+// as drawn: it goes on save): one line of news, one line about changing it,
+// one button. The payment reminders' is further down.
 
 export type ConfirmationEmailInput = {
   applicationId: string;
@@ -96,45 +97,52 @@ export function buildConfirmationEmail(input: ConfirmationEmailInput, links: Con
 }
 
 // The payment reminders' confirmation email, sent when a student sets or
-// changes a card's statement and due days (Ben, 2026-11-09). It names each
-// reminder that will go out and the day it goes, so the student knows what
-// to expect. Like the reapply one, it is not a reminder row and does not count
-// toward the one-email-a-day limit.
+// changes a card's statement and due days (Ben, 2026-11-09). It says which
+// reminders are on and the card's next dates. It never names the day an email
+// goes out: the daily job sends one email a day and reschedules each morning,
+// so that day can move. Like the reapply one, it is not a reminder row and
+// does not count toward the one-email-a-day limit.
 
 export type PaymentRemindersEmailInput = {
   applicationId: string;
   cardName: string | null;
   // Today on the student's calendar (YYYY-MM-DD).
   today: string;
-  // The next reminder of each kind that is on, with the day it goes out; null
-  // when that email is off. The due-date one is also null while autopay is on.
-  statementClosing: { remindOn: string } | null;
-  paymentDue: { remindOn: string } | null;
+  // The card's next statement closing and payment due dates (YYYY-MM-DD) for
+  // each reminder that is on; null when that email is off. The due-date one is
+  // also null while autopay is on.
+  statementClosing: string | null;
+  paymentDue: string | null;
+  // The one autopay check after a new card's first statement is on.
+  autopayCheck: boolean;
   autopayOn: boolean;
 };
 
 const PAYMENT_SUBJECT = "Your payment reminders are set";
-const PAYMENT_BUTTON = "See your reminders";
+const PAYMENT_BUTTON = "Change your reminders";
 const PAYMENT_FOOTER = "You're getting this because you set payment reminders.";
 
-// "today" or "on Nov 9", on the student's calendar, never shifted.
-function dayPhrase(date: string, today: string): string {
-  if (date === today) return "today";
-  return `on ${new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`))}`;
+// " Next close: Nov 20." for a date still ahead; nothing for one that is
+// today or past, which the next email will not be about.
+function nextDate(label: string, date: string, today: string): string {
+  if (date <= today) return "";
+  const day = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
+  return ` ${label}: ${day}.`;
 }
 
 export function buildPaymentRemindersEmail(input: PaymentRemindersEmailInput, links: ConfirmationEmailLinks): ConfirmationEmail {
   const card = input.cardName ?? "your card";
   const lines = [`Hey, your reminders for ${card} are set.`];
   if (input.statementClosing) {
-    lines.push(`We'll email you ${dayPhrase(input.statementClosing.remindOn, input.today)}, 3 days before your statement closes.`);
+    lines.push(`We'll email you before each statement closes, so you can pay it down.${nextDate("Next close", input.statementClosing, input.today)}`);
   }
   if (input.paymentDue) {
-    lines.push(`We'll email you ${dayPhrase(input.paymentDue.remindOn, input.today)}, 3 days before your payment is due.`);
+    lines.push(`We'll email you before each payment is due.${nextDate("Next due date", input.paymentDue, input.today)}`);
   } else if (input.autopayOn) {
-    lines.push("Autopay is on, so we won't email you about the due date.");
+    lines.push("Autopay is on, so we won't email you about due dates.");
   }
-  lines.push("Change them any time in Cense.", SIGN_OFF);
+  if (input.autopayCheck) lines.push("After your first statement, we'll email you to check autopay.");
+  lines.push(SIGN_OFF);
   return renderConfirmation(
     {
       subject: PAYMENT_SUBJECT,

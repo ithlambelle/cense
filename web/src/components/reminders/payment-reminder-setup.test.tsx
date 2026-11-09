@@ -133,13 +133,20 @@ describe("PaymentReminderSetup", () => {
   });
 
   it("says the confirmation was emailed when it was, then goes Home", async () => {
-    server({ status: 200 }, { status: 200 }, { status: 200, body: { confirmation: "sent" } });
-    renderSetup();
-    fireEvent.change(closingField(), { target: { value: "12" } });
-    fireEvent.change(dueField(), { target: { value: "7" } });
-    fireEvent.click(saveButton());
-    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Saved. We emailed you a confirmation."));
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"), { timeout: 3000 });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      server({ status: 200 }, { status: 200 }, { status: 200, body: { confirmation: "sent" } });
+      renderSetup();
+      fireEvent.change(closingField(), { target: { value: "12" } });
+      fireEvent.change(dueField(), { target: { value: "7" } });
+      fireEvent.click(saveButton());
+      await waitFor(() => expect(screen.getByRole("status").textContent).toBe("We emailed you a confirmation."));
+      expect(replace).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1500);
+      await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("asks for no confirmation when the days are the ones already saved", async () => {

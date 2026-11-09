@@ -99,17 +99,18 @@ export function sendReapplyConfirmation(
 }
 
 // The payment reminders' confirmation, after a card's statement and due days
-// are set or changed. One email per student, card and pair of days.
+// are set or changed. `savedAt` is the card's updated_at: one email per save,
+// so a retry is sent once and changing the days back later still sends.
 export function sendPaymentRemindersConfirmation(
   student: Student,
   input: PaymentRemindersEmailInput,
-  days: { statementClosingDay: number; paymentDueDay: number },
+  savedAt: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<ConfirmationOutcome> {
   return sendConfirmation(
     student,
     (links) => buildPaymentRemindersEmail(input, links),
-    `payment-reminders-confirmation-${student.studentId}-${input.applicationId}-${days.statementClosingDay}-${days.paymentDueDay}`,
+    `payment-reminders-confirmation-${student.studentId}-${input.applicationId}-${savedAt}`,
     fetchImpl,
   );
 }

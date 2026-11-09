@@ -237,7 +237,7 @@ const reminderConfirmationContract = registry.register("ReminderConfirmation", r
 registry.registerPath({
   method: "post", path: "/applications/{id}/reminder-confirmation", operationId: "confirmPaymentReminders",
   summary: "Email the student a confirmation of an approved card's payment reminders",
-  description: "Called after the card's statement and due days are saved. The email names each reminder that is on and the day it goes out, read from what is saved. Idempotent per card and pair of days. confirmation is sent, skipped (no reminder on, emails off or not set up) or failed.",
+  description: "Called after the card's statement and due days are saved. The email names each reminder the daily job will send for the card and the card's next dates, read from the reminders the database scheduled, never a send day. One email per save of the days (keyed to the card's updated_at). confirmation is sent, skipped (no reminder on, emails off or not set up) or failed.",
   security: [{ studentSession: [] }],
   request: { params: z.object({ id: z.uuid() }) },
   responses: {
