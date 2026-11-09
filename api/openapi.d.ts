@@ -701,6 +701,7 @@ export interface components {
             autopayStatus: "on" | "off" | "unknown";
             /** @enum {string|null} */
             autopayPaymentType: "statement_balance" | "minimum" | "fixed_amount" | null;
+            spendLimitCents: number | null;
             statementClosingDay: number | null;
             paymentDueDay: number | null;
         };
@@ -1934,6 +1935,7 @@ export interface operations {
                     autopayStatus?: "on" | "off" | "unknown";
                     /** @enum {string|null} */
                     autopayPaymentType?: "statement_balance" | "minimum" | "fixed_amount" | null;
+                    spendLimitCents?: number | null;
                     statementClosingDay?: number | null;
                     paymentDueDay?: number | null;
                 };

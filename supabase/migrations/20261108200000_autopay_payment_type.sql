@@ -15,6 +15,11 @@
 --    notifications are off). The rest of the function is unchanged from
 --    20261025200000_reminder_fixes.sql. The unsent row is simply never
 --    claimed; once its date passes the claim skips it as before.
+-- 4. card_applications.spend_limit_cents: the monthly spend limit the student
+--    saved on "A limit to try this month" or "Pick your limit" (Flow A,
+--    477:1005). Whole cents, above zero, at most the credit limit when one is
+--    saved, and only on an approved card. Null until they save one. The same
+--    grants and row policies cover it.
 --
 -- To back it out: supabase/rollbacks/20261108200000_autopay_payment_type.down.sql.
 -- Safe to run again.
@@ -161,3 +166,25 @@ $$;
 
 revoke execute on function public.claim_due_reminders(int) from public, anon, authenticated;
 grant execute on function public.claim_due_reminders(int) to service_role;
+
+-- 4
+alter table public.card_applications
+  add column if not exists spend_limit_cents bigint;
+
+alter table public.card_applications
+  drop constraint if exists card_applications_spend_limit_positive;
+alter table public.card_applications
+  add constraint card_applications_spend_limit_positive
+    check (spend_limit_cents > 0);
+
+alter table public.card_applications
+  drop constraint if exists card_applications_spend_limit_within_credit_limit;
+alter table public.card_applications
+  add constraint card_applications_spend_limit_within_credit_limit
+    check (credit_limit_cents is null or spend_limit_cents <= credit_limit_cents);
+
+alter table public.card_applications
+  drop constraint if exists card_applications_spend_limit_needs_approved;
+alter table public.card_applications
+  add constraint card_applications_spend_limit_needs_approved
+    check (status = 'approved' or spend_limit_cents is null);

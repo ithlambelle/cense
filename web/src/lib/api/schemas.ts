@@ -170,6 +170,8 @@ export const applicationDetailSchema = applicationSchema.extend({
   denialReasonNote: z.string().max(200).nullable(),
   autopayStatus: autopayStatusSchema,
   autopayPaymentType: autopayPaymentTypeSchema.nullable(),
+  // The monthly spend limit the student saved (Flow A, US-04), in cents.
+  spendLimitCents: z.int().positive().nullable(),
   statementClosingDay: dayOfMonthSchema.nullable(),
   paymentDueDay: dayOfMonthSchema.nullable(),
 });
@@ -187,6 +189,8 @@ export const updateApplicationSchema = z.strictObject({
   autopayStatus: autopayStatusSchema.optional(),
   // Needs autopay on (sent with it, or already saved). Autopay off or unknown clears it.
   autopayPaymentType: autopayPaymentTypeSchema.nullable().optional(),
+  // Needs an approved card; at most the credit limit when one is saved.
+  spendLimitCents: z.int().positive().nullable().optional(),
   statementClosingDay: dayOfMonthSchema.nullable().optional(),
   paymentDueDay: dayOfMonthSchema.nullable().optional(),
 }).refine(

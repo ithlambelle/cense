@@ -59,6 +59,22 @@ function changes(body: Update, current: ApplicationDetailRow): Record<string, un
     set.credit_limit_cents = null;
   }
 
+  // The spend limit (US-04) needs an approved card and fits under the credit
+  // limit. Leaving approved, or a new credit limit below it, clears it.
+  const creditLimit = body.creditLimitCents !== undefined ? body.creditLimitCents : current.credit_limit_cents;
+  if (body.spendLimitCents !== undefined && body.spendLimitCents !== null) {
+    if (status !== "approved") return "Only approved cards can have a spend limit.";
+    if (creditLimit !== null && body.spendLimitCents > creditLimit) return "A spend limit can be at most the credit limit.";
+    set.spend_limit_cents = body.spendLimitCents;
+  } else if (body.spendLimitCents === null) {
+    set.spend_limit_cents = null;
+  } else if (
+    current.spend_limit_cents !== null &&
+    (status !== "approved" || (creditLimit !== null && current.spend_limit_cents > creditLimit))
+  ) {
+    set.spend_limit_cents = null;
+  }
+
   for (const [field, column] of [["denialReason", "denial_reason"], ["denialReasonNote", "denial_reason_note"]] as const) {
     const value = body[field];
     if (value === undefined) continue;

@@ -398,6 +398,11 @@ components:
             - minimum
             - fixed_amount
             - null
+        spendLimitCents:
+          type:
+            - integer
+            - "null"
+          exclusiveMinimum: 0
         statementClosingDay:
           type:
             - integer
@@ -422,6 +427,7 @@ components:
         - denialReasonNote
         - autopayStatus
         - autopayPaymentType
+        - spendLimitCents
         - statementClosingDay
         - paymentDueDay
       additionalProperties: false
@@ -1777,6 +1783,11 @@ paths:
                     - minimum
                     - fixed_amount
                     - null
+                spendLimitCents:
+                  type:
+                    - integer
+                    - "null"
+                  exclusiveMinimum: 0
                 statementClosingDay:
                   type:
                     - integer

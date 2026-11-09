@@ -7,7 +7,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(11);
+select plan(18);
 
 create temp table students (name text primary key, id uuid);
 insert into students values
@@ -86,6 +86,41 @@ select throws_ok(
     values (pg_temp.student('autopay_on'), (select id from cards where name = 'on'), 'denial', 'spend_limit')$$,
   '23514', null,
   'and not a denial step');
+
+-- 4. The spend limit: above zero, at most the credit limit, approved cards only
+update public.card_applications set credit_limit_cents = 50000 where id = (select id from cards where name = 'on');
+select lives_ok(
+  $$update public.card_applications set spend_limit_cents = 15000 where id = (select id from cards where name = 'on')$$,
+  'a spend limit saves within the credit limit');
+select throws_ok(
+  $$update public.card_applications set spend_limit_cents = 50001 where id = (select id from cards where name = 'on')$$,
+  '23514', null,
+  'not above the credit limit');
+select throws_ok(
+  $$update public.card_applications set spend_limit_cents = 0 where id = (select id from cards where name = 'on')$$,
+  '23514', null,
+  'not zero');
+select throws_ok(
+  $$update public.card_applications set credit_limit_cents = 10000 where id = (select id from cards where name = 'on')$$,
+  '23514', null,
+  'a credit limit cannot drop below the saved spend limit');
+select throws_ok(
+  $$insert into public.card_applications (student_id, card_name, source, status, spend_limit_cents)
+    values (pg_temp.student('other'), 'Applied card', 'application', 'applied', 10000)$$,
+  '23514', null,
+  'only an approved card has a spend limit');
+
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', pg_temp.student('autopay_on'), 'role', 'authenticated')::text, true);
+select results_eq(
+  $$update public.card_applications set spend_limit_cents = 10000 where id = (select id from cards where name = 'on') returning spend_limit_cents$$,
+  $$values (10000::bigint)$$,
+  'a student saves their own card''s spend limit');
+select set_config('request.jwt.claims', json_build_object('sub', pg_temp.student('other'), 'role', 'authenticated')::text, true);
+select is_empty(
+  $$update public.card_applications set spend_limit_cents = 20000 where id = (select id from cards where name = 'on') returning id$$,
+  'another student cannot change it');
+reset role;
 
 -- 3. The due-date email, due today on both cards
 insert into public.reminders (student_id, card_application_id, kind, occurrence, due_at)

@@ -3,7 +3,8 @@
 -- migration: run it by hand only to undo card setup's autopay payment type.
 -- It puts claim_due_reminders back as 20261025200000_reminder_fixes.sql left
 -- it (due-date emails go again while autopay is on), removes spend_limit
--- steps and the step, and drops card_applications.autopay_payment_type.
+-- steps and the step, and drops card_applications.autopay_payment_type and
+-- card_applications.spend_limit_cents.
 -- One transaction.
 
 begin;
@@ -134,6 +135,10 @@ alter table public.plan_steps
 alter table public.card_applications
   drop constraint if exists card_applications_autopay_payment_type_needs_on,
   drop constraint if exists card_applications_autopay_payment_type_known,
-  drop column if exists autopay_payment_type;
+  drop column if exists autopay_payment_type,
+  drop constraint if exists card_applications_spend_limit_needs_approved,
+  drop constraint if exists card_applications_spend_limit_within_credit_limit,
+  drop constraint if exists card_applications_spend_limit_positive,
+  drop column if exists spend_limit_cents;
 
 commit;
