@@ -112,3 +112,14 @@ export function currentPreviousScreen(): URL | null {
   if (!navigation?.currentEntry) return null;
   return previousScreen(navigation.entries(), navigation.currentEntry.index, window.location.origin);
 }
+
+// True when the screen behind this one is `href` itself. A button that leads
+// to the screen the student just came from then goes back instead of
+// replacing: replacing would leave that screen in the history twice, and
+// Back from it would seem to do nothing.
+export function previousScreenIs(href: string): boolean {
+  const previous = currentPreviousScreen();
+  if (!previous) return false;
+  const target = new URL(href, window.location.origin);
+  return previous.pathname === target.pathname && previous.search === target.search;
+}

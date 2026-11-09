@@ -8,6 +8,7 @@ import { AppHeader } from "@/components/ui/app-header";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE, track } from "@/lib/analytics";
+import { previousScreenIs } from "@/lib/back-navigation";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import { ROUTES, signInPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
@@ -127,7 +128,10 @@ export function AddCardScreen({ fromAccount = false }: { fromAccount?: boolean }
               router.replace(back.href);
               router.refresh();
             }}
-            onCancel={() => router.replace(back.href)}
+            // Cancel returns to the screen behind when it is the parent, so it
+            // is never in the history twice. Adding still replaces, so the
+            // parent loads fresh with the new card.
+            onCancel={() => (previousScreenIs(back.href) ? window.history.back() : router.replace(back.href))}
             onSignedOut={() => router.replace(signInPath(ROUTES.home))}
           />
         </main>
