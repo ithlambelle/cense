@@ -265,6 +265,10 @@ New sandbox connections ask Link for 180 days of transaction history and add Lia
 
 Locally and in CI the journey tests (`web/e2e/safe-to-spend.spec.ts`) never call Plaid: they start a stand-in on :3597 (`web/e2e/support/fake-plaid.ts`) and answer Link's script in the browser. Start the app for them with `PLAID_CLIENT_ID=e2e-client PLAID_SECRET=e2e-placeholder PLAID_ENV=sandbox PLAID_BASE_URL=http://127.0.0.1:3597` and a `PLAID_TOKEN_KEY` in `web/.env.local`, as the `e2e` job does.
 
+## Keeping card data current
+
+Card rewards and sign-up bonuses (`web/src/lib/cards/rewards.ts`) change on the issuer's side without notice. Every Monday the Card data check workflow re-reads each card's issuer page and opens one issue, "Card data check: N cards need a look", listing what no longer matches; the unit tests fail once a promotion passes its `expiresOn` and warn about cards not re-read in 120 days. One person works the issue in about 15 minutes a week: [docs/card-data.md](docs/card-data.md).
+
 ## Quality checks
 
 ```bash
