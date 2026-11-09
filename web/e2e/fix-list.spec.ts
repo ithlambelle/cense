@@ -57,7 +57,10 @@ test("the denial plan: tap a circle to finish a step, and the reminder lives in 
   await expect(page.getByRole("heading", { level: 1, name: "Choose when to check in" })).toBeVisible();
   await page.getByRole("button", { name: "Save reapply reminder" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Reminder saved" })).toBeVisible();
-  await expect(page.getByText("We emailed you a confirmation.")).toBeVisible();
+  // No email stand-in runs for this test, so the confirmation is not sent and
+  // the screen names the day instead of claiming an email.
+  await expect(page.getByText(/^We’ll email you on /)).toBeVisible();
+  await expect(page.getByText("We emailed you a confirmation.")).toHaveCount(0);
   await checkA11y("reminder saved");
 
   // Back to your plan: the plan, and Back from there never reopens the saved screen or the form.
@@ -91,7 +94,11 @@ test.describe("the reapply reminder's confirmation email", () => {
     await page.goto(`/denied/reminder?application=${id}`);
     await page.getByRole("button", { name: "Save reapply reminder" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Reminder saved" })).toBeVisible();
+    // Sent, so the saved screen says so; a reload names the day instead.
+    await expect(page.getByText("We emailed you a confirmation.")).toBeVisible();
     await expect.poll(() => fake!.emailsTo(email).length).toBe(1);
+    await page.reload();
+    await expect(page.getByText(/^We’ll email you on /)).toBeVisible();
     const sent = fake!.emailsTo(email)[0];
     expect(sent.subject).toBe("Your reapply reminder is set");
     expect(sent.text).toContain("Change the date any time in your plan.");

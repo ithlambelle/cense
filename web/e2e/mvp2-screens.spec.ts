@@ -258,17 +258,21 @@ test("a denied student sets a reapply reminder, sees it saved after a reload, an
   await page.getByRole("button", { name: "Save reapply reminder" }).click();
   await expect(page).toHaveURL(new RegExp(`/denied/reminder/saved\\?application=${id}$`));
   await expect(page.getByRole("heading", { level: 1, name: "Reminder saved" })).toBeVisible();
-  await expect(page.getByText(chosen.label)).toBeVisible();
+  // The date's own line, exact: with no confirmation email sent, the line
+  // above names the date too ("We’ll email you on ...").
+  await expect(page.getByText(chosen.label, { exact: true })).toBeVisible();
   await checkA11y("reapply reminder: saved");
   await fitsEverySize(page, "reapply reminder: saved");
   await page.reload();
-  await expect(page.getByText(chosen.label)).toBeVisible();
+  // Opened again, it never claims a second email: it names the day.
+  await expect(page.getByText(chosen.label, { exact: true })).toBeVisible();
+  await expect(page.getByText("We emailed you a confirmation.")).toHaveCount(0);
 
   // Choosing again replaces the date: one reapply reminder, now in six months.
   await page.goto(`/denied/reminder?application=${id}`);
   await page.getByRole("button", { name: "Save reapply reminder" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Reminder saved" })).toBeVisible();
-  await expect(page.getByText(sixMonths)).toBeVisible();
+  await expect(page.getByText(sixMonths, { exact: true })).toBeVisible();
   const reminders = (await (await page.request.get("/api/v1/reminders")).json()) as { reminders: { kind: string; applicationId: string }[] };
   expect(reminders.reminders.filter((r) => r.kind === "reapply" && r.applicationId === id)).toHaveLength(1);
   // Back to your plan returns to the plan, where step 5 now names the date.
