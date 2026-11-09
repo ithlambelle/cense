@@ -95,10 +95,10 @@ test("the email's Open Cense opens Updates with the reminder as a card; I paid i
 
   await statement.getByRole("button", { name: "I paid it down" }).click();
   await expect(group(page, "Earlier").getByRole("article", { name: `Statement closes ${near(closes)}` })).toBeVisible();
-  await expect(statement.getByText("You marked it paid.")).toBeVisible();
+  await expect(statement.getByText("You marked it paid down.")).toBeVisible();
   await expect(statement.getByRole("button")).toHaveCount(0);
   await page.reload();
-  await expect(group(page, "Earlier").getByText("You marked it paid.")).toBeVisible();
+  await expect(group(page, "Earlier").getByText("You marked it paid down.")).toBeVisible();
 
   // Profile counts the one still New, and See all opens Updates.
   await page.goto("/settings");
@@ -134,7 +134,7 @@ test("Snooze offers times up to the due date, saves, shows when it comes back, a
   await card(page, `Statement closes ${near(closes)}`).getByRole("button", { name: /^Snooze/ }).click();
   const sheet = page.getByRole("dialog", { name: "Remind me again" });
   const options = sheet.getByRole("radio");
-  await expect(options).toHaveText(["Tomorrow morning", "In 2 days", "The day before it is due"]);
+  await expect(options).toHaveText(["Tomorrow morning", "In 2 days", "The day before it closes"]);
   await expect(options.first()).toHaveAttribute("aria-checked", "true");
   await checkA11y("snooze sheet");
   await sheet.getByRole("radio", { name: "In 2 days" }).click();

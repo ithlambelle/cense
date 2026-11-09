@@ -45,7 +45,7 @@ export async function GET(request: Request): Promise<Response> {
   if (!service.ok) return notConfigured(service.missing);
   const supabase = createServiceClient(service.settings.serviceRoleKey);
   // Never throws; a reminder it skipped is logged, not a failed run.
-  const { failed: followUpsFailed, ...followUps } = await raiseFollowUps(supabase);
+  const followUps = await raiseFollowUps(supabase);
 
   const config = reminderSettings(["resendApiKey", "fromEmail", "appUrl", "unsubscribeSecret"]);
   if (!config.ok) return notConfigured(config.missing, { followUps });
@@ -58,7 +58,7 @@ export async function GET(request: Request): Promise<Response> {
     // (its third try, which can also be a run that ran out of time). Deferred
     // ones alone simply go on the next run.
     // So is a follow-up call that failed as a whole.
-    const problem = sent.failed > 0 || sent.unconfirmed > 0 || sent.abandoned > 0 || followUpsFailed;
+    const problem = sent.failed > 0 || sent.unconfirmed > 0 || sent.abandoned > 0 || followUps.failed;
     await finish(problem ? "fail" : "success", result);
     return Response.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

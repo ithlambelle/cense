@@ -97,7 +97,8 @@ export type SnoozeOption = { choice: SnoozeChoice; label: string; date: string; 
 // of the student's calendar: never today (before 9 AM, "the day before it is
 // due" could be this morning, a snooze of minutes), never in the past and
 // never after the due date. "The day before it is due" is left out when there
-// is no due date or it falls on the same day as one of the other two.
+// is no due date or it falls on the same day as one of the other two; before a
+// statement closes it is the day before the close, and says so.
 export function snoozeOptions(reminder: Reminder, card: ReminderCard, now: Date, timeZone: string): SnoozeOption[] {
   const today = calendarDate(now.toISOString(), timeZone);
   const deadline = reminderDeadline(reminder, card);
@@ -113,7 +114,10 @@ export function snoozeOptions(reminder: Reminder, card: ReminderCard, now: Date,
     const until = zonedHour(date, SNOOZE_HOUR, timeZone);
     if (until.getTime() <= now.getTime()) continue;
     if (choice === "day_before_due" && options.some((o) => o.date === date)) continue;
-    options.push({ choice, label: SNOOZE_LABELS[choice], date, until });
+    const label = choice === "day_before_due" && deadline?.label === "Statement closes"
+      ? "The day before it closes"
+      : SNOOZE_LABELS[choice];
+    options.push({ choice, label, date, until });
   }
   return options;
 }
@@ -238,7 +242,10 @@ export function updateItem(reminder: Reminder, card: ReminderCard, now: Date, ti
   let description = base.description;
   let sensitive = base.sensitive ?? false;
   if (reminder.actedAt) {
-    description = "You marked it paid.";
+    // Before the close the button is "I paid it down", so the card says that.
+    description = reminder.kind === "statement_closing" && !reminder.followUpAt
+      ? "You marked it paid down."
+      : "You marked it paid.";
     sensitive = false;
   } else if (snoozeDay) {
     description = `Snoozed until ${weekdayName(snoozeDay)}.`;

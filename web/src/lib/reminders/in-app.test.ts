@@ -68,7 +68,7 @@ describe("snoozeOptions", () => {
   });
 
   it("never offers today, before or after 9 AM on the student's calendar", () => {
-    // Closes Tuesday Nov 10, so the day before it is due is Monday Nov 9.
+    // Closes Tuesday Nov 10, so the day before it closes is Monday Nov 9.
     const closesTuesday = reminder({ occurrence: "2026-11-10" });
     // Monday Nov 9, 7:00 in New York: the day before is today, 9 AM is hours away.
     const early = new Date("2026-11-09T12:00:00Z");
@@ -78,6 +78,11 @@ describe("snoozeOptions", () => {
     expect(snoozeOptions(closesTuesday, card(), late, NY).map((o) => [o.choice, o.date])).toEqual([["tomorrow", "2026-11-10"]]);
     // Monday Nov 9, 7:00, closing Friday: every option is a later day.
     expect(snoozeOptions(reminder(), card(), early, NY).map((o) => o.date)).toEqual(["2026-11-10", "2026-11-11", "2026-11-12"]);
+  });
+
+  it("names the day before the close while the statement is still open, the due date after", () => {
+    const open = snoozeOptions(reminder(), card(), new Date("2026-11-09T12:00:00Z"), NY);
+    expect(open.find((o) => o.choice === "day_before_due")?.label).toBe("The day before it closes");
   });
 
   it("has no day-before choice without a due date", () => {
@@ -110,7 +115,7 @@ describe("updateItem", () => {
   it("is Earlier once read, marked paid, or past its date", () => {
     expect(updateItem(reminder({ readAt: NOW.toISOString() }), card(), NOW, NY)?.group).toBe("earlier");
     expect(updateItem(reminder({ actedAt: NOW.toISOString() }), card(), NOW, NY)).toMatchObject({
-      group: "earlier", description: "You marked it paid.", action: null, snooze: [],
+      group: "earlier", description: "You marked it paid down.", action: null, snooze: [],
     });
     expect(updateItem(reminder({ occurrence: "2026-11-07" }), card(), NOW, NY)).toMatchObject({
       group: "earlier", title: "Statement closed Sat", action: null,

@@ -128,7 +128,7 @@ describe("GET /cron/reminders", () => {
     const response = await cron();
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, followUps: { raised: 0, skipped: 0 } });
+    expect(body).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, followUps: { raised: 0, skipped: 0, failed: false } });
     expect(calls.map((call) => call.name)).toEqual(["raise_reminder_follow_ups", "refresh_all_reminders", "claim_due_reminders", "mark_reminder_sent"]);
     expect(calls[3].args).toEqual({ p_reminder_id: claimed().reminder_id });
     expect(service.createServiceClient).toHaveBeenCalledWith(ENV.SUPABASE_SERVICE_ROLE_KEY);
@@ -188,7 +188,7 @@ describe("GET /cron/reminders", () => {
   it("sends nothing when nothing is due", async () => {
     database({ claim_due_reminders: [{ data: [], error: null }] });
     const fetchMock = resend();
-    expect(await (await cron()).json()).toEqual({ claimed: 0, sent: 0, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, followUps: { raised: 0, skipped: 0 } });
+    expect(await (await cron()).json()).toEqual({ claimed: 0, sent: 0, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, followUps: { raised: 0, skipped: 0, failed: false } });
     expect(fetchMock.emails()).toHaveLength(0);
   });
 
@@ -235,9 +235,9 @@ describe("GET /cron/reminders", () => {
     resend();
     const response = await cron();
     expect(response.status).toBe(200);
-    expect((await response.json()).followUps).toEqual({ raised: 2, skipped: 1 });
+    expect((await response.json()).followUps).toEqual({ raised: 2, skipped: 1, failed: false });
     expect(calls[0]).toEqual({ name: "raise_reminder_follow_ups", args: undefined });
-    expect(JSON.parse(others[1].body).followUps).toEqual({ raised: 2, skipped: 1 });
+    expect(JSON.parse(others[1].body).followUps).toEqual({ raised: 2, skipped: 1, failed: false });
     expect(others[1].url).not.toContain("/fail");
   });
 
@@ -249,7 +249,7 @@ describe("GET /cron/reminders", () => {
     vi.stubEnv("REMINDER_HEARTBEAT_URL", "https://hc-ping.com/test-check");
     resend();
     const body = await (await cron()).json();
-    expect(body).toMatchObject({ sent: 1, followUps: { raised: 0, skipped: 0 } });
+    expect(body).toMatchObject({ sent: 1, followUps: { raised: 0, skipped: 0, failed: true } });
     expect(calls.map((call) => call.name)).toContain("mark_reminder_sent");
     expect(others[1].url).toContain("/fail");
     expect(JSON.stringify(vi.mocked(console.error).mock.calls)).toContain("reminder_follow_ups_failed");
@@ -265,7 +265,7 @@ describe("GET /cron/reminders", () => {
       resend();
       await cron();
       expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, HEARTBEAT]);
-      expect(JSON.parse(others[1].body)).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, followUps: { raised: 0, skipped: 0 } });
+      expect(JSON.parse(others[1].body)).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, followUps: { raised: 0, skipped: 0, failed: false } });
     });
 
     it("pings fail when a send failed, and the body has counts only", async () => {
@@ -282,7 +282,7 @@ describe("GET /cron/reminders", () => {
       resend();
       expect((await cron()).status).toBe(500);
       expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, `${HEARTBEAT}/fail`]);
-      expect(JSON.parse(others[1].body)).toEqual({ error: "not_configured", missing: ["RESEND_API_KEY"], followUps: { raised: 0, skipped: 0 } });
+      expect(JSON.parse(others[1].body)).toEqual({ error: "not_configured", missing: ["RESEND_API_KEY"], followUps: { raised: 0, skipped: 0, failed: true } });
 
       others.length = 0;
       vi.stubEnv("RESEND_API_KEY", ENV.RESEND_API_KEY);
