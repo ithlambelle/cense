@@ -79,7 +79,8 @@ export function PennyComposer({ variant, onAsk, busy = false }: Props) {
         disabled={!canSend}
         className={cn(
           "flex size-11 shrink-0 items-center justify-center rounded-pill focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-40",
-          learn ? "" : "size-12 bg-violet text-white enabled:hover:bg-violet-hover enabled:active:bg-violet-pressed",
+          // Light Blue with a navy arrow, as on Learn's field: the accent marks sending to Penny.
+          learn ? "" : "size-12 bg-light-blue text-navy enabled:hover:bg-light-blue-hover enabled:active:bg-light-blue-pressed",
         )}
       >
         {learn ? (

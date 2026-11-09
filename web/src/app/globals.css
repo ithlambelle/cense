@@ -57,6 +57,9 @@
      axe check). */
   --color-violet-hover: color-mix(in oklab, var(--color-violet), var(--color-indigo-black) 8%);
   --color-violet-pressed: color-mix(in oklab, var(--color-violet), var(--color-indigo-black) 18%);
+  /* The same steps for Light Blue, the accent (Penny's send buttons). */
+  --color-light-blue-hover: color-mix(in oklab, var(--color-light-blue), var(--color-navy) 8%);
+  --color-light-blue-pressed: color-mix(in oklab, var(--color-light-blue), var(--color-navy) 18%);
   /* Plain rgb() rather than color-mix(): same color, wider support. */
   --color-violet-disabled: rgb(151 64 197 / 0.3);
   --color-glow: rgb(236 234 246 / 0.7);
