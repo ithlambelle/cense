@@ -207,7 +207,10 @@ export function DeniedPlanScreen({
     // No bottom bar: the plan frames draw none.
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
-        <AppHeader backHref={deniedPath("options", applicationId)} backLabel="Denial options" />
+        {/* Back goes where the student came from (Home's "See my plan", Denial
+            options, the confirmation email's link); with no screen behind,
+            Home, where the denied card and its plan live (G1). */}
+        <AppHeader backHref={ROUTES.home} backLabel="Home" />
         <main className="stagger flex flex-1 flex-col gap-4 px-6 pt-3 pb-6">
           <TrackOnMount event="denial_plan_viewed" />
           {/* Breaks before "plan" as the frame does, never at the hyphen. */}

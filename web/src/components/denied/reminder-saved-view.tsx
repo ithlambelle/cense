@@ -8,9 +8,9 @@ import { deniedPath } from "@/lib/routes";
 
 // Reminder saved (Flow F, F3, Figma 477:2655): the check alone, no Penny, and
 // the confirmation email (F4) named. Rendered by ReminderSavedCheck only once
-// the reminder is found, so it can say a reminder will come (D8). Back and
-// "Back to your plan" both return to the plan and replace this entry (G1), so
-// Back from the plan never reopens this screen or the form before it.
+// the reminder is found, so it can say a reminder will come (D8). The save
+// replaced the form, so Back returns to the plan (G1); "Back to your plan"
+// replaces this entry, so Back from the plan never reopens this screen.
 // `emailed` is true when this tab just saved it and the confirmation went out;
 // opened again later, the screen says when the email will come instead.
 export function ReminderSavedView({
@@ -26,7 +26,7 @@ export function ReminderSavedView({
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
-        <AppHeader backHref={plan} backLabel="Plan" replace />
+        <AppHeader backHref={plan} backLabel="Plan" />
         <main className="stagger flex flex-1 flex-col gap-4 px-6 pt-3 pb-6">
           <OutcomeMark icon={Check} tone="success" />
           <h1 className="font-heading text-h1 font-medium text-navy">Reminder saved</h1>

@@ -192,17 +192,21 @@ test("your account shows the student's card and email, every link opens its scre
     ["Add a card I already have", /\/home\/add-card\?from=account$/],
     ["Reminder settings", /\/settings\/reminders$/],
     ["Security and privacy", /\/settings\/privacy$/],
-    ["Back to Home", /\/home$/],
   ] as const) {
     await page.goto("/settings");
     await page.getByRole("link", { name, exact: typeof name === "string" }).click();
     await expect(page, String(name)).toHaveURL(path);
   }
 
+  // Back returns to the screen before Profile (G1), here Security and privacy.
+  await page.goto("/settings");
+  await page.getByRole("link", { name: "Back to Security and privacy" }).click();
+  await expect(page).toHaveURL(/\/settings\/privacy$/);
+
   await page.goto("/settings");
   await page.getByRole("button", { name: "Log out" }).click();
   // Logged out, the student lands on Welcome back to choose an account (F8).
-  await expect(page).toHaveURL(/\/sign-in$/);
+  await expect(page).toHaveURL(/\/signed-out$/);
   await expect(page.getByRole("heading", { level: 1, name: "Welcome back" })).toBeVisible();
   await page.goto("/settings");
   await expect(page).toHaveURL(/\/sign-in/);
@@ -307,10 +311,16 @@ test("a student still waiting on the issuer sees what to expect, and nothing cha
   await page.getByRole("link", { name: "I heard back" }).click();
   await expect(page).toHaveURL(new RegExp(`/applications/${id}$`));
   await expect(page.getByRole("heading", { level: 1, name: "What did the issuer decide?" })).toBeVisible();
+  // Back returns to Mark result, the screen the student was on (G1).
   await page.goto(`/applications/${id}/waiting`);
-  // Opened with no origin, its back arrow goes Home (#78).
-  await page.getByRole("link", { name: "Back to Home" }).click();
-  await expect(page).toHaveURL(/\/home$/);
+  await page.getByRole("link", { name: "Back to Mark result" }).click();
+  await expect(page).toHaveURL(new RegExp(`/applications/${id}$`));
+  // Opened in a new tab, with no origin, its back arrow goes Home (#78).
+  const fresh = await page.context().newPage();
+  await fresh.goto(`/applications/${id}/waiting`);
+  await fresh.getByRole("link", { name: "Back to Home" }).click();
+  await expect(fresh).toHaveURL(/\/home$/);
+  await fresh.close();
   await page.goto(`/applications/${id}/waiting`);
   await page.getByRole("link", { name: "Go to Home" }).click();
   await expect(page).toHaveURL(/\/home$/);

@@ -13,20 +13,17 @@ export function DeniedLayout({
   backHref,
   backLabel,
   contentClassName,
-  replace,
   children,
 }: {
   backHref: string;
   backLabel: string;
-  // Back replaces this history entry (G1), for screens reached by a save.
-  replace?: boolean;
   contentClassName?: string;
   children: ReactNode;
 }) {
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
-        <AppHeader backHref={backHref} backLabel={backLabel} replace={replace} />
+        <AppHeader backHref={backHref} backLabel={backLabel} />
         <main className={cn("stagger flex flex-1 flex-col gap-[18px] px-6 pt-4 pb-6", contentClassName)}>{children}</main>
         <div className="sticky bottom-0">
           <BottomNav />
