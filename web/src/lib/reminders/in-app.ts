@@ -151,8 +151,8 @@ export type UpdateItem = {
 // How long a reminder with no due date (check autopay without a due day,
 // reapply) stays actionable after it came up.
 const OPEN_DAYS_WITHOUT_DEADLINE = 7;
-// Reminders sent longer ago than this are no longer listed.
-const LIST_DAYS = 45;
+// Reminders sent longer ago than this are no longer listed (and not read).
+export const LIST_DAYS = 45;
 
 const latest = (...instants: (string | null)[]) =>
   instants.filter((v): v is string => v !== null).reduce((a, b) => (a > b ? a : b));

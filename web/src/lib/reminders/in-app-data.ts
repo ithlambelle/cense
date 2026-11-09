@@ -9,7 +9,7 @@ import {
   type ReminderRow,
 } from "@/lib/api/reminders";
 
-import type { ReminderCard } from "./in-app";
+import { LIST_DAYS, type ReminderCard } from "./in-app";
 
 // The reads behind Updates (Flow B), with the student's own session: RLS
 // limits every read to their rows. Only sent reminders are in-app.
@@ -47,14 +47,17 @@ async function timeZoneOf(student: Student): Promise<string> {
   return safeTimeZone((data as { time_zone: string | null } | null)?.time_zone);
 }
 
-// Every sent reminder, with its card and the student's time zone.
-export async function loadInAppReminders(student: Student): Promise<InAppData> {
+// Every reminder sent in the last LIST_DAYS (older ones are never listed),
+// with its card and the student's time zone.
+export async function loadInAppReminders(student: Student, now: Date = new Date()): Promise<InAppData> {
+  const since = new Date(now.getTime() - LIST_DAYS * 86_400_000).toISOString();
   const [reminders, cards, timeZone] = await Promise.all([
     student.supabase
       .from("reminders")
       .select(REMINDER_FIELDS)
       .eq("student_id", student.studentId)
       .not("sent_at", "is", null)
+      .gte("sent_at", since)
       .order("sent_at", { ascending: false }),
     student.supabase.from("card_applications").select(CARD_FIELDS).eq("student_id", student.studentId),
     timeZoneOf(student),
