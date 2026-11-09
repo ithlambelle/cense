@@ -29,7 +29,7 @@ test.beforeEach(async ({ context }) => {
   await blockExternalRequests(context);
 });
 
-test("account deletion unlinks Plaid first and keeps the account when Plaid is down", async ({ page, context }) => {
+test("account deletion succeeds while Plaid is down and the daily cron removes the queued Item", async ({ page, context }) => {
   await signUp(page, uniqueEmail("delete-linked"), async () => {});
   const linked = await page.request.post("/api/v1/bank-link", {
     data: { publicToken: "public-sandbox-good" },
@@ -46,14 +46,17 @@ test("account deletion unlinks Plaid first and keeps the account when Plaid is d
 
   behavior.remove = "down";
   await sheet.getByRole("button", { name: "Delete my account" }).click();
-  await expect(sheet.getByRole("alert")).toBeVisible();
-  expect((await page.request.get("/api/v1/me")).status()).toBe(200);
+  await expect(page).toHaveURL(/\/account-deleted$/);
   expect(removedAccessTokens).not.toContain(token);
-  expect((await asStudent(context, { table: "bank_links" })).body).toHaveLength(1);
+  expect((await page.request.get("/api/v1/me")).status()).toBe(401);
 
   behavior.remove = "ok";
-  await sheet.getByRole("button", { name: "Delete my account" }).click();
-  await expect(page).toHaveURL(/\/account-deleted$/);
+  const secret = process.env.E2E_CRON_SECRET;
+  if (!secret) throw new Error("E2E_CRON_SECRET is required for cleanup journey");
+  const cleaned = await page.request.get("/api/v1/cron/reminders", {
+    headers: { Authorization: `Bearer ${secret}` },
+  });
+  expect(cleaned.status(), await cleaned.text()).toBe(200);
+  expect((await cleaned.json()).plaidCleanup.removed).toBeGreaterThanOrEqual(1);
   expect(removedAccessTokens).toContain(token);
-  expect((await page.request.get("/api/v1/me")).status()).toBe(401);
 });

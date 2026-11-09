@@ -227,7 +227,7 @@ export interface paths {
         post?: never;
         /**
          * Delete my account
-         * @description Deletes the student's PostHog person with its events and recordings (where analytics runs), then the account, which deletes every row tied to it, then signs out. A failure deletes nothing of the account.
+         * @description Deletes the student's PostHog person with its events and recordings (where analytics runs), then the account and saved data, then signs out. Encrypted Plaid tokens and their encryption bindings are queued atomically with account deletion for the daily cleanup job, so a Plaid outage does not block deletion. A missing cleanup migration refuses deletion before any external work.
          */
         delete: operations["deleteMe"];
         options?: never;

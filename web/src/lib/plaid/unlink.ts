@@ -22,10 +22,9 @@ export type UnlinkResult =
 // Unlinks every bank a student has linked: each Item is removed at Plaid
 // first (which ends it there and, outside the sandbox, stops billing), then
 // the token, balances and answers are deleted. Disconnect (DELETE
-// /bank-link) and account deletion (S28, #76) use it before account deletion
-// removes the sign-in record: the database cascade alone would delete
-// Cense's copy and leave the Item alive at Plaid. Uses the student's own
-// session, like every student route.
+// /bank-link) uses this synchronously. Account deletion instead atomically
+// queues encrypted tokens through the auth trigger, for the daily cleanup
+// job. Uses the student's own session, like every student route.
 //
 // An Item whose token cannot be opened (the key changed) can never be removed
 // at Plaid; its local copy is still deleted, and the orphan is logged.

@@ -4,6 +4,10 @@ vi.mock("server-only", () => ({}));
 const service = vi.hoisted(() => ({ createServiceClient: vi.fn() }));
 vi.mock("@/lib/supabase/service", () => service);
 
+const cleanup = vi.hoisted(() => ({ runAccountCleanup: vi.fn() }));
+vi.mock("@/lib/plaid/account-cleanup", () => cleanup);
+const CLEANUP = { claimed: 0, removed: 0, failed: 0, unavailable: false };
+
 import { verifyUnsubscribeToken } from "@/lib/reminders/unsubscribe-token";
 
 import { GET } from "./route";
@@ -57,6 +61,7 @@ const cron = (authorization: string | null = `Bearer ${ENV.CRON_SECRET}`) =>
   GET(new Request("https://app.test/api/v1/cron/reminders", { headers: authorization ? { authorization } : {} }));
 
 beforeEach(() => {
+  cleanup.runAccountCleanup.mockResolvedValue(CLEANUP);
   others.length = 0;
   for (const [name, value] of Object.entries(ENV)) vi.stubEnv(name, value);
   vi.spyOn(console, "log").mockImplementation(() => undefined);
@@ -98,7 +103,7 @@ describe("GET /cron/reminders", () => {
     const response = await cron();
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0 });
+    expect(body).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, plaidCleanup: CLEANUP });
     expect(calls.map((call) => call.name)).toEqual(["refresh_all_reminders", "claim_due_reminders", "mark_reminder_sent"]);
     expect(calls[2].args).toEqual({ p_reminder_id: claimed().reminder_id });
     expect(service.createServiceClient).toHaveBeenCalledWith(ENV.SUPABASE_SERVICE_ROLE_KEY);
@@ -158,7 +163,7 @@ describe("GET /cron/reminders", () => {
   it("sends nothing when nothing is due", async () => {
     database({ claim_due_reminders: [{ data: [], error: null }] });
     const fetchMock = resend();
-    expect(await (await cron()).json()).toEqual({ claimed: 0, sent: 0, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0 });
+    expect(await (await cron()).json()).toEqual({ claimed: 0, sent: 0, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, plaidCleanup: CLEANUP });
     expect(fetchMock.emails()).toHaveLength(0);
   });
 
@@ -199,6 +204,22 @@ describe("GET /cron/reminders", () => {
     expect(String(elsewhere.emails()[0][0])).toBe("https://api.resend.com/emails");
   });
 
+  it("runs cleanup even when email settings are missing", async () => {
+    vi.stubEnv("RESEND_API_KEY", "");
+    database();
+    expect((await cron()).status).toBe(500);
+    expect(cleanup.runAccountCleanup).toHaveBeenCalled();
+  });
+
+  it("alerts on failed cleanup without preventing reminders", async () => {
+    vi.stubEnv("REMINDER_HEARTBEAT_URL", "https://hc-ping.com/test-check");
+    cleanup.runAccountCleanup.mockResolvedValue({ ...CLEANUP, claimed: 1, failed: 1 });
+    database({ claim_due_reminders: [{ data: [claimed()], error: null }] });
+    resend();
+    expect(await (await cron()).json()).toMatchObject({ sent: 1, plaidCleanup: { failed: 1 } });
+    expect(others.at(-1)?.url).toBe("https://hc-ping.com/test-check/fail");
+  });
+
   describe("heartbeat", () => {
     const HEARTBEAT = "https://hc-ping.com/test-check";
 
@@ -209,7 +230,7 @@ describe("GET /cron/reminders", () => {
       resend();
       await cron();
       expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, HEARTBEAT]);
-      expect(JSON.parse(others[1].body)).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0 });
+      expect(JSON.parse(others[1].body)).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, plaidCleanup: CLEANUP });
     });
 
     it("pings fail when a send failed, and the body has counts only", async () => {
@@ -226,7 +247,7 @@ describe("GET /cron/reminders", () => {
       resend();
       expect((await cron()).status).toBe(500);
       expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, `${HEARTBEAT}/fail`]);
-      expect(JSON.parse(others[1].body)).toEqual({ error: "not_configured", missing: ["RESEND_API_KEY"] });
+      expect(JSON.parse(others[1].body)).toEqual({ error: "not_configured", missing: ["RESEND_API_KEY"], plaidCleanup: CLEANUP });
 
       others.length = 0;
       vi.stubEnv("RESEND_API_KEY", ENV.RESEND_API_KEY);

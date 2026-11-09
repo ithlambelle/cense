@@ -1,4 +1,5 @@
 import { apiError } from "@/lib/api/errors";
+import { runAccountCleanup, type CleanupResult } from "@/lib/plaid/account-cleanup";
 import { cronAuthorized, reminderSettings, resendEmailsUrl } from "@/lib/reminders/config";
 import { pingHeartbeat } from "@/lib/reminders/heartbeat";
 import { ReminderJobError, runReminderJob } from "@/lib/reminders/job";
@@ -6,7 +7,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 
 // The daily reminder job, called by Vercel Cron (web/vercel.json) with
 // CRON_SECRET. Not a student route: it uses the service role, the one
-// exception in api/data-contract.md, and only calls the reminder functions.
+// exception in api/data-contract.md, and calls reminder and cleanup functions.
 // The answer is counts only. Each authorized run pings the heartbeat check
 // (lib/reminders/heartbeat.ts), so a failed send or a run that never comes
 // alerts the team.
@@ -23,9 +24,14 @@ export async function GET(request: Request): Promise<Response> {
   // the job's time; the run waits for it before the last ping, so the check
   // always sees start then finish.
   const started = pingHeartbeat("start");
+  // Cleanup is independent of email configuration and runs concurrently so
+  // its Plaid timeout does not consume the reminder job's sending budget.
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const cleanup = key ? runAccountCleanup(createServiceClient(key)) : Promise.resolve<CleanupResult>({ claimed: 0, removed: 0, failed: 0, unavailable: true });
   const finish = async (signal: "success" | "fail", body: Record<string, unknown>) => {
+    const plaidCleanup = await cleanup;
     await started;
-    await pingHeartbeat(signal, body);
+    await pingHeartbeat(plaidCleanup.failed || plaidCleanup.unavailable ? "fail" : signal, { ...body, plaidCleanup });
   };
 
   const config = reminderSettings(["serviceRoleKey", "resendApiKey", "fromEmail", "appUrl", "unsubscribeSecret"]);
@@ -44,7 +50,7 @@ export async function GET(request: Request): Promise<Response> {
     // ones alone simply go on the next run.
     const problem = result.failed > 0 || result.unconfirmed > 0 || result.abandoned > 0;
     await finish(problem ? "fail" : "success", result);
-    return Response.json(result, { headers: { "Cache-Control": "no-store" } });
+    return Response.json({ ...result, plaidCleanup: await cleanup }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (!(error instanceof ReminderJobError)) {
       await finish("fail", { error: "unexpected" });
