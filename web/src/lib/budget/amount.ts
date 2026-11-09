@@ -1,3 +1,5 @@
+import { dollarsToCents } from "@/lib/money";
+
 // Reading and writing the dollar amounts a student types into a budget field.
 // Amounts are whole cents everywhere else (money.ts); this is the one place
 // text becomes cents.
@@ -6,18 +8,9 @@
 // typo like an extra few zeros from reaching the arithmetic.
 export const MAX_AMOUNT_CENTS = 100_000_000;
 
-// Thousands commas only in the right places: "1,200" and "12,000.50" are
-// fine, "1,2,3" and "12,34" are not. A dollar sign is allowed up front, and a
-// trailing "." is allowed so "25." does not flash an error while typing.
-const AMOUNT = /^(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{0,2})?$/;
-
-// "25" -> 2500, "$1,200.5" -> 120050, "" or "abc" or "-5" or "1.234" -> null.
+// Use the shared parser, with the budget's own range and typing behavior.
 export function parseDollarsToCents(text: string): number | null {
-  const cleaned = text.trim().replace(/^\$\s*/, "");
-  if (!AMOUNT.test(cleaned)) return null;
-  const [whole, fraction = ""] = cleaned.replace(/,/g, "").split(".");
-  const cents = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
-  return cents <= MAX_AMOUNT_CENTS ? cents : null;
+  return dollarsToCents(text, { minCents: 0, maxCents: MAX_AMOUNT_CENTS });
 }
 
 // What a field shows for a starting amount: no cents when it is whole
