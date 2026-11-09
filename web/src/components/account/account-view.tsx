@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 import { LogOutButton } from "@/components/account/log-out-button";
 import { AppHeader } from "@/components/ui/app-header";
-import { CardArt } from "@/components/ui/card-art";
+import { MiniCardArt } from "@/components/ui/card-art";
 import { STATUS_LABELS } from "@/lib/copy/applications";
 import { SENSITIVE } from "@/lib/analytics";
 import type { Application } from "@/lib/api/application";
@@ -81,7 +81,7 @@ export function AccountView({
           <SectionHeading id="your-card">Your card</SectionHeading>
           {card ? (
             <Link href={ROUTES.home} className={ROW}>
-              <CardArt />
+              <MiniCardArt />
               <span className="flex min-w-0 flex-1 flex-col gap-[3px] leading-[normal]">
                 <span className="text-body-m leading-[normal] font-medium text-indigo-black">
                   {card.cardName}
