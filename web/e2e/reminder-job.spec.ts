@@ -103,12 +103,12 @@ test("the job emails a due reminder once, and the email's button, settings link 
   expect(sent.idempotencyKey).toMatch(/^reminder-[0-9a-f-]{36}$/);
   expect(sent.authorization).toBe("Bearer e2e-placeholder");
   expect(sent.text).toContain("pay it down to $150 or less in your Discover app");
-  // One button, Open Cense, to Home marked with the email's kind; the footer
+  // One button, Open Cense, to Updates marked with the email's kind; the footer
   // opens Reminder settings.
   const buttons = [...sent.html.matchAll(/<a href="([^"]+)" style="display:inline-block[^"]*">([^<]+)<\/a>/g)];
   expect(buttons.map(([, , label]) => label)).toEqual(["Open Cense"]);
   const openCense = buttons[0][1];
-  expect(pathOf(openCense)).toBe("/home?reminder=statement_closing");
+  expect(pathOf(openCense)).toBe("/updates?reminder=statement_closing");
   const settingsLink = /<a href="([^"]+)"[^>]*>Reminder settings<\/a>/.exec(sent.html)?.[1];
   expect(settingsLink && pathOf(settingsLink)).toBe("/settings/reminders");
 
@@ -122,10 +122,12 @@ test("the job emails a due reminder once, and the email's button, settings link 
   await runJob(request);
   expect(fake.emailsTo(email)).toHaveLength(1);
 
-  // Open Cense: Home, with the mark dropped from the address.
+  // Open Cense: Updates, with the mark dropped from the address and the same
+  // reminder as a new card with its action (US-08, Flow B).
   await page.goto(pathOf(openCense));
-  await expect(page).toHaveURL(/\/home$/);
-  await expect(page.getByRole("region", { name: DISCOVER.name })).toBeVisible();
+  await expect(page).toHaveURL(/\/updates$/);
+  const inApp = page.getByRole("region", { name: "New" }).getByRole("article", { name: `Statement closes ${closes.weekday}` });
+  await expect(inApp.getByRole("button", { name: "I paid it down" })).toBeVisible();
 
   // The footer link opens Reminder settings, all on.
   await page.goto(pathOf(settingsLink!));

@@ -6,6 +6,9 @@ extendZodWithOpenApi(z);
 // Reminder emails (spec C2). The server schedules them (refresh_reminders in
 // the database); students read theirs, pick the day for the one reapply
 // reminder after a denial, and mark a sent one acted on ("I paid it down").
+// Once sent, a reminder is also an in-app card in Updates (Flow B): it can be
+// marked read, snoozed or dismissed for its billing cycle, and a statement
+// reminder gets one follow-up 2 days after the close if it was not marked paid.
 
 export const reminderKindSchema = z.enum(["statement_closing", "payment_due", "check_autopay", "reapply"]);
 
@@ -20,8 +23,29 @@ export const reminderSchema = z.strictObject({
   dueAt: z.iso.datetime({ offset: true }),
   sentAt: z.iso.datetime({ offset: true }).nullable(),
   actedAt: z.iso.datetime({ offset: true }).nullable(),
+  // In-app state, all null until the email is sent.
+  readAt: z.iso.datetime({ offset: true }).nullable(),
+  snoozedUntil: z.iso.datetime({ offset: true }).nullable(),
+  dismissedAt: z.iso.datetime({ offset: true }).nullable(),
+  // When the one follow-up came (statement_closing only).
+  followUpAt: z.iso.datetime({ offset: true }).nullable(),
   createdAt: z.iso.datetime({ offset: true }),
 }).openapi("Reminder");
+
+// The snooze sheet's three times, worked out on the student's calendar: 9:00
+// tomorrow, 9:00 in 2 days, or 9:00 the day before the reminder's due date.
+export const snoozeChoiceSchema = z.enum(["tomorrow", "in_2_days", "day_before_due"]);
+
+export const snoozeReminderSchema = z.strictObject({
+  choice: snoozeChoiceSchema,
+});
+
+export const markRemindersReadSchema = z.strictObject({
+  // How many reminders this marked read.
+  marked: z.int().min(0),
+}).openapi("MarkRemindersRead");
+
+export type SnoozeChoice = z.infer<typeof snoozeChoiceSchema>;
 
 export const createReapplyReminderSchema = z.strictObject({
   applicationId: z.uuid(),
@@ -40,7 +64,8 @@ export const savedReapplyReminderSchema = z
   .openapi("SavedReapplyReminder");
 export type ConfirmationOutcome = z.infer<typeof confirmationOutcomeSchema>;
 
-export const REMINDER_FIELDS = "id, card_application_id, kind, occurrence, due_at, sent_at, acted_at, created_at";
+export const REMINDER_FIELDS =
+  "id, card_application_id, kind, occurrence, due_at, sent_at, acted_at, read_at, snoozed_until, dismissed_at, follow_up_at, created_at";
 
 export type ReminderRow = {
   id: string;
@@ -50,6 +75,10 @@ export type ReminderRow = {
   due_at: string;
   sent_at: string | null;
   acted_at: string | null;
+  read_at: string | null;
+  snoozed_until: string | null;
+  dismissed_at: string | null;
+  follow_up_at: string | null;
   created_at: string;
 };
 
@@ -85,6 +114,10 @@ export function reminderFromRow(row: ReminderRow, timeZone: string): Reminder {
     dueAt: iso(row.due_at),
     sentAt: row.sent_at ? iso(row.sent_at) : null,
     actedAt: row.acted_at ? iso(row.acted_at) : null,
+    readAt: row.read_at ? iso(row.read_at) : null,
+    snoozedUntil: row.snoozed_until ? iso(row.snoozed_until) : null,
+    dismissedAt: row.dismissed_at ? iso(row.dismissed_at) : null,
+    followUpAt: row.follow_up_at ? iso(row.follow_up_at) : null,
     createdAt: iso(row.created_at),
   };
 }
