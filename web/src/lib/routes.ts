@@ -33,6 +33,9 @@ export const ROUTES = {
   privacy: "/settings/privacy",
   // Where a student lands, signed out, once their account is deleted.
   accountDeleted: "/account-deleted",
+  // Where Log out and Switch account land (Flow F, F8): Welcome back, with
+  // Google and email sign-in.
+  signedOut: "/signed-out",
   // Penny's starters, the topics and Ask Penny (Flow 5).
   learn: "/learn",
   penny: "/learn/penny",
@@ -78,6 +81,19 @@ export function quizBackHref(from: string | string[] | undefined): string {
   if (from === "results") return ROUTES.results;
   if (from === "account") return ROUTES.settings;
   return ROUTES.home;
+}
+
+// Cards and Add a card opened from Profile (Flow F, F6 and F7): the back
+// arrow, and Add card's Save and Cancel, return to Profile.
+export const FROM_ACCOUNT = "account";
+
+export function fromAccount(path: typeof ROUTES.cards | typeof ROUTES.addCard): string {
+  return `${path}?from=${FROM_ACCOUNT}`;
+}
+
+// True when a screen's `from` says it was opened from Profile.
+export function openedFromAccount(from: string | string[] | undefined): boolean {
+  return from === FROM_ACCOUNT;
 }
 
 // Home right after Mark result saves a new approval. Home celebrates that

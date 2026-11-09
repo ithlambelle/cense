@@ -18,13 +18,16 @@ const NAVY_LINK =
 // "Home with safe to spend" (Figma 222:2133). Linked but not answered: a
 // prompt to finish. Not linked: an invitation to try the sandbox preview.
 // Nothing at all when safe to spend is off (no Plaid settings).
-export function SafeToSpendHome({ safeToSpend }: { safeToSpend: SafeToSpend | null }) {
+// `preview` false drops the Preview label: Home's approval celebration never
+// says "Preview" (Ben, 2026-11-08).
+export function SafeToSpendHome({ safeToSpend, preview = true }: { safeToSpend: SafeToSpend | null; preview?: boolean }) {
   if (safeToSpend === null) {
     return (
       <QuietCard
         title={SAFE_TO_SPEND_COPY.inviteTitle}
         body={SAFE_TO_SPEND_COPY.inviteBody}
         action={{ href: ROUTES.safeToSpendConnect, label: "Try it" }}
+        preview={preview}
       />
     );
   }
@@ -34,6 +37,7 @@ export function SafeToSpendHome({ safeToSpend }: { safeToSpend: SafeToSpend | nu
         title="Finish safe to spend"
         body="Say who covers your bills, then see your number."
         action={{ href: safeToSpendSetupPath(), label: "Continue" }}
+        preview={preview}
       />
     );
   }
@@ -41,7 +45,7 @@ export function SafeToSpendHome({ safeToSpend }: { safeToSpend: SafeToSpend | nu
     <section aria-label="Safe to spend" className="flex flex-col rounded-[28px] bg-navy px-[23px] pt-[27px] pb-4 text-white shadow-glow-form">
       <div className="flex items-start justify-between gap-3">
         <p className="text-body-m leading-[18px] font-semibold">Safe to spend today:</p>
-        <PreviewLabel onNavy className="-mt-0.5" />
+        {preview ? <PreviewLabel onNavy className="-mt-0.5" /> : null}
       </div>
       {/* A broken link shows what to do, never the last number as if current. */}
       {safeToSpend.status !== "active" ? (
@@ -75,7 +79,17 @@ export function SafeToSpendHome({ safeToSpend }: { safeToSpend: SafeToSpend | nu
 
 // The quiet card Home uses for a next step (an icon, a short title and line,
 // one action), with the Preview label.
-function QuietCard({ title, body, action }: { title: string; body: string; action: { href: string; label: string } }) {
+function QuietCard({
+  title,
+  body,
+  action,
+  preview,
+}: {
+  title: string;
+  body: string;
+  action: { href: string; label: string };
+  preview: boolean;
+}) {
   return (
     <section aria-label={title} className="flex flex-col gap-3 rounded-card border border-hairline bg-white p-5">
       <div className="flex items-center gap-3">
@@ -83,7 +97,7 @@ function QuietCard({ title, body, action }: { title: string; body: string; actio
         <div className="flex min-w-0 flex-1 flex-col gap-1 text-indigo-black">
           <div className="flex items-start justify-between gap-2">
             <h2 className="font-heading text-h6 font-medium">{title}</h2>
-            <PreviewLabel />
+            {preview ? <PreviewLabel /> : null}
           </div>
           <p className="text-body-s">{body}</p>
         </div>

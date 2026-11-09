@@ -551,6 +551,62 @@ components:
         - paymentDue
         - checkAutopay
       additionalProperties: false
+    SavedReapplyReminder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        applicationId:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - statement_closing
+            - payment_due
+            - check_autopay
+            - reapply
+        occurrence:
+          type: string
+          format: date
+        remindOn:
+          type: string
+          format: date
+        dueAt:
+          type: string
+          format: date-time
+        sentAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        actedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        confirmation:
+          type: string
+          enum:
+            - sent
+            - skipped
+            - failed
+      required:
+        - id
+        - applicationId
+        - kind
+        - occurrence
+        - remindOn
+        - dueAt
+        - sentAt
+        - actedAt
+        - createdAt
+        - confirmation
+      additionalProperties: false
     PennyReply:
       oneOf:
         - type: object
@@ -2078,7 +2134,9 @@ paths:
       summary: Set the reapply reminder for a denied application (replaces an unsent
         one)
       description: The day must be tomorrow to a year from now on the student's
-        calendar. The answer carries the day as remindOn.
+        calendar. The answer carries the day as remindOn, and confirmation says
+        whether the confirmation email was sent, skipped (emails off or not set
+        up) or failed.
       security:
         - studentSession: []
       requestBody:
@@ -2103,7 +2161,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Reminder"
+                $ref: "#/components/schemas/SavedReapplyReminder"
         "400":
           description: Invalid day or application not denied
           content:

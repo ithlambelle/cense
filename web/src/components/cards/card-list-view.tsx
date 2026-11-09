@@ -22,19 +22,28 @@ export function CardListView({
   cards,
   signedIn,
   yourMatch = null,
+  fromAccount = false,
 }: {
   cards: Card[];
   signedIn: boolean;
   yourMatch?: YourMatch | null;
+  // Opened from Profile (F6, Figma 477:2856): a back arrow returns there.
+  // From the bottom bar, as a tab, it has none.
+  fromAccount?: boolean;
 }) {
+  const header = !signedIn
+    ? <AppHeader backHref={ROUTES.welcome} backLabel="Welcome" />
+    : fromAccount
+      ? <AppHeader backHref={ROUTES.settings} backLabel="Your account" />
+      : null;
   const recommend = cards.filter((card) => card.catalogRole === "recommend");
   const explore = cards.filter((card) => card.catalogRole === "explore");
 
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
-        {signedIn ? null : <AppHeader backHref={ROUTES.welcome} backLabel="Welcome" />}
-        <main className={cn("stagger flex flex-1 flex-col gap-6 px-6 pb-6", signedIn ? "pt-8" : "pt-4")}>
+        {header}
+        <main className={cn("stagger flex flex-1 flex-col gap-6 px-6 pb-6", header ? "pt-4" : "pt-8")}>
           <div className="flex flex-col gap-2">
             <h1 className="font-heading text-h2 font-medium text-navy">Cards</h1>
             <p className="text-body-m text-indigo-black">
