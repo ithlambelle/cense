@@ -1,5 +1,5 @@
 -- Created with Claude Code (2026-11-08). Back out
--- supabase/migrations/20261108200000_in_app_reminders.sql. Not a migration:
+-- supabase/migrations/20261108210000_in_app_reminders.sql. Not a migration:
 -- it lives outside supabase/migrations so nothing runs it on its own. Run it
 -- by hand in the Supabase SQL editor only to undo in-app reminders.
 --

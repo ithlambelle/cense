@@ -110,7 +110,7 @@ The functions, all service role only (`supabase/migrations/20261024220000_remind
 | `mark_reminder_sent(id)` | Sets `sent_at` once. |
 | `release_reminder_claim(id)` | After a failed send: claimable again on the student's next day, attempts kept. True when that was the last attempt (the job reports it as abandoned). |
 | `unsubscribe_reminders(student_id)` | Sets `reminders_unsubscribed_at` once. True only when this call turned emails off, so a second click is not counted again. |
-| `raise_reminder_follow_ups()` | (`20261108200000_in_app_reminders.sql`) Sets `follow_up_at` once on a sent `statement_closing` reminder 2 days after its close on the student's calendar, when it is not marked paid, not dismissed and not snoozed past now, the card is approved, the student is subscribed with statement reminders on, and the payment due after that close has not passed. No email. Each reminder on its own: one that fails is skipped with a warning. Answers `raised` and `skipped`. |
+| `raise_reminder_follow_ups()` | (`20261108210000_in_app_reminders.sql`) Sets `follow_up_at` once on a sent `statement_closing` reminder 2 days after its close on the student's calendar, when it is not marked paid, not dismissed and not snoozed past now, the card is approved, the student is subscribed with statement reminders on, and the payment due after that close has not passed. No email. Each reminder on its own: one that fails is skipped with a warning. Answers `raised` and `skipped`. |
 
 The API route owner will implement a route only when its underlying dataset or
 table is available. No route will claim a successful recommendation based on an

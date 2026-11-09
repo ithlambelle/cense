@@ -6,7 +6,7 @@ import type { ServiceClient } from "@/lib/supabase/service";
 // days after a statement closes, a statement reminder the student has not
 // marked paid, dismissed or snoozed past now gets its one follow-up in
 // Updates. No email: the statement email stays the only one. The rules live
-// in raise_reminder_follow_ups() (supabase/migrations/20261108200000_in_app_reminders.sql),
+// in raise_reminder_follow_ups() (supabase/migrations/20261108210000_in_app_reminders.sql),
 // which skips any one reminder that fails and counts it.
 //
 // Kept apart from the email job (job.ts) so the two never block each other:

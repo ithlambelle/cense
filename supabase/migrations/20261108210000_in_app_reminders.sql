@@ -19,7 +19,7 @@
 -- job (service role) calls raise_reminder_follow_ups(), which respects snooze
 -- and dismiss and skips any one row that fails rather than stopping the job.
 --
--- To back it out: supabase/rollbacks/20261108200000_in_app_reminders.down.sql.
+-- To back it out: supabase/rollbacks/20261108210000_in_app_reminders.down.sql.
 -- Applied by hand in the Supabase SQL editor, after
 -- 20261025220000_profiles_analytics_opt_out.sql. Safe to run again.
 
