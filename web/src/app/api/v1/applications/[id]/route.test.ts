@@ -11,7 +11,7 @@ type Result = { data: unknown; error: { code?: string; message: string } | null 
 const row = (over: Record<string, unknown> = {}) => ({
   id: ID, card_id: "discover-it-student", card_name: "Discover it Student Cash", status: "approved",
   credit_limit_cents: 50000, applied_at: null, updated_at: "2026-10-24T15:00:00+00:00",
-  denial_reason: null, denial_reason_note: null, autopay_status: "unknown",
+  denial_reason: null, denial_reason_note: null, autopay_status: "unknown", autopay_payment_type: null, spend_limit_cents: null,
   statement_closing_day: null, payment_due_day: null, ...over,
 });
 
@@ -90,6 +90,61 @@ describe("PATCH /applications/{id}", () => {
     const same = student({ data: row({ autopay_status: "on" }), error: null });
     await patch({ autopayStatus: "on" });
     expect(same).toEqual([{ autopay_status: "on" }]);
+  });
+
+  it("saves the autopay payment type with autopay on (US-10)", async () => {
+    const writes = student({ data: row(), error: null });
+    const response = await patch({ autopayStatus: "on", autopayPaymentType: "minimum" });
+    expect(response.status).toBe(200);
+    expect(writes[0]).toMatchObject({ autopay_status: "on", autopay_payment_type: "minimum" });
+    expect(await response.json()).toMatchObject({ autopayStatus: "on", autopayPaymentType: "minimum" });
+    const on = student({ data: row({ autopay_status: "on" }), error: null });
+    expect((await patch({ autopayPaymentType: "fixed_amount" })).status).toBe(200);
+    expect(on).toEqual([{ autopay_payment_type: "fixed_amount" }]);
+  });
+
+  it("refuses a payment type without autopay on, and clears it when autopay goes off", async () => {
+    const none = student({ data: row({ autopay_status: "off" }), error: null });
+    expect((await patch({ autopayPaymentType: "minimum" })).status).toBe(400);
+    expect((await patch({ autopayStatus: "off", autopayPaymentType: "statement_balance" })).status).toBe(400);
+    expect(none).toEqual([]);
+    const off = student({ data: row({ autopay_status: "on", autopay_payment_type: "minimum" }), error: null });
+    expect((await patch({ autopayStatus: "off" })).status).toBe(200);
+    expect(off[0]).toMatchObject({ autopay_status: "off", autopay_payment_type: null });
+    expect((await patch({ autopayPaymentType: "nope" })).status).toBe(400);
+  });
+
+  it("saves a spend limit up to the credit limit on an approved card (US-04)", async () => {
+    const writes = student({ data: row(), error: null });
+    const response = await patch({ spendLimitCents: 15000 });
+    expect(response.status).toBe(200);
+    expect(writes).toEqual([{ spend_limit_cents: 15000 }]);
+    expect(await response.json()).toMatchObject({ spendLimitCents: 15000 });
+    expect((await patch({ spendLimitCents: 50001 })).status).toBe(400);
+    expect((await patch({ spendLimitCents: 0 })).status).toBe(400);
+    expect((await patch({ spendLimitCents: 10.5 })).status).toBe(400);
+    expect(writes).toHaveLength(1);
+    const unknown = student({ data: row({ credit_limit_cents: null }), error: null });
+    expect((await patch({ spendLimitCents: 90000 })).status).toBe(200);
+    expect(unknown).toEqual([{ spend_limit_cents: 90000 }]);
+    const both = student({ data: row({ credit_limit_cents: null }), error: null });
+    expect((await patch({ creditLimitCents: 40000, spendLimitCents: 12000 })).status).toBe(200);
+    expect(both).toEqual([{ credit_limit_cents: 40000, spend_limit_cents: 12000 }]);
+  });
+
+  it("refuses a spend limit off an approved card, and clears one that no longer fits", async () => {
+    const applied = student({ data: row({ status: "applied", credit_limit_cents: null }), error: null });
+    expect((await patch({ spendLimitCents: 10000 })).status).toBe(400);
+    expect(applied).toEqual([]);
+    const lower = student({ data: row({ spend_limit_cents: 15000 }), error: null });
+    expect((await patch({ creditLimitCents: 10000 })).status).toBe(200);
+    expect(lower).toEqual([{ credit_limit_cents: 10000, spend_limit_cents: null }]);
+    const higher = student({ data: row({ spend_limit_cents: 15000 }), error: null });
+    expect((await patch({ creditLimitCents: 90000 })).status).toBe(200);
+    expect(higher).toEqual([{ credit_limit_cents: 90000 }]);
+    const denied = student({ data: row({ spend_limit_cents: 15000 }), error: null });
+    expect((await patch({ status: "rejected" })).status).toBe(200);
+    expect(denied[0]).toMatchObject({ status: "rejected", credit_limit_cents: null, spend_limit_cents: null });
   });
 
   it("saves a denial reason and a trimmed note on a denied card; an empty note is no note", async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { SPEND_LIMIT_PERCENT, SPEND_LIMIT_SOURCES, suggestedSpendLimitCents } from "./spend-limit";
+import { SPEND_LIMIT_PERCENT, SPEND_LIMIT_SOURCES, suggestedSpendLimitCents, tighterSpendLimitCents } from "./spend-limit";
 
 describe("suggestedSpendLimitCents", () => {
   it("is 30% of the credit limit", () => {
@@ -35,5 +35,18 @@ describe("suggestedSpendLimitCents", () => {
 
   it("links only to https sources", () => {
     for (const source of SPEND_LIMIT_SOURCES) expect(source.url.startsWith("https://")).toBe(true);
+  });
+});
+
+describe("tighterSpendLimitCents", () => {
+  it("is 20% of the credit limit, rounded down to whole dollars", () => {
+    expect(tighterSpendLimitCents(50_000)).toBe(10_000);
+    expect(tighterSpendLimitCents(123_400)).toBe(24_600);
+  });
+
+  it("is left out when it is not below the suggestion or there is no limit", () => {
+    expect(tighterSpendLimitCents(null)).toBeNull();
+    expect(tighterSpendLimitCents(0)).toBeNull();
+    expect(tighterSpendLimitCents(4)).toBeNull();
   });
 });

@@ -4,7 +4,11 @@ import {
   allowedNext,
   applicationBackLink,
   applicationPath,
+  autopayConfirmPath,
+  autopayOnPath,
+  autopayStepsPath,
   cardBackLink,
+  cardSetupPath,
   cardPath,
   deniedPath,
   googleSignInPath,
@@ -15,6 +19,12 @@ import {
   quizBackHref,
   quizPath,
   remindersBackLink,
+  spendLimitBackLink,
+  spendLimitCreditPath,
+  spendLimitOrigin,
+  spendLimitPath,
+  spendLimitPickPath,
+  spendLimitSuggestionPath,
   safeToSpendSetupPath,
   signInPath,
   waitingPath,
@@ -129,6 +139,37 @@ describe("tracked card paths", () => {
     expect(remindersBackLink(undefined, "home", card)).toEqual({ href: "/home", label: "Home" });
     expect(allowedNext(paymentRemindersPath(ID))).toBe(paymentRemindersPath(ID));
     expect(allowedNext(`/applications/${ID}/reminders/x`)).toBeNull();
+  });
+
+  it("builds card setup's screens (US-10), each allowed after sign-in, and the reminder screen's Back to setup", () => {
+    expect(cardSetupPath(ID)).toBe(`/applications/${ID}/setup`);
+    expect(autopayStepsPath(ID)).toBe(`/applications/${ID}/setup/autopay`);
+    expect(autopayConfirmPath(ID)).toBe(`/applications/${ID}/setup/autopay/confirm`);
+    expect(autopayOnPath(ID)).toBe(`/applications/${ID}/setup/autopay/on`);
+    for (const path of [cardSetupPath(ID), autopayStepsPath(ID), autopayConfirmPath(ID), autopayOnPath(ID)]) {
+      expect(allowedNext(path)).toBe(path);
+    }
+    expect(allowedNext(`/applications/${ID}/setup/x`)).toBeNull();
+    expect(paymentRemindersPath(ID, "setup")).toBe(`/applications/${ID}/reminders?from=setup`);
+    expect(remindersBackLink("setup", undefined, null, ID)).toEqual({ href: `/applications/${ID}/setup`, label: "Card setup" });
+    expect(remindersBackLink("setup", undefined, null)).toEqual({ href: "/home", label: "Home" });
+  });
+
+  it("opens the spend limit at S2 with a credit limit, S1 without, and returns where it started (US-04)", () => {
+    const base = `/applications/${ID}/setup/spend-limit`;
+    expect(spendLimitPath(ID, 50000)).toBe(`${base}/suggestion`);
+    expect(spendLimitPath(ID, null, "home")).toBe(`${base}?from=home`);
+    expect(spendLimitPath(ID, 0)).toBe(base);
+    expect(spendLimitPickPath(ID, "home")).toBe(`${base}/pick?from=home`);
+    expect(spendLimitPickPath(ID, "setup")).toBe(`${base}/pick`);
+    for (const path of [spendLimitCreditPath(ID), spendLimitSuggestionPath(ID), spendLimitPickPath(ID)]) {
+      expect(allowedNext(path)).toBe(path);
+    }
+    expect(spendLimitOrigin("home")).toBe("home");
+    expect(spendLimitOrigin(["home"])).toBe("setup");
+    expect(spendLimitOrigin("https://evil.example")).toBe("setup");
+    expect(spendLimitBackLink(ID, "home")).toEqual({ href: "/home", label: "Home" });
+    expect(spendLimitBackLink(ID, "setup")).toEqual({ href: `/applications/${ID}/setup`, label: "Card setup" });
   });
 });
 

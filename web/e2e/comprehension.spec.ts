@@ -113,18 +113,14 @@ test("Your account, for a student with no card, offers the quiz it mentions, and
   await page.goto("/settings");
   await expect(page.getByRole("link", { name: "Add a card I already have" })).toHaveCount(1);
   await page.getByRole("link", { name: "Add a card I already have" }).click();
-  await expect(page).toHaveURL(/\/home\/add-card$/);
+  await expect(page).toHaveURL(/\/home\/add-card\?from=account$/);
 
-  // With a card tracked and still no quiz, the quiz row opens the quiz too.
+  // Added from Profile, the card shows under Your card back on Profile (F7).
   await page.getByLabel("Card name").fill("Campus Credit Union Card");
   await page.getByRole("button", { name: "Add card" }).click();
-  await expect(page).toHaveURL(/\/home$/);
-  await page.goto("/settings");
+  await expect(page).toHaveURL(/\/settings$/);
   await expect(page.getByRole("region", { name: "Your card" })).toContainText("Campus Credit Union Card");
   await expect(page.locator('main a[href="/results"]')).toHaveCount(0);
-  await page.getByRole("link", { name: "Start the quiz" }).click();
-  await expect(page).toHaveURL(/\/quiz\?from=account$/);
-  await expect(page.getByText("Question 1 of 7")).toBeVisible();
 });
 
 for (const [result, picks, see] of [

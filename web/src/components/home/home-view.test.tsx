@@ -121,11 +121,25 @@ describe("HomeView", () => {
     render(<HomeView state={homeState([app("approved", { creditLimitCents: 50000 })], NONE, 1)} initial="M" />);
     expect(screen.getByText("$500")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Your first month" })).toBeTruthy();
-    // Two steps tick here; the payment reminder opens its own screen.
-    expect(screen.getAllByRole("checkbox")).toHaveLength(2);
-    expect(screen.getByRole("link", { name: /^Set a payment reminder/ })).toBeTruthy();
+    // Nothing ticks here: each step opens the screen where it is done.
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.getByRole("link", { name: /^Turn on autopay/ })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /^Set a spend limit/ })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /^Choose your reminders/ })).toBeTruthy();
     expect(screen.queryByText("APPROVED")).toBeNull();
     expect(await screen.findByText("0 of 3 lit")).toBeTruthy();
+  });
+
+  it("never says Preview on the approval celebration, and still does on a calm Home", async () => {
+    const state = homeState([app("approved", { creditLimitCents: 50000 })], NONE, 1);
+    const { unmount } = render(<HomeView state={state} initial="M" celebrateId={ID} safeToSpend={null} />);
+    expect(screen.getByRole("region", { name: "See what’s safe to spend" })).toBeTruthy();
+    expect(screen.queryByText("Preview")).toBeNull();
+    await screen.findByText("0 of 3 lit");
+    unmount();
+    render(<HomeView state={state} initial="M" safeToSpend={null} />);
+    expect(screen.getByText("Preview")).toBeTruthy();
+    await screen.findByText("0 of 3 lit");
   });
 
   it("writes a limit with a thousands separator, and cents only when there are some", async () => {

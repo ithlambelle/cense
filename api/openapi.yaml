@@ -389,6 +389,20 @@ components:
             - on
             - off
             - unknown
+        autopayPaymentType:
+          type:
+            - string
+            - "null"
+          enum:
+            - statement_balance
+            - minimum
+            - fixed_amount
+            - null
+        spendLimitCents:
+          type:
+            - integer
+            - "null"
+          exclusiveMinimum: 0
         statementClosingDay:
           type:
             - integer
@@ -412,6 +426,8 @@ components:
         - denialReason
         - denialReasonNote
         - autopayStatus
+        - autopayPaymentType
+        - spendLimitCents
         - statementClosingDay
         - paymentDueDay
       additionalProperties: false
@@ -452,6 +468,7 @@ components:
           type: string
           enum:
             - planned_purchase
+            - spend_limit
             - payment_reminder
             - read_letter
             - check_reports
@@ -1790,6 +1807,20 @@ paths:
                     - on
                     - off
                     - unknown
+                autopayPaymentType:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - statement_balance
+                    - minimum
+                    - fixed_amount
+                    - null
+                spendLimitCents:
+                  type:
+                    - integer
+                    - "null"
+                  exclusiveMinimum: 0
                 statementClosingDay:
                   type:
                     - integer
@@ -1961,6 +1992,7 @@ paths:
             type: string
             enum:
               - planned_purchase
+              - spend_limit
               - payment_reminder
               - read_letter
               - check_reports
@@ -2037,6 +2069,7 @@ paths:
             type: string
             enum:
               - planned_purchase
+              - spend_limit
               - payment_reminder
               - read_letter
               - check_reports

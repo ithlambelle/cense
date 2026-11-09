@@ -35,7 +35,8 @@ const googleFont = Google_Sans({
 const numberFont = Unbounded({
   variable: "--font-unbounded",
   subsets: ["latin"],
-  weight: ["400", "500"],
+  // 600 for Home's credit limit figure (Figma 477:1528, Unbounded SemiBold).
+  weight: ["400", "500", "600"],
   // Used on Home, results, card pages and the denial steps, not on Welcome,
   // where preloading it competed with the mascot image.
   preload: false,

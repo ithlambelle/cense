@@ -59,6 +59,22 @@ function changes(body: Update, current: ApplicationDetailRow): Record<string, un
     set.credit_limit_cents = null;
   }
 
+  // The spend limit (US-04) needs an approved card and fits under the credit
+  // limit. Leaving approved, or a new credit limit below it, clears it.
+  const creditLimit = body.creditLimitCents !== undefined ? body.creditLimitCents : current.credit_limit_cents;
+  if (body.spendLimitCents !== undefined && body.spendLimitCents !== null) {
+    if (status !== "approved") return "Only approved cards can have a spend limit.";
+    if (creditLimit !== null && body.spendLimitCents > creditLimit) return "A spend limit can be at most the credit limit.";
+    set.spend_limit_cents = body.spendLimitCents;
+  } else if (body.spendLimitCents === null) {
+    set.spend_limit_cents = null;
+  } else if (
+    current.spend_limit_cents !== null &&
+    (status !== "approved" || (creditLimit !== null && current.spend_limit_cents > creditLimit))
+  ) {
+    set.spend_limit_cents = null;
+  }
+
   for (const [field, column] of [["denialReason", "denial_reason"], ["denialReasonNote", "denial_reason_note"]] as const) {
     const value = body[field];
     if (value === undefined) continue;
@@ -77,6 +93,18 @@ function changes(body: Update, current: ApplicationDetailRow): Record<string, un
   if (body.autopayStatus !== undefined) {
     set.autopay_status = body.autopayStatus;
     if (body.autopayStatus !== current.autopay_status) set.autopay_updated_at = new Date().toISOString();
+  }
+
+  // The payment type the student said (US-10) goes with autopay on: turning
+  // autopay off or unknown clears it, and a type needs autopay on.
+  const autopay = body.autopayStatus ?? current.autopay_status;
+  if (body.autopayPaymentType !== undefined && body.autopayPaymentType !== null && autopay !== "on") {
+    return "A payment type needs autopay on.";
+  }
+  if (autopay !== "on") {
+    if (current.autopay_payment_type !== null || body.autopayPaymentType !== undefined) set.autopay_payment_type = null;
+  } else if (body.autopayPaymentType !== undefined) {
+    set.autopay_payment_type = body.autopayPaymentType;
   }
   return set;
 }

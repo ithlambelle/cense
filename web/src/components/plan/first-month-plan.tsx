@@ -21,7 +21,7 @@ import { paymentRemindersPath, ROUTES, signInPath } from "@/lib/routes";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
 import { cn } from "@/lib/utils";
 
-type ActionKey = "autopay" | "plannedPurchase" | "paymentReminder";
+type ActionKey = "autopay" | "spendLimit" | "paymentReminder";
 type PlanActions = Record<ActionKey, boolean>;
 
 // The saved step behind each action. Autopay is not a plan step: it is the
@@ -29,20 +29,21 @@ type PlanActions = Record<ActionKey, boolean>;
 // saved with PATCH /applications/{id}, as on Home, so both agree.
 const STEP: Record<ActionKey, PlanStepName | null> = {
   autopay: null,
-  plannedPurchase: "planned_purchase",
+  spendLimit: "spend_limit",
   paymentReminder: "payment_reminder",
 };
 
 const ACTIONS: { key: ActionKey; title: string; detail: string }[] = [
   { key: "autopay", title: "Turn on autopay", detail: "Set autopay for at least the minimum payment, or the full statement balance if your bank account can always cover it." },
-  { key: "plannedPurchase", title: "Choose one planned purchase", detail: "Pick a small expense you already budget for and can pay off in full." },
+  // The same star as Home's and card setup's "Set a spend limit" (US-10).
+  { key: "spendLimit", title: "Set a spend limit", detail: "Use the monthly spending guide above as your limit to try." },
   { key: "paymentReminder", title: "Set a payment reminder", detail: "Use the due date on your card statement." },
 ];
 
 const ACTION_ROW =
   "flex w-full items-start gap-3 rounded-input border-[1.5px] border-violet bg-white p-4 text-left hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
-const NONE_DONE: PlanActions = { autopay: false, plannedPurchase: false, paymentReminder: false };
+const NONE_DONE: PlanActions = { autopay: false, spendLimit: false, paymentReminder: false };
 
 type SaveState = "loading" | "saved" | "failed";
 
@@ -60,7 +61,7 @@ function loadPlan(applicationId: string, reminderOn: boolean, autopayOn: boolean
         data: {
           actions: {
             autopay: autopayOn,
-            plannedPurchase: result.done.has("planned_purchase"),
+            spendLimit: result.done.has("spend_limit"),
             paymentReminder: reminderOn && result.done.has("payment_reminder"),
           },
           state: "saved",
