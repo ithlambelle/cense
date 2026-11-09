@@ -118,8 +118,8 @@ empty catalog or on client-authored ranking.
 
 ## Account deletion and deferred Plaid cleanup
 
-Apply `20261109160000_plaid_account_cleanup.sql` to cense-preview before deploying this version of #84, then coordinate the production migration with the team before merge. It follows the bank-link schema and is independent of #94's transaction-storage migration; it neither modifies nor purges transactions. The route checks `plaid_account_cleanup_ready()` before deleting analytics or auth, and returns 503 on an unmigrated database rather than losing a token.
+`20261109160000_plaid_account_cleanup.sql` is applied to cense-preview, the hosted Supabase project the live site uses, by hand in the SQL editor (2026-11-09), before the code that calls it merges. It follows the bank-link schema and is independent of #94's transaction-storage migration; it neither modifies nor purges transactions. The route checks `plaid_account_cleanup_ready()` before deleting analytics or auth, and returns 503 on an unmigrated database rather than losing a token.
 
 The existing authenticated daily reminders cron also runs `runAccountCleanup` concurrently, even if email settings are missing. It decrypts tokens only on the server and calls Plaid `/item/remove`. The response and heartbeat include `plaidCleanup` counts only. Failures, unreadable tokens, or unavailable cleanup trigger a failed heartbeat for operator attention; encrypted rows remain for retry. Preserve `PLAID_TOKEN_KEY` until all tokens sealed under it have been cleaned up. A crashed worker's lease expires after 15 minutes; claim IDs prevent a stale worker acknowledging a newer attempt.
 
-Local transaction/privilege checks: `psql <local-db-url> -v ON_ERROR_STOP=1 -f supabase/checks/plaid_account_cleanup.sql`. CI runs these on its disposable Supabase stack. No hosted migration is applied by this PR.
+Local transaction/privilege checks: `psql <local-db-url> -v ON_ERROR_STOP=1 -f supabase/checks/plaid_account_cleanup.sql`. CI runs these on its disposable Supabase stack. The hosted migration is applied by hand, as above.
