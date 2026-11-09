@@ -157,20 +157,14 @@ test("Not yet saves autopay off and clears the payment type; the setup list says
   await expect(page).toHaveURL(new RegExp(`/applications/${id}/setup$`));
 });
 
-test("the spend limit star ticks on the setup list, stays after a reload, and shows on Home", async ({ page }) => {
+test("the spend limit row opens its screens (spend-limit.spec.ts walks them)", async ({ page }) => {
   const { id } = await approvedStudent(page, "setup-spend-limit");
   await page.goto(`/applications/${id}/setup`);
-  const limit = page.getByRole("checkbox", { name: /Set a spend limit/ });
-  await expect(limit).toHaveAttribute("aria-checked", "false");
-  const write = page.waitForResponse((r) => r.url().includes("/steps/spend_limit") && r.request().method() === "PUT");
-  await limit.click();
-  expect((await write).ok()).toBe(true);
-  await page.reload();
-  await expect(page.getByRole("checkbox", { name: /Set a spend limit/ })).toHaveAttribute("aria-checked", "true");
-  await page.getByRole("link", { name: "Back to Home" }).click();
-  const home = page.getByRole("region", { name: DISCOVER.name });
-  await expect(home.getByRole("checkbox", { name: /Set a spend limit/ })).toHaveAttribute("aria-checked", "true");
-  await expect(home.getByText("1 of 3 lit")).toBeVisible();
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
+  await page.getByRole("link", { name: /^Set a spend limit/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/applications/${id}/setup/spend-limit/suggestion$`));
+  await page.getByRole("link", { name: "Back to Card setup" }).click();
+  await expect(page).toHaveURL(new RegExp(`/applications/${id}/setup$`));
 });
 
 test("Chime's steps say the card is paid from the Chime account", async ({ page }) => {
@@ -188,7 +182,7 @@ test("card setup is only for the student's own approved card", async ({ page, br
   await blockExternalRequests(other);
   const otherPage = await other.newPage();
   await signUp(otherPage, uniqueEmail("setup-other"), async () => {});
-  for (const path of ["setup", "setup/autopay", "setup/autopay/confirm", "setup/autopay/on"]) {
+  for (const path of ["setup", "setup/autopay", "setup/autopay/confirm", "setup/autopay/on", "setup/spend-limit"]) {
     const response = await otherPage.goto(`/applications/${id}/${path}`);
     expect(response?.status(), path).toBe(404);
   }
@@ -202,7 +196,8 @@ test("card setup is only for the student's own approved card", async ({ page, br
 test("every link on the setup screens leads somewhere real", async ({ page }) => {
   const { id } = await approvedStudent(page, "setup-links");
   await page.request.patch(`/api/v1/applications/${id}`, { data: { autopayStatus: "on", paymentDueDay: 6, statementClosingDay: 10 } });
-  for (const path of ["setup", "setup/autopay", "setup/autopay/confirm", "setup/autopay/on"]) {
+  const paths = ["setup", "setup/autopay", "setup/autopay/confirm", "setup/autopay/on"];
+  for (const path of [...paths, "setup/spend-limit", "setup/spend-limit/suggestion", "setup/spend-limit/pick"]) {
     await page.goto(`/applications/${id}/${path}`);
     const hrefs = await page.locator("a[href]").evaluateAll((links) =>
       [...new Set(links.map((a) => (a as HTMLAnchorElement).getAttribute("href") ?? ""))].filter((h) => h.startsWith("/")),

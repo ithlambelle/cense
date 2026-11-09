@@ -77,6 +77,46 @@ export function autopayOnPath(applicationId: string): string {
   return `${autopayStepsPath(applicationId)}/on`;
 }
 
+// The spend limit screens (US-04, Figma Flow A 477:1005): "What is your credit
+// limit?" (S1), "A limit to try this month" (S2) and "Pick your limit" (S3).
+// `from` is where the student started: Home's star ("home") or the setup
+// list ("setup", the default). Back from S1 and S2, and every save, return there.
+export type SpendLimitOrigin = "home" | "setup";
+
+function spendLimitStep(applicationId: string, step: string, from?: SpendLimitOrigin): string {
+  const path = `${cardSetupPath(applicationId)}/spend-limit${step}`;
+  return from === "home" ? `${path}?from=home` : path;
+}
+
+export function spendLimitCreditPath(applicationId: string, from?: SpendLimitOrigin): string {
+  return spendLimitStep(applicationId, "", from);
+}
+
+export function spendLimitSuggestionPath(applicationId: string, from?: SpendLimitOrigin): string {
+  return spendLimitStep(applicationId, "/suggestion", from);
+}
+
+export function spendLimitPickPath(applicationId: string, from?: SpendLimitOrigin): string {
+  return spendLimitStep(applicationId, "/pick", from);
+}
+
+// Where "Set a spend limit" opens: S2 when the card has a credit limit, or S1
+// to ask for it first (the frames' branch, 477:1087).
+export function spendLimitPath(applicationId: string, creditLimitCents: number | null, from?: SpendLimitOrigin): string {
+  return creditLimitCents !== null && creditLimitCents > 0
+    ? spendLimitSuggestionPath(applicationId, from)
+    : spendLimitCreditPath(applicationId, from);
+}
+
+// A spend limit screen's origin read back from an address: Home only when it says so.
+export function spendLimitOrigin(value: string | string[] | undefined): SpendLimitOrigin {
+  return value === "home" ? "home" : "setup";
+}
+
+export function spendLimitBackLink(applicationId: string, from: SpendLimitOrigin): { href: string; label: string } {
+  return from === "home" ? { href: ROUTES.home, label: "Home" } : { href: cardSetupPath(applicationId), label: "Card setup" };
+}
+
 // "I haven’t heard yet" for one tracked card. `from` is Mark result's, so its
 // back arrow returns to the card page or Home the student came from.
 export function waitingPath(applicationId: string, from?: ApplicationOrigin): string {
@@ -246,7 +286,7 @@ const CARD_PATH = /^\/cards\/[a-z0-9-]{1,100}$/;
 
 // A tracked card's screens opened from Home (update, waiting, payment
 // reminders), so a signed-out visitor returns to the one they were on.
-const APPLICATION_PATH = /^\/applications\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\/waiting|\/reminders|\/setup|\/setup\/autopay|\/setup\/autopay\/confirm|\/setup\/autopay\/on)?$/;
+const APPLICATION_PATH = /^\/applications\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\/waiting|\/reminders|\/setup|\/setup\/autopay|\/setup\/autopay\/confirm|\/setup\/autopay\/on|\/setup\/spend-limit|\/setup\/spend-limit\/suggestion|\/setup\/spend-limit\/pick)?$/;
 
 // Returns the path only when it is one this app chose. A `next` value read
 // from the address bar is attacker-controlled, so anything else is dropped.

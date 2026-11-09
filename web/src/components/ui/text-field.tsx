@@ -12,6 +12,8 @@ type TextFieldProps = Omit<ComponentProps<"input">, "id" | "aria-invalid" | "ari
   trailing?: ReactNode
   // Classes for the input itself; className styles the field around it.
   inputClassName?: string
+  // Classes for the label, for frames that set it apart (Text field 371:3457).
+  labelClassName?: string
 }
 
 // From the auth frames (405:509 and the focused and error states): off-white
@@ -21,7 +23,7 @@ type TextFieldProps = Omit<ComponentProps<"input">, "id" | "aria-invalid" | "ari
 // `disabled` makes the field read-only rather than natively disabled: a
 // disabled input drops keyboard focus to the page while a form is sending
 // (WCAG 2.4.3), and a read-only one keeps it.
-function TextField({ label, hint, error, trailing, className, inputClassName, disabled, readOnly, ...props }: TextFieldProps) {
+function TextField({ label, hint, error, trailing, className, inputClassName, labelClassName, disabled, readOnly, ...props }: TextFieldProps) {
   const id = useId()
   const hintId = `${id}-hint`
   const errorId = `${id}-error`
@@ -29,7 +31,7 @@ function TextField({ label, hint, error, trailing, className, inputClassName, di
 
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-body-s text-indigo-black">
+      <label htmlFor={id} className={cn("text-body-s text-indigo-black", labelClassName)}>
         {label}
       </label>
       <div

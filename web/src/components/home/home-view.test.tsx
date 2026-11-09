@@ -121,9 +121,10 @@ describe("HomeView", () => {
     render(<HomeView state={homeState([app("approved", { creditLimitCents: 50000 })], NONE, 1)} initial="M" />);
     expect(screen.getByText("$500")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Your first month" })).toBeTruthy();
-    // The spend limit ticks here; autopay opens card setup and reminders their own screen.
-    expect(screen.getAllByRole("checkbox")).toHaveLength(1);
+    // Nothing ticks here: each step opens the screen where it is done.
+    expect(screen.queryByRole("checkbox")).toBeNull();
     expect(screen.getByRole("link", { name: /^Turn on autopay/ })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /^Set a spend limit/ })).toBeTruthy();
     expect(screen.getByRole("link", { name: /^Choose your reminders/ })).toBeTruthy();
     expect(screen.queryByText("APPROVED")).toBeNull();
     expect(await screen.findByText("0 of 3 lit")).toBeTruthy();

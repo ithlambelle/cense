@@ -9,10 +9,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { axeChecker, blockExternalRequests, signUp, uniqueEmail } from "./helpers";
 
 const DISCOVER = { id: "discover-it-student-cash-back", name: "Discover it Student Cash Back" };
-// The star ticked on Home. "Turn on autopay" opens card setup instead
-// (card-setup.spec.ts) and "Choose your reminders" the reminder screen
-// (home-reminder.spec.ts).
-const STARS = ["Set a spend limit"] as const;
+// Home's three stars. None ticks on Home: "Turn on autopay" opens card setup
+// (card-setup.spec.ts), "Set a spend limit" its screens (spend-limit.spec.ts)
+// and "Choose your reminders" the reminder screen (home-reminder.spec.ts).
+const STARS = ["Turn on autopay", "Set a spend limit", "Choose your reminders"] as const;
 
 test.beforeEach(async ({ context }) => {
   await blockExternalRequests(context);
@@ -37,34 +37,14 @@ function nextWrite(page: Page) {
   return page.waitForResponse((r) => r.url().includes("/api/v1/") && r.request().method() !== "GET", { timeout: 10_000 });
 }
 
-test("approved student: every star ticked on Home stays lit after a reload, and unlights", async ({ page }) => {
+test("approved student: each star opens the screen where it is done", async ({ page }) => {
   const { card, checkA11y } = await approvedStudent(page, "stars");
   await checkA11y("home: approved");
-
+  await expect(card.getByRole("checkbox")).toHaveCount(0);
   for (const title of STARS) {
-    const star = card.getByRole("checkbox", { name: new RegExp(title) });
-    await expect(star).toBeEnabled();
-    await expect(star).toHaveAttribute("aria-checked", "false");
-    const write = nextWrite(page);
-    await star.click();
-    expect((await write).ok(), `${title} save`).toBe(true);
-    await expect(star).toHaveAttribute("aria-checked", "true");
+    await expect(card.getByRole("link", { name: new RegExp(`^${title}`) }), title).toBeVisible();
   }
-  await expect(card.getByText("1 of 3 lit")).toBeVisible();
-
-  await page.reload();
-  for (const title of STARS) {
-    await expect(card.getByRole("checkbox", { name: new RegExp(title) }), `${title} after reload`).toHaveAttribute("aria-checked", "true");
-  }
-
-  // Unlighting saves too.
-  const limit = card.getByRole("checkbox", { name: /Set a spend limit/ });
-  await expect(limit).toBeEnabled();
-  const write = nextWrite(page);
-  await limit.click();
-  expect((await write).ok()).toBe(true);
-  await page.reload();
-  await expect(card.getByRole("checkbox", { name: /Set a spend limit/ })).toHaveAttribute("aria-checked", "false");
+  await expect(card.getByText("0 of 3 lit")).toBeVisible();
 });
 
 test("approved student: Edit changes the credit limit only, and it is saved", async ({ page }) => {

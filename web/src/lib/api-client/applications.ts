@@ -1,4 +1,5 @@
 import { apiRequest, failureMessage, isUnauthorized } from "./client";
+import { savePlanStep } from "./plans";
 
 // One tracked card's own fields, saved through PATCH /applications/{id}.
 
@@ -41,4 +42,19 @@ export async function saveAutopayAnswer(
   if (result.ok) return { kind: "ok" };
   if (isUnauthorized(result)) return { kind: "signed-out" };
   return { kind: "failed", message: failureMessage(result) };
+}
+
+// The monthly spend limit the student chose (US-04, Flow A), in cents, then
+// the first-month "Set a spend limit" star, so Home and the setup list show it
+// lit. Both are safe to repeat, so a failed second step is fixed by saving again.
+export async function saveSpendLimit(applicationId: string, cents: number): Promise<ApplicationSave> {
+  const result = await apiRequest("patch", "/applications/{id}", {
+    pathParams: { id: applicationId },
+    body: { spendLimitCents: cents },
+  });
+  if (!result.ok) {
+    if (isUnauthorized(result)) return { kind: "signed-out" };
+    return { kind: "failed", message: failureMessage(result) };
+  }
+  return savePlanStep(applicationId, "first_month", "spend_limit", true);
 }

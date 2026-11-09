@@ -36,7 +36,6 @@ const plan = (...steps: string[]) => ({
   plan: "first_month",
   completedSteps: steps.map((step) => ({ step, completedAt: "2026-10-22T00:00:00Z" })),
 });
-const saved = (step: string) => ({ step, completedAt: "2026-10-22T00:00:00Z" });
 
 function server(replies: { status: number; body: unknown }[]) {
   const fetchFn = vi.fn<typeof fetch>(async () => {
@@ -54,8 +53,6 @@ function stubMotion(reduce: boolean) {
   Object.defineProperty(navigator, "vibrate", { value: vibrate, configurable: true });
   return vibrate;
 }
-
-const star = (name: RegExp) => screen.getByRole("checkbox", { name });
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -119,30 +116,33 @@ describe("Home approved card", () => {
     expect(vibrate).not.toHaveBeenCalled();
   });
 
-  it("loads the saved stars and lights or puts out each one", async () => {
-    const fetchFn = server([
-      { status: 200, body: plan("payment_reminder") },
-      { status: 201, body: saved("spend_limit") },
-      { status: 204, body: null },
-    ]);
-    render(<HomeView state={state} initial="M" detail={DAYS_SAVED} />);
+  it("loads the saved stars, and the spend limit row opens its screens instead of ticking (US-04)", async () => {
+    const fetchFn = server([{ status: 200, body: plan("payment_reminder") }, { status: 200, body: plan("spend_limit") }]);
+    const { unmount } = render(<HomeView state={state} initial="M" detail={DAYS_SAVED} />);
     expect(await screen.findByText("1 of 3 lit")).toBeTruthy();
     expect(fetchFn.mock.calls[0][0]).toBe(PLAN_URL);
-    expect(star(/Set a spend limit/).getAttribute("aria-checked")).toBe("false");
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    // A credit limit is saved, so it opens the suggestion (S2), and Back returns Home.
+    const row = screen.getByRole("link", { name: /^Set a spend limit/ });
+    expect(row.getAttribute("href")).toBe(`/applications/${ID}/setup/spend-limit/suggestion?from=home`);
+    expect(row.textContent).not.toContain("done");
+    fireEvent.click(row);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    unmount();
 
-    const limit = star(/Set a spend limit/);
-    await waitFor(() => expect(limit.hasAttribute("disabled")).toBe(false));
-    fireEvent.click(limit);
-    await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(2));
-    expect(fetchFn.mock.calls[1][0]).toBe(`${PLAN_URL}/steps/spend_limit`);
-    expect(fetchFn.mock.calls[1][1]?.method).toBe("PUT");
-    expect(screen.getByText("2 of 3 lit")).toBeTruthy();
+    render(<HomeView state={state} initial="M" />);
+    await screen.findByText("1 of 3 lit");
+    expect(screen.getByRole("link", { name: /^Set a spend limit\s*, done/ })).toBeTruthy();
+  });
 
-    await waitFor(() => expect(limit.hasAttribute("disabled")).toBe(false));
-    fireEvent.click(limit);
-    await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(3));
-    expect(fetchFn.mock.calls[2][1]?.method).toBe("DELETE");
-    await waitFor(() => expect(screen.getByText("1 of 3 lit")).toBeTruthy());
+  it("opens the credit limit question (S1) from the spend limit row when no limit is saved", async () => {
+    server([{ status: 200, body: plan() }]);
+    const noLimit = homeState([{ ...approved, creditLimitCents: null }], computeResult(undefined, listCards()), 0);
+    render(<HomeView state={noLimit} initial="M" />);
+    await screen.findByText("0 of 3 lit");
+    expect(screen.getByRole("link", { name: /^Set a spend limit/ }).getAttribute("href")).toBe(
+      `/applications/${ID}/setup/spend-limit?from=home`,
+    );
   });
 
   it("opens the reminder screen from the payment reminder row instead of ticking it, lit or not", async () => {
@@ -165,18 +165,10 @@ describe("Home approved card", () => {
   });
 
   it("shows all stars lit once the three are done", async () => {
-    const fetchFn = server([
-      { status: 200, body: plan("payment_reminder") },
-      { status: 201, body: saved("spend_limit") },
-    ]);
+    server([{ status: 200, body: plan("payment_reminder", "spend_limit") }]);
     render(<HomeView state={state} initial="M" detail={{ ...DAYS_SAVED, autopayStatus: "on" }} />);
-    await screen.findByText("2 of 3 lit");
-    expect(screen.queryByText(/All three stars lit/)).toBeNull();
-    await waitFor(() => expect(star(/Set a spend limit/).hasAttribute("disabled")).toBe(false));
-    fireEvent.click(star(/Set a spend limit/));
-    expect(screen.getByText("All stars lit")).toBeTruthy();
+    await screen.findByText("All stars lit");
     expect(screen.getByText("All three stars lit. Your card is set up to build good credit.")).toBeTruthy();
-    await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(2));
   });
 
   it("opens the card setup list from the autopay row instead of ticking it (US-10)", async () => {
@@ -231,71 +223,28 @@ describe("Home approved card", () => {
     expect(autopay().textContent).not.toContain("done");
   });
 
-  it("puts the spend limit star back out and shows the API's message when the save fails", async () => {
-    server([
-      { status: 200, body: plan() },
-      { status: 400, body: { error: { code: "invalid_request", message: "The update is invalid." } } },
-    ]);
-    render(<HomeView state={state} initial="M" />);
-    await screen.findByText("0 of 3 lit");
-    await waitFor(() => expect(star(/Set a spend limit/).hasAttribute("disabled")).toBe(false));
-    fireEvent.click(star(/Set a spend limit/));
-    expect((await screen.findByRole("alert")).textContent).toContain("The update is invalid.");
-    expect(star(/Set a spend limit/).getAttribute("aria-checked")).toBe("false");
-    expect(screen.getByText("0 of 3 lit")).toBeTruthy();
-  });
-
-  it("sends a student whose session ended while saving a star to sign in", async () => {
-    server([
-      { status: 200, body: plan("spend_limit") },
-      { status: 401, body: { error: { code: "unauthorized", message: "Sign in to continue." } } },
-    ]);
-    render(<HomeView state={state} initial="M" />);
-    await screen.findByText("1 of 3 lit");
-    await waitFor(() => expect(star(/Set a spend limit/).hasAttribute("disabled")).toBe(false));
-    fireEvent.click(star(/Set a spend limit/));
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/sign-in?next=%2Fhome"));
-    expect(star(/Set a spend limit/).getAttribute("aria-checked")).toBe("true");
-  });
-
   it("keeps the dev gallery's sample stars on the page, with no requests", () => {
     const fetchFn = server([]);
-    render(<HomeView state={state} initial="M" sampleStars={1} />);
-    expect(screen.getByText("1 of 3 lit")).toBeTruthy();
-    fireEvent.click(star(/Set a spend limit/));
+    render(<HomeView state={state} initial="M" sampleStars={2} />);
     expect(screen.getByText("2 of 3 lit")).toBeTruthy();
     expect(fetchFn).not.toHaveBeenCalled();
   });
 
-  it("shows a failed load with a retry, and keeps the stars locked until it loads", async () => {
+  it("shows a failed load with a retry", async () => {
     server([
       { status: 503, body: { error: { code: "service_unavailable", message: "Try again in a moment." } } },
       { status: 200, body: plan("spend_limit") },
     ]);
     render(<HomeView state={state} initial="M" />);
     expect((await screen.findByRole("alert")).textContent).toContain("Try again in a moment.");
-    expect(star(/Set a spend limit/).hasAttribute("disabled")).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByText("1 of 3 lit")).toBeTruthy();
   });
 
-  it("sends a student whose session ended to sign in, on load or on a save", async () => {
+  it("sends a student whose session ended to sign in", async () => {
     server([{ status: 401, body: { error: { code: "unauthorized", message: "Sign in to continue." } } }]);
-    const { unmount } = render(<HomeView state={state} initial="M" />);
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/sign-in?next=%2Fhome"));
-    unmount();
-    replace.mockClear();
-
-    server([
-      { status: 200, body: plan() },
-      { status: 401, body: { error: { code: "unauthorized", message: "Sign in to continue." } } },
-    ]);
     render(<HomeView state={state} initial="M" />);
-    await screen.findByText("0 of 3 lit");
-    await waitFor(() => expect(star(/Set a spend limit/).hasAttribute("disabled")).toBe(false));
-    fireEvent.click(star(/Set a spend limit/));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/sign-in?next=%2Fhome"));
-    expect(star(/Set a spend limit/).getAttribute("aria-checked")).toBe("false");
   });
 
   it("edits the limit in place and saves only the limit", async () => {

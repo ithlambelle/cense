@@ -151,3 +151,11 @@ export function NumberRow({ number, title, subtitle }: { number: number; title: 
     </li>
   );
 }
+
+// Text field (371:3457) as the spend limit frames draw it: a white 50px box
+// with 14px corners and a light violet edge, the label in semibold.
+export const FRAME_FIELD = {
+  className: "h-[50px] rounded-[14px] border border-violet/35 bg-white pr-4 pl-4",
+  inputClassName: "leading-[normal]",
+  labelClassName: "leading-[normal] font-semibold",
+} as const;

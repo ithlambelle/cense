@@ -13,10 +13,10 @@ import { ErrorMessage } from "@/components/ui/error-message";
 import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE } from "@/lib/analytics";
 import { saveCreditLimit } from "@/lib/api-client/applications";
-import { loadPlanSteps, savePlanStep, type PlanStepName } from "@/lib/api-client/plans";
+import { loadPlanSteps } from "@/lib/api-client/plans";
 import type { Application } from "@/lib/api/application";
 import { centsToInput, moneyAmount } from "@/lib/money";
-import { cardPath, cardSetupPath, CELEBRATE_PARAM, paymentRemindersPath, ROUTES, signInPath } from "@/lib/routes";
+import { cardPath, cardSetupPath, CELEBRATE_PARAM, paymentRemindersPath, ROUTES, signInPath, spendLimitPath } from "@/lib/routes";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
 import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
@@ -29,17 +29,24 @@ import { cn } from "@/lib/utils";
 type StepKey = "autopay" | "spendLimit" | "paymentReminder";
 type Lit = Record<StepKey, boolean>;
 
-// Copy from the frames. Autopay is not ticked here: its row opens the card
-// setup list (US-10, I1), where the student follows the issuer's steps and
-// says what they set up; the star reads the card's autopay status. The
-// payment reminder is not ticked here either: its row opens the reminder
-// screen (US-08), which lights the star when it saves, so neither star is
-// ever lit without something behind it.
-const STEPS: { key: StepKey; step: PlanStepName | null; title: string; detail: string; opens?: "setup" | "reminders" }[] = [
-  { key: "autopay", step: null, title: "Turn on autopay", detail: "Statement balance, every month", opens: "setup" },
-  { key: "spendLimit", step: "spend_limit", title: "Set a spend limit", detail: "A monthly limit to try" },
-  { key: "paymentReminder", step: "payment_reminder", title: "Choose your reminders", detail: "One email before each date", opens: "reminders" },
+// Copy from the frames. No star is ticked here: each row opens the screen
+// where its step is done, so no star is ever lit without something behind it.
+// Autopay opens the card setup list (US-10, I1), where the student follows the
+// issuer's steps and says what they set up; the star reads the card's autopay
+// status. The spend limit opens its screens (US-04, Flow A), which save the
+// limit and light the star. The payment reminder opens the reminder screen
+// (US-08), which lights the star when it saves.
+const STEPS: { key: StepKey; title: string; detail: string; opens: "setup" | "spendLimit" | "reminders" }[] = [
+  { key: "autopay", title: "Turn on autopay", detail: "Statement balance, every month", opens: "setup" },
+  { key: "spendLimit", title: "Set a spend limit", detail: "A monthly limit to try", opens: "spendLimit" },
+  { key: "paymentReminder", title: "Choose your reminders", detail: "One email before each date", opens: "reminders" },
 ];
+
+function stepHref(opens: (typeof STEPS)[number]["opens"], application: Application): string {
+  if (opens === "setup") return cardSetupPath(application.id);
+  if (opens === "spendLimit") return spendLimitPath(application.id, application.creditLimitCents, "home");
+  return paymentRemindersPath(application.id);
+}
 
 // List row, Tinted (273:2196), shared by the tick rows and the reminder link.
 const ROW =
@@ -83,7 +90,7 @@ export function ApprovedCard({
     return (
       <>
         {celebrate ? <ArrivalEffects /> : null}
-        <CardModule application={application} celebrate={celebrate} start={start} ready loadError={null} onRetry={() => {}} sample />
+        <CardModule application={application} celebrate={celebrate} start={start} loadError={null} onRetry={() => {}} sample />
       </>
     );
   }
@@ -113,7 +120,6 @@ function SavedCard({
         application={application}
         celebrate={celebrate}
         start={loaded.status === "ready" ? loaded.data : { ...NONE_LIT, autopay: autopayOn }}
-        ready={loaded.status === "ready"}
         loadError={loaded.status === "failed" ? loaded.message : null}
         onRetry={retry}
       />
@@ -124,8 +130,7 @@ function SavedCard({
 function CardModule({
   application,
   celebrate,
-  start,
-  ready,
+  start: lit,
   loadError,
   onRetry,
   sample = false,
@@ -133,37 +138,11 @@ function CardModule({
   application: Application;
   celebrate: boolean;
   start: Lit;
-  ready: boolean;
   loadError: string | null;
   onRetry: () => void;
   sample?: boolean;
 }) {
-  const router = useRouter();
   const now = useNow();
-  const [lit, setLit] = useState<Lit>(start);
-  const [error, setError] = useState<string | null>(null);
-  // Steps whose save is in flight; each is locked until its answer arrives.
-  const [saving, setSaving] = useState<ReadonlySet<StepKey>>(new Set());
-
-  // Only the spend limit is ticked on Home; autopay and reminders open their screens.
-  async function toggle(key: StepKey, step: PlanStepName) {
-    const value = !lit[key];
-    setLit((current) => ({ ...current, [key]: value }));
-    setError(null);
-    if (sample) return;
-    setSaving((current) => new Set(current).add(key));
-    const result = await savePlanStep(application.id, "first_month", step, value);
-    setSaving((current) => {
-      const next = new Set(current);
-      next.delete(key);
-      return next;
-    });
-    if (result.kind === "ok") return;
-    // Undo only this star, so other saves in flight are not overwritten.
-    setLit((current) => ({ ...current, [key]: !value }));
-    if (result.kind === "signed-out") router.replace(signInPath(ROUTES.home));
-    else setError(result.message);
-  }
 
   const count = STEPS.filter((step) => lit[step.key]).length;
 
@@ -204,25 +183,10 @@ function CardModule({
       <ul className="flex flex-col gap-3.5">
         {STEPS.map((step) => (
           <li key={step.key}>
-            {step.opens ? (
-              // Lit or not, it opens the screen, so the student can change it there.
-              <Link href={step.opens === "setup" ? cardSetupPath(application.id) : paymentRemindersPath(application.id)} className={ROW}>
-                <StepRowContent title={step.title} detail={step.detail} lit={lit[step.key]} saysDone />
-              </Link>
-            ) : (
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={lit[step.key]}
-                disabled={!ready || saving.has(step.key)}
-                onClick={() => {
-                  if (step.step) void toggle(step.key, step.step);
-                }}
-                className={cn(ROW, "disabled:cursor-progress")}
-              >
-                <StepRowContent title={step.title} detail={step.detail} lit={lit[step.key]} />
-              </button>
-            )}
+            {/* Lit or not, it opens the screen, so the student can change it there. */}
+            <Link href={stepHref(step.opens, application)} className={ROW}>
+              <StepRowContent title={step.title} detail={step.detail} lit={lit[step.key]} />
+            </Link>
           </li>
         ))}
       </ul>
@@ -241,14 +205,13 @@ function CardModule({
           </Button>
         </div>
       ) : null}
-      {error ? <ErrorMessage>{error}</ErrorMessage> : null}
     </section>
   );
 }
 
 // List row, Tinted (273:2196): a done step's star lights and its title goes
 // quiet. A link has no checked state, so it says "done" to screen readers.
-function StepRowContent({ title, detail, lit, saysDone = false }: { title: string; detail: string; lit: boolean; saysDone?: boolean }) {
+function StepRowContent({ title, detail, lit }: { title: string; detail: string; lit: boolean }) {
   return (
     <>
       {lit ? (
@@ -261,7 +224,7 @@ function StepRowContent({ title, detail, lit, saysDone = false }: { title: strin
       <span className="flex flex-col gap-[3px] leading-[normal]">
         <span className={cn("text-body-m leading-[normal]", lit ? "text-indigo-black/70" : "font-medium")}>
           {title}
-          {lit && saysDone ? <span className="sr-only">, done</span> : null}
+          {lit ? <span className="sr-only">, done</span> : null}
         </span>
         <span className="text-body-s leading-[normal] text-indigo-black/70">{detail}</span>
       </span>
