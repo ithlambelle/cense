@@ -62,7 +62,6 @@ const SCREEN_NAMES: Record<string, string> = {
   [`${ROUTES.denied}/plan`]: "Plan",
   [ROUTES.addCard]: "Add a card",
   [ROUTES.safeToSpend]: "Safe to spend",
-  [ROUTES.updates]: "Updates",
 };
 
 // One approved card's setup screens (US-10), by the names their own back
