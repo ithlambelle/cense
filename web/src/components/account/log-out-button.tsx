@@ -42,7 +42,7 @@ export function LogOutButton() {
     }
     forgetTabState();
     resetAnalytics();
-    router.replace(ROUTES.signIn);
+    router.replace(ROUTES.signedOut);
     router.refresh();
   }
 

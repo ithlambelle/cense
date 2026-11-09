@@ -33,6 +33,9 @@ export const ROUTES = {
   privacy: "/settings/privacy",
   // Where a student lands, signed out, once their account is deleted.
   accountDeleted: "/account-deleted",
+  // Where Log out and Switch account land (Flow F, F8): Welcome back, with
+  // Google and email sign-in.
+  signedOut: "/signed-out",
   // Penny's starters, the topics and Ask Penny (Flow 5).
   learn: "/learn",
   penny: "/learn/penny",

@@ -133,8 +133,14 @@ test("Profile: Cards and Add a card return to Profile, and Log out lands on Welc
   expect(Math.round(box!.width)).toBe(Math.round(main!.width - 48));
   await expect(page.getByRole("button", { name: "Switch account" })).toBeVisible();
   await logOut.click();
-  await expect(page).toHaveURL(/\/sign-in$/);
+  // Welcome back (F8): Penny and two outlined buttons, Google asking which account.
+  await expect(page).toHaveURL(/\/signed-out$/);
   await expect(page.getByRole("heading", { level: 1, name: "Welcome back" })).toBeVisible();
+  await checkA11y("signed out");
+  const google = page.getByRole("link", { name: "Continue with Google" });
+  expect(await google.getAttribute("href")).toMatch(/^\/api\/v1\/auth\/google\?next=/);
+  await page.getByRole("link", { name: "Continue with email" }).click();
+  await expect(page).toHaveURL(/\/sign-in$/);
 });
 
 test("the bottom bar stays fixed to the bottom of the screen, even on a short page", async ({ page }) => {
