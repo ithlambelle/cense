@@ -279,12 +279,24 @@ describe("Home approved card", () => {
     expect(screen.getByText("Not added")).toBeTruthy();
   });
 
-  it("opens the card's own page from its title row", async () => {
+  it("opens card setup (I1) from its title row, and keeps Edit on the limit (Flow C 477:1514)", async () => {
     server([{ status: 200, body: plan() }]);
-    render(<HomeView state={state} initial="M" />);
+    const { unmount } = render(<HomeView state={state} initial="M" />);
     await screen.findByText("0 of 3 lit");
-    expect(screen.getByRole("link", { name: `${approved.cardName} details` }).getAttribute("href")).toBe(
-      `/cards/${approved.cardId}?from=home`,
-    );
+    const row = screen.getByRole("link", { name: "Set up your card" });
+    expect(row.getAttribute("href")).toBe(`/applications/${ID}/setup`);
+    expect(row.textContent).toContain(approved.cardName);
+    expect(row.textContent).toContain("Approved");
+    expect(row.querySelector("svg")).toBeTruthy();
+    expect(row.contains(screen.getByRole("button", { name: "Edit credit limit" }))).toBe(false);
+    expect(screen.queryByRole("link", { name: `${approved.cardName} details` })).toBeNull();
+    unmount();
+
+    // A card added from outside the catalog gets the same way in.
+    server([{ status: 200, body: plan() }]);
+    const outside = homeState([{ ...approved, cardId: null, cardName: "Student Cash Card" }], computeResult(undefined, listCards()), 0);
+    render(<HomeView state={outside} initial="M" />);
+    await screen.findByText("0 of 3 lit");
+    expect(screen.getByRole("link", { name: "Set up your card" }).getAttribute("href")).toBe(`/applications/${ID}/setup`);
   });
 });

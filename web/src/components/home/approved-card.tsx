@@ -16,7 +16,7 @@ import { saveCreditLimit } from "@/lib/api-client/applications";
 import { loadPlanSteps } from "@/lib/api-client/plans";
 import type { Application } from "@/lib/api/application";
 import { centsToInput, moneyAmount } from "@/lib/money";
-import { cardPath, cardSetupPath, CELEBRATE_PARAM, paymentRemindersPath, ROUTES, signInPath, spendLimitPath } from "@/lib/routes";
+import { cardSetupPath, CELEBRATE_PARAM, paymentRemindersPath, ROUTES, signInPath, spendLimitPath } from "@/lib/routes";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
 import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
@@ -148,9 +148,8 @@ function CardModule({
 
   return (
     <section aria-label={application.cardName} className="flex flex-col gap-3.5 rounded-card border-[1.5px] border-violet bg-white p-5">
-      {/* The card's own page (with its status, from #62). The whole title row is the
-          link, with a chevron so it reads as tappable (G4). A card added from outside
-          the catalog has no page, so its row is not a link. */}
+      {/* "Set up your card" (Flow C, 477:1514 to I1): the whole title row opens the
+          card setup list, with a chevron so it reads as tappable (G4). */}
       <TitleRow application={application}>
         <span aria-hidden="true" className="relative h-[38px] w-14 shrink-0 rounded-[6px] bg-navy">
           <span className="absolute top-[9px] left-[7px] h-2 w-[11px] rounded-[2px] bg-amber" />
@@ -166,11 +165,9 @@ function CardModule({
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <h2 className="font-heading text-h6 font-medium text-navy">{application.cardName}</h2>
           {/* No approved_at column: the date is only known on the arrival from Mark result. */}
-          {celebrate && now ? (
-            <p className="text-[13px] leading-normal text-indigo-black/70" suppressHydrationWarning>
-              Approved {now.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-            </p>
-          ) : null}
+          <p className="text-[13px] leading-normal text-indigo-black/70" suppressHydrationWarning>
+            {celebrate && now ? `Approved ${now.toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "Approved"}
+          </p>
         </div>
       </TitleRow>
 
@@ -232,12 +229,12 @@ function StepRowContent({ title, detail, lit }: { title: string; detail: string;
   );
 }
 
+// The card setup list (I1) for this card, any approved card, catalog or not.
 function TitleRow({ application, children }: { application: Application; children: ReactNode }) {
-  if (!application.cardId) return <div className="flex items-center gap-3">{children}</div>;
   return (
     <Link
-      href={cardPath(application.cardId, "home")}
-      aria-label={`${application.cardName} details`}
+      href={cardSetupPath(application.id)}
+      aria-label="Set up your card"
       // No corners or fill of its own: the card (477:1514) is the only box here.
       className="-m-2 flex items-center gap-3 p-2 hover:bg-off-white/60 focus-visible:outline-2 focus-visible:outline-ring"
     >

@@ -3,7 +3,7 @@
 // link is followed. Written after three bugs reached production that only
 // show up this way (Oct 24): the autopay star did not stay lit, "Edit" on the
 // credit limit opened the status picker, and the card no longer opened its
-// details.
+// page. The card's title row now opens card setup (US-10, Flow C).
 import { expect, test, type Page } from "@playwright/test";
 
 import { axeChecker, blockExternalRequests, signUp, uniqueEmail } from "./helpers";
@@ -81,17 +81,27 @@ test("approved student: Edit changes the credit limit only, and it is saved", as
   await expect(page.getByRole("region", { name: DISCOVER.name }).getByText("Your first month")).toBeVisible();
 });
 
-test("approved student: the card opens its details page and comes back", async ({ page }) => {
-  const { card, checkA11y } = await approvedStudent(page, "details");
+test("approved student: Set up your card opens the setup list and comes back (Flow C 477:1514)", async ({ page }) => {
+  const { card, checkA11y } = await approvedStudent(page, "setup-link");
+  const row = card.getByRole("link", { name: "Set up your card" });
+  await expect(row).toContainText(DISCOVER.name);
+  await expect(row).toContainText("Approved");
+  // At least 44px tall, and Edit stays its own control beside it.
+  await expect(card.getByText("0 of 3 lit")).toBeVisible();
+  expect(await row.evaluate((el) => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+  await expect(card.getByRole("button", { name: "Edit credit limit" })).toBeVisible();
 
-  await card.getByRole("link", { name: `${DISCOVER.name} details` }).click();
-  await expect(page).toHaveURL(new RegExp(`/cards/${DISCOVER.id}`));
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Discover it");
-  await expect(page.getByText("APPROVED", { exact: true })).toBeVisible();
-  await checkA11y("card details: tracked");
-
-  await page.getByRole("link", { name: /Back/ }).click();
+  await row.click();
+  await expect(page).toHaveURL(/\/applications\/[0-9a-f-]+\/setup$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Set up your Discover card" })).toBeVisible();
+  await checkA11y("card setup from Home");
+  await page.getByRole("link", { name: "Back to Home" }).click();
   await expect(page).toHaveURL(/\/home$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/setup$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/home$/);
+  await expect(page.getByRole("region", { name: DISCOVER.name }).getByRole("link", { name: "Set up your card" })).toBeVisible();
 });
 
 test("denied student: a reason saved from Home shows on Home after Back", async ({ page }) => {
