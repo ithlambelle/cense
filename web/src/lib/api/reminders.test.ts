@@ -30,6 +30,10 @@ describe("reminderFromRow", () => {
       due_at: "2026-11-09T14:00:00+00:00",
       sent_at: null,
       acted_at: null,
+      read_at: null,
+      snoozed_until: "2026-11-10T14:00:00+00:00",
+      dismissed_at: null,
+      follow_up_at: null,
       created_at: "2026-11-01T15:00:00+00:00",
     }, "America/New_York")).toEqual({
       id: "00000000-0000-4000-8000-0000000000a1",
@@ -40,6 +44,10 @@ describe("reminderFromRow", () => {
       dueAt: "2026-11-09T14:00:00.000Z",
       sentAt: null,
       actedAt: null,
+      readAt: null,
+      snoozedUntil: "2026-11-10T14:00:00.000Z",
+      dismissedAt: null,
+      followUpAt: null,
       createdAt: "2026-11-01T15:00:00.000Z",
     });
   });

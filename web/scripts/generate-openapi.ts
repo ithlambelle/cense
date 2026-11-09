@@ -23,7 +23,9 @@ import { askPennySchema, pennyReplySchema } from "../src/lib/api/penny";
 import { planNameSchema, planProgressSchema, planStepNameSchema, planStepSchema } from "../src/lib/api/plans";
 import {
   createReapplyReminderSchema,
+  markRemindersReadSchema,
   reminderSchema,
+  snoozeReminderSchema,
   reminderSettingsSchema,
   savedReapplyReminderSchema,
   updateReminderSettingsSchema,
@@ -256,6 +258,33 @@ registry.registerPath({
     200: ok(reminderContract), 400: failure("Invalid reminder ID"), 404: failure("Reminder not found"),
     409: failure("Reminder not sent yet"), ...protectedResponses,
   },
+});
+registry.registerPath({
+  method: "post", path: "/reminders/{id}/snooze", operationId: "snoozeReminder",
+  summary: "Snooze a sent reminder: tomorrow morning, in 2 days, or the day before it is due",
+  description: "Each choice is 9:00 on the student's calendar, worked out by the server. A choice past the reminder's due date, or already gone, is refused with past_due.",
+  security: [{ studentSession: [] }],
+  request: { params: z.object({ id: z.uuid() }), body: body(snoozeReminderSchema) },
+  responses: {
+    200: ok(reminderContract), 400: failure("Invalid reminder ID or choice"), 404: failure("Reminder not found"),
+    409: failure("Not sent yet, already done, or past the due date"), ...protectedResponses,
+  },
+});
+registry.registerPath({
+  method: "post", path: "/reminders/{id}/dismiss", operationId: "dismissReminder",
+  summary: "Dismiss a sent reminder for the rest of its billing cycle (keeps the first time)",
+  security: [{ studentSession: [] }],
+  request: { params: z.object({ id: z.uuid() }) },
+  responses: {
+    200: ok(reminderContract), 400: failure("Invalid reminder ID"), 404: failure("Reminder not found"),
+    409: failure("Reminder not sent yet"), ...protectedResponses,
+  },
+});
+registry.registerPath({
+  method: "post", path: "/reminders/read", operationId: "markRemindersRead",
+  summary: "Mark all of the student's sent reminders read",
+  security: [{ studentSession: [] }],
+  responses: { 200: ok(registry.register("MarkRemindersRead", markRemindersReadSchema)), ...protectedResponses },
 });
 registry.registerPath({
   method: "get", path: "/me/reminder-settings", operationId: "getReminderSettings",

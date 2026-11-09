@@ -1,3 +1,4 @@
+import Bell from "@gravity-ui/icons/Bell";
 import ChevronRight from "@gravity-ui/icons/ChevronRight";
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
 import CircleInfo from "@gravity-ui/icons/CircleInfo";
@@ -72,7 +73,7 @@ export function HomeView({
           the bottom bar stopped at the column's 390px on wider phones (Ben,
           2026-11-09). Home's content is clipped by its main instead. */}
       <div className="relative flex w-full max-w-phone flex-col">
-        <header className="box-content flex h-11 items-center px-6 pt-[42px] pb-0.5">
+        <header className="box-content flex h-11 items-center justify-between px-6 pt-[42px] pb-0.5">
           {/* The initial in a circle replaces the labeled Profile button (Flow 1 frames). */}
           <Link
             href={ROUTES.settings}
@@ -80,6 +81,14 @@ export function HomeView({
             className="flex size-11 items-center justify-center rounded-pill border border-track bg-off-white font-heading text-[17px] font-medium text-navy transition-colors hover:bg-selected-outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             <Image src="/mascot/astro-pig/avatar.png" alt={initial} width={40} height={40} className="rounded-input" />
+          </Link>
+          {/* The bell from the Greeting header (Figma 273:2216) opens Updates (US-08). */}
+          <Link
+            href={ROUTES.updates}
+            aria-label="Updates"
+            className="flex size-11 items-center justify-center rounded-pill text-navy transition-colors hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <Bell aria-hidden="true" width={22} height={22} />
           </Link>
         </header>
         <main className="stagger flex flex-1 flex-col gap-[18px] overflow-x-clip px-6 pt-4 pb-6">

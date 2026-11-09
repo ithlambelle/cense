@@ -14,7 +14,8 @@ type Result = { data: unknown; error: { code?: string; message: string } | null 
 
 const row = (over: Record<string, unknown> = {}) => ({
   id: REM, card_application_id: APP, kind: "reapply", occurrence: "2027-04-16",
-  due_at: "2027-04-16T13:00:00+00:00", sent_at: null, acted_at: null, created_at: "2026-10-24T15:00:00+00:00", ...over,
+  due_at: "2027-04-16T13:00:00+00:00", sent_at: null, acted_at: null,
+  read_at: null, snoozed_until: null, dismissed_at: null, follow_up_at: null, created_at: "2026-10-24T15:00:00+00:00", ...over,
 });
 
 // The student's client: the profile read answers with `timeZone`; reminders

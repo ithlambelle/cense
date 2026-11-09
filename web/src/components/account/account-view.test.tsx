@@ -41,17 +41,16 @@ describe("AccountView", () => {
     expect(screen.getByRole("link", { name: "Accounts" }).getAttribute("href")).toBe("/safe-to-spend");
   });
 
-  it("shows Updates with the latest one, and no new count while nothing records what was seen", () => {
-    render(
-      <AccountView
-        email={null}
-        card={CARD}
-        updates={{ latest: { title: "Statement closes Nov 13", body: "Pay it down before then.", when: "Today" } }}
-      />,
-    );
+  it("shows Updates with the new count, the latest one and See all, both to Updates", () => {
+    const latest = { title: "Statement closes Nov 13", body: "Pay it down before then.", when: "Today" };
+    const { unmount } = render(<AccountView email={null} card={CARD} updates={{ newCount: 2, latest }} />);
     expect(screen.getByRole("heading", { name: "Updates" })).toBeTruthy();
+    expect(screen.getByText("2 new")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /^See all/ }).getAttribute("href")).toBe("/updates");
+    expect(screen.getByRole("link", { name: /Statement closes Nov 13/ }).getAttribute("href")).toBe("/updates");
+    unmount();
+    render(<AccountView email={null} card={CARD} updates={{ newCount: 0, latest }} />);
     expect(screen.queryByText(/new$/)).toBeNull();
-    expect(screen.getByRole("link", { name: /Statement closes Nov 13/ }).getAttribute("href")).toBe("/home");
   });
 
   it("invites the student to start when no card is tracked, in Home's words, without repeating a row", () => {
