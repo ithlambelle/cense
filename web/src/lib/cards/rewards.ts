@@ -13,6 +13,10 @@
 // value only after re-reading them. Where the issuer gives no number, there
 // is no number here either.
 //
+// The weekly card data check (docs/card-data.md) re-reads every sourceUrl and
+// opens an issue when a stored figure is gone or a new one appears. When you
+// re-read one card, set that card's verifiedAt, not READ.
+//
 // How issuer categories map to the quiz's spending categories (earnsOn). The
 // rule is to never overstate: when a category is unclear, it is left out and
 // the card's base rate applies to that spending instead.
@@ -70,6 +74,10 @@ export type RewardRate = {
   yearOneAmount: number | null;
   // the spend cap on this rate where the issuer states one, else null
   cap: RewardCap | null;
+  // the last day of a limited-time rate when the issuer names one
+  // ("through 09/30/2027" is "2027-09-30"), else null or left out. A unit test
+  // fails once the day has passed, so an ended promotion cannot ship.
+  expiresOn?: string | null;
 };
 
 export type SignUpBonus = {
@@ -83,6 +91,8 @@ export type SignUpBonus = {
   // how the result states a bonus that is not a spend target, in the
   // issuer's own terms, kept short; null for a spend target or a match
   resultLine?: { text: string; detail: string };
+  // the last day to get the offer when the issuer names one, as on RewardRate
+  expiresOn?: string | null;
 };
 
 export type CardRewards = {
@@ -301,6 +311,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         // A named merchant, so not mapped.
         earnsOn: [],
         ...FIXED,
+        expiresOn: "2027-09-30",
       },
       { amount: 1.5, unit: "percent", category: "Every purchase", condition: null, earnsOn: "all", ...FIXED },
     ],
@@ -779,6 +790,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         // A named merchant, so not mapped.
         earnsOn: [],
         ...FIXED,
+        expiresOn: "2027-09-30",
       },
       { amount: 1.5, unit: "percent", category: "All other purchases", condition: null, earnsOn: "all", pickOne: false, rotating: false, requires: null, yearOneAmount: null, cap: null },
     ],
@@ -825,6 +837,7 @@ export const CARD_REWARDS: Readonly<Record<string, CardRewards>> = {
         // A named merchant, so not mapped.
         earnsOn: [],
         ...FIXED,
+        expiresOn: "2027-09-30",
       },
       { amount: 1, unit: "percent", category: "All other purchases", condition: null, earnsOn: "all", pickOne: false, rotating: false, requires: null, yearOneAmount: null, cap: null },
     ],
