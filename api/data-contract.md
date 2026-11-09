@@ -122,4 +122,4 @@ Apply `20261109160000_plaid_account_cleanup.sql` to cense-preview before deployi
 
 The existing authenticated daily reminders cron also runs `runAccountCleanup` concurrently, even if email settings are missing. It decrypts tokens only on the server and calls Plaid `/item/remove`. The response and heartbeat include `plaidCleanup` counts only. Failures, unreadable tokens, or unavailable cleanup trigger a failed heartbeat for operator attention; encrypted rows remain for retry. Preserve `PLAID_TOKEN_KEY` until all tokens sealed under it have been cleaned up. A crashed worker's lease expires after 15 minutes; claim IDs prevent a stale worker acknowledging a newer attempt.
 
-Local transaction/privilege checks: `psql <local-db-url> -v ON_ERROR_STOP=1 -f supabase/tests/plaid_account_cleanup.sql`. CI runs these on its disposable Supabase stack. No hosted migration is applied by this PR.
+Local transaction/privilege checks: `psql <local-db-url> -v ON_ERROR_STOP=1 -f supabase/checks/plaid_account_cleanup.sql`. CI runs these on its disposable Supabase stack. No hosted migration is applied by this PR.

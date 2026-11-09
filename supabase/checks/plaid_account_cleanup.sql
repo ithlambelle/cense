@@ -1,5 +1,5 @@
 -- Run on a disposable local DB after migrations; all fixture changes roll back.
--- psql -v ON_ERROR_STOP=1 -f supabase/tests/plaid_account_cleanup.sql
+-- psql -v ON_ERROR_STOP=1 -f supabase/checks/plaid_account_cleanup.sql
 begin;
 do $$
 declare
