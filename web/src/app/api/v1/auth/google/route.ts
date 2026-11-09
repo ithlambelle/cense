@@ -12,7 +12,10 @@ export async function GET(request: NextRequest): Promise<Response> {
   const supabase = await createStudentClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: callback.toString(), skipBrowserRedirect: true },
+    // select_account: Google asks which account every time, so a student who
+    // logged out can sign in as someone else (Flow F, F8). Without it Google
+    // signed them straight back into the last account.
+    options: { redirectTo: callback.toString(), skipBrowserRedirect: true, queryParams: { prompt: "select_account" } },
   });
 
   if (error || !data.url) {

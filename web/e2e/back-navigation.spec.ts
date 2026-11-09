@@ -23,10 +23,10 @@ test("after saving a reapply reminder, Back does not reopen the reminder form", 
   await signUp(page, uniqueEmail("back-reminder"), async () => {});
   const id = await track(page, "rejected");
   await page.goto(`/denied/plan?application=${id}`);
-  await page.getByRole("link", { name: "Set a 6-month reminder" }).click();
+  await page.getByRole("link", { name: "Set a reminder" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Choose when to check in" })).toBeVisible();
   await page.getByRole("button", { name: "Save reapply reminder" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Your reminder is saved" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Reminder saved" })).toBeVisible();
   await page.goBack();
   await expect(page).toHaveURL(/\/denied\/plan\?application=/);
   await expect(page.getByRole("heading", { level: 1, name: "Choose when to check in" })).toHaveCount(0);
@@ -93,4 +93,60 @@ test("“Still waiting” goes back to the card page or Home it came from, and �
   await page.goto(`/applications/${id}/waiting`);
   await page.getByRole("link", { name: "I heard back" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "What did the issuer decide?" })).toBeVisible();
+});
+
+// Global G1 (2026-11-08): the top-left arrow returns to the screen the student
+// was on, never out of Cense; with no Cense screen behind (an email link, a new
+// tab, a reload as the first page) it goes to the screen's parent instead.
+test("the plan opened from Home's “See my plan” goes back to Home, not Denial options", async ({ page }) => {
+  await signUp(page, uniqueEmail("back-g1-plan"), async () => {});
+  await track(page, "rejected");
+  await page.goto("/home");
+  await page.getByRole("link", { name: "See my plan" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: /five-step plan/ })).toBeVisible();
+  await page.getByRole("link", { name: "Back to Home" }).click();
+  await expect(page).toHaveURL(/\/home$/);
+});
+
+test("Profile's back returns to the screen Profile was opened from", async ({ page }) => {
+  await signUp(page, uniqueEmail("back-g1-profile"), async () => {});
+  await track(page, "approved");
+  // From Learn.
+  await page.goto("/learn");
+  await page.goto("/settings");
+  await page.getByRole("link", { name: "Back to Learn" }).click();
+  await expect(page).toHaveURL(/\/learn$/);
+  // From Home's avatar.
+  await page.goto("/home");
+  await page.getByRole("link", { name: "Profile" }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await page.getByRole("link", { name: "Back to Home" }).click();
+  await expect(page).toHaveURL(/\/home$/);
+  // Into Reminder settings and back, then back again to Home.
+  await page.getByRole("link", { name: "Profile" }).click();
+  await page.getByRole("link", { name: "Reminder settings" }).click();
+  await page.getByRole("link", { name: "Back to Your account" }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await page.getByRole("link", { name: "Back to Home" }).click();
+  await expect(page).toHaveURL(/\/home$/);
+});
+
+test("with no Cense screen behind (a link from an email, a new tab), Back goes to the parent and stays in Cense", async ({ page, context }) => {
+  await signUp(page, uniqueEmail("back-g1-email"), async () => {});
+  const id = await track(page, "rejected");
+  const fresh = await context.newPage();
+  await fresh.goto(`/denied/plan?application=${id}`);
+  await fresh.getByRole("link", { name: "Back to Home" }).click();
+  await expect(fresh).toHaveURL(/\/home$/);
+  // The parent replaced the plan's entry: this tab's Cense history is only Home.
+  const entries = await fresh.evaluate(() =>
+    (window as unknown as { navigation: { entries(): { url: string }[] } }).navigation.entries().map((entry) => new URL(entry.url).pathname),
+  );
+  expect(entries).toEqual(["/home"]);
+
+  // Profile typed into a new tab: its parent, Home.
+  const settings = await context.newPage();
+  await settings.goto("/settings");
+  await settings.getByRole("link", { name: "Back to Home" }).click();
+  await expect(settings).toHaveURL(/\/home$/);
 });

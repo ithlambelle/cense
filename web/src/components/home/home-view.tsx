@@ -83,7 +83,7 @@ export function HomeView({
           <HomeContent state={state} detail={detail} reminderSettings={reminderSettings} celebrate={celebrate} sampleStars={sampleStars} />
           {/* Under the card module, which carries MVP2's reminders; design's
               Home/Today (Figma 222:2211) puts it on top once that is built. */}
-          {safeToSpend !== undefined ? <SafeToSpendHome safeToSpend={safeToSpend} /> : null}
+          {safeToSpend !== undefined ? <SafeToSpendHome safeToSpend={safeToSpend} preview={!celebrate} /> : null}
         </main>
         {celebrate ? <StarConfetti /> : null}
         {fromReminder ? <ReminderArrival kind={fromReminder} /> : null}

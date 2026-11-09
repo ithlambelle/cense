@@ -40,6 +40,16 @@ describe("BottomNav", () => {
     expect(screen.getByRole("link", { name: "Learn" }).getAttribute("href")).toBe("/learn");
   });
 
+  it("is fixed to the bottom of the screen, with a placeholder holding its height (G2)", () => {
+    const { container } = render(<BottomNav />);
+    expect(nav().className).toContain("fixed");
+    expect(nav().className).toContain("bottom-0");
+    expect(nav().className).not.toContain("sticky");
+    expect(container.querySelector('[data-slot="bottom-nav-space"]')).toBeTruthy();
+    // The tabs keep the content's 24px side margins.
+    expect(nav().querySelector("ul")?.className).toContain("px-6");
+  });
+
   it("marks Learn on a topic page and in Ask Penny", () => {
     for (const path of ["/learn", "/learn/credit", "/learn/penny"]) {
       pathname = path;

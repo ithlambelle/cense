@@ -18,14 +18,40 @@ describe("AccountView", () => {
   };
   const hrefs = (names: string[]) => names.map((name) => screen.getByRole("link", { name }).getAttribute("href"));
 
-  it("shows the email, the tracked card with its limit, and the account links", () => {
+  it("shows the email, the tracked card with its limit, the Account rows in the frame's order, and Log out with Switch account", () => {
     render(<AccountView email="student@example.edu" card={CARD} quizAnswered={6} quizResult="match" />);
     expect(screen.getByText("student@example.edu")).toBeTruthy();
-    expect(screen.getByText("Approved, $500 limit")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Card quiz results" }).getAttribute("href")).toBe("/results");
-    expect(screen.getByRole("link", { name: "Add a card I already have" }).getAttribute("href")).toBe("/home/add-card");
-    expect(screen.getByRole("link", { name: "Reminder settings" }).getAttribute("href")).toBe("/settings/reminders");
+    expect(screen.getByText("$500 limit")).toBeTruthy();
+    const account = screen.getByRole("list", { name: "Account" });
+    expect([...account.querySelectorAll("a")].map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
+      ["Card quiz results", "/results"],
+      ["Cards", "/cards?from=account"],
+      ["Add a card I already have", "/home/add-card?from=account"],
+      ["Reminder settings", "/settings/reminders"],
+      ["Security and privacy", "/settings/privacy"],
+    ]);
     expect(screen.getByRole("button", { name: "Log out" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Switch account" })).toBeTruthy();
+    // No updates sent yet: the section is left out.
+    expect(screen.queryByRole("heading", { name: "Updates" })).toBeNull();
+  });
+
+  it("shows Accounts, to the linked bank, only once a bank is linked", () => {
+    render(<AccountView email={null} card={CARD} bankLinked />);
+    expect(screen.getByRole("link", { name: "Accounts" }).getAttribute("href")).toBe("/safe-to-spend");
+  });
+
+  it("shows Updates with the new count and the latest one", () => {
+    render(
+      <AccountView
+        email={null}
+        card={CARD}
+        updates={{ newCount: 2, latest: { title: "Statement closes Nov 13", body: "Pay it down before then.", when: "Today" } }}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "Updates" })).toBeTruthy();
+    expect(screen.getByText("2 new")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Statement closes Nov 13/ }).getAttribute("href")).toBe("/home");
   });
 
   it("invites the student to start when no card is tracked, in Home's words, without repeating a row", () => {
@@ -64,4 +90,5 @@ describe("AccountView", () => {
     render(<AccountView email={null} card={CARD} quizAnswered={3} />);
     expect(screen.getByRole("link", { name: "Continue the quiz" }).getAttribute("href")).toBe("/quiz?from=account");
   });
+
 });
