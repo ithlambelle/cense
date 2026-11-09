@@ -28,6 +28,7 @@ const detail = (denialReason: CardDetail["denialReason"], denialReasonNote: stri
   denialReason,
   denialReasonNote,
   autopayStatus: "unknown",
+  autopayPaymentType: null,
   statementClosingDay: null,
   paymentDueDay: null,
   spendLimitCents: null,

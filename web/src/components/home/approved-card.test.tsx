@@ -26,7 +26,7 @@ const approved: Application = {
   statusUpdatedAt: new Date().toISOString(),
 };
 const state = homeState([approved], computeResult(undefined, listCards()), 0);
-const NO_DETAIL = { denialReason: null, denialReasonNote: null, autopayStatus: "unknown", statementClosingDay: null, paymentDueDay: null, spendLimitCents: null } as const;
+const NO_DETAIL = { denialReason: null, denialReasonNote: null, autopayStatus: "unknown", autopayPaymentType: null, statementClosingDay: null, paymentDueDay: null, spendLimitCents: null } as const;
 // The card's reminder days are saved, so a done payment_reminder step lights its star.
 const DAYS_SAVED = { ...NO_DETAIL, statementClosingDay: 14, paymentDueDay: 9 };
 
@@ -242,6 +242,19 @@ describe("Home approved card", () => {
     render(<HomeView state={state} initial="M" detail={{ ...NO_DETAIL, autopayStatus: "unknown" }} />);
     expect(await screen.findByText("0 of 3 lit")).toBeTruthy();
     expect(autopay().textContent).not.toContain("done");
+  });
+
+  it("words the autopay row from the saved payment type", async () => {
+    server([{ status: 200, body: plan() }, { status: 200, body: plan() }]);
+    const autopay = () => screen.getByRole("link", { name: /^Turn on autopay/ });
+    const { unmount } = render(<HomeView state={state} initial="M" detail={{ ...NO_DETAIL, autopayStatus: "on", autopayPaymentType: "minimum" }} />);
+    await screen.findByText("1 of 3 lit");
+    expect(autopay().textContent).toContain("Minimum only, every month");
+    unmount();
+    render(<HomeView state={state} initial="M" detail={NO_DETAIL} />);
+    await screen.findByText("0 of 3 lit");
+    expect(autopay().textContent).toContain("Every month");
+    expect(autopay().textContent).not.toContain("Statement balance");
   });
 
   it("keeps the dev gallery's sample stars on the page, with no requests", () => {

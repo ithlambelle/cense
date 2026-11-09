@@ -1,7 +1,7 @@
 // Created with Claude Code (2026-11-08).
 import { describe, expect, it } from "vitest";
 
-import { AUTOPAY_ANSWERS, nextPaymentLabel, paymentTypeLabel, setupProgress } from "./progress";
+import { AUTOPAY_ANSWERS, autopayCadence, nextPaymentLabel, paymentTypeLabel, setupProgress } from "./progress";
 
 const base = {
   autopayStatus: "unknown",
@@ -54,6 +54,13 @@ describe("the autopay answers and summary", () => {
     expect(paymentTypeLabel("minimum")).toBe("Minimum only");
     expect(paymentTypeLabel("fixed_amount")).toBe("A fixed amount");
     expect(paymentTypeLabel(null)).toBeNull();
+  });
+
+  it("words Home's autopay line from the saved payment type, or every month alone", () => {
+    expect(autopayCadence("statement_balance")).toBe("Statement balance, every month");
+    expect(autopayCadence("minimum")).toBe("Minimum only, every month");
+    expect(autopayCadence("fixed_amount")).toBe("A fixed amount, every month");
+    expect(autopayCadence(null)).toBe("Every month");
   });
 
   it("gives the next due date on or after today", () => {

@@ -20,7 +20,7 @@ export type HomeState =
 // for an approved one.
 export type CardDetail = Pick<
   ApplicationDetail,
-  "denialReason" | "denialReasonNote" | "autopayStatus" | "statementClosingDay" | "paymentDueDay" | "spendLimitCents"
+  "denialReason" | "denialReasonNote" | "autopayStatus" | "autopayPaymentType" | "statementClosingDay" | "paymentDueDay" | "spendLimitCents"
 >;
 
 // The reminder settings the reminder star depends on.

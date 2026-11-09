@@ -57,6 +57,13 @@ export function paymentTypeLabel(type: PaymentType | null): string | null {
   return null;
 }
 
+// Home's "Turn on autopay" line: the saved payment type, every month, or
+// just "Every month" before one is saved.
+export function autopayCadence(type: PaymentType | null): string {
+  const label = paymentTypeLabel(type);
+  return label ? `${label}, every month` : "Every month";
+}
+
 // I5's "Next payment": the next due day on or after today, like "Dec 6".
 // `today` is the student's calendar date (YYYY-MM-DD).
 export function nextPaymentLabel(paymentDueDay: number | null, today: string): string | null {

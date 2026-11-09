@@ -44,6 +44,7 @@ export default async function HomePage({ searchParams }: PageProps<"/home">) {
           denialReason: detail.denialReason,
           denialReasonNote: detail.denialReasonNote,
           autopayStatus: detail.autopayStatus,
+          autopayPaymentType: detail.autopayPaymentType,
           statementClosingDay: detail.statementClosingDay,
           paymentDueDay: detail.paymentDueDay,
           spendLimitCents: detail.spendLimitCents,

@@ -17,6 +17,7 @@ import { loadPlanSteps } from "@/lib/api-client/plans";
 import type { Application } from "@/lib/api/application";
 import { centsToInput, moneyAmount } from "@/lib/money";
 import { cardSetupPath, CELEBRATE_PARAM, paymentRemindersPath, ROUTES, signInPath, spendLimitPath } from "@/lib/routes";
+import { autopayCadence, type PaymentType } from "@/lib/setup/progress";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
 import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
@@ -37,8 +38,9 @@ type Lit = Record<StepKey, boolean>;
 // card's saved limit, so a limit cleared by a lower credit limit puts it out.
 // The payment reminder opens the reminder screen
 // (US-08), which lights the star when it saves.
+// Autopay's detail is the saved payment type (autopayCadence).
 const STEPS: { key: StepKey; title: string; detail: string; opens: "setup" | "spendLimit" | "reminders" }[] = [
-  { key: "autopay", title: "Turn on autopay", detail: "Statement balance, every month", opens: "setup" },
+  { key: "autopay", title: "Turn on autopay", detail: "Every month", opens: "setup" },
   { key: "spendLimit", title: "Set a spend limit", detail: "A monthly limit to try", opens: "spendLimit" },
   { key: "paymentReminder", title: "Choose your reminders", detail: "One email before each date", opens: "reminders" },
 ];
@@ -74,6 +76,7 @@ function loadLit(applicationId: string, autopay: boolean, spendLimit: boolean, r
 export function ApprovedCard({
   application,
   autopayOn,
+  autopayPaymentType = null,
   spendLimitSet = false,
   paymentReminderOn = false,
   celebrate,
@@ -82,6 +85,8 @@ export function ApprovedCard({
   application: Application;
   // The saved autopay status is "on" (off and unknown leave the star out).
   autopayOn: boolean;
+  // What the student said autopay pays, once it is on.
+  autopayPaymentType?: PaymentType | null;
   // The card has a saved spend limit (spendLimitCents is not null).
   spendLimitSet?: boolean;
   // The card's payment reminder is really on (paymentReminderOn in lib/home/state.ts).
@@ -95,7 +100,15 @@ export function ApprovedCard({
     return (
       <>
         {celebrate ? <ArrivalEffects /> : null}
-        <CardModule application={application} celebrate={celebrate} start={start} loadError={null} onRetry={() => {}} sample />
+        <CardModule
+          application={application}
+          autopayPaymentType={autopayPaymentType}
+          celebrate={celebrate}
+          start={start}
+          loadError={null}
+          onRetry={() => {}}
+          sample
+        />
       </>
     );
   }
@@ -103,6 +116,7 @@ export function ApprovedCard({
     <SavedCard
       application={application}
       autopayOn={autopayOn}
+      autopayPaymentType={autopayPaymentType}
       spendLimitSet={spendLimitSet}
       paymentReminderOn={paymentReminderOn}
       celebrate={celebrate}
@@ -113,12 +127,14 @@ export function ApprovedCard({
 function SavedCard({
   application,
   autopayOn,
+  autopayPaymentType,
   spendLimitSet,
   paymentReminderOn,
   celebrate,
 }: {
   application: Application;
   autopayOn: boolean;
+  autopayPaymentType: PaymentType | null;
   spendLimitSet: boolean;
   paymentReminderOn: boolean;
   celebrate: boolean;
@@ -136,6 +152,7 @@ function SavedCard({
       <CardModule
         key={loaded.status}
         application={application}
+        autopayPaymentType={autopayPaymentType}
         celebrate={celebrate}
         start={loaded.status === "ready" ? loaded.data : { ...NONE_LIT, autopay: autopayOn, spendLimit: spendLimitSet }}
         loadError={loaded.status === "failed" ? loaded.message : null}
@@ -147,6 +164,7 @@ function SavedCard({
 
 function CardModule({
   application,
+  autopayPaymentType,
   celebrate,
   start: lit,
   loadError,
@@ -154,6 +172,7 @@ function CardModule({
   sample = false,
 }: {
   application: Application;
+  autopayPaymentType: PaymentType | null;
   celebrate: boolean;
   start: Lit;
   loadError: string | null;
@@ -200,7 +219,11 @@ function CardModule({
           <li key={step.key}>
             {/* Lit or not, it opens the screen, so the student can change it there. */}
             <Link href={stepHref(step.opens, application)} className={ROW}>
-              <StepRowContent title={step.title} detail={step.detail} lit={lit[step.key]} />
+              <StepRowContent
+                title={step.title}
+                detail={step.key === "autopay" ? autopayCadence(autopayPaymentType) : step.detail}
+                lit={lit[step.key]}
+              />
             </Link>
           </li>
         ))}
