@@ -67,6 +67,19 @@ describe("snoozeOptions", () => {
     expect(snoozeOptions(reminder({ occurrence: "2026-11-08" }), card(), NOW, NY)).toEqual([]);
   });
 
+  it("never offers today, before or after 9 AM on the student's calendar", () => {
+    // Closes Tuesday Nov 10, so the day before it is due is Monday Nov 9.
+    const closesTuesday = reminder({ occurrence: "2026-11-10" });
+    // Monday Nov 9, 7:00 in New York: the day before is today, 9 AM is hours away.
+    const early = new Date("2026-11-09T12:00:00Z");
+    expect(snoozeOptions(closesTuesday, card(), early, NY).map((o) => [o.choice, o.date])).toEqual([["tomorrow", "2026-11-10"]]);
+    // Monday Nov 9, 10:00 in New York: still only tomorrow.
+    const late = new Date("2026-11-09T15:00:00Z");
+    expect(snoozeOptions(closesTuesday, card(), late, NY).map((o) => [o.choice, o.date])).toEqual([["tomorrow", "2026-11-10"]]);
+    // Monday Nov 9, 7:00, closing Friday: every option is a later day.
+    expect(snoozeOptions(reminder(), card(), early, NY).map((o) => o.date)).toEqual(["2026-11-10", "2026-11-11", "2026-11-12"]);
+  });
+
   it("has no day-before choice without a due date", () => {
     expect(snoozeOptions(reminder({ kind: "reapply" }), card(), NOW, NY).map((o) => o.choice)).toEqual(["tomorrow", "in_2_days"]);
   });

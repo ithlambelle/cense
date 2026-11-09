@@ -93,10 +93,11 @@ export function reminderDeadline(reminder: Reminder, card: ReminderCard): { date
 
 export type SnoozeOption = { choice: SnoozeChoice; label: string; date: string; until: Date };
 
-// The times the snooze sheet offers for one reminder, each 9:00 on the
-// student's calendar: never in the past and never after the due date. "The
-// day before it is due" is left out when there is no due date or it falls on
-// the same day as one of the other two.
+// The times the snooze sheet offers for one reminder, each 9:00 on a later day
+// of the student's calendar: never today (before 9 AM, "the day before it is
+// due" could be this morning, a snooze of minutes), never in the past and
+// never after the due date. "The day before it is due" is left out when there
+// is no due date or it falls on the same day as one of the other two.
 export function snoozeOptions(reminder: Reminder, card: ReminderCard, now: Date, timeZone: string): SnoozeOption[] {
   const today = calendarDate(now.toISOString(), timeZone);
   const deadline = reminderDeadline(reminder, card);
@@ -107,7 +108,7 @@ export function snoozeOptions(reminder: Reminder, card: ReminderCard, now: Date,
   ];
   const options: SnoozeOption[] = [];
   for (const [choice, date] of dates) {
-    if (!date) continue;
+    if (!date || date <= today) continue;
     if (deadline && date > deadline.date) continue;
     const until = zonedHour(date, SNOOZE_HOUR, timeZone);
     if (until.getTime() <= now.getTime()) continue;
