@@ -17,8 +17,14 @@ const row = (over: Record<string, unknown> = {}) => ({
 
 // The read answers `current`; the update records what it was given and
 // answers `updated` (or echoes the row with the change applied).
-function student(current: Result, updated?: Result) {
+// Each plan step delete, by the filters it used, for the latest student().
+let stepDeletes: Record<string, unknown>[] = [];
+
+// Deleting plan steps answers `stepDelete`.
+function student(current: Result, updated?: Result, stepDelete: Result = { data: null, error: null }) {
   const writes: Record<string, unknown>[] = [];
+  stepDeletes = [];
+  const deletes = stepDeletes;
   const chain = (answer: () => Result) => {
     const query: Record<string, unknown> = {};
     for (const name of ["select", "eq"]) query[name] = () => query;
@@ -26,7 +32,17 @@ function student(current: Result, updated?: Result) {
     return query;
   };
   const supabase = {
-    from: () => ({
+    from: (table: string) => table === "plan_steps" ? ({
+      delete: () => {
+        const filters: Record<string, unknown> = {};
+        deletes.push(filters);
+        const query = {
+          eq: (column: string, value: unknown) => { filters[column] = value; return query; },
+          then: (resolve: (value: Result) => unknown) => Promise.resolve(stepDelete).then(resolve),
+        };
+        return query;
+      },
+    }) : ({
       select: () => chain(() => current),
       update: (value: Record<string, unknown>) => {
         writes.push(value);
@@ -145,6 +161,29 @@ describe("PATCH /applications/{id}", () => {
     const denied = student({ data: row({ spend_limit_cents: 15000 }), error: null });
     expect((await patch({ status: "rejected" })).status).toBe(200);
     expect(denied[0]).toMatchObject({ status: "rejected", credit_limit_cents: null, spend_limit_cents: null });
+  });
+
+  it("drops the spend limit step whenever this update clears the limit, and only then", async () => {
+    const step = { card_application_id: ID, student_id: "student-1", plan: "first_month", step: "spend_limit" };
+    student({ data: row({ spend_limit_cents: 15000 }), error: null });
+    expect((await patch({ creditLimitCents: 10000 })).status).toBe(200);
+    expect(stepDeletes).toEqual([step]);
+    student({ data: row({ spend_limit_cents: 15000 }), error: null });
+    expect((await patch({ spendLimitCents: null })).status).toBe(200);
+    expect(stepDeletes).toEqual([step]);
+    student({ data: row({ spend_limit_cents: 15000 }), error: null });
+    expect((await patch({ creditLimitCents: 90000 })).status).toBe(200);
+    expect((await patch({ paymentDueDay: 9 })).status).toBe(200);
+    expect(stepDeletes).toEqual([]);
+  });
+
+  it("keeps the saved update when dropping the step fails, and logs it", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    student({ data: row({ spend_limit_cents: 15000 }), error: null }, undefined, { data: null, error: { code: "PGRST000", message: "down" } });
+    const response = await patch({ creditLimitCents: 10000 });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ creditLimitCents: 10000, spendLimitCents: null });
+    expect(error.mock.calls[0][0]).toContain("spend_limit_step_delete");
   });
 
   it("saves a denial reason and a trimmed note on a denied card; an empty note is no note", async () => {

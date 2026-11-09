@@ -94,6 +94,12 @@ test("from Home: the suggestion, Pick my own and back, then Use $150 lights the 
   await card.getByRole("button", { name: "Save" }).click();
   expect((await edit).ok()).toBe(true);
   expect(await saved(page, id)).toMatchObject({ creditLimitCents: 10000, spendLimitCents: null });
+  // Its star goes out with it, here and on the setup list, after a reload too.
+  await expect(card.getByText("0 of 3 lit")).toBeVisible();
+  await page.reload();
+  await expect(card.getByRole("link", { name: /^Set a spend limit/ })).not.toContainText("done");
+  await page.goto(`/applications/${id}/setup`);
+  await expect(page.getByRole("link", { name: /^Set a spend limit/ })).not.toContainText("done");
 });
 
 test("from the setup list with no credit limit: S1 asks for it, then S3 saves another amount", async ({ page }) => {

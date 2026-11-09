@@ -13,25 +13,20 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusPill } from "@/components/ui/status-pill";
 import { SENSITIVE } from "@/lib/analytics";
 import { saveAutopay } from "@/lib/api-client/applications";
-import { loadPlanSteps, savePlanStep, type PlanStepName } from "@/lib/api-client/plans";
+import { loadPlanSteps } from "@/lib/api-client/plans";
 import type { Application } from "@/lib/api/application";
 import { moneyAmount } from "@/lib/money";
 import { SPEND_LIMIT_PERCENT, SPEND_LIMIT_SOURCE, suggestedSpendLimitCents } from "@/lib/plan/spend-limit";
-import { paymentRemindersPath, ROUTES, signInPath } from "@/lib/routes";
+import { paymentRemindersPath, ROUTES, signInPath, spendLimitPath } from "@/lib/routes";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
 import { cn } from "@/lib/utils";
 
 type ActionKey = "autopay" | "spendLimit" | "paymentReminder";
 type PlanActions = Record<ActionKey, boolean>;
 
-// The saved step behind each action. Autopay is not a plan step: it is the
-// card's own autopay status (US-10), read on the server with the card and
-// saved with PATCH /applications/{id}, as on Home, so both agree.
-const STEP: Record<ActionKey, PlanStepName | null> = {
-  autopay: null,
-  spendLimit: "spend_limit",
-  paymentReminder: "payment_reminder",
-};
+// Only autopay is ticked here, as the card's own autopay status (US-10), saved
+// with PATCH /applications/{id} as on Home, so both agree. The spend limit and
+// the reminder open their screens, which save them.
 
 const ACTIONS: { key: ActionKey; title: string; detail: string }[] = [
   { key: "autopay", title: "Turn on autopay", detail: "Set autopay for at least the minimum payment, or the full statement balance if your bank account can always cover it." },
@@ -51,8 +46,9 @@ type SavedPlan = { actions: PlanActions; state: "saved" };
 
 // The reminder action opens the reminder screen, which saves the card's days and
 // then the step; a step without a reminder that is really on (saved days, the
-// due-date email on, emails not off) is not done.
-function loadPlan(applicationId: string, reminderOn: boolean, autopayOn: boolean) {
+// due-date email on, emails not off) is not done. The spend limit is done when
+// the card has one saved, as on Home.
+function loadPlan(applicationId: string, reminderOn: boolean, autopayOn: boolean, spendLimitSet: boolean) {
   return async (): Promise<LoadOutcome<SavedPlan>> => {
     const result = await loadPlanSteps(applicationId, "first_month");
     if (result.kind === "ok") {
@@ -61,7 +57,7 @@ function loadPlan(applicationId: string, reminderOn: boolean, autopayOn: boolean
         data: {
           actions: {
             autopay: autopayOn,
-            spendLimit: result.done.has("spend_limit"),
+            spendLimit: spendLimitSet,
             paymentReminder: reminderOn && result.done.has("payment_reminder"),
           },
           state: "saved",
@@ -80,20 +76,25 @@ export function FirstMonthPlan({
   application,
   paymentReminderOn = false,
   autopayOn = false,
+  spendLimitSet = false,
 }: {
   application: Application;
   paymentReminderOn?: boolean;
   autopayOn?: boolean;
+  // The card has a saved spend limit.
+  spendLimitSet?: boolean;
 }) {
   // useLoaded needs a load with one identity per application.
   const load = useMemo(
-    () => loadPlan(application.id, paymentReminderOn, autopayOn),
-    [application.id, paymentReminderOn, autopayOn],
+    () => loadPlan(application.id, paymentReminderOn, autopayOn, spendLimitSet),
+    [application.id, paymentReminderOn, autopayOn, spendLimitSet],
   );
   // The return-path allow-list does not include this page, so Home it is.
   const { loaded, retry } = useLoaded(load, signInPath(ROUTES.home));
   const start: { actions: PlanActions; state: SaveState } =
-    loaded.status === "ready" ? loaded.data : { actions: { ...NONE_DONE, autopay: autopayOn }, state: loaded.status };
+    loaded.status === "ready"
+      ? loaded.data
+      : { actions: { ...NONE_DONE, autopay: autopayOn, spendLimit: spendLimitSet }, state: loaded.status };
   // A key per load state, so the checks start again from what was loaded.
   return (
     <PlanScreen
@@ -119,32 +120,25 @@ function PlanScreen({
   // Fixed for this load: the screen is keyed on the load state.
   const state: SaveState = start.state;
   const [error, setError] = useState<string | null>(null);
-  // Actions whose save is still in flight; each is locked until its answer arrives.
-  const [saving, setSaving] = useState<Set<ActionKey>>(new Set());
+  // Autopay's save is in flight; it is locked until its answer arrives.
+  const [saving, setSaving] = useState(false);
 
-  async function toggle(key: ActionKey) {
-    const value = !actions[key];
-    setActions((current) => ({ ...current, [key]: value }));
+  // Only autopay is ticked on this page.
+  async function toggleAutopay() {
+    const value = !actions.autopay;
+    setActions((current) => ({ ...current, autopay: value }));
     setError(null);
     if (state !== "saved") return;
-    const step = STEP[key];
-    setSaving((current) => new Set(current).add(key));
-    const result = step
-      ? await savePlanStep(application.id, "first_month", step, value)
-      : await saveAutopay(application.id, value);
-    setSaving((current) => {
-      const next = new Set(current);
-      next.delete(key);
-      return next;
-    });
+    setSaving(true);
+    const result = await saveAutopay(application.id, value);
+    setSaving(false);
     if (result.kind === "ok") {
       // Autopay reaches this page in the server render: refresh it, or Back
       // from another screen restores the cached page with the old check.
-      if (!step) router.refresh();
+      router.refresh();
       return;
     }
-    // Undo only this action, so other saves in flight are not overwritten.
-    setActions((current) => ({ ...current, [key]: !value }));
+    setActions((current) => ({ ...current, autopay: !value }));
     setError(result.kind === "failed" ? result.message : "Sign in again to save your plan.");
   }
 
@@ -193,7 +187,7 @@ function PlanScreen({
                     <span className="flex flex-col gap-0.5 text-indigo-black">
                       <span className="font-heading text-h6 font-medium">
                         {action.title}
-                        {action.key === "paymentReminder" && actions[action.key] ? <span className="sr-only">, done</span> : null}
+                        {action.key !== "autopay" && actions[action.key] ? <span className="sr-only">, done</span> : null}
                       </span>
                       <span className="text-body-s">{action.detail}</span>
                     </span>
@@ -201,18 +195,26 @@ function PlanScreen({
                 );
                 return (
                   <li key={action.key}>
-                    {action.key === "paymentReminder" ? (
-                      // Opens the reminder screen instead of ticking (US-08), as on Home.
-                      <Link href={paymentRemindersPath(application.id)} className={ACTION_ROW}>
+                    {action.key !== "autopay" ? (
+                      // Opens the spend limit (US-04) or reminder (US-08) screen
+                      // instead of ticking, as on Home.
+                      <Link
+                        href={
+                          action.key === "spendLimit"
+                            ? spendLimitPath(application.id, application.creditLimitCents)
+                            : paymentRemindersPath(application.id)
+                        }
+                        className={ACTION_ROW}
+                      >
                         {content}
                       </Link>
                     ) : (
                       <button
                         type="button"
                         role="checkbox"
-                        aria-checked={actions[action.key]}
-                        disabled={state === "loading" || saving.has(action.key)}
-                        onClick={() => toggle(action.key)}
+                        aria-checked={actions.autopay}
+                        disabled={state === "loading" || saving}
+                        onClick={toggleAutopay}
                         className={cn(ACTION_ROW, "disabled:cursor-progress")}
                       >
                         {content}

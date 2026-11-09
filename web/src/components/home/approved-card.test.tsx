@@ -26,7 +26,7 @@ const approved: Application = {
   statusUpdatedAt: new Date().toISOString(),
 };
 const state = homeState([approved], computeResult(undefined, listCards()), 0);
-const NO_DETAIL = { denialReason: null, denialReasonNote: null, autopayStatus: "unknown", paymentDueDay: null } as const;
+const NO_DETAIL = { denialReason: null, denialReasonNote: null, autopayStatus: "unknown", paymentDueDay: null, spendLimitCents: null } as const;
 // The card's reminder days are saved, so a done payment_reminder step lights its star.
 const DAYS_SAVED = { ...NO_DETAIL, paymentDueDay: 9 };
 
@@ -117,7 +117,7 @@ describe("Home approved card", () => {
   });
 
   it("loads the saved stars, and the spend limit row opens its screens instead of ticking (US-04)", async () => {
-    const fetchFn = server([{ status: 200, body: plan("payment_reminder") }, { status: 200, body: plan("spend_limit") }]);
+    const fetchFn = server([{ status: 200, body: plan("payment_reminder") }, { status: 200, body: plan() }]);
     const { unmount } = render(<HomeView state={state} initial="M" detail={DAYS_SAVED} />);
     expect(await screen.findByText("1 of 3 lit")).toBeTruthy();
     expect(fetchFn.mock.calls[0][0]).toBe(PLAN_URL);
@@ -130,9 +130,17 @@ describe("Home approved card", () => {
     expect(fetchFn).toHaveBeenCalledTimes(1);
     unmount();
 
-    render(<HomeView state={state} initial="M" />);
+    render(<HomeView state={state} initial="M" detail={{ ...NO_DETAIL, spendLimitCents: 15000 }} />);
     await screen.findByText("1 of 3 lit");
     expect(screen.getByRole("link", { name: /^Set a spend limit\s*, done/ })).toBeTruthy();
+  });
+
+  it("lights the spend limit star from the saved limit, never from the step alone", async () => {
+    // A lower credit limit cleared the spend limit: a leftover step does not light it.
+    server([{ status: 200, body: plan("spend_limit") }]);
+    render(<HomeView state={state} initial="M" detail={NO_DETAIL} />);
+    expect(await screen.findByText("0 of 3 lit")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /^Set a spend limit/ }).textContent).not.toContain("done");
   });
 
   it("opens the credit limit question (S1) from the spend limit row when no limit is saved", async () => {
@@ -165,8 +173,8 @@ describe("Home approved card", () => {
   });
 
   it("shows all stars lit once the three are done", async () => {
-    server([{ status: 200, body: plan("payment_reminder", "spend_limit") }]);
-    render(<HomeView state={state} initial="M" detail={{ ...DAYS_SAVED, autopayStatus: "on" }} />);
+    server([{ status: 200, body: plan("payment_reminder") }]);
+    render(<HomeView state={state} initial="M" detail={{ ...DAYS_SAVED, autopayStatus: "on", spendLimitCents: 15000 }} />);
     await screen.findByText("All stars lit");
     expect(screen.getByText("All three stars lit. Your card is set up to build good credit.")).toBeTruthy();
   });
@@ -233,9 +241,9 @@ describe("Home approved card", () => {
   it("shows a failed load with a retry", async () => {
     server([
       { status: 503, body: { error: { code: "service_unavailable", message: "Try again in a moment." } } },
-      { status: 200, body: plan("spend_limit") },
+      { status: 200, body: plan("payment_reminder") },
     ]);
-    render(<HomeView state={state} initial="M" />);
+    render(<HomeView state={state} initial="M" detail={DAYS_SAVED} />);
     expect((await screen.findByRole("alert")).textContent).toContain("Try again in a moment.");
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByText("1 of 3 lit")).toBeTruthy();

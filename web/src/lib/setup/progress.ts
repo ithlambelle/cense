@@ -15,14 +15,15 @@ export function setupProgress({
   autopayStatus,
   statementClosingDay,
   paymentDueDay,
-  spendLimitStep,
+  spendLimitSet,
   reminderStep,
   reminderOn,
 }: {
   autopayStatus: string;
   statementClosingDay: number | null;
   paymentDueDay: number | null;
-  spendLimitStep: boolean;
+  // The card has a saved spend limit: the star is the limit, not a step.
+  spendLimitSet: boolean;
   reminderStep: boolean;
   // paymentReminderOn in lib/home/state.ts: the due day, the due-date email on.
   reminderOn: boolean;
@@ -30,7 +31,7 @@ export function setupProgress({
   return {
     dates: statementClosingDay !== null && paymentDueDay !== null,
     autopay: autopayStatus === "on",
-    spendLimit: spendLimitStep,
+    spendLimit: spendLimitSet,
     // As on Home: the saved step and a reminder that is really on.
     reminders: reminderStep && reminderOn,
   };

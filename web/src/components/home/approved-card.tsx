@@ -33,8 +33,9 @@ type Lit = Record<StepKey, boolean>;
 // where its step is done, so no star is ever lit without something behind it.
 // Autopay opens the card setup list (US-10, I1), where the student follows the
 // issuer's steps and says what they set up; the star reads the card's autopay
-// status. The spend limit opens its screens (US-04, Flow A), which save the
-// limit and light the star. The payment reminder opens the reminder screen
+// status. The spend limit opens its screens (US-04, Flow A); the star reads the
+// card's saved limit, so a limit cleared by a lower credit limit puts it out.
+// The payment reminder opens the reminder screen
 // (US-08), which lights the star when it saves.
 const STEPS: { key: StepKey; title: string; detail: string; opens: "setup" | "spendLimit" | "reminders" }[] = [
   { key: "autopay", title: "Turn on autopay", detail: "Statement balance, every month", opens: "setup" },
@@ -56,15 +57,16 @@ const NONE_LIT: Lit = { autopay: false, spendLimit: false, paymentReminder: fals
 
 // The reminder star needs the step and a reminder that is really on (saved
 // days, the due-date email on, emails not off): the old first-month page ticked
-// the step on its own, and the settings cover every card.
-function loadLit(applicationId: string, autopay: boolean, reminderOn: boolean) {
+// the step on its own, and the settings cover every card. The spend limit star
+// is the saved limit alone.
+function loadLit(applicationId: string, autopay: boolean, spendLimit: boolean, reminderOn: boolean) {
   return async (): Promise<LoadOutcome<Lit>> => {
     const result = await loadPlanSteps(applicationId, "first_month");
     if (result.kind === "signed-out") return "signed-out";
     if (result.kind === "failed") return { status: "failed", message: result.message };
     return {
       status: "ready",
-      data: { autopay, spendLimit: result.done.has("spend_limit"), paymentReminder: reminderOn && result.done.has("payment_reminder") },
+      data: { autopay, spendLimit, paymentReminder: reminderOn && result.done.has("payment_reminder") },
     };
   };
 }
@@ -72,6 +74,7 @@ function loadLit(applicationId: string, autopay: boolean, reminderOn: boolean) {
 export function ApprovedCard({
   application,
   autopayOn,
+  spendLimitSet = false,
   paymentReminderOn = false,
   celebrate,
   sampleStars,
@@ -79,6 +82,8 @@ export function ApprovedCard({
   application: Application;
   // The saved autopay status is "on" (off and unknown leave the star out).
   autopayOn: boolean;
+  // The card has a saved spend limit (spendLimitCents is not null).
+  spendLimitSet?: boolean;
   // The card's payment reminder is really on (paymentReminderOn in lib/home/state.ts).
   paymentReminderOn?: boolean;
   celebrate: boolean;
@@ -94,21 +99,34 @@ export function ApprovedCard({
       </>
     );
   }
-  return <SavedCard application={application} autopayOn={autopayOn} paymentReminderOn={paymentReminderOn} celebrate={celebrate} />;
+  return (
+    <SavedCard
+      application={application}
+      autopayOn={autopayOn}
+      spendLimitSet={spendLimitSet}
+      paymentReminderOn={paymentReminderOn}
+      celebrate={celebrate}
+    />
+  );
 }
 
 function SavedCard({
   application,
   autopayOn,
+  spendLimitSet,
   paymentReminderOn,
   celebrate,
 }: {
   application: Application;
   autopayOn: boolean;
+  spendLimitSet: boolean;
   paymentReminderOn: boolean;
   celebrate: boolean;
 }) {
-  const load = useMemo(() => loadLit(application.id, autopayOn, paymentReminderOn), [application.id, autopayOn, paymentReminderOn]);
+  const load = useMemo(
+    () => loadLit(application.id, autopayOn, spendLimitSet, paymentReminderOn),
+    [application.id, autopayOn, spendLimitSet, paymentReminderOn],
+  );
   const { loaded, retry } = useLoaded(load, signInPath(ROUTES.home));
   // A key per load state, so the stars start again from what was loaded.
   // The arrival effects sit outside it, so they run once.
@@ -119,7 +137,7 @@ function SavedCard({
         key={loaded.status}
         application={application}
         celebrate={celebrate}
-        start={loaded.status === "ready" ? loaded.data : { ...NONE_LIT, autopay: autopayOn }}
+        start={loaded.status === "ready" ? loaded.data : { ...NONE_LIT, autopay: autopayOn, spendLimit: spendLimitSet }}
         loadError={loaded.status === "failed" ? loaded.message : null}
         onRetry={retry}
       />

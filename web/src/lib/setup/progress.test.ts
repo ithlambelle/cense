@@ -7,7 +7,7 @@ const base = {
   autopayStatus: "unknown",
   statementClosingDay: null,
   paymentDueDay: null,
-  spendLimitStep: false,
+  spendLimitSet: false,
   reminderStep: false,
   reminderOn: false,
 };
@@ -33,8 +33,9 @@ describe("setupProgress", () => {
     expect(setupProgress({ ...base, reminderStep: true, reminderOn: true }).reminders).toBe(true);
   });
 
-  it("lights the spend limit from its step", () => {
-    expect(setupProgress({ ...base, spendLimitStep: true }).spendLimit).toBe(true);
+  it("lights the spend limit from the saved limit", () => {
+    expect(setupProgress({ ...base, spendLimitSet: true }).spendLimit).toBe(true);
+    expect(setupProgress({ ...base, spendLimitSet: false }).spendLimit).toBe(false);
   });
 });
 

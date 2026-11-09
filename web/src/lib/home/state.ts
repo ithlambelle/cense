@@ -16,8 +16,12 @@ export type HomeState =
   | { kind: "tracking"; primary: Application; others: Application[] };
 
 // The leading card's own fields Home reads beyond the list: the denial reason
-// and note for a denied card, autopay and the saved due day for an approved one.
-export type CardDetail = Pick<ApplicationDetail, "denialReason" | "denialReasonNote" | "autopayStatus" | "paymentDueDay">;
+// and note for a denied card, autopay, the saved due day and the spend limit
+// for an approved one.
+export type CardDetail = Pick<
+  ApplicationDetail,
+  "denialReason" | "denialReasonNote" | "autopayStatus" | "paymentDueDay" | "spendLimitCents"
+>;
 
 // The two reminder settings the reminder star depends on.
 export type StarSettings = Pick<ReminderSettings, "paymentDue" | "emailsOn">;

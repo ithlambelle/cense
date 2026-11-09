@@ -45,6 +45,7 @@ export default async function HomePage({ searchParams }: PageProps<"/home">) {
           denialReasonNote: detail.denialReasonNote,
           autopayStatus: detail.autopayStatus,
           paymentDueDay: detail.paymentDueDay,
+          spendLimitCents: detail.spendLimitCents,
         }
       }
       reminderSettings={{ paymentDue: settings.paymentDue, emailsOn: settings.emailsOn }}
