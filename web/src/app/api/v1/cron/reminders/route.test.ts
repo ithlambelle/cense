@@ -82,13 +82,43 @@ describe("GET /cron/reminders", () => {
     expect(calls).toEqual([]);
   });
 
-  it("names a missing setting in the log and stops", async () => {
+  it("names a missing email setting in the log and sends nothing, but still raises the follow-ups", async () => {
     vi.stubEnv("RESEND_API_KEY", "");
     const calls = database();
     const response = await cron();
     expect(response.status).toBe(500);
     expect(JSON.stringify(vi.mocked(console.error).mock.calls)).toContain("RESEND_API_KEY");
+    expect(calls.map((call) => call.name)).toEqual(["raise_reminder_follow_ups"]);
+  });
+
+  it("stops before the database without the service role", async () => {
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
+    const calls = database();
+    expect((await cron()).status).toBe(500);
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).toContain("SUPABASE_SERVICE_ROLE_KEY");
     expect(calls).toEqual([]);
+  });
+
+  it("counts the follow-ups' time against the sending budget", async () => {
+    // Slow follow-ups use up the budget: the email is deferred, not started
+    // with seconds left in Vercel's limit.
+    let clock = 0;
+    const now = vi.spyOn(Date, "now").mockImplementation(() => clock);
+    const calls: string[] = [];
+    service.createServiceClient.mockReturnValue({
+      rpc: async (name: string) => {
+        calls.push(name);
+        if (name === "raise_reminder_follow_ups") clock = 46_000;
+        if (name === "claim_due_reminders") return { data: [claimed()], error: null };
+        return { data: null, error: null };
+      },
+    });
+    const fetchMock = resend();
+    const body = await (await cron()).json();
+    now.mockRestore();
+    expect(body).toMatchObject({ claimed: 1, sent: 0, deferred: 1 });
+    expect(fetchMock.emails()).toHaveLength(0);
+    expect(calls).toContain("release_reminder_claim");
   });
 
   it("refreshes, claims, sends through Resend and marks sent, answering with counts only", async () => {
@@ -252,7 +282,7 @@ describe("GET /cron/reminders", () => {
       resend();
       expect((await cron()).status).toBe(500);
       expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, `${HEARTBEAT}/fail`]);
-      expect(JSON.parse(others[1].body)).toEqual({ error: "not_configured", missing: ["RESEND_API_KEY"] });
+      expect(JSON.parse(others[1].body)).toEqual({ error: "not_configured", missing: ["RESEND_API_KEY"], followUps: { raised: 0, skipped: 0 } });
 
       others.length = 0;
       vi.stubEnv("RESEND_API_KEY", ENV.RESEND_API_KEY);

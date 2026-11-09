@@ -14,14 +14,17 @@ import { createServiceClient } from "@/lib/supabase/service";
 // (lib/reminders/heartbeat.ts), so a failed send or a run that never comes
 // alerts the team.
 
-// Room for the job's 45-second sending budget (lib/reminders/job.ts); 60 is
-// the most Vercel's Hobby plan allows without Fluid compute.
+// Room for the 45-second sending budget (lib/reminders/job.ts), counted from
+// the start of this request; 60 is the most Vercel's Hobby plan allows
+// without Fluid compute.
 export const maxDuration = 60;
 
 export async function GET(request: Request): Promise<Response> {
   if (!cronAuthorized(request.headers.get("authorization"))) {
     return apiError(401, "unauthorized", "Not authorized.");
   }
+  // The sending budget counts from here, so the follow-ups' time is in it.
+  const startedAt = Date.now();
   // The start ping runs alongside the job, not before it, so it never takes
   // the job's time; the run waits for it before the last ping, so the check
   // always sees start then finish.
@@ -30,20 +33,25 @@ export async function GET(request: Request): Promise<Response> {
     await started;
     await pingHeartbeat(signal, body);
   };
-
-  const config = reminderSettings(["serviceRoleKey", "resendApiKey", "fromEmail", "appUrl", "unsubscribeSecret"]);
-  if (!config.ok) {
-    console.error(JSON.stringify({ event: "reminder_job_not_configured", missing: config.missing }));
-    await finish("fail", { error: "not_configured", missing: config.missing });
+  const notConfigured = async (missing: string[], extra: Record<string, unknown> = {}) => {
+    console.error(JSON.stringify({ event: "reminder_job_not_configured", missing }));
+    await finish("fail", { error: "not_configured", missing, ...extra });
     return apiError(500, "not_configured", "The reminder job is not configured.");
-  }
+  };
 
-  const { serviceRoleKey, ...jobConfig } = config.settings;
-  const supabase = createServiceClient(serviceRoleKey);
+  // The follow-ups need only the database, so missing email settings never
+  // hold them back.
+  const service = reminderSettings(["serviceRoleKey"]);
+  if (!service.ok) return notConfigured(service.missing);
+  const supabase = createServiceClient(service.settings.serviceRoleKey);
   // Never throws; a reminder it skipped is logged, not a failed run.
   const { failed: followUpsFailed, ...followUps } = await raiseFollowUps(supabase);
+
+  const config = reminderSettings(["resendApiKey", "fromEmail", "appUrl", "unsubscribeSecret"]);
+  if (!config.ok) return notConfigured(config.missing, { followUps });
+
   try {
-    const sent = await runReminderJob(supabase, { ...jobConfig, resendUrl: resendEmailsUrl() });
+    const sent = await runReminderJob(supabase, { ...config.settings, resendUrl: resendEmailsUrl() }, { startedAt });
     const result = { ...sent, followUps };
     // A person needs to look at any of these: a send failed, one was sent but
     // not marked (it may go again tomorrow), or a reminder was given up on
