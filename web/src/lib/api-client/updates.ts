@@ -1,10 +1,13 @@
+import type { SnoozeChoice } from "@/lib/api/reminders";
+
 import { apiRequest, failureMessage, isUnauthorized, type ApiFailure } from "./client";
 import type { Reminder } from "./reminders";
 
 // The in-app reminder actions in Updates (Flow B): I paid it, Snooze, Dismiss
 // for this billing cycle, Mark all read.
 
-export type SnoozeChoice = "tomorrow" | "in_2_days" | "day_before_due";
+// One list of choices, the API schema's.
+export type { SnoozeChoice };
 
 export type UpdateResult<T> = { kind: "ok"; data: T } | { kind: "signed-out" } | { kind: "failed"; message: string };
 
