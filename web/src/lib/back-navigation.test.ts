@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { previousScreen, screenName } from "./back-navigation";
+import { previousScreen, previousScreenIs, screenName } from "./back-navigation";
 
 const ORIGIN = "https://censefinance.com";
 const at = (...paths: string[]) => paths.map((path) => ({ url: `${ORIGIN}${path}` }));
@@ -44,5 +44,33 @@ describe("screenName", () => {
     expect(screenName(new URL(`${ORIGIN}/applications/a1/setup/spend-limit/suggestion?from=home`))).toBe("Your suggestion");
     expect(screenName(new URL(`${ORIGIN}/applications/a1/setup/elsewhere`))).toBeNull();
     expect(screenName(new URL(`${ORIGIN}/somewhere`))).toBeNull();
+  });
+});
+
+describe("previousScreenIs", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  function history(urls: string[]) {
+    vi.stubGlobal("window", {
+      location: { origin: "https://censefinance.com" },
+      navigation: {
+        entries: () => urls.map((url) => ({ url })),
+        currentEntry: { index: urls.length - 1 },
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      },
+    });
+  }
+
+  it("is true only when the screen behind is that address, query included", () => {
+    history(["https://censefinance.com/denied/plan?application=a1", "https://censefinance.com/denied/reminder/saved"]);
+    expect(previousScreenIs("/denied/plan?application=a1")).toBe(true);
+    expect(previousScreenIs("/denied/plan?application=b2")).toBe(false);
+    expect(previousScreenIs("/home")).toBe(false);
+  });
+
+  it("is false with nothing behind", () => {
+    history(["https://censefinance.com/denied/reminder/saved"]);
+    expect(previousScreenIs("/denied/plan?application=a1")).toBe(false);
   });
 });

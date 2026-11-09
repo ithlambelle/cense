@@ -1,16 +1,20 @@
+"use client";
+
 import Check from "@gravity-ui/icons/Check";
 import Link from "next/link";
 
 import { OutcomeMark } from "@/components/denied/parts";
 import { AppHeader } from "@/components/ui/app-header";
 import { ButtonChevron, buttonVariants } from "@/components/ui/button";
+import { previousScreenIs } from "@/lib/back-navigation";
 import { deniedPath } from "@/lib/routes";
 
 // Reminder saved (Flow F, F3, Figma 477:2655): the check alone, no Penny, and
 // the confirmation email (F4) named. Rendered by ReminderSavedCheck only once
 // the reminder is found, so it can say a reminder will come (D8). The save
-// replaced the form, so Back returns to the plan (G1); "Back to your plan"
-// replaces this entry, so Back from the plan never reopens this screen.
+// replaced the form, so Back returns to the plan (G1). "Back to your plan" goes
+// back when the plan is the screen behind, else replaces this entry, so Back
+// from the plan never reopens this screen and the plan is never in history twice.
 // `emailed` is true when this tab just saved it and the confirmation went out;
 // opened again later, the screen says when the email will come instead.
 export function ReminderSavedView({
@@ -41,7 +45,17 @@ export function ReminderSavedView({
             </p>
           </section>
           <div className="flex-1" />
-          <Link href={plan} replace className={buttonVariants()}>
+          <Link
+            href={plan}
+            replace
+            onClick={(event) => {
+              if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+              if (!previousScreenIs(plan)) return;
+              event.preventDefault();
+              window.history.back();
+            }}
+            className={buttonVariants()}
+          >
             Back to your plan
             <ButtonChevron />
           </Link>
