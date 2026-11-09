@@ -141,6 +141,9 @@ export type UpdateItem = {
   action: UpdateAction | null;
   // The snooze sheet's times for it; empty when there is no Snooze.
   snooze: { choice: SnoozeChoice; label: string }[];
+  // It can be dismissed for its billing cycle: whenever its action shows,
+  // even with no snooze time left (then Dismiss is on the card itself).
+  dismissable: boolean;
   // The follow-up's own screen (N3), opened from its title.
   href: string | null;
 };
@@ -252,6 +255,7 @@ export function updateItem(reminder: Reminder, card: ReminderCard, now: Date, ti
     time: snoozeDay ? weekdayName(snoozeDay) : ago(surfaced, now),
     action: open && !snoozed ? base.action : null,
     snooze: open && !snoozed ? snoozeOptions(reminder, card, now, timeZone).map(({ choice, label }) => ({ choice, label })) : [],
+    dismissable: open && !snoozed,
     href: reminder.kind === "statement_closing" && reminder.followUpAt && open ? updatePath(reminder.id) : null,
   };
 }

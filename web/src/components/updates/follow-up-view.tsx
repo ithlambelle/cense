@@ -9,7 +9,7 @@ import { BottomNav } from "@/components/ui/bottom-nav";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { SENSITIVE, track } from "@/lib/analytics";
-import { markPaid } from "@/lib/api-client/updates";
+import { dismiss, markPaid } from "@/lib/api-client/updates";
 import { ROUTES, signInPath, updatePath } from "@/lib/routes";
 
 import { SnoozeSheet, type SnoozeTarget } from "./snooze-sheet";
@@ -32,14 +32,14 @@ export function FollowUpView({
   choices: SnoozeTarget["choices"];
 }) {
   const router = useRouter();
-  const [pending, setPending] = useState(false);
+  const [pending, setPending] = useState<"paid" | "dismiss" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [snoozing, setSnoozing] = useState<SnoozeTarget | null>(null);
   const by = due ?? "the due date";
 
   async function paid() {
     if (pending) return;
-    setPending(true);
+    setPending("paid");
     setError(null);
     const result = await markPaid(id);
     if (result.kind === "ok") {
@@ -47,7 +47,23 @@ export function FollowUpView({
       router.push(ROUTES.updates);
       return;
     }
-    setPending(false);
+    setPending(null);
+    if (result.kind === "signed-out") router.replace(signInPath(updatePath(id)));
+    else setError(result.message);
+  }
+
+  // With no snooze time left before it is due, Dismiss replaces Snooze.
+  async function dismissForCycle() {
+    if (pending) return;
+    setPending("dismiss");
+    setError(null);
+    const result = await dismiss(id);
+    if (result.kind === "ok") {
+      track("reminder_dismissal_saved", { kind: "statement_closing" });
+      router.push(ROUTES.updates);
+      return;
+    }
+    setPending(null);
     if (result.kind === "signed-out") router.replace(signInPath(updatePath(id)));
     else setError(result.message);
   }
@@ -80,14 +96,18 @@ export function FollowUpView({
           <div className="flex-1" />
           {error ? <ErrorMessage>{error}</ErrorMessage> : null}
           <div className="flex flex-col gap-4">
-            <Button onClick={paid} pending={pending}>
+            <Button onClick={paid} pending={pending === "paid"} disabled={pending === "dismiss"}>
               I paid it
             </Button>
             {choices.length > 0 ? (
-              <Button variant="secondary" onClick={() => setSnoozing({ id, kind: "statement_closing", choices })} disabled={pending}>
+              <Button variant="secondary" onClick={() => setSnoozing({ id, kind: "statement_closing", choices })} disabled={pending !== null}>
                 Snooze
               </Button>
-            ) : null}
+            ) : (
+              <Button variant="secondary" onClick={dismissForCycle} pending={pending === "dismiss"} disabled={pending === "paid"}>
+                Dismiss for this billing cycle
+              </Button>
+            )}
           </div>
         </main>
         <SnoozeSheet target={snoozing} onClose={() => setSnoozing(null)} back={updatePath(id)} />

@@ -126,6 +126,17 @@ describe("updateItem", () => {
     });
   });
 
+  it("can be dismissed whenever its action shows, even with no snooze time left", () => {
+    // Due today: no snooze time is left, but Dismiss still is.
+    const dueToday = updateItem(reminder({ kind: "payment_due", occurrence: "2026-11-08" }), card(), NOW, NY);
+    expect(dueToday).toMatchObject({ action: { type: "paid" }, snooze: [], dismissable: true });
+    expect(updateItem(reminder(), card(), NOW, NY)?.dismissable).toBe(true);
+    // Snoozed, paid or past: nothing to dismiss.
+    expect(updateItem(reminder({ snoozedUntil: "2026-11-10T14:00:00.000Z" }), card(), NOW, NY)?.dismissable).toBe(false);
+    expect(updateItem(reminder({ actedAt: NOW.toISOString() }), card(), NOW, NY)?.dismissable).toBe(false);
+    expect(updateItem(reminder({ occurrence: "2026-11-07" }), card(), NOW, NY)?.dismissable).toBe(false);
+  });
+
   it("gives each kind its one action", () => {
     expect(updateItem(reminder({ kind: "payment_due", occurrence: "2026-12-06" }), card(), NOW, NY)).toMatchObject({
       title: "Payment due Dec 6", description: "Pay the full statement balance.", action: { type: "paid", label: "I paid it" },

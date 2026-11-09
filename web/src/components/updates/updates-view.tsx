@@ -13,7 +13,7 @@ import { BackLink } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { SENSITIVE, track } from "@/lib/analytics";
-import { markAllRead, markPaid } from "@/lib/api-client/updates";
+import { dismiss, markAllRead, markPaid } from "@/lib/api-client/updates";
 import type { UpdateGroup, UpdateIcon, UpdateItem } from "@/lib/reminders/in-app";
 import { ROUTES, signInPath, type ReminderKind } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -70,6 +70,20 @@ export function UpdatesView({
     else setError(result.message);
   }
 
+  // Dismiss straight from the card, when no snooze time is left to open the sheet for.
+  async function dismissItem(item: UpdateItem) {
+    if (busy) return;
+    setBusy(item.id);
+    setError(null);
+    const result = await dismiss(item.id);
+    setBusy(null);
+    if (result.kind === "ok") {
+      track("reminder_dismissal_saved", { kind: item.kind });
+      router.refresh();
+    } else if (result.kind === "signed-out") router.replace(signInPath(ROUTES.updates));
+    else setError(result.message);
+  }
+
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
@@ -107,6 +121,7 @@ export function UpdatesView({
                         busy={busy === item.id}
                         disabled={busy !== null}
                         onPaid={() => paid(item)}
+                        onDismiss={() => dismissItem(item)}
                         onSnooze={() => setSnoozing({ id: item.id, kind: item.kind, choices: item.snooze })}
                       />
                     </li>
@@ -133,12 +148,14 @@ function UpdateCard({
   busy,
   disabled,
   onPaid,
+  onDismiss,
   onSnooze,
 }: {
   item: UpdateItem;
   busy: boolean;
   disabled: boolean;
   onPaid: () => void;
+  onDismiss: () => void;
   onSnooze: () => void;
 }) {
   const Icon = ICONS[item.icon];
@@ -160,7 +177,7 @@ function UpdateCard({
           <p className="shrink-0 text-[13px] leading-[18px] text-indigo-black/70">{item.time}</p>
         </div>
         <p className={cn("text-[14px] leading-[1.3] text-indigo-black/70", item.sensitive && SENSITIVE)}>{item.description}</p>
-        {item.action || item.snooze.length > 0 ? (
+        {item.action || item.dismissable ? (
           <div className="flex flex-wrap items-center gap-2.5">
             {item.action?.type === "paid" ? (
               <button
@@ -183,9 +200,21 @@ function UpdateCard({
                 onClick={onSnooze}
                 disabled={disabled}
                 aria-label={`Snooze ${item.title}`}
-                className="flex h-10 items-center rounded-button text-button-s font-semibold text-violet hover:text-violet-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-40"
+                className={TEXT_BUTTON}
               >
                 Snooze
+              </button>
+            ) : item.dismissable ? (
+              // No snooze time is left before it is due, so Dismiss (the
+              // sheet's other choice) sits on the card.
+              <button
+                type="button"
+                onClick={onDismiss}
+                disabled={disabled}
+                aria-label={`Dismiss ${item.title}`}
+                className={TEXT_BUTTON}
+              >
+                Dismiss
               </button>
             ) : null}
           </div>
@@ -194,6 +223,9 @@ function UpdateCard({
     </article>
   );
 }
+
+const TEXT_BUTTON =
+  "flex h-10 items-center rounded-button text-button-s font-semibold text-violet hover:text-violet-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-40";
 
 // Button / Compact (Figma 270:2130): 40 tall, filled violet. Corners are the
 // system's 16 (pills retired, 2026-10-24); the frame draws 12.
