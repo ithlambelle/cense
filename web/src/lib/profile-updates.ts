@@ -1,16 +1,15 @@
 import type { ReminderKind } from "@/lib/routes";
 
 // Profile's Updates section (Flow F, F5, Figma 477:2807): what exists today
-// is the reminder emails already sent, so those are the updates. "New" means
-// sent after the student last saw their updates (profiles.updates_seen_at),
-// or every one while that is unset. The Updates screen itself (See all) is
-// not built yet.
+// is the reminder emails already sent, so those are the updates. No "new"
+// count yet: nothing records when the student saw them until the Updates
+// screen exists.
 
 export type SentReminder = { kind: ReminderKind; occurrence: string; sentAt: string };
 
 export type ProfileUpdate = { title: string; body: string; when: string };
 
-export type ProfileUpdates = { newCount: number; latest: ProfileUpdate | null };
+export type ProfileUpdates = { latest: ProfileUpdate | null };
 
 // "Nov 12" for a calendar date (YYYY-MM-DD), never shifted.
 function dayLabel(date: string): string {
@@ -32,13 +31,10 @@ function updateFor(reminder: SentReminder): Omit<ProfileUpdate, "when"> {
   }
 }
 
-export function profileUpdates(sent: SentReminder[], seenAt: string | null, now: Date = new Date()): ProfileUpdates {
-  const ordered = [...sent].sort((a, b) => b.sentAt.localeCompare(a.sentAt));
-  const seen = seenAt ? new Date(seenAt).getTime() : null;
-  const newCount = ordered.filter((reminder) => seen === null || new Date(reminder.sentAt).getTime() > seen).length;
-  const first = ordered[0];
-  if (!first) return { newCount, latest: null };
+export function profileUpdates(sent: SentReminder[], now: Date = new Date()): ProfileUpdates {
+  const first = [...sent].sort((a, b) => b.sentAt.localeCompare(a.sentAt))[0];
+  if (!first) return { latest: null };
   const sentDay = first.sentAt.slice(0, 10);
   const today = now.toISOString().slice(0, 10);
-  return { newCount, latest: { ...updateFor(first), when: sentDay === today ? "Today" : dayLabel(sentDay) } };
+  return { latest: { ...updateFor(first), when: sentDay === today ? "Today" : dayLabel(sentDay) } };
 }
