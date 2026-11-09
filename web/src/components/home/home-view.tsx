@@ -68,7 +68,10 @@ export function HomeView({
   const celebrate = celebrating(state, celebrateId);
   return (
     <div className="flex min-h-dvh justify-center bg-background">
-      <div className="relative flex w-full max-w-phone flex-col overflow-x-clip">
+      {/* No overflow clip on this column: Safari clips a fixed child to it, so
+          the bottom bar stopped at the column's 390px on wider phones (Ben,
+          2026-11-09). Home's content is clipped by its main instead. */}
+      <div className="relative flex w-full max-w-phone flex-col">
         <header className="box-content flex h-11 items-center px-6 pt-[42px] pb-0.5">
           {/* The initial in a circle replaces the labeled Profile button (Flow 1 frames). */}
           <Link
@@ -79,7 +82,7 @@ export function HomeView({
             <Image src="/mascot/astro-pig/avatar.png" alt={initial} width={40} height={40} className="rounded-input" />
           </Link>
         </header>
-        <main className="stagger flex flex-1 flex-col gap-[18px] px-6 pt-4 pb-6">
+        <main className="stagger flex flex-1 flex-col gap-[18px] overflow-x-clip px-6 pt-4 pb-6">
           <HomeContent state={state} detail={detail} reminderSettings={reminderSettings} celebrate={celebrate} sampleStars={sampleStars} />
           {/* Under the card module, which carries MVP2's reminders; design's
               Home/Today (Figma 222:2211) puts it on top once that is built. */}

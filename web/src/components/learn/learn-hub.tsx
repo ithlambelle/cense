@@ -74,10 +74,10 @@ export function LearnHub({ canType }: { canType: boolean }) {
                 const Icon = TOPIC_ICONS[topic.slug];
                 return (
                   <li key={topic.slug}>
-                    {/* Lavender in place of the frame's light blue (G3: light blue is not a palette color). */}
+                    {/* Light Blue at 50% (accent/tint), as in the frame (371:11100). */}
                     <Link
                       href={learnTopicPath(topic.slug)}
-                      className="flex min-h-14 items-center gap-2.5 rounded-[20px] bg-off-white py-2 pr-3 pl-3.5 text-body-s font-medium text-navy transition-colors hover:bg-selected-outline/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-safe:active:scale-[0.98]"
+                      className="flex min-h-14 items-center gap-2.5 rounded-[20px] bg-light-blue/50 py-2 pr-3 pl-3.5 text-body-s font-medium text-navy transition-colors hover:bg-light-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-safe:active:scale-[0.98]"
                     >
                       <Icon aria-hidden="true" width={20} height={20} className="shrink-0 text-violet" />
                       <span className="flex-1 leading-[18px]">{topic.label}</span>

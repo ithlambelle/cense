@@ -166,3 +166,28 @@ test("the bottom bar stays fixed to the bottom of the screen, even on a short pa
     expect(Math.round(after.y + after.height), `bottom bar after scrolling at ${width}`).toBe(900);
   }
 });
+
+test("the bottom bar spans the whole screen on Home, Cards and Learn, with nothing around it that clips", async ({ page }) => {
+  await signUp(page, uniqueEmail("fix-nav-width"), async () => {});
+  await page.setViewportSize({ width: 402, height: 874 });
+  for (const path of ["/home", "/cards", "/learn"]) {
+    await page.goto(path);
+    const nav = page.getByRole("navigation", { name: "Main" });
+    await expect(nav).toBeVisible();
+    const box = (await nav.boundingBox())!;
+    expect([Math.round(box.x), Math.round(box.width)], `bottom bar width on ${path}`).toEqual([0, 402]);
+    // Safari clips a fixed bar to any ancestor that clips overflow (Chrome
+    // does not), so on an iPhone it stopped at Home's 390px column. No
+    // ancestor may clip.
+    const clipping = await nav.evaluate((el) => {
+      const found: string[] = [];
+      // body and html pass their overflow to the viewport, so they never clip it.
+      for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) {
+        const style = getComputedStyle(node);
+        if (style.overflowX !== "visible" || style.overflowY !== "visible") found.push(`${node.tagName.toLowerCase()}.${node.className}`);
+      }
+      return found;
+    });
+    expect(clipping, `clipping ancestors on ${path}`).toEqual([]);
+  }
+});

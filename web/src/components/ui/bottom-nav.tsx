@@ -164,13 +164,15 @@ function BottomNav() {
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "group flex min-h-12 flex-col items-center gap-0.5 rounded-input text-body-s transition-[color,scale] duration-200 motion-safe:active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
-                  active ? "font-semibold text-white" : "text-off-white/80 hover:text-off-white"
+                  active ? "font-semibold text-light-blue" : "text-white/70 hover:text-white"
                 )}
               >
-                {/* The pill behind the active icon, white at 16% as in the Figma bar
-                    component (light blue is not a palette color). It is
-                    decoration: the current tab is carried by the white,
-                    heavier label and aria-current. */}
+                {/* The active tab is Light Blue (#BAE4FF, light-blue/100) and the
+                    others white at 70%, as in the Figma bar component (371:2862);
+                    Light Blue is the design system's accent on dark navy. The
+                    pill behind the active icon, white at 16%, is decoration:
+                    the current tab is carried by the color, the heavier label
+                    and aria-current. */}
                 <span
                   aria-hidden="true"
                   className={cn(
