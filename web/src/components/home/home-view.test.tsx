@@ -128,6 +128,18 @@ describe("HomeView", () => {
     expect(await screen.findByText("0 of 3 lit")).toBeTruthy();
   });
 
+  it("never says Preview on the approval celebration, and still does on a calm Home", async () => {
+    const state = homeState([app("approved", { creditLimitCents: 50000 })], NONE, 1);
+    const { unmount } = render(<HomeView state={state} initial="M" celebrateId={ID} safeToSpend={null} />);
+    expect(screen.getByRole("region", { name: "See what’s safe to spend" })).toBeTruthy();
+    expect(screen.queryByText("Preview")).toBeNull();
+    await screen.findByText("0 of 3 lit");
+    unmount();
+    render(<HomeView state={state} initial="M" safeToSpend={null} />);
+    expect(screen.getByText("Preview")).toBeTruthy();
+    await screen.findByText("0 of 3 lit");
+  });
+
   it("writes a limit with a thousands separator, and cents only when there are some", async () => {
     const { unmount } = render(<HomeView state={homeState([app("approved", { creditLimitCents: 150000 })], NONE, 1)} initial="M" />);
     expect(screen.getByText("$1,500")).toBeTruthy();
