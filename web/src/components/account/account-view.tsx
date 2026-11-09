@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 import { LogOutButton } from "@/components/account/log-out-button";
 import { AppHeader } from "@/components/ui/app-header";
-import { CardArt } from "@/components/ui/card-art";
+import { MiniCardArt } from "@/components/ui/card-art";
 import { STATUS_LABELS } from "@/lib/copy/applications";
 import { SENSITIVE } from "@/lib/analytics";
 import type { Application } from "@/lib/api/application";
@@ -81,7 +81,7 @@ export function AccountView({
           <SectionHeading id="your-card">Your card</SectionHeading>
           {card ? (
             <Link href={ROUTES.home} className={ROW}>
-              <CardArt />
+              <MiniCardArt />
               <span className="flex min-w-0 flex-1 flex-col gap-[3px] leading-[normal]">
                 <span className="text-body-m leading-[normal] font-medium text-indigo-black">
                   {card.cardName}
@@ -153,25 +153,18 @@ function cardLine(card: Application): string {
   return STATUS_LABELS[card.status];
 }
 
-// Updates heading (477:2807) and the latest Notification item (371:3411):
-// unread is the off-white tile. See all waits for the Updates screen.
+// Updates heading (477:2807) and the latest Notification item (371:3411), in
+// its read style: no "new" count until the Updates screen records what was seen.
 function UpdatesSection({ updates }: { updates: ProfileUpdates }) {
   const latest = updates.latest!;
-  const unread = updates.newCount > 0;
   return (
     <section aria-labelledby="updates" className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
-        <h2 id="updates" className="text-body-m font-semibold text-navy">
-          Updates
-        </h2>
-        {unread ? <p className="text-[13px] leading-[18px] text-violet">{updates.newCount} new</p> : null}
-      </div>
+      <h2 id="updates" className="text-body-m font-semibold text-navy">
+        Updates
+      </h2>
       <Link
         href={ROUTES.home}
-        className={cn(
-          "flex items-start gap-3.5 rounded-button p-4 leading-[normal] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-          unread ? "bg-off-white" : "border border-hairline bg-white",
-        )}
+        className="flex items-start gap-3.5 rounded-button border border-hairline bg-white p-4 leading-[normal] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         <Bell aria-hidden="true" width={20} height={20} className="shrink-0 text-violet" />
         <span className="flex min-w-0 flex-1 flex-col gap-1">

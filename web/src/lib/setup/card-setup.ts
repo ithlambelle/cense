@@ -48,7 +48,7 @@ export async function loadCardSetup(student: Student, applicationId: string): Pr
       autopayStatus: application.autopayStatus,
       statementClosingDay: application.statementClosingDay,
       paymentDueDay: application.paymentDueDay,
-      spendLimitStep: done.has("spend_limit"),
+      spendLimitSet: application.spendLimitCents !== null,
       reminderStep: done.has("payment_reminder"),
       reminderOn: paymentReminderOn(application, settings),
     }),

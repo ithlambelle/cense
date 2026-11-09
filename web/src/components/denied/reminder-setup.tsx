@@ -59,10 +59,14 @@ export function ReminderSetup({ applicationId }: { applicationId: string | null 
     // The student left while it saved: the answer must not move them again.
     if (!isMounted()) return;
     if (result.kind === "ok") {
-      try {
-        sessionStorage.setItem(confirmationKey(applicationId), "1");
-      } catch {
-        // Storage can be off; the saved screen then names the date instead.
+      // Only a sent email is named on the saved screen; skipped or failed
+      // leaves the date alone.
+      if (result.confirmation === "sent") {
+        try {
+          sessionStorage.setItem(confirmationKey(applicationId), "1");
+        } catch {
+          // Storage can be off; the saved screen then names the date instead.
+        }
       }
       // Replace, not push: Back from the saved screen goes to the plan, never
       // to this form again for a reminder that is already saved.

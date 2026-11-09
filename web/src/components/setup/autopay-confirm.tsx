@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { SelectionMark } from "@/components/ui/selection-mark";
 import { saveAutopayAnswer } from "@/lib/api-client/applications";
-import { autopayOnPath, autopayStepsPath, cardSetupPath, signInPath } from "@/lib/routes";
+import { autopayConfirmPath, autopayOnPath, autopayStepsPath, cardSetupPath, signInPath } from "@/lib/routes";
 import { AUTOPAY_ANSWERS } from "@/lib/setup/progress";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +43,8 @@ export function AutopayConfirm({ applicationId, issuerName }: { applicationId: s
       return;
     }
     setSaving(false);
-    if (result.kind === "signed-out") router.replace(signInPath(autopayStepsPath(applicationId)));
+    // Back to this question after signing in, not the steps before it.
+    if (result.kind === "signed-out") router.replace(signInPath(autopayConfirmPath(applicationId)));
     else setError(result.message);
   }
 

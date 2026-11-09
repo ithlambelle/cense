@@ -15,22 +15,24 @@ export function setupProgress({
   autopayStatus,
   statementClosingDay,
   paymentDueDay,
-  spendLimitStep,
+  spendLimitSet,
   reminderStep,
   reminderOn,
 }: {
   autopayStatus: string;
   statementClosingDay: number | null;
   paymentDueDay: number | null;
-  spendLimitStep: boolean;
+  // The card has a saved spend limit: the star is the limit, not a step.
+  spendLimitSet: boolean;
   reminderStep: boolean;
-  // paymentReminderOn in lib/home/state.ts: the due day, the due-date email on.
+  // paymentReminderOn in lib/home/state.ts: the due day and the due-date
+  // email on, or with autopay on both days and the statement email on.
   reminderOn: boolean;
 }): SetupProgress {
   return {
     dates: statementClosingDay !== null && paymentDueDay !== null,
     autopay: autopayStatus === "on",
-    spendLimit: spendLimitStep,
+    spendLimit: spendLimitSet,
     // As on Home: the saved step and a reminder that is really on.
     reminders: reminderStep && reminderOn,
   };
@@ -53,6 +55,13 @@ export function paymentTypeLabel(type: PaymentType | null): string | null {
   if (type === "fixed_amount") return "A fixed amount";
   if (type === "statement_balance") return "Statement balance";
   return null;
+}
+
+// Home's "Turn on autopay" line: the saved payment type, every month, or
+// just "Every month" before one is saved.
+export function autopayCadence(type: PaymentType | null): string {
+  const label = paymentTypeLabel(type);
+  return label ? `${label}, every month` : "Every month";
 }
 
 // I5's "Next payment": the next due day on or after today, like "Dec 6".

@@ -16,21 +16,34 @@ export type HomeState =
   | { kind: "tracking"; primary: Application; others: Application[] };
 
 // The leading card's own fields Home reads beyond the list: the denial reason
-// and note for a denied card, autopay and the saved due day for an approved one.
-export type CardDetail = Pick<ApplicationDetail, "denialReason" | "denialReasonNote" | "autopayStatus" | "paymentDueDay">;
+// and note for a denied card, autopay, the saved due day and the spend limit
+// for an approved one.
+export type CardDetail = Pick<
+  ApplicationDetail,
+  "denialReason" | "denialReasonNote" | "autopayStatus" | "autopayPaymentType" | "statementClosingDay" | "paymentDueDay" | "spendLimitCents"
+>;
 
-// The two reminder settings the reminder star depends on.
-export type StarSettings = Pick<ReminderSettings, "paymentDue" | "emailsOn">;
-export const ALL_REMINDERS_ON: StarSettings = { paymentDue: true, emailsOn: true };
+// The reminder settings the reminder star depends on.
+export type StarSettings = Pick<ReminderSettings, "paymentDue" | "statementClosing" | "emailsOn">;
+export const ALL_REMINDERS_ON: StarSettings = { paymentDue: true, statementClosing: true, emailsOn: true };
 
 // Whether a card's payment reminder is really on: its due day is saved, the
-// due-date email is on and reminder emails are not off. The reminder star on
-// Home and on the plan needs this as well as its saved step. The settings
-// cover every card, so turning the due-date email off from another card, or
-// in Reminder settings, puts this card's star out too (Reminders audit R-08);
+// due-date email is on and reminder emails are not off. With autopay on, no
+// due-date email goes out for the card (claim_due_reminders skips it), so it
+// is both days saved and the statement email on instead. The reminder star
+// on Home and on the plan needs this as well as its saved step. The settings
+// cover every card, so turning an email off from another card, or in
+// Reminder settings, puts this card's star out too (Reminders audit R-08);
 // turning it back on lights it again, as the step is still saved.
-export function paymentReminderOn(detail: Pick<ApplicationDetail, "paymentDueDay"> | null, settings: StarSettings): boolean {
-  return detail?.paymentDueDay != null && settings.paymentDue && settings.emailsOn;
+export function paymentReminderOn(
+  detail: Pick<ApplicationDetail, "autopayStatus" | "statementClosingDay" | "paymentDueDay"> | null,
+  settings: StarSettings,
+): boolean {
+  if (!detail || !settings.emailsOn) return false;
+  if (detail.autopayStatus === "on") {
+    return detail.statementClosingDay !== null && detail.paymentDueDay !== null && settings.statementClosing;
+  }
+  return detail.paymentDueDay !== null && settings.paymentDue;
 }
 
 // The card's first-statement email (check_autopay) as scheduled, if it is.

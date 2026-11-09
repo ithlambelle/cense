@@ -45,7 +45,6 @@ const plan = (...steps: string[]) => ({
   plan: "first_month",
   completedSteps: steps.map((step) => ({ step, completedAt: "2026-10-16T00:00:00Z" })),
 });
-const saved = (step: string) => ({ step, completedAt: "2026-10-16T00:00:00Z" });
 
 function server(replies: { status: number; body: unknown }[]) {
   const fetchFn = vi.fn<typeof fetch>(async () => {
@@ -68,37 +67,33 @@ describe("FirstMonthPlan", () => {
   it("offers to try again when the plan is briefly unavailable (503)", async () => {
     server([
       { status: 503, body: { error: { code: "data_unavailable", message: "Your data is temporarily unavailable. Please try again." } } },
-      { status: 200, body: plan("spend_limit") },
+      { status: 200, body: plan("payment_reminder") },
     ]);
-    render(<FirstMonthPlan application={application} />);
+    render(<FirstMonthPlan application={application} paymentReminderOn />);
     expect(await screen.findByRole("alert")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByText("1 of 3 done")).toBeTruthy();
   });
 
-  it("loads saved steps and lights or puts out each one", async () => {
-    const fetchFn = server([
-      { status: 200, body: plan("spend_limit") },
-      { status: 204, body: null },
-      { status: 201, body: saved("spend_limit") },
-    ]);
-    render(<FirstMonthPlan application={application} />);
-    expect(await screen.findByText("1 of 3 done")).toBeTruthy();
+  it("opens the spend limit screens from the spend limit action, done only while a limit is saved", async () => {
+    const fetchFn = server([{ status: 200, body: plan("spend_limit") }, { status: 200, body: plan() }]);
+    const { unmount } = render(<FirstMonthPlan application={application} />);
+    // A step left from before, with no limit saved, is not done.
+    expect(await screen.findByText("0 of 3 done")).toBeTruthy();
     expect(fetchFn.mock.calls[0][0]).toBe(PLAN_URL);
+    expect(screen.queryByRole("checkbox", { name: /Set a spend limit/ })).toBeNull();
+    const link = screen.getByRole("link", { name: /^Set a spend limit/ });
+    expect(link.getAttribute("href")).toBe(`/applications/${application.id}/setup/spend-limit/suggestion`);
+    fireEvent.click(link);
+    expect(fetchFn).toHaveBeenCalledOnce();
+    unmount();
 
-    const purchase = screen.getByRole("checkbox", { name: /Set a spend limit/ });
-    await waitFor(() => expect(purchase.hasAttribute("disabled")).toBe(false));
-    fireEvent.click(purchase);
-    await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(2));
-    expect(fetchFn.mock.calls[1][0]).toBe(`${PLAN_URL}/steps/spend_limit`);
-    expect(fetchFn.mock.calls[1][1]?.method).toBe("DELETE");
-    await waitFor(() => expect(screen.getByText("0 of 3 done")).toBeTruthy());
-
-    await waitFor(() => expect(purchase.hasAttribute("disabled")).toBe(false));
-    fireEvent.click(purchase);
-    await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(3));
-    expect(fetchFn.mock.calls[2][1]?.method).toBe("PUT");
-    await waitFor(() => expect(screen.getByText("1 of 3 done")).toBeTruthy());
+    render(<FirstMonthPlan application={{ ...application, creditLimitCents: null }} spendLimitSet />);
+    expect(await screen.findByText("1 of 3 done")).toBeTruthy();
+    // No credit limit saved: it asks for that first (S1).
+    expect(screen.getByRole("link", { name: /^Set a spend limit\s*, done/ }).getAttribute("href")).toBe(
+      `/applications/${application.id}/setup/spend-limit`,
+    );
   });
 
   it("opens the reminder screen from the reminder action, done only once its days are saved", async () => {
@@ -164,46 +159,11 @@ describe("FirstMonthPlan", () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
-  it("puts a star back out when its save fails, and says why", async () => {
-    server([
-      { status: 200, body: plan() },
-      { status: 500, body: { error: { code: "internal_error", message: "Something broke." } } },
-    ]);
-    render(<FirstMonthPlan application={application} />);
-    await screen.findByText("0 of 3 done");
-    const purchase = screen.getByRole("checkbox", { name: /Set a spend limit/ });
-    fireEvent.click(purchase);
-    expect((await screen.findByRole("alert")).textContent).toContain("Something broke.");
-    expect(purchase.getAttribute("aria-checked")).toBe("false");
-  });
-
-  it("undoes only the step whose save failed, keeping another that saved meanwhile", async () => {
-    let failPurchase: (r: Response) => void = () => undefined;
-    const fetchFn = vi.fn<typeof fetch>(async (url, init) => {
-      if (!init?.method || init.method === "GET") return Response.json(plan(), { status: 200 });
-      if (String(url).endsWith("spend_limit")) return new Promise<Response>((resolve) => { failPurchase = resolve; });
-      return Response.json({ ...application, autopayStatus: "on" }, { status: 200 });
-    });
-    vi.stubGlobal("fetch", fetchFn);
-    render(<FirstMonthPlan application={application} />);
-    await screen.findByText("0 of 3 done");
-    const purchase = screen.getByRole("checkbox", { name: /Set a spend limit/ });
-    const autopay = screen.getByRole("checkbox", { name: /Turn on autopay/ });
-    fireEvent.click(purchase);
-    expect(purchase.hasAttribute("disabled")).toBe(true);
-    fireEvent.click(autopay);
-    await waitFor(() => expect(autopay.getAttribute("aria-checked")).toBe("true"));
-    failPurchase(Response.json({}, { status: 500 }));
-    await screen.findByRole("alert");
-    expect(purchase.getAttribute("aria-checked")).toBe("false");
-    expect(autopay.getAttribute("aria-checked")).toBe("true");
-  });
-
   it("never stays on loading when the load itself throws, and offers to try again", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     loadBug.throwOnce = true;
-    server([{ status: 200, body: plan("spend_limit") }]);
-    render(<FirstMonthPlan application={application} />);
+    server([{ status: 200, body: plan("payment_reminder") }]);
+    render(<FirstMonthPlan application={application} paymentReminderOn />);
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.getByText("We couldn’t load your saved plan. Your checks won’t be kept.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));

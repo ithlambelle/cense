@@ -10,7 +10,7 @@
 // third-party pages. Ben, Nov 4: the example step wording is fine for now.
 // Steps must still be checked in each issuer's app before launch (I2 NEEDS).
 
-export type IssuerStep = { title: string; detail: string };
+type IssuerStep = { title: string; detail: string };
 
 export type Issuer = {
   // The brand as students know it, used in copy ("Open Discover").
@@ -100,7 +100,7 @@ export const ISSUERS = {
   },
 } as const satisfies Record<string, Issuer>;
 
-export type IssuerBrand = keyof typeof ISSUERS;
+type IssuerBrand = keyof typeof ISSUERS;
 
 // The issuer data for a catalog card's brand, or null for a brand Cense has no
 // steps for (or a card added from outside the catalog).

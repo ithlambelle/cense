@@ -142,5 +142,19 @@ export async function PATCH(request: Request, context: Params): Promise<Response
   if (error?.code === "23514") return apiError(400, "invalid_request", "The update is invalid.");
   if (error) return databaseError("application_update", error);
   if (!data) return apiError(404, "not_found", "Application not found.");
+
+  // A cleared spend limit takes its "Set a spend limit" step with it, so no
+  // plan shows the step done without a limit behind it. The stars read the
+  // limit itself, so a failed delete is logged and the update still stands.
+  if (set.spend_limit_cents === null) {
+    const step = await student.supabase
+      .from("plan_steps")
+      .delete()
+      .eq("card_application_id", id)
+      .eq("student_id", student.studentId)
+      .eq("plan", "first_month")
+      .eq("step", "spend_limit");
+    if (step.error) console.error(JSON.stringify({ event: "database_error", operation: "spend_limit_step_delete", code: step.error.code }));
+  }
   return detailResponse(data);
 }
