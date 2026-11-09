@@ -89,7 +89,7 @@ test("from Home: the suggestion, Pick my own and back, then Use $150 lights the 
   // A credit limit edited below it on Home clears the spend limit it no longer fits.
   await page.goto("/home");
   await card.getByRole("button", { name: "Edit credit limit" }).click();
-  await card.getByLabel("Credit limit").fill("100");
+  await card.getByRole("textbox", { name: "Credit limit", exact: true }).fill("100");
   const edit = page.waitForResponse((r) => r.url().endsWith(`/api/v1/applications/${id}`) && r.request().method() === "PATCH");
   await card.getByRole("button", { name: "Save" }).click();
   expect((await edit).ok()).toBe(true);
@@ -111,7 +111,7 @@ test("from the setup list with no credit limit: S1 asks for it, then S3 saves an
   await page.getByRole("link", { name: /^Set a spend limit/ }).click();
   await expect(page).toHaveURL(creditUrl);
   await expect(page.getByRole("heading", { level: 1, name: "What is your credit limit?" })).toBeVisible();
-  const field = page.getByLabel("Credit limit");
+  const field = page.getByRole("textbox", { name: "Credit limit", exact: true });
   await expect(field).toHaveValue("");
   await checkA11y("spend limit: credit limit");
   await noSidewaysScroll(page, "spend limit: credit limit");
@@ -125,13 +125,13 @@ test("from the setup list with no credit limit: S1 asks for it, then S3 saves an
   // Empty and bad amounts are refused in place, with nothing saved.
   await page.getByRole("button", { name: "See my suggestion" }).click();
   await expect(page.getByText("Enter your credit limit in dollars, like 500.")).toBeVisible();
-  await page.getByLabel("Credit limit").fill("12,34");
+  await page.getByRole("textbox", { name: "Credit limit", exact: true }).fill("12,34");
   await page.getByRole("button", { name: "See my suggestion" }).click();
   await expect(page.getByText("Enter your credit limit in dollars, like 500.")).toBeVisible();
   expect((await saved(page, id)).creditLimitCents).toBeNull();
 
   // $800 is saved, then the suggestion is 30% of it.
-  await page.getByLabel("Credit limit").fill("$800");
+  await page.getByRole("textbox", { name: "Credit limit", exact: true }).fill("$800");
   await page.getByRole("button", { name: "See my suggestion" }).click();
   await expect(page).toHaveURL(new RegExp(`/applications/${id}/setup/spend-limit/suggestion$`));
   await expect(page.getByRole("button", { name: "Use $240" })).toBeVisible();

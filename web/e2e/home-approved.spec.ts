@@ -52,7 +52,7 @@ test("approved student: Edit changes the credit limit only, and it is saved", as
 
   await card.getByRole("button", { name: "Edit credit limit" }).click();
   await expect(page).toHaveURL(/\/home$/);
-  const field = card.getByLabel("Credit limit");
+  const field = card.getByRole("textbox", { name: "Credit limit", exact: true });
   await expect(field).toBeFocused();
   await expect(field).toHaveValue("500");
   await checkA11y("home: editing limit");
@@ -65,11 +65,11 @@ test("approved student: Edit changes the credit limit only, and it is saved", as
 
   // A bad amount is refused in place.
   await card.getByRole("button", { name: "Edit credit limit" }).click();
-  await card.getByLabel("Credit limit").fill("abc");
+  await card.getByRole("textbox", { name: "Credit limit", exact: true }).fill("abc");
   await card.getByRole("button", { name: "Save" }).click();
   await expect(card.getByText("Enter the limit in dollars, like 500 or 1,500.")).toBeVisible();
 
-  await card.getByLabel("Credit limit").fill("$1,250");
+  await card.getByRole("textbox", { name: "Credit limit", exact: true }).fill("$1,250");
   const write = nextWrite(page);
   await card.getByRole("button", { name: "Save" }).click();
   expect((await write).ok()).toBe(true);
