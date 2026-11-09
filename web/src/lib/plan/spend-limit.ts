@@ -39,7 +39,7 @@ export function suggestedSpendLimitCents(creditLimitCents: number | null): numbe
 // "Pick your limit" (S3, Figma 477:1149) offers a tighter choice beside the
 // suggestion: 20% of the credit limit ($100 on $500), rounded the same way.
 // Null without a limit, or when it would not be below the suggestion.
-export const TIGHTER_SPEND_LIMIT_PERCENT = 20;
+const TIGHTER_SPEND_LIMIT_PERCENT = 20;
 
 export function tighterSpendLimitCents(creditLimitCents: number | null): number | null {
   const suggested = suggestedSpendLimitCents(creditLimitCents);
