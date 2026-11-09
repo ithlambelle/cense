@@ -47,6 +47,9 @@ export function AccountView({
   const quiz = { href: quizPath("account"), label: done ? QUIZ_RETAKE : quizProgress(quizAnswered).action };
   const result = { href: ROUTES.results, label: quizResult === "match" ? "See your match" : "See why" };
   const rows = [
+    // With no card tracked the Your card section leads to the quiz or its
+    // result, so this row is only for a student with a card (as on main).
+    ...(card ? [done ? { href: ROUTES.results, label: "Card quiz results" } : quiz] : []),
     { href: fromAccount(ROUTES.cards), label: "Cards" },
     { href: fromAccount(ROUTES.addCard), label: "Add a card I already have" },
     ...(bankLinked ? [{ href: ROUTES.safeToSpend, label: "Accounts" }] : []),

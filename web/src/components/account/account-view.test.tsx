@@ -24,6 +24,7 @@ describe("AccountView", () => {
     expect(screen.getByText("$500 limit")).toBeTruthy();
     const account = screen.getByRole("list", { name: "Account" });
     expect([...account.querySelectorAll("a")].map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
+      ["Card quiz results", "/results"],
       ["Cards", "/cards?from=account"],
       ["Add a card I already have", "/home/add-card?from=account"],
       ["Reminder settings", "/settings/reminders"],
@@ -81,5 +82,13 @@ describe("AccountView", () => {
     expect(hrefs(["See why"])).toEqual(["/results"]);
   });
 
+  it("with a card tracked and no quiz result, the quiz row opens the quiz, not an empty result", () => {
+    const { unmount } = render(<AccountView email={null} card={CARD} />);
+    expect(screen.getByRole("link", { name: "Start the quiz" }).getAttribute("href")).toBe("/quiz?from=account");
+    expect(screen.queryByRole("link", { name: "Card quiz results" })).toBeNull();
+    unmount();
+    render(<AccountView email={null} card={CARD} quizAnswered={3} />);
+    expect(screen.getByRole("link", { name: "Continue the quiz" }).getAttribute("href")).toBe("/quiz?from=account");
+  });
 
 });
