@@ -55,10 +55,10 @@ test("from Home: the suggestion, Pick my own and back, then Use $150 lights the 
   await checkA11y("spend limit: suggestion");
   await noSidewaysScroll(page, "spend limit: suggestion");
 
-  // The back arrow goes Home; the browser's Back returns here.
+  // The back arrow returns Home, the screen before (G1); Forward returns here.
   await page.getByRole("link", { name: "Back to Home" }).click();
   await expect(page).toHaveURL(/\/home$/);
-  await page.goBack();
+  await page.goForward();
   await expect(page).toHaveURL(suggestionUrl);
 
   // Pick my own (S3), and its arrow back to the suggestion.
@@ -110,10 +110,10 @@ test("from the setup list with no credit limit: S1 asks for it, then S3 saves an
   await checkA11y("spend limit: credit limit");
   await noSidewaysScroll(page, "spend limit: credit limit");
 
-  // Back goes to the list.
+  // Back returns to the list, the screen before (G1); Forward returns here.
   await page.getByRole("link", { name: "Back to Card setup" }).click();
   await expect(page).toHaveURL(setupUrl);
-  await page.goBack();
+  await page.goForward();
   await expect(page).toHaveURL(creditUrl);
 
   // Empty and bad amounts are refused in place, with nothing saved.

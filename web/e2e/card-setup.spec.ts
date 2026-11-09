@@ -46,10 +46,10 @@ test("a student follows Discover's steps, says autopay is on with the minimum, a
   await expect(page.getByRole("link", { name: /^Add your dates/ })).not.toHaveAccessibleName(/done/);
   await checkA11y("card setup list");
 
-  // The back arrow goes Home; the browser's Back returns to the list.
+  // The back arrow returns Home, the screen before (G1); Forward returns to the list.
   await page.getByRole("link", { name: "Back to Home" }).click();
   await expect(page).toHaveURL(/\/home$/);
-  await page.goBack();
+  await page.goForward();
   await expect(page).toHaveURL(setupUrl);
 
   // I2: Discover's own steps, the login note, and two link outs in new tabs.
@@ -114,7 +114,8 @@ test("a student follows Discover's steps, says autopay is on with the minimum, a
   // Add the dates from the summary: the reminder screen returns to the setup list.
   await summary.getByRole("link", { name: "Add your dates" }).click();
   await expect(page).toHaveURL(new RegExp(`/applications/${id}/reminders\\?from=setup$`));
-  await expect(page.getByRole("link", { name: "Back to Card setup" })).toBeVisible();
+  // The arrow returns to the screen the student came from (G1).
+  await expect(page.getByRole("link", { name: "Back to Autopay is on" })).toBeVisible();
   await page.getByLabel("Statement closes on day").fill("10");
   await page.getByLabel("Payment due on day").fill("6");
   await page.getByRole("heading", { level: 1, name: "Never miss a payment" }).click();

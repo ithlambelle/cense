@@ -95,9 +95,10 @@ test("approved student: Set up your card opens the setup list and comes back (Fl
   await expect(page).toHaveURL(/\/applications\/[0-9a-f-]+\/setup$/);
   await expect(page.getByRole("heading", { level: 1, name: "Set up your Discover card" })).toBeVisible();
   await checkA11y("card setup from Home");
+  // The arrow returns to Home, the screen before (G1); Forward and Back walk the same two.
   await page.getByRole("link", { name: "Back to Home" }).click();
   await expect(page).toHaveURL(/\/home$/);
-  await page.goBack();
+  await page.goForward();
   await expect(page).toHaveURL(/\/setup$/);
   await page.goBack();
   await expect(page).toHaveURL(/\/home$/);
