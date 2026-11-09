@@ -88,7 +88,9 @@ test("approved student: Set up your card opens the setup list and comes back (Fl
   await expect(row).toContainText("Approved");
   // At least 44px tall, and Edit stays its own control beside it.
   await expect(card.getByText("0 of 3 lit")).toBeVisible();
-  expect(await row.evaluate((el) => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+  // Polled: the card is drawn again once its saved stars load, and a row
+  // measured mid-swap reads 0.
+  await expect.poll(() => row.evaluate((el) => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
   await expect(card.getByRole("button", { name: "Edit credit limit" })).toBeVisible();
 
   await row.click();
