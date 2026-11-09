@@ -3,7 +3,7 @@
 -- it lives outside supabase/migrations so nothing runs it on its own. Run it
 -- by hand in the Supabase SQL editor only to undo in-app reminders.
 --
--- Drops the four student functions and the follow-up function, the two
+-- Drops the three student functions and the follow-up function, the two
 -- checks and the four columns (read, snooze, dismiss and follow-up state is
 -- lost). Deploy the app without the Updates screen first: its routes call
 -- these functions. One transaction: it applies whole or not at all.

@@ -21,7 +21,7 @@
 --
 -- To back it out: supabase/rollbacks/20261108210000_in_app_reminders.down.sql.
 -- Applied by hand in the Supabase SQL editor, after
--- 20261025220000_profiles_analytics_opt_out.sql. Safe to run again.
+-- 20261108200000_autopay_payment_type.sql. Safe to run again.
 
 alter table public.reminders
   add column if not exists read_at timestamptz,
@@ -73,6 +73,9 @@ begin
   if v_row.dismissed_at is not null or v_row.acted_at is not null then
     raise exception 'that reminder is closed' using errcode = '55000';
   end if;
+  -- Only a bound here. "Not past the due date" is enforced by the API, which
+  -- picks p_until from snoozeOptions (web/src/lib/reminders/in-app.ts) and
+  -- refuses any other time with 409 past_due.
   if p_until is null or p_until <= now() or p_until > now() + interval '45 days' then
     raise exception 'pick a time from now to 45 days out' using errcode = '22023';
   end if;
