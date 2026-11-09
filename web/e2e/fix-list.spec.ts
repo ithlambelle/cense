@@ -71,6 +71,8 @@ test("the denial plan: tap a circle to finish a step, and the reminder lives in 
   await page.goBack();
   await expect(page.getByRole("heading", { level: 1, name: "Reminder saved" })).toHaveCount(0);
   await expect(page.getByRole("heading", { level: 1, name: "Choose when to check in" })).toHaveCount(0);
+  // The plan is in the history once, so Back leaves it.
+  await expect(page).not.toHaveURL(/\/denied\/plan/);
 });
 
 test.describe("the reapply reminder's confirmation email", () => {
