@@ -30,6 +30,7 @@ export default async function PaymentRemindersPage({ params, searchParams }: Pag
       savedChoices={{ paymentDue: setup.settings.paymentDue, statementClosing: setup.settings.statementClosing }}
       emailsOn={setup.settings.emailsOn}
       firstStatementEmail={setup.firstStatementEmail}
+      autopayOn={setup.application.autopayStatus === "on"}
       email={student.email}
       back={back}
       doneHref={back.href}

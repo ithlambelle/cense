@@ -25,7 +25,8 @@ export function setupProgress({
   // The card has a saved spend limit: the star is the limit, not a step.
   spendLimitSet: boolean;
   reminderStep: boolean;
-  // paymentReminderOn in lib/home/state.ts: the due day, the due-date email on.
+  // paymentReminderOn in lib/home/state.ts: the due day and the due-date
+  // email on, or with autopay on both days and the statement email on.
   reminderOn: boolean;
 }): SetupProgress {
   return {

@@ -29,9 +29,9 @@ function app(status: Application["status"], extra: Partial<Application> = {}): A
 
 // The leading card's denial reason and autopay for each sample.
 const DETAILS: Record<string, CardDetail> = {
-  rejected: { denialReason: null, denialReasonNote: null, autopayStatus: "unknown", paymentDueDay: null, spendLimitCents: null },
-  denied: { denialReason: "no_credit_history", denialReasonNote: null, autopayStatus: "unknown", paymentDueDay: null, spendLimitCents: null },
-  waiting: { denialReason: "no_letter_yet", denialReasonNote: null, autopayStatus: "unknown", paymentDueDay: null, spendLimitCents: null },
+  rejected: { denialReason: null, denialReasonNote: null, autopayStatus: "unknown", statementClosingDay: null, paymentDueDay: null, spendLimitCents: null },
+  denied: { denialReason: "no_credit_history", denialReasonNote: null, autopayStatus: "unknown", statementClosingDay: null, paymentDueDay: null, spendLimitCents: null },
+  waiting: { denialReason: "no_letter_yet", denialReasonNote: null, autopayStatus: "unknown", statementClosingDay: null, paymentDueDay: null, spendLimitCents: null },
 };
 
 // Every Home state on sample data, without signing in.

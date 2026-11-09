@@ -26,9 +26,9 @@ const approved: Application = {
   statusUpdatedAt: new Date().toISOString(),
 };
 const state = homeState([approved], computeResult(undefined, listCards()), 0);
-const NO_DETAIL = { denialReason: null, denialReasonNote: null, autopayStatus: "unknown", paymentDueDay: null, spendLimitCents: null } as const;
+const NO_DETAIL = { denialReason: null, denialReasonNote: null, autopayStatus: "unknown", statementClosingDay: null, paymentDueDay: null, spendLimitCents: null } as const;
 // The card's reminder days are saved, so a done payment_reminder step lights its star.
-const DAYS_SAVED = { ...NO_DETAIL, paymentDueDay: 9 };
+const DAYS_SAVED = { ...NO_DETAIL, statementClosingDay: 14, paymentDueDay: 9 };
 
 const PLAN_URL = `/api/v1/applications/${ID}/plans/first_month`;
 const plan = (...steps: string[]) => ({
@@ -199,14 +199,27 @@ describe("Home approved card", () => {
 
   it("leaves the reminder star out while the due-date email or every email is off, from any card", async () => {
     server([{ status: 200, body: plan("payment_reminder") }, { status: 200, body: plan("payment_reminder") }, { status: 200, body: plan("payment_reminder") }]);
-    const { unmount } = render(<HomeView state={state} initial="M" detail={DAYS_SAVED} reminderSettings={{ paymentDue: false, emailsOn: true }} />);
+    const { unmount } = render(<HomeView state={state} initial="M" detail={DAYS_SAVED} reminderSettings={{ paymentDue: false, statementClosing: true, emailsOn: true }} />);
     expect(await screen.findByText("0 of 3 lit")).toBeTruthy();
     unmount();
-    const second = render(<HomeView state={state} initial="M" detail={DAYS_SAVED} reminderSettings={{ paymentDue: true, emailsOn: false }} />);
+    const second = render(<HomeView state={state} initial="M" detail={DAYS_SAVED} reminderSettings={{ paymentDue: true, statementClosing: true, emailsOn: false }} />);
     expect(await screen.findByText("0 of 3 lit")).toBeTruthy();
     second.unmount();
     // back on: the saved step lights it again
-    render(<HomeView state={state} initial="M" detail={DAYS_SAVED} reminderSettings={{ paymentDue: true, emailsOn: true }} />);
+    render(<HomeView state={state} initial="M" detail={DAYS_SAVED} reminderSettings={{ paymentDue: true, statementClosing: true, emailsOn: true }} />);
+    expect(await screen.findByText("1 of 3 lit")).toBeTruthy();
+  });
+
+  it("with autopay on, lights the reminder star from the statement email, not the due-date email it never sends", async () => {
+    server([{ status: 200, body: plan("payment_reminder") }, { status: 200, body: plan("payment_reminder") }]);
+    const autopay = { ...DAYS_SAVED, autopayStatus: "on" as const };
+    const { unmount } = render(
+      <HomeView state={state} initial="M" detail={autopay} reminderSettings={{ paymentDue: false, statementClosing: true, emailsOn: true }} />,
+    );
+    // Autopay and the reminder.
+    expect(await screen.findByText("2 of 3 lit")).toBeTruthy();
+    unmount();
+    render(<HomeView state={state} initial="M" detail={autopay} reminderSettings={{ paymentDue: true, statementClosing: false, emailsOn: true }} />);
     expect(await screen.findByText("1 of 3 lit")).toBeTruthy();
   });
 

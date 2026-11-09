@@ -66,6 +66,23 @@ describe("PaymentReminderSetup", () => {
     ).toBeTruthy();
   });
 
+  it("with autopay on, neither promises nor offers the due-date email, and saves without touching it", async () => {
+    const fetchFn = server({ status: 200 }, { status: 200 });
+    renderSetup({ closing: 14, due: 9 }, { autopayOn: true });
+    expect(screen.getByText("We’ll email you before your statement closes.")).toBeTruthy();
+    expect(screen.queryByText(/before your bill is due/)).toBeNull();
+    expect(screen.queryByRole("switch", { name: "3 days before the due date" })).toBeNull();
+    expect(screen.getByText("Autopay is on, so no due-date email for this card.")).toBeTruthy();
+    expect(screen.getByRole("switch", { name: "3 days before the statement closes" })).toBeTruthy();
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
+    // The due-date setting covers other cards, so it is never sent from here.
+    expect(sent(fetchFn).map(([method, url]) => `${method} ${url}`)).toEqual([
+      `PATCH /api/v1/applications/${ID}`,
+      `PUT /api/v1/applications/${ID}/plans/first_month/steps/payment_reminder`,
+    ]);
+  });
+
   it("goes back, and after saving returns, to the card's page when opened from it", async () => {
     const fetchFn = server({ status: 200 }, { status: 201, body: {} });
     renderSetup({ closing: 14, due: 9 }, { back: { href: "/cards/discover-it-student-cash-back", label: "Card details" }, doneHref: "/cards/discover-it-student-cash-back" });
