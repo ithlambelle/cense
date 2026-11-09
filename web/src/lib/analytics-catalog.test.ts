@@ -7,7 +7,7 @@ import { EVENTS, QUIZ_FIELDS, TRACKING_PLAN_VERSION } from "./analytics-catalog"
 describe("event catalog", () => {
   it("names every event in snake_case, object then past-tense verb", () => {
     for (const name of Object.keys(EVENTS)) {
-      expect(name, name).toMatch(/^[a-z]+(_[a-z]+)*_(started|completed|viewed|clicked|reported|answered|added|asked)$/);
+      expect(name, name).toMatch(/^[a-z]+(_[a-z]+)*_(started|completed|viewed|clicked|reported|answered|added|asked|saved|sent|changed)$/);
     }
   });
 
@@ -37,7 +37,8 @@ describe("event catalog", () => {
   });
 
   it("has no property that could carry personal data", () => {
-    const banned = /email|name|income|denial_reason|limit|password|code|token|phone|address/;
+    // spend and categor: the spending answer never leaves the app (Ben, Nov 7).
+    const banned = /email|name|income|spend|categor|denial_reason|limit|password|code|token|phone|address/;
     for (const [name, entry] of Object.entries(EVENTS)) {
       for (const prop of Object.keys(entry.properties.shape)) expect(prop, `${name}.${prop}`).not.toMatch(banned);
     }

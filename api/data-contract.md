@@ -16,6 +16,10 @@ queries as that student, never with a service role key.
 | `card_applications` | `id` UUID primary key, `student_id` UUID, `card_id` text nullable, `card_name` text nullable, `source` text, `status` text, `credit_limit_cents` bigint nullable, `applied_at` timestamp nullable, `rejected_at`, `denial_reason` text nullable, `denial_reason_note` text nullable (at most 200 characters, never sent to analytics), `autopay_status` text (`on`, `off`, `unknown`), `autopay_updated_at`, `statement_closing_day` and `payment_due_day` (1 to 31) nullable, `card_set_up_at` (server-set), `updated_at` timestamp, `created_at` | A student may have several card records. Status is `applied`, `approved`, or `rejected`. Leaving `rejected` clears the denial reason and note. |
 | `reminders` | `id` UUID primary key, `student_id` UUID, `card_application_id` UUID, `kind` text (`statement_closing`, `payment_due`, `check_autopay`, `reapply`), `occurrence` date, `due_at`, `claimed_at`, `attempts`, `attempted_at` (the last send attempt), `sent_at`, `acted_at`, `created_at` | One row per reminder email, unique on card, kind and occurrence. The database schedules them (`refresh_reminders`) from the card's days and the student's time zone; students only read them, set `acted_at` on a sent one, and pick the day of the reapply reminder through `create_reapply_reminder`. Only the send job (service role) claims and marks them sent, through `claim_due_reminders`, `mark_reminder_sent` and `release_reminder_claim`. |
 | `plan_steps` | `student_id` UUID, `card_application_id` UUID, `plan` text (`first_month`, `denial`), `step` text, `completed_at`; primary key (card, plan, step) | One row per finished plan step; undo deletes it. first_month steps are `planned_purchase`, `payment_reminder` (autopay reads `autopay_status`); denial steps are `read_letter`, `check_reports`, `pause_applications`, `build_credit`, `reapply`. A first_month step needs an approved card, a denial step a rejected one. |
+| `bank_links` | `student_id` UUID primary key, `institution_name`, `status` (`active`, `reconnect_needed`, `relink_needed`), `linked_at`, `refreshed_at` nullable, `set_aside_cents` bigint, `answered_at` nullable | One sandbox bank per student (US-12). Students read it and change only `set_aside_cents` and `answered_at` (through `save_safe_to_spend_answers`). Created by `save_bank_link`, kept current by `save_bank_balances` and `mark_bank_link_status`, deleted by `delete_bank_link`, which cascades to the two tables below. Disconnect removes the Item at Plaid first (`removeBankLinksForStudent` in `web/src/lib/plaid/unlink.ts`); account deletion must call the same step before it deletes the sign-in record, and does not yet. |
+| `bank_balances` | `student_id` UUID, `position`, `name`, `mask` (up to 4 letters or digits) nullable, `kind` (`cash`, `card`, `other`), `balance_cents` bigint; primary key (student, position) | The accounts read at the last refresh, replaced each time. Loans and investments are never stored. Students read them only. |
+| `bill_coverage` | `student_id` UUID, `bill` (`rent`, `phone`, `tuition`, `groceries`, `car`), `covered_by` (`me`, `family`, `split`, `none`), `monthly_cents` (only for me and split); primary key (student, bill) | The student's own answers, read and written by them. |
+| `plaid.items` | `student_id` UUID primary key, `item_id` unique, `token_ciphertext`, `created_at` | In the `plaid` schema, which the Data API does not serve; no grants to students. The access token is stored only as AES-256-GCM ciphertext made by the app (`PLAID_TOKEN_KEY`). `bank_link_secret()` returns the caller's own ciphertext to the server routes, which decrypt it; it never reaches the browser. |
 | `penny_asks` | `id` bigint identity, `student_id` UUID, `asked_at` | One row per typed question sent to Ask Penny's model, never the question. Students cannot read or write it; `claim_penny_ask()` checks the limits (20 per student per calendar day in their time zone, 300 across all students per day in America/New_York), records the question and returns `ok`, `student_limit` or `daily_limit`. Rows older than two days are deleted. |
 
 `created_at`, `updated_at`, `clicked_at`, and `applied_at` are UTC timestamptz
@@ -28,10 +32,17 @@ Card setup (closing day, due day, credit limit, autopay) is saved through
 `PATCH /api/v1/applications/{id}`. Saving the days, the status or autopay
 re-plans that card's reminders.
 
-Quiz drafts use the fit-rules v1.2 answers: `under21`, `incomeBand`, `student`,
-`standing` (including `not_sure`), `recentDenial`, and `canDeposit`, plus
-monthly spending and goal. The draft is partial until the student finishes the
-quiz. Card records carry the published eligibility fields, the issuer's
+Quiz drafts use the fit-rules answers: `under21`, `incomeBand`, `student`,
+`standing` (including `not_sure`), `recentDenial`, and `canDeposit`, plus goal
+and the optional spending answer: `spendingCategories` (one or two of
+`food_and_dining`, `groceries`, `gas_and_rides`, `travel_home`,
+`shopping_and_subscriptions`) and `spendingBand` (`under_200`, `200_to_500`,
+`over_500`). The spending answer never decides fit and is never sent to
+analytics; since fit rules v1.3 (2026-11-07) estimated year-one value breaks
+the last ties in the card order. A draft without it is still complete. The unused
+`monthlySpendingCents` stays for older drafts. The draft is partial until the
+student finishes the quiz. A saved recommendation's `card_data_version` covers
+the card facts and each card's rewards, since rewards now change the order. Card records carry the published eligibility fields, the issuer's
 conditions, a `catalogRole` (only `recommend` cards are tiered; `explore` cards
 are for browsing) and `eligibilityEvidence`, which gives each fact a basis
 (`issuer`, `silent`, `estimate` or `decision`), its source URLs and a
@@ -49,7 +60,10 @@ review sites for estimates, on 2026-10-15; 13 are `recommend`.
   cron job has no student session at all, and the unsubscribe link is opened
   by a student who is not signed in, so a signed token stands in for the
   session. Both create the service client in `web/src/lib/supabase/service.ts`
-  (server only) and call only the functions made for them, never a table.
+  (server only) and call only the functions made for them, never a table,
+  with one read-only exception: before sending a server analytics event they
+  read the student's `profiles.analytics_opted_out_at` (the Analytics switch)
+  and send nothing for a student who turned it off or when the read fails.
 - Money is integer cents. Timestamps in API responses are UTC ISO 8601 strings.
 - Errors use `{ "error": { "code": string, "message": string, "details"?: unknown } }`.
 - Responses containing student data send `Cache-Control: no-store`.

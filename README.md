@@ -104,7 +104,7 @@ flowchart TB
 | Google OAuth | "Sign in with Google" through Supabase Auth | MVP1 |
 | Card issuer websites | Links out to each issuer's own preapproval check and application. No API; Cense never submits an application. | MVP1 |
 | GitHub Actions | CI checks on every pull request | MVP1 |
-| Plaid | Linked bank data | MVP2 |
+| Plaid | Linked bank balances for safe to spend, sandbox only (no real bank data) | MVP2 |
 | Apple Push Notification service | iOS notifications | MVP2 |
 | An AI model (provider not chosen) | Routing questions to vetted content. It never makes the recommendation. | By Dec 11 |
 
@@ -123,7 +123,7 @@ flowchart TB
 | Google sign-in may not work inside the app once it is saved to the iPhone Home Screen. An installed web app keeps its own storage, separate from Safari, and redirect-based sign-in has reported failures there. | The 6-digit email code works in that setting and is always offered. Google sign-in is tested on a real iPhone, in Safari and from the Home Screen, before MVP1. |
 | A signed-in user can reach Supabase's data API directly, without going through our server. | Row level security on every table that holds user data, plus a test in CI (`web/e2e/cross-student.spec.ts`) that signs in as two students and proves neither can read or change the other's records, through the API or straight to the database. Narrowing the default table grants to what the API uses is still open. |
 | Card terms and links go stale, so a recommendation could rest on old facts. | Card data lives in typed files in this repo, each card with a last-verified date. It is validated in CI and changes only through a reviewed pull request. |
-| The reminder job could send a reminder twice, or stop without anyone noticing. | Each reminder is claimed once by a unique key, so a rerun cannot send it again. A heartbeat check alerts the team if the job stops running. |
+| The reminder job could send a reminder twice, or stop without anyone noticing. | Each reminder is claimed once by a unique key, so a rerun cannot send it again. Each run pings a Healthchecks.io check (`REMINDER_HEARTBEAT_URL`), which emails the team when a send fails or a day passes with no run (see Reminder emails). With the variable unset, nothing alerts. |
 
 ### Mentor feedback on the stack
 
@@ -168,6 +168,14 @@ npm run seed:local        # optional: six test students, one per Home state
 npm run e2e               # in a second terminal, with the app still running
 ```
 
+The reminder job's journey test (`web/e2e/reminder-job.spec.ts`) calls the cron route, so the app needs the job's variables, pointed at the stand-in email server the test starts on :3598 instead of Resend. Start the app with them, as CI does:
+
+```bash
+CRON_SECRET=e2e-cron-secret SUPABASE_SERVICE_ROLE_KEY=<service_role key from npx supabase status> RESEND_API_KEY=e2e-placeholder RESEND_BASE_URL=http://127.0.0.1:3598 REMINDER_FROM_EMAIL="Cense <reminders@example.test>" APP_BASE_URL=http://localhost:3300 REMINDER_UNSUBSCRIBE_SECRET=e2e-unsubscribe-secret REMINDER_HEARTBEAT_URL=http://127.0.0.1:3598/heartbeat npx next start -p 3300
+```
+
+and run the tests with `E2E_CRON_SECRET=e2e-cron-secret`. Without it, that one test is skipped locally (never in CI).
+
 Every pull request that changes a screen adds or updates a journey test that does what a student does: use each control, reload to check it saved, and follow every link to where it should go. A failed run keeps its report and traces as the `playwright-report` artifact; open a trace with `npx playwright show-trace`.
 
 `.env.local` needs `NEXT_PUBLIC_SUPABASE_URL` (the API URL, `http://127.0.0.1:54321`) and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. The optional variables the tests and seed script read are listed in `.env.example`.
@@ -186,7 +194,7 @@ Delete my account on Security and privacy deletes, at once: the student's PostHo
 
 ## Reminder emails
 
-Vercel Cron calls `GET /api/v1/cron/reminders` once a day at 13:00 UTC (`web/vercel.json`; the Hobby plan runs it at some point in that hour, so 8:00 to 10:00 Eastern). The job schedules every card's next reminders, claims the ones due today, at most one per student, sends each through Resend's API and marks it sent. A student sees a reminder in the app only once its email has gone. Every email has an unsubscribe link and the one-click `List-Unsubscribe` headers. Rules and functions: [api/data-contract.md](api/data-contract.md).
+Vercel Cron calls `GET /api/v1/cron/reminders` once a day at 13:00 UTC (`web/vercel.json`; the Hobby plan runs it at some point in that hour, so 8:00 to 10:00 Eastern). The job schedules every card's next reminders, claims the ones due today, at most one per student, sends each through Resend's API and marks it sent. A failed send is tried again the next day, 3 times at most. Each email has one button, Open Cense, which opens Home; the app does not show reminders yet. Every email links to Reminder settings (`/settings/reminders`) and has an unsubscribe link and the one-click `List-Unsubscribe` headers. Rules and functions: [api/data-contract.md](api/data-contract.md).
 
 Before it can run:
 
@@ -201,8 +209,23 @@ Before it can run:
 | `REMINDER_FROM_EMAIL` | `Cense <reminders@send.censefinance.com>` |
 | `REMINDER_UNSUBSCRIBE_SECRET` | Any long random string. Changing it breaks the unsubscribe links already sent. |
 | `APP_BASE_URL` | The app's public address, for the links in the emails: `https://censefinance.com`. |
+| `REMINDER_HEARTBEAT_URL` | Optional, the alert (below). The check's ping URL, `https://hc-ping.com/<uuid>`. |
 
-To run it by hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/v1/cron/reminders`. It answers with counts only.
+To run it by hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/v1/cron/reminders`. It answers with counts only: `claimed`, `sent`, `failed`, `unconfirmed` (sent but not marked), `deferred` (out of time, sent next run) and `abandoned` (failed for the third time, never tried again). Running it again the same day does not retry a failed send; that waits for the next day.
+
+### Alert when the job fails or stops
+
+Every run the job accepts pings `REMINDER_HEARTBEAT_URL`: `/start` as it begins, the URL itself when nothing failed, `/fail` when a send failed, an email was sent but not marked, or the job could not run (a missing variable, the database). The ping's body is the run's counts or the error's name, never anything about a student. A run refused for a wrong `CRON_SECRET` pings nothing, so a missing secret shows up as a missed run.
+
+Healthchecks.io is the default (its free Hobbyist plan monitors 20 jobs). To set it up (Ben, about 5 minutes):
+
+1. Sign up at healthchecks.io with the team's shared account, not a BU address.
+2. Add a check named `cense reminders`. Schedule: Simple, Period 1 day, Grace 2 hours (Vercel Hobby fires the cron at any point in the 13:00 UTC hour, so two runs can be up to 25 hours apart).
+3. Integrations: email, to the people who should hear about it.
+4. Copy the check's ping URL into `REMINDER_HEARTBEAT_URL` on Vercel (Production only), then redeploy.
+5. Run the job by hand once (above) and check the check turns green.
+
+Another service that takes a ping URL with `/start` and `/fail` works the same way. With the variable unset, nothing is pinged and nothing alerts.
 
 ## Ask Penny
 
@@ -217,6 +240,30 @@ Before typed questions work in production:
 
 - Yunho applies `supabase/migrations/20261025160000_penny_asks.sql` in the Supabase SQL editor.
 - Ben adds `ANTHROPIC_API_KEY` on Vercel (Project Settings, Environment Variables, Production, and Preview only if pull request previews should answer typed questions too), then redeploys, and sets a monthly spend limit for the key's workspace in the Anthropic Console. Until then Learn and Ask Penny show no field to type a question (it could only say Penny is unavailable); starters, topic pages and tapped answers work.
+
+## Safe to spend (Plaid sandbox)
+
+A preview for MVP2 (US-12): a student links a bank through Plaid Link in Plaid's sandbox, says who covers rent, phone, tuition, groceries and car (me, family, split, not applicable) and how much to keep aside, and Home shows one number: (cash in checking - card balances - bills they pay - set aside) / 30 days. "How we got this" shows each step. Sandbox only: real bank sign-ins do not work there, and any `PLAID_ENV` other than `sandbox` turns the feature off.
+
+What is kept: the access token, encrypted with AES-256-GCM in the app before it is stored (key in `PLAID_TOKEN_KEY`, never in the database), in the `plaid` schema the Data API does not serve; each account's name, last 4 digits and balance; the student's answers. Never transactions, account or routing numbers, or a Plaid response. The browser never receives the access token. Disconnecting removes the Item at Plaid first, then deletes all of it. Schema: `supabase/migrations/20261025210000_bank_link_safe_to_spend.sql`.
+
+Before it can run:
+
+- Yunho applies `supabase/migrations/20261025210000_bank_link_safe_to_spend.sql` by hand in the Supabase SQL editor, after the reminder sender migration. It is safe to run again.
+- Ben or Mabelle adds these on Vercel (Project Settings, Environment Variables), then redeploys. Until all four are set, safe to spend is hidden and its API answers 503.
+
+| Variable | Where it comes from |
+| --- | --- |
+| `PLAID_CLIENT_ID` | Plaid dashboard, Developers, Keys. |
+| `PLAID_SECRET` | The same page, the Sandbox secret. Mark it Sensitive. |
+| `PLAID_ENV` | `sandbox` |
+| `PLAID_TOKEN_KEY` | `openssl rand -base64 32`, a different one per environment. Mark it Sensitive and keep a copy in the team password manager: changing or losing it makes every stored token unreadable (students link again). |
+
+To try it: Home, "See what's safe to spend", Connect (Preview). In Plaid's sandbox Link: Continue without phone number, search for First Platypus Bank and pick the plain "First Platypus Bank" (not the OAuth ones, which need a redirect URI we have not set up), sign in with `user_good` / `pass_good`, then Continue, Share data and Finish without saving. That user's checking and cash management accounts count as cash (about $12,160), its two cards are subtracted (about $5,430), and savings, CD, money market and HSA show as not counted; loans and investments are never read (checked against the sandbox on Oct 27).
+
+New sandbox connections ask Link for 180 days of transaction history and add Liabilities as an optional product (US-15). Plaid fixes an Item's history when the Item is created, and Liabilities is available in Sandbox without extra product permissions. To get both on an existing sandbox connection, disconnect it (How we got this, Disconnect bank) and link it again with the test user above, selecting the credit card as well as checking; the normal reconnect flow only repairs an existing Item. Reading Liabilities (`/liabilities/get`), filling in statement dates and balances, and the Liabilities tables are follow-up work.
+
+Locally and in CI the journey tests (`web/e2e/safe-to-spend.spec.ts`) never call Plaid: they start a stand-in on :3597 (`web/e2e/support/fake-plaid.ts`) and answer Link's script in the browser. Start the app for them with `PLAID_CLIENT_ID=e2e-client PLAID_SECRET=e2e-placeholder PLAID_ENV=sandbox PLAID_BASE_URL=http://127.0.0.1:3597` and a `PLAID_TOKEN_KEY` in `web/.env.local`, as the `e2e` job does.
 
 ## Quality checks
 

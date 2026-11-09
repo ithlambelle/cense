@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { Student } from "../api/auth";
 import { listCards } from "../cards/catalog";
 import { RULES_VERSION } from "../rules/fit-tier";
+import { computeResult } from "./compute";
+import { fixtureRate, fixtureRewards, GROCERY_CHROME, lookup } from "./rewards.fixtures";
 import { alreadySaved, cardDataVersion, recommendationRecord, saveRecommendation } from "./save";
 
 const cards = listCards();
@@ -41,6 +43,20 @@ describe("recommendationRecord", () => {
     expect(record.p_answer_snapshot).toEqual(ALL_SIX);
   });
 
+  it("saves the spending answer and the ranking the screen shows, ordered by it", () => {
+    const answers = { ...ALL_SIX, spendingCategories: ["groceries"], spendingBand: "200_to_500" } as const;
+    const record = recommendationRecord(answers, cards, GROCERY_CHROME);
+    if (!record) throw new Error("expected a record");
+    expect(record.p_answer_snapshot).toEqual(answers);
+    expect(record.p_card_id).toBe("discover-it-student-chrome");
+    expect(record.p_result_snapshot.ranking[0]).toBe("discover-it-student-chrome");
+    const view = computeResult(answers, cards, GROCERY_CHROME);
+    if (view.kind !== "match") throw new Error("expected a match");
+    expect(view.options[0].card.id).toBe(record.p_card_id);
+    // Without the spending answer the same data saves the v1.2-style pick.
+    expect(recommendationRecord(ALL_SIX, cards, GROCERY_CHROME)?.p_card_id).toBe("discover-it-student-cash-back");
+  });
+
   it("saves no card as not_yet with the income gate's reason", () => {
     const record = recommendationRecord({ ...ALL_SIX, incomeBand: "none" }, cards);
     expect(record?.p_card_id).toBeNull();
@@ -54,6 +70,14 @@ describe("cardDataVersion", () => {
     expect(cardDataVersion(cards)).toBe(cardDataVersion([...cards]));
     const changed = cards.map((card, index) => (index === 0 ? { ...card, annualFeeCents: 9900 } : card));
     expect(cardDataVersion(changed)).not.toBe(cardDataVersion(cards));
+  });
+
+  it("changes when a card's rewards change, since value breaks ties in the order (rules v1.3)", () => {
+    const before = lookup({ "discover-it-student-chrome": fixtureRewards([fixtureRate(1.5, "all")]) });
+    const after = lookup({ "discover-it-student-chrome": fixtureRewards([fixtureRate(2, "all")]) });
+    expect(cardDataVersion(cards, before)).toBe(cardDataVersion(cards, before));
+    expect(cardDataVersion(cards, after)).not.toBe(cardDataVersion(cards, before));
+    expect(recommendationRecord(ALL_SIX, cards, after)?.p_card_data_version).toBe(cardDataVersion(cards, after));
   });
 });
 
