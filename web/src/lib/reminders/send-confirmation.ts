@@ -1,14 +1,13 @@
 import "server-only";
 
 import type { Student } from "@/lib/api/auth";
+import type { ConfirmationOutcome } from "@/lib/api/reminders";
 
 import { reminderSettings, resendEmailsUrl } from "./config";
 import { buildConfirmationEmail } from "./confirmation-email";
 import { unsubscribeToken } from "./unsubscribe-token";
 
 const RESEND_TIMEOUT_MS = 5_000;
-
-export type ConfirmationOutcome = "sent" | "skipped" | "failed";
 
 function log(event: string, fields: Record<string, unknown>, level: "log" | "error" = "log"): void {
   console[level](JSON.stringify({ event, ...fields }));

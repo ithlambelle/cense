@@ -25,6 +25,7 @@ import {
   createReapplyReminderSchema,
   reminderSchema,
   reminderSettingsSchema,
+  savedReapplyReminderSchema,
   updateReminderSettingsSchema,
 } from "../src/lib/api/reminders";
 import { privacySettingsSchema, updatePrivacySettingsSchema } from "../src/lib/api/privacy";
@@ -228,6 +229,7 @@ registry.registerPath({
 });
 const reminderContract = registry.register("Reminder", reminderSchema);
 const reminderSettingsContract = registry.register("ReminderSettings", reminderSettingsSchema);
+const savedReapplyReminderContract = registry.register("SavedReapplyReminder", savedReapplyReminderSchema);
 registry.registerPath({
   method: "get", path: "/reminders", operationId: "listReminders",
   summary: "List the student's reminders, sent and upcoming",
@@ -237,11 +239,11 @@ registry.registerPath({
 registry.registerPath({
   method: "post", path: "/reminders", operationId: "createReapplyReminder",
   summary: "Set the reapply reminder for a denied application (replaces an unsent one)",
-  description: "The day must be tomorrow to a year from now on the student's calendar. The answer carries the day as remindOn.",
+  description: "The day must be tomorrow to a year from now on the student's calendar. The answer carries the day as remindOn, and confirmation says whether the confirmation email was sent, skipped (emails off or not set up) or failed.",
   security: [{ studentSession: [] }],
   request: { body: body(createReapplyReminderSchema) },
   responses: {
-    201: ok(reminderContract), 400: failure("Invalid day or application not denied"),
+    201: ok(savedReapplyReminderContract), 400: failure("Invalid day or application not denied"),
     404: failure("Application not found"), 409: failure("Already sent"), ...protectedResponses,
   },
 });

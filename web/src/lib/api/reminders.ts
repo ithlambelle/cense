@@ -30,6 +30,16 @@ export const createReapplyReminderSchema = z.strictObject({
 
 export type Reminder = z.infer<typeof reminderSchema>;
 
+// The answer to setting the reapply reminder: the reminder, and whether its
+// confirmation email went out, so the app only says "we emailed you" when it did.
+export const confirmationOutcomeSchema = z.enum(["sent", "skipped", "failed"]);
+// A flat object rather than an extension of Reminder: an allOf of two strict
+// objects would refuse every answer.
+export const savedReapplyReminderSchema = z
+  .strictObject({ ...reminderSchema.shape, confirmation: confirmationOutcomeSchema })
+  .openapi("SavedReapplyReminder");
+export type ConfirmationOutcome = z.infer<typeof confirmationOutcomeSchema>;
+
 export const REMINDER_FIELDS = "id, card_application_id, kind, occurrence, due_at, sent_at, acted_at, created_at";
 
 export type ReminderRow = {

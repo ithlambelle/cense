@@ -60,9 +60,10 @@ export async function POST(request: Request): Promise<Response> {
   const timeZone = await studentTimeZone(student);
   const reminder = reminderFromRow(data as ReminderRow, timeZone);
   // The confirmation email (F4). Awaited so it is sent before the function
-  // ends, but it never fails the save: the reminder is already set.
-  await sendReapplyConfirmation(student, reminder);
-  return Response.json(reminder, {
+  // ends, but it never fails the save: the reminder is already set. The
+  // outcome goes back so the app only says "we emailed you" when it was sent.
+  const confirmation = await sendReapplyConfirmation(student, reminder);
+  return Response.json({ ...reminder, confirmation }, {
     status: 201,
     headers: { "Cache-Control": "no-store" },
   });
