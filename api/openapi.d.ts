@@ -660,6 +660,9 @@ export interface components {
                 recentDenial?: boolean;
                 canDeposit?: boolean;
                 monthlySpendingCents?: number;
+                spendingCategories?: ("food_and_dining" | "groceries" | "gas_and_rides" | "travel_home" | "shopping_and_subscriptions")[];
+                /** @enum {string} */
+                spendingBand?: "under_200" | "200_to_500" | "over_500";
                 /** @enum {string} */
                 goal?: "build_credit" | "learn" | "other";
             };
@@ -1695,6 +1698,9 @@ export interface operations {
                         recentDenial?: boolean;
                         canDeposit?: boolean;
                         monthlySpendingCents?: number;
+                        spendingCategories?: ("food_and_dining" | "groceries" | "gas_and_rides" | "travel_home" | "shopping_and_subscriptions")[];
+                        /** @enum {string} */
+                        spendingBand?: "under_200" | "200_to_500" | "over_500";
                         /** @enum {string} */
                         goal?: "build_credit" | "learn" | "other";
                     };

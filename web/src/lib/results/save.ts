@@ -3,11 +3,13 @@ import { createHash } from "node:crypto";
 import type { Student } from "../api/auth";
 import { quizAnswersSchema } from "../api/schemas";
 import type { Card } from "../cards/catalog";
-import { evaluateFit, RULES_VERSION, type FitResult } from "../rules/fit-tier";
+import { cardRewards } from "../cards/rewards";
+import { RULES_VERSION, type FitResult } from "../rules/fit-tier";
+import { rankedFit, type RewardsLookup } from "./compute";
 
 // Saves the result the student is shown, so it can be explained later: the
-// answers, the full evaluateFit result, and the versions of the rules and the
-// card data it ran on. The server works the result out and calls the
+// answers, the full evaluateFit result (with the ranking the screen shows),
+// and the versions of the rules and the card data it ran on. The server works the result out and calls the
 // save_recommendation database function with the student's own session, so a
 // row can only ever belong to the signed-in student. The client never sends a
 // match of its own.
@@ -35,19 +37,26 @@ function stableStringify(value: unknown): string {
   return JSON.stringify(value);
 }
 
-// A short fingerprint of the card data. It changes whenever any card fact
-// changes, so each saved result records exactly which data it ran on.
-export function cardDataVersion(cards: Card[]): string {
-  return `cards-${createHash("sha256").update(stableStringify(cards)).digest("hex").slice(0, 12)}`;
+// A short fingerprint of the card data. It changes whenever any card fact or
+// any card's rewards change, so each saved result records exactly which data
+// it ran on. Rewards are in it since fit rules v1.3: estimated year-one value
+// breaks ties in the card order, so a changed rate can change the result.
+export function cardDataVersion(cards: Card[], rewardsFor: RewardsLookup = cardRewards): string {
+  const data = { cards, rewards: cards.map((card) => rewardsFor(card.id)) };
+  return `cards-${createHash("sha256").update(stableStringify(data)).digest("hex").slice(0, 12)}`;
 }
 
 // What to save for these answers, or null when the quiz is not finished.
 // "No suitable card" saves no card, with the tier not_yet (every card was not
 // yet), and the income gate's reason when there is one.
-export function recommendationRecord(savedAnswers: unknown, cards: Card[]): RecommendationRecord | null {
+export function recommendationRecord(
+  savedAnswers: unknown,
+  cards: Card[],
+  rewardsFor: RewardsLookup = cardRewards,
+): RecommendationRecord | null {
   const parsed = quizAnswersSchema.safeParse(savedAnswers ?? {});
   if (!parsed.success) return null;
-  const result = evaluateFit(parsed.data, cards);
+  const { result } = rankedFit(parsed.data, cards, rewardsFor);
   if (result.status === "incomplete") return null;
 
   const fit = result.recommendedCardId === null
@@ -59,7 +68,7 @@ export function recommendationRecord(savedAnswers: unknown, cards: Card[]): Reco
     p_fit_tier: fit ? fit.tier : "not_yet",
     p_reason: fit ? (fit.reasons[0] ?? null) : (result.noCardReason?.reason ?? null),
     p_rules_version: RULES_VERSION,
-    p_card_data_version: cardDataVersion(cards),
+    p_card_data_version: cardDataVersion(cards, rewardsFor),
     p_answer_snapshot: parsed.data,
     p_result_snapshot: result,
   };

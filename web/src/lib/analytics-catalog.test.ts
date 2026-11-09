@@ -37,7 +37,8 @@ describe("event catalog", () => {
   });
 
   it("has no property that could carry personal data", () => {
-    const banned = /email|name|income|denial_reason|limit|password|code|token|phone|address/;
+    // spend and categor: the spending answer never leaves the app (Ben, Nov 7).
+    const banned = /email|name|income|spend|categor|denial_reason|limit|password|code|token|phone|address/;
     for (const [name, entry] of Object.entries(EVENTS)) {
       for (const prop of Object.keys(entry.properties.shape)) expect(prop, `${name}.${prop}`).not.toMatch(banned);
     }

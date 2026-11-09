@@ -16,7 +16,10 @@ export default async function CardsPage() {
   if (student) {
     try {
       const result = await loadQuizResult(student);
-      if (result.kind === "match") yourMatch = { name: cardDisplayName(result.card), tier: result.fit.tier };
+      if (result.kind === "match") {
+        const [top] = result.options;
+        yourMatch = { name: cardDisplayName(top.card), tier: top.fit.tier };
+      }
       if (result.kind === "no_card") yourMatch = { name: null, tier: "not_yet" };
     } catch {
       // The list still works without the match row; the quiz button stays.

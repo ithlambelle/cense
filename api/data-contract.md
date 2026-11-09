@@ -33,10 +33,17 @@ Card setup (closing day, due day, credit limit, autopay) is saved through
 `PATCH /api/v1/applications/{id}`. Saving the days, the status or autopay
 re-plans that card's reminders.
 
-Quiz drafts use the fit-rules v1.2 answers: `under21`, `incomeBand`, `student`,
-`standing` (including `not_sure`), `recentDenial`, and `canDeposit`, plus
-monthly spending and goal. The draft is partial until the student finishes the
-quiz. Card records carry the published eligibility fields, the issuer's
+Quiz drafts use the fit-rules answers: `under21`, `incomeBand`, `student`,
+`standing` (including `not_sure`), `recentDenial`, and `canDeposit`, plus goal
+and the optional spending answer: `spendingCategories` (one or two of
+`food_and_dining`, `groceries`, `gas_and_rides`, `travel_home`,
+`shopping_and_subscriptions`) and `spendingBand` (`under_200`, `200_to_500`,
+`over_500`). The spending answer never decides fit and is never sent to
+analytics; since fit rules v1.3 (2026-11-07) estimated year-one value breaks
+the last ties in the card order. A draft without it is still complete. The unused
+`monthlySpendingCents` stays for older drafts. The draft is partial until the
+student finishes the quiz. A saved recommendation's `card_data_version` covers
+the card facts and each card's rewards, since rewards now change the order. Card records carry the published eligibility fields, the issuer's
 conditions, a `catalogRole` (only `recommend` cards are tiered; `explore` cards
 are for browsing) and `eligibilityEvidence`, which gives each fact a basis
 (`issuer`, `silent`, `estimate` or `decision`), its source URLs and a

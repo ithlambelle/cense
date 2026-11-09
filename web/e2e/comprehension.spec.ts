@@ -8,7 +8,15 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { QUESTIONS } from "../src/lib/quiz/questions";
-import { axeChecker, blockExternalRequests, LIKELY_FIT_PICKS, signUp, takeQuiz, uniqueEmail } from "./helpers";
+import {
+  axeChecker,
+  blockExternalRequests,
+  GROCERIES_AND_DINING,
+  LIKELY_FIT_PICKS,
+  signUp,
+  takeQuiz,
+  uniqueEmail,
+} from "./helpers";
 
 test.beforeEach(async ({ context }) => {
   await blockExternalRequests(context);
@@ -152,6 +160,30 @@ for (const [result, picks, see] of [
     expect(await quizCount(page)).toEqual({ at: 1, of: 7 });
   });
 }
+
+// Taral, Oct 17: the result said why a card was great, not why it was good
+// for her, and she never noticed the Likely fit label. Each card now says it
+// in large words: approval, value from her spending, and the bonus.
+test("the result says why each of three cards is right for the student, in words, at every phone size", async ({ page }) => {
+  const checkA11y = axeChecker(page);
+  await signUp(page, uniqueEmail("why-right"), async () => {});
+  await page.getByRole("link", { name: "Start the quiz" }).click();
+  await takeQuiz(page, LIKELY_FIT_PICKS, async () => {}, GROCERIES_AND_DINING);
+  for (const size of SIZES) {
+    await page.setViewportSize(size);
+    const cards = page.getByRole("main").getByRole("link", { name: /^View card: / });
+    await expect(cards).toHaveCount(3);
+    await expect(page.getByRole("heading", { name: "Why it’s right for you" })).toHaveCount(3);
+    await expect(page.getByText("You’re likely to be approved")).toHaveCount(3);
+    const value = page.getByText(/^About \$\d[\d,]* in your first year$/).first();
+    await expect(value).toBeVisible();
+    // Large text, never the small print size.
+    expect(await value.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
+    // Nothing runs off the side of the phone.
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await checkA11y(`results: why it is right, ${size.width}`);
+  }
+});
 
 test("a result with no card that fits gives a next step", async ({ page }) => {
   const checkA11y = axeChecker(page);
