@@ -391,7 +391,7 @@ export interface paths {
         put?: never;
         /**
          * Set the reapply reminder for a denied application (replaces an unsent one)
-         * @description The day must be tomorrow to a year from now on the student's calendar. The answer carries the day as remindOn.
+         * @description The day must be tomorrow to a year from now on the student's calendar. The answer carries the day as remindOn, and confirmation says whether the confirmation email was sent, skipped (emails off or not set up) or failed.
          */
         post: operations["createReapplyReminder"];
         delete?: never;
@@ -753,6 +753,28 @@ export interface components {
             statementClosing: boolean;
             paymentDue: boolean;
             checkAutopay: boolean;
+        };
+        SavedReapplyReminder: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            applicationId: string;
+            /** @enum {string} */
+            kind: "statement_closing" | "payment_due" | "check_autopay" | "reapply";
+            /** Format: date */
+            occurrence: string;
+            /** Format: date */
+            remindOn: string;
+            /** Format: date-time */
+            dueAt: string;
+            /** Format: date-time */
+            sentAt: string | null;
+            /** Format: date-time */
+            actedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** @enum {string} */
+            confirmation: "sent" | "skipped" | "failed";
         };
         PennyReply: {
             /** @enum {string} */
@@ -2257,7 +2279,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Reminder"];
+                    "application/json": components["schemas"]["SavedReapplyReminder"];
                 };
             };
             /** @description Invalid day or application not denied */

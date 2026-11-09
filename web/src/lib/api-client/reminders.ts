@@ -6,7 +6,8 @@ import { apiRequest, failureMessage, isUnauthorized, type ApiFailure } from "./c
 export type Reminder = components["schemas"]["Reminder"];
 
 type Failed = { kind: "signed-out" } | { kind: "failed"; message: string };
-export type ReminderSave = { kind: "ok"; reminder: Reminder } | Failed;
+// confirmation: whether the save's confirmation email went out.
+export type ReminderSave = { kind: "ok"; reminder: Reminder; confirmation: "sent" | "skipped" | "failed" } | Failed;
 export type RemindersLoad = { kind: "ok"; reminders: Reminder[] } | Failed;
 
 export const REMINDER_NOT_FOUND = "We couldn’t find this card. Open it from Home.";
@@ -24,7 +25,9 @@ function failure(result: ApiFailure): Failed {
 // Sets the reapply reminder for a denied card. Picking again replaces an unsent one.
 export async function saveReapplyReminder(applicationId: string, remindOn: string): Promise<ReminderSave> {
   const result = await apiRequest("post", "/reminders", { body: { applicationId, remindOn } });
-  return result.ok ? { kind: "ok", reminder: result.data } : failure(result);
+  if (!result.ok) return failure(result);
+  const { confirmation, ...reminder } = result.data;
+  return { kind: "ok", reminder, confirmation };
 }
 
 export async function loadReminders(): Promise<RemindersLoad> {

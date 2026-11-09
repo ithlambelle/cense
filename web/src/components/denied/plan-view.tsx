@@ -226,7 +226,9 @@ export function DeniedPlanScreen({
             {STEPS.map((step) => {
               const lit = done.has(step.id);
               const expanded = open === step.id;
-              const reminder = step.id === "reapply" && !lit;
+              // Step 5 keeps its reminder line and link once done: the email
+              // says the date can be changed any time in the plan.
+              const reminder = step.id === "reapply";
               const subtitle = reminder
                 ? reminderDate === "unknown"
                   ? null
@@ -234,6 +236,13 @@ export function DeniedPlanScreen({
                     ? `Reminder set for ${reminderDate}`
                     : "Reminder not set"
                 : step.subtitle;
+              const title = (
+                <>
+                  {step.title}
+                  {lit ? <span className="sr-only">, done</span> : null}
+                </>
+              );
+              const titleClass = cn("text-body-m leading-[normal]", lit ? "text-indigo-black/70" : "font-medium text-indigo-black");
               return (
                 <li key={step.id} className="flex gap-3 border-b border-off-white py-3.5">
                   <StepCircle
@@ -242,14 +251,9 @@ export function DeniedPlanScreen({
                     disabled={!canMark || saving.has(step.id)}
                     onToggle={() => mark(step.id, !lit)}
                   />
-                  {lit ? (
-                    <p className="min-w-0 flex-1 self-center text-body-m leading-[normal] text-indigo-black/70">
-                      {step.title}
-                      <span className="sr-only">, done</span>
-                    </p>
-                  ) : reminder ? (
+                  {reminder ? (
                     <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
-                      <p className="text-body-m leading-[normal] font-medium text-indigo-black">{step.title}</p>
+                      <p className={titleClass}>{title}</p>
                       {subtitle ? <p className="text-body-s leading-[normal] text-indigo-black/70">{subtitle}</p> : null}
                       <Link
                         href={deniedPath("reminder", applicationId)}
@@ -260,6 +264,7 @@ export function DeniedPlanScreen({
                     </div>
                   ) : (
                     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                      {/* A done step still opens its detail; only its subtitle is dropped. */}
                       <button
                         type="button"
                         aria-expanded={expanded}
@@ -267,8 +272,8 @@ export function DeniedPlanScreen({
                         className="flex w-full items-center gap-3 text-left focus-visible:outline-2 focus-visible:outline-ring"
                       >
                         <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
-                          <span className="text-body-m leading-[normal] font-medium text-indigo-black">{step.title}</span>
-                          <span className="text-body-s leading-[normal] text-indigo-black/70">{subtitle}</span>
+                          <span className={titleClass}>{title}</span>
+                          {lit ? null : <span className="text-body-s leading-[normal] text-indigo-black/70">{subtitle}</span>}
                         </span>
                         <ChevronRight
                           aria-hidden="true"

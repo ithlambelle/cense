@@ -1,9 +1,9 @@
 import { cn } from "@/lib/utils"
 
 // Card art, Plain on a light surface (Figma 301:2513): a mini navy card with
-// an amber chip and a faint stripe, 56 by 38. The card lists' leading art
-// (Profile "Your card", Cards).
-function CardArt({ className }: { className?: string }) {
+// an amber chip and a faint stripe, 56 by 38. The leading art of Profile's
+// "Your card" row. Not the issuer's art, which is components/cards/card-art.
+function MiniCardArt({ className }: { className?: string }) {
   return (
     <span aria-hidden="true" className={cn("relative block h-[38px] w-14 shrink-0 rounded-[6px] bg-navy", className)}>
       <span className="absolute top-[9px] left-[7px] h-2 w-[11px] rounded-[2px] bg-amber" />
@@ -12,4 +12,4 @@ function CardArt({ className }: { className?: string }) {
   )
 }
 
-export { CardArt }
+export { MiniCardArt }

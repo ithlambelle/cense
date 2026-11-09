@@ -21,7 +21,7 @@ export type ConfirmationEmailLinks = {
 
 export type ConfirmationEmail = { subject: string; html: string; text: string };
 
-export const CONFIRMATION_SUBJECT = "Your reapply reminder is set";
+const CONFIRMATION_SUBJECT = "Your reapply reminder is set";
 const BUTTON_LABEL = "Open your plan";
 const SIGN_OFF = "-Penny ;)";
 const FOOTER = "You're getting this because you set a reapply reminder.";

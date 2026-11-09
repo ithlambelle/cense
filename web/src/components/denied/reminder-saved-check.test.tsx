@@ -88,6 +88,8 @@ describe("ReminderSavedCheck", () => {
     expect(screen.getByText("April 5, 2027")).toBeTruthy();
     // The back arrow is the only image: no Penny next to the check.
     expect([...document.querySelectorAll("img")].map((img) => img.getAttribute("src"))).toEqual(["/icons/arrow-left-dark.svg"]);
+    // Read once: a reload names the date, never a second email.
+    expect(sessionStorage.getItem(`cense:reminder-emailed:${ID}`)).toBeNull();
     sessionStorage.clear();
   });
 

@@ -1,14 +1,13 @@
 import "server-only";
 
 import type { Student } from "@/lib/api/auth";
+import type { ConfirmationOutcome } from "@/lib/api/reminders";
 
 import { reminderSettings, resendEmailsUrl } from "./config";
 import { buildConfirmationEmail } from "./confirmation-email";
 import { unsubscribeToken } from "./unsubscribe-token";
 
 const RESEND_TIMEOUT_MS = 5_000;
-
-export type ConfirmationOutcome = "sent" | "skipped" | "failed";
 
 function log(event: string, fields: Record<string, unknown>, level: "log" | "error" = "log"): void {
   console[level](JSON.stringify({ event, ...fields }));
@@ -21,7 +20,7 @@ function log(event: string, fields: Record<string, unknown>, level: "log" | "err
 // email settings are missing (local runs without Resend).
 export async function sendReapplyConfirmation(
   student: Student,
-  reminder: { id: string; applicationId: string; remindOn: string },
+  reminder: { applicationId: string; remindOn: string },
   fetchImpl: typeof fetch = fetch,
 ): Promise<ConfirmationOutcome> {
   if (!student.email) return "skipped";
@@ -52,8 +51,10 @@ export async function sendReapplyConfirmation(
       headers: {
         Authorization: `Bearer ${resendApiKey}`,
         "Content-Type": "application/json",
-        // One email per saved date: saving the same day twice sends it once.
-        "Idempotency-Key": `reapply-confirmation-${reminder.id}-${reminder.remindOn}`,
+        // One email per student, card and day. Not the reminder's id: saving
+        // again replaces the row with a new id, so the same day would send
+        // twice. Resend keeps a key for 24 hours.
+        "Idempotency-Key": `reapply-confirmation-${student.studentId}-${reminder.applicationId}-${reminder.remindOn}`,
       },
       body: JSON.stringify({
         from: fromEmail,

@@ -41,16 +41,16 @@ describe("AccountView", () => {
     expect(screen.getByRole("link", { name: "Accounts" }).getAttribute("href")).toBe("/safe-to-spend");
   });
 
-  it("shows Updates with the new count and the latest one", () => {
+  it("shows Updates with the latest one, and no new count while nothing records what was seen", () => {
     render(
       <AccountView
         email={null}
         card={CARD}
-        updates={{ newCount: 2, latest: { title: "Statement closes Nov 13", body: "Pay it down before then.", when: "Today" } }}
+        updates={{ latest: { title: "Statement closes Nov 13", body: "Pay it down before then.", when: "Today" } }}
       />,
     );
     expect(screen.getByRole("heading", { name: "Updates" })).toBeTruthy();
-    expect(screen.getByText("2 new")).toBeTruthy();
+    expect(screen.queryByText(/new$/)).toBeNull();
     expect(screen.getByRole("link", { name: /Statement closes Nov 13/ }).getAttribute("href")).toBe("/home");
   });
 
@@ -90,5 +90,4 @@ describe("AccountView", () => {
     render(<AccountView email={null} card={CARD} quizAnswered={3} />);
     expect(screen.getByRole("link", { name: "Continue the quiz" }).getAttribute("href")).toBe("/quiz?from=account");
   });
-
 });

@@ -7,12 +7,13 @@ import { profileUpdates, type ProfileUpdates, type SentReminder } from "@/lib/pr
 import { reminderKindParam, ROUTES } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
 import type { Student } from "@/lib/api/auth";
+import { safeTimeZone } from "@/lib/api/reminders";
 import { loadStudentSnapshot } from "@/lib/student-data";
 
 export const metadata: Metadata = { title: "Your account | CENSE" };
 
-// The sent reminder emails and when the student last saw their updates. The
-// section is extra: a failed read leaves it out and the page still works.
+// The sent reminder emails, dated on the student's calendar. The section is
+// extra: a failed read leaves it out and the page still works.
 async function loadUpdates(student: Student): Promise<ProfileUpdates | null> {
   const [reminders, profile] = await Promise.all([
     student.supabase
@@ -22,9 +23,9 @@ async function loadUpdates(student: Student): Promise<ProfileUpdates | null> {
       .not("sent_at", "is", null)
       .order("sent_at", { ascending: false })
       .limit(50),
-    student.supabase.from("profiles").select("updates_seen_at").eq("student_id", student.studentId).maybeSingle(),
+    student.supabase.from("profiles").select("time_zone").eq("student_id", student.studentId).maybeSingle(),
   ]);
-  if (reminders.error || profile.error) {
+  if (reminders.error) {
     console.warn(JSON.stringify({ event: "profile_updates_read_failed" }));
     return null;
   }
@@ -33,8 +34,8 @@ async function loadUpdates(student: Student): Promise<ProfileUpdates | null> {
     const kind = reminderKindParam(row.kind);
     if (kind) sent.push({ kind, occurrence: row.occurrence, sentAt: new Date(row.sent_at).toISOString() });
   }
-  const seenAt = (profile.data as { updates_seen_at: string | null } | null)?.updates_seen_at ?? null;
-  return profileUpdates(sent, seenAt);
+  // A failed time zone read falls back to New York, as the reminders do.
+  return profileUpdates(sent, safeTimeZone((profile.data as { time_zone: string | null } | null)?.time_zone));
 }
 
 export default async function AccountPage() {

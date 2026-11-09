@@ -176,6 +176,24 @@ describe("DeniedPlanView", () => {
     expect(screen.queryByText("Reminder not set")).toBeNull();
   });
 
+  it("step 5 keeps its reminder line and Change date once the step is done", async () => {
+    server([{ status: 200, body: plan("reapply") }], application(null), [reapply("2027-04-05")]);
+    render(<DeniedPlanView applicationId={ID} />);
+    expect(await screen.findByText("Reminder set for Apr 5, 2027")).toBeTruthy();
+    expect(screen.getByText("1 of 5 done")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Change date" }).getAttribute("href")).toBe(`/denied/reminder?application=${ID}`);
+  });
+
+  it("a done step still opens its detail", async () => {
+    server([{ status: 200, body: plan("check_reports") }]);
+    render(<DeniedPlanView applicationId={ID} />);
+    await screen.findByText("1 of 5 done");
+    const row = screen.getByRole("button", { name: /^Check your credit reports, done/ });
+    fireEvent.click(row);
+    expect(row.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("link", { name: /AnnualCreditReport.com/ })).toBeTruthy();
+  });
+
   it("step 5 does not count a reminder already sent as set", async () => {
     server([{ status: 200, body: plan() }], application(null), [reapply("2026-11-01", "2026-11-01T13:00:00.000Z")]);
     const view = render(<DeniedPlanView applicationId={ID} />);

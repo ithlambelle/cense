@@ -30,16 +30,30 @@ function stubEnv() {
 }
 
 describe("sendReapplyConfirmation", () => {
-  it("sends one email through Resend, keyed to the reminder and its day", async () => {
+  it("sends one email through Resend, keyed to the student, card and day", async () => {
     stubEnv();
     const fetchFn = vi.fn<typeof fetch>(async () => Response.json({ id: "1" }));
     expect(await sendReapplyConfirmation(student(), REMINDER, fetchFn)).toBe("sent");
     const [url, init] = fetchFn.mock.calls[0];
     expect(url).toBe("http://127.0.0.1:3598/emails");
-    expect((init?.headers as Record<string, string>)["Idempotency-Key"]).toBe(`reapply-confirmation-${REMINDER.id}-2027-04-05`);
+    expect((init?.headers as Record<string, string>)["Idempotency-Key"]).toBe(
+      `reapply-confirmation-student-1-${REMINDER.applicationId}-2027-04-05`,
+    );
     const body = JSON.parse(String(init?.body));
     expect(body.to).toEqual(["student@example.edu"]);
     expect(body.subject).toBe("Your reapply reminder is set");
+  });
+
+  it("keeps the same key when the same day is saved again as a new reminder row", async () => {
+    stubEnv();
+    const fetchFn = vi.fn<typeof fetch>(async () => Response.json({ id: "1" }));
+    await sendReapplyConfirmation(student(), REMINDER, fetchFn);
+    const resaved = { ...REMINDER, id: "00000000-0000-4000-8000-0000000000a2" };
+    await sendReapplyConfirmation(student(), resaved, fetchFn);
+    await sendReapplyConfirmation(student(), { ...REMINDER, remindOn: "2027-04-06" }, fetchFn);
+    const keys = fetchFn.mock.calls.map(([, init]) => (init?.headers as Record<string, string>)["Idempotency-Key"]);
+    expect(keys[0]).toBe(keys[1]);
+    expect(keys[2]).not.toBe(keys[0]);
   });
 
   it("skips it when reminder emails are off, the settings are missing, or there is no address", async () => {
