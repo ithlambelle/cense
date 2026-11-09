@@ -82,6 +82,8 @@ export function PaymentReminderSetup({
   const [baseline, setBaseline] = useState<ReminderChoices>(savedChoices);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // The confirmation email went out: said for a moment before leaving.
+  const [emailed, setEmailed] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -100,11 +102,19 @@ export function PaymentReminderSetup({
       choices,
       savedChoices: baseline,
       emailsOn,
+      // New or changed days get a confirmation email; saving the same days
+      // again, or only a toggle, does not.
+      confirm: closingDay !== statementClosingDay || dueDay !== paymentDueDay,
     });
     // The student left while it saved: the answer must not move them again.
     if (!isMounted()) return;
     if (result.kind === "ok") {
       track("reminder_setup_saved", { payment_due: choices.paymentDue, statement_closing: choices.statementClosing });
+      if (result.emailed) {
+        setEmailed(true);
+        await new Promise((resolve) => setTimeout(resolve, EMAILED_PAUSE_MS));
+        if (!isMounted()) return;
+      }
       // Stays pending while Home loads with the star lit. Replace, not push:
       // Back from Home goes where the student came from, not to this form (as
       // Mark result does).
@@ -183,6 +193,11 @@ export function PaymentReminderSetup({
 
           <div className="flex-1" />
           {error ? <ErrorMessage>{error}</ErrorMessage> : null}
+          {/* Always in the page, so a screen reader hears the line when it appears;
+              out of the layout while empty. */}
+          <p role="status" className="text-center text-body-s text-indigo-black empty:absolute">
+            {emailed ? "Saved. We emailed you a confirmation." : ""}
+          </p>
           <Button
             type="submit"
             pending={pending}
@@ -204,6 +219,9 @@ export function PaymentReminderSetup({
     </div>
   );
 }
+
+// Long enough to read one short line before the screen moves on.
+const EMAILED_PAUSE_MS = 1500;
 
 function introLine(autopayOn: boolean, firstStatementEmail: boolean): string {
   if (autopayOn) return "We’ll email you before your statement closes.";

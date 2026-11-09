@@ -4,7 +4,7 @@ vi.mock("server-only", () => ({}));
 
 import type { Student } from "@/lib/api/auth";
 
-import { sendReapplyConfirmation } from "./send-confirmation";
+import { sendPaymentRemindersConfirmation, sendReapplyConfirmation } from "./send-confirmation";
 
 const ENV = {
   RESEND_API_KEY: "test-key",
@@ -77,3 +77,29 @@ describe("sendReapplyConfirmation", () => {
     expect(JSON.stringify(error.mock.calls)).not.toContain("student@example.edu");
   });
 });
+
+describe("sendPaymentRemindersConfirmation", () => {
+  const INPUT = {
+    applicationId: REMINDER.applicationId, cardName: "Discover it", today: "2026-11-09",
+    statementClosing: { remindOn: "2026-11-09" }, paymentDue: null, autopayOn: true,
+  };
+
+  it("sends once per student, card and pair of days", async () => {
+    stubEnv();
+    const fetchFn = vi.fn<typeof fetch>(async () => Response.json({ id: "1" }));
+    expect(await sendPaymentRemindersConfirmation(student(), INPUT, { statementClosingDay: 12, paymentDueDay: 7 }, fetchFn)).toBe("sent");
+    const [, init] = fetchFn.mock.calls[0];
+    expect((init?.headers as Record<string, string>)["Idempotency-Key"]).toBe(
+      `payment-reminders-confirmation-student-1-${REMINDER.applicationId}-12-7`,
+    );
+    expect(JSON.parse(String(init?.body)).subject).toBe("Your payment reminders are set");
+  });
+
+  it("is skipped after the student unsubscribed", async () => {
+    stubEnv();
+    const fetchFn = vi.fn<typeof fetch>();
+    expect(await sendPaymentRemindersConfirmation(student("2026-11-01T00:00:00Z"), INPUT, { statementClosingDay: 12, paymentDueDay: 7 }, fetchFn)).toBe("skipped");
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+});
+

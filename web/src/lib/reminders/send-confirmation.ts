@@ -4,7 +4,13 @@ import type { Student } from "@/lib/api/auth";
 import type { ConfirmationOutcome } from "@/lib/api/reminders";
 
 import { reminderSettings, resendEmailsUrl } from "./config";
-import { buildConfirmationEmail } from "./confirmation-email";
+import {
+  buildConfirmationEmail,
+  buildPaymentRemindersEmail,
+  type ConfirmationEmail,
+  type ConfirmationEmailLinks,
+  type PaymentRemindersEmailInput,
+} from "./confirmation-email";
 import { unsubscribeToken } from "./unsubscribe-token";
 
 const RESEND_TIMEOUT_MS = 5_000;
@@ -13,15 +19,18 @@ function log(event: string, fields: Record<string, unknown>, level: "log" | "err
   console[level](JSON.stringify({ event, ...fields }));
 }
 
-// Sends the reapply reminder's confirmation email (F4) through Resend, right
-// after the reminder is saved. Never throws: the reminder is already saved,
-// so a failed email is logged (no address, no card, no key) and the save
-// still succeeds. Skipped when reminder emails are off for the student or the
-// email settings are missing (local runs without Resend).
-export async function sendReapplyConfirmation(
+// Sends one confirmation email through Resend. Never throws: what it
+// confirms is already saved, so a failed email is logged (no address, no
+// card, no key) and the save still succeeds. Skipped when reminder emails are
+// off for the student or the email settings are missing (local runs without
+// Resend).
+async function sendConfirmation(
   student: Student,
-  reminder: { applicationId: string; remindOn: string },
-  fetchImpl: typeof fetch = fetch,
+  build: (links: ConfirmationEmailLinks) => ConfirmationEmail,
+  // Resend sends one email per key within 24 hours, so a double tap or a
+  // retry never sends twice.
+  idempotencyKey: string,
+  fetchImpl: typeof fetch,
 ): Promise<ConfirmationOutcome> {
   if (!student.email) return "skipped";
   const config = reminderSettings(["resendApiKey", "fromEmail", "appUrl", "unsubscribeSecret"]);
@@ -40,10 +49,7 @@ export async function sendReapplyConfirmation(
 
   const { resendApiKey, fromEmail, appUrl, unsubscribeSecret } = config.settings;
   const unsubscribeUrl = `${appUrl}/api/v1/reminders/unsubscribe?token=${unsubscribeToken(student.studentId, unsubscribeSecret)}`;
-  const email = buildConfirmationEmail(
-    { applicationId: reminder.applicationId, remindOn: reminder.remindOn },
-    { appUrl, unsubscribeUrl },
-  );
+  const email = build({ appUrl, unsubscribeUrl });
 
   try {
     const response = await fetchImpl(resendEmailsUrl(), {
@@ -51,10 +57,7 @@ export async function sendReapplyConfirmation(
       headers: {
         Authorization: `Bearer ${resendApiKey}`,
         "Content-Type": "application/json",
-        // One email per student, card and day. Not the reminder's id: saving
-        // again replaces the row with a new id, so the same day would send
-        // twice. Resend keeps a key for 24 hours.
-        "Idempotency-Key": `reapply-confirmation-${student.studentId}-${reminder.applicationId}-${reminder.remindOn}`,
+        "Idempotency-Key": idempotencyKey,
       },
       body: JSON.stringify({
         from: fromEmail,
@@ -77,4 +80,36 @@ export async function sendReapplyConfirmation(
     log("reminder_confirmation_failed", { status: null, code: error instanceof Error ? error.name : "fetch_failed" }, "error");
     return "failed";
   }
+}
+
+// The reapply reminder's confirmation (F4), right after the reminder is saved.
+export function sendReapplyConfirmation(
+  student: Student,
+  reminder: { applicationId: string; remindOn: string },
+  fetchImpl: typeof fetch = fetch,
+): Promise<ConfirmationOutcome> {
+  return sendConfirmation(
+    student,
+    (links) => buildConfirmationEmail({ applicationId: reminder.applicationId, remindOn: reminder.remindOn }, links),
+    // One email per student, card and day. Not the reminder's id: saving
+    // again replaces the row with a new id, so the same day would send twice.
+    `reapply-confirmation-${student.studentId}-${reminder.applicationId}-${reminder.remindOn}`,
+    fetchImpl,
+  );
+}
+
+// The payment reminders' confirmation, after a card's statement and due days
+// are set or changed. One email per student, card and pair of days.
+export function sendPaymentRemindersConfirmation(
+  student: Student,
+  input: PaymentRemindersEmailInput,
+  days: { statementClosingDay: number; paymentDueDay: number },
+  fetchImpl: typeof fetch = fetch,
+): Promise<ConfirmationOutcome> {
+  return sendConfirmation(
+    student,
+    (links) => buildPaymentRemindersEmail(input, links),
+    `payment-reminders-confirmation-${student.studentId}-${input.applicationId}-${days.statementClosingDay}-${days.paymentDueDay}`,
+    fetchImpl,
+  );
 }

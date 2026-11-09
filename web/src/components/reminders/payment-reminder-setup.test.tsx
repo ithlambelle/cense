@@ -113,8 +113,8 @@ describe("PaymentReminderSetup", () => {
     expect(fetchFn).not.toHaveBeenCalled();
   });
 
-  it("saves the days, the changed toggle and the star in order, then goes Home", async () => {
-    const fetchFn = server({ status: 200 }, { status: 200 }, { status: 200 });
+  it("saves the days, the changed toggle and the star in order, asks for the confirmation, then goes Home", async () => {
+    const fetchFn = server({ status: 200 }, { status: 200 }, { status: 200 }, { status: 200, body: { confirmation: "skipped" } });
     renderSetup();
     fireEvent.change(closingField(), { target: { value: "14" } });
     fireEvent.change(dueField(), { target: { value: "9" } });
@@ -125,7 +125,31 @@ describe("PaymentReminderSetup", () => {
       ["PATCH", `/api/v1/applications/${ID}`, { statementClosingDay: 14, paymentDueDay: 9 }],
       ["PATCH", "/api/v1/me/reminder-settings", { statementClosing: false }],
       ["PUT", `/api/v1/applications/${ID}/plans/first_month/steps/payment_reminder`, undefined],
+      // New days: the confirmation email is asked for last.
+      ["POST", `/api/v1/applications/${ID}/reminder-confirmation`, undefined],
     ]);
+    // Skipped, so the screen never claims an email.
+    expect(screen.getByRole("status").textContent).toBe("");
+  });
+
+  it("says the confirmation was emailed when it was, then goes Home", async () => {
+    server({ status: 200 }, { status: 200 }, { status: 200, body: { confirmation: "sent" } });
+    renderSetup();
+    fireEvent.change(closingField(), { target: { value: "12" } });
+    fireEvent.change(dueField(), { target: { value: "7" } });
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Saved. We emailed you a confirmation."));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"), { timeout: 3000 });
+  });
+
+  it("asks for no confirmation when the days are the ones already saved", async () => {
+    const fetchFn = server({ status: 200 }, { status: 200 });
+    renderSetup({ closing: 14, due: 9 });
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
+    expect(sent(fetchFn).map(([method, url]) => `${method} ${url}`)).not.toContain(
+      `POST /api/v1/applications/${ID}/reminder-confirmation`,
+    );
   });
 
   it("stays with a clear message when the choices fail, never lights the star, and retries", async () => {

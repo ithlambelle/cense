@@ -379,6 +379,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/applications/{id}/reminder-confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email the student a confirmation of an approved card's payment reminders
+         * @description Called after the card's statement and due days are saved. The email names each reminder that is on and the day it goes out, read from what is saved. Idempotent per card and pair of days. confirmation is sent, skipped (no reminder on, emails off or not set up) or failed.
+         */
+        post: operations["confirmPaymentReminders"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reminders": {
         parameters: {
             query?: never;
@@ -843,6 +863,10 @@ export interface components {
             followUpAt: string | null;
             /** Format: date-time */
             createdAt: string;
+            /** @enum {string} */
+            confirmation: "sent" | "skipped" | "failed";
+        };
+        ReminderConfirmation: {
             /** @enum {string} */
             confirmation: "sent" | "skipped" | "failed";
         };
@@ -2270,6 +2294,73 @@ export interface operations {
             };
             /** @description Application or plan step not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    confirmPaymentReminders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderConfirmation"];
+                };
+            };
+            /** @description Invalid application ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Application not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Card not approved, or its days are not saved */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

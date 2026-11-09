@@ -1,4 +1,4 @@
-import { deniedPath, ROUTES } from "@/lib/routes";
+import { deniedPath, paymentRemindersPath, ROUTES } from "@/lib/routes";
 
 // The reapply reminder's confirmation email (Flow F, F4, Figma 477:2704):
 // sent once, right when the student saves the reminder, so "We emailed you a
@@ -49,32 +49,99 @@ const STYLE = {
   footerLink: "color:rgba(15,11,46,0.7);",
 };
 
-export function buildConfirmationEmail(input: ConfirmationEmailInput, links: ConfirmationEmailLinks): ConfirmationEmail {
-  const date = shortDate(input.remindOn);
-  const lines = [
-    `Hey, your reapply reminder is set. We'll email you on ${date}, so you can check your plan before you reapply.`,
-    "Change the date any time in your plan.",
-    SIGN_OFF,
-  ];
-  const planLink = `${links.appUrl}${deniedPath("plan", input.applicationId)}`;
+// One confirmation email in the reminders' layout: a title, a few short
+// lines, one button, and the footer with Reminder settings and Unsubscribe.
+function renderConfirmation(
+  content: { subject: string; lines: string[]; button: { label: string; href: string }; footer: string },
+  links: ConfirmationEmailLinks,
+): ConfirmationEmail {
+  const { subject, lines, button, footer } = content;
   const settingsLink = `${links.appUrl}${ROUTES.reminderSettings}`;
 
   const text = [
-    CONFIRMATION_SUBJECT,
+    subject,
     ...lines,
-    `${BUTTON_LABEL}: ${planLink}`,
-    `${FOOTER}\nReminder settings: ${settingsLink}\nUnsubscribe: ${links.unsubscribeUrl}`,
+    `${button.label}: ${button.href}`,
+    `${footer}\nReminder settings: ${settingsLink}\nUnsubscribe: ${links.unsubscribeUrl}`,
   ].join("\n\n");
 
   const html = [
-    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(CONFIRMATION_SUBJECT)}</title></head>`,
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(subject)}</title></head>`,
     `<body style="${STYLE.body}"><div style="max-width:480px;margin:0 auto;">`,
-    `<h1 style="${STYLE.title}">${escapeHtml(CONFIRMATION_SUBJECT)}</h1>`,
+    `<h1 style="${STYLE.title}">${escapeHtml(subject)}</h1>`,
     ...lines.map((line) => `<p style="${STYLE.p}">${escapeHtml(line)}</p>`),
-    `<p style="${STYLE.p}"><a href="${escapeHtml(planLink)}" style="${STYLE.button}">${escapeHtml(BUTTON_LABEL)}</a></p>`,
-    `<p style="${STYLE.footer}">${escapeHtml(FOOTER)} <a href="${escapeHtml(settingsLink)}" style="${STYLE.footerLink}">Reminder settings</a> · <a href="${escapeHtml(links.unsubscribeUrl)}" style="${STYLE.footerLink}">Unsubscribe</a></p>`,
+    `<p style="${STYLE.p}"><a href="${escapeHtml(button.href)}" style="${STYLE.button}">${escapeHtml(button.label)}</a></p>`,
+    `<p style="${STYLE.footer}">${escapeHtml(footer)} <a href="${escapeHtml(settingsLink)}" style="${STYLE.footerLink}">Reminder settings</a> · <a href="${escapeHtml(links.unsubscribeUrl)}" style="${STYLE.footerLink}">Unsubscribe</a></p>`,
     `</div></body></html>`,
   ].join("");
 
-  return { subject: CONFIRMATION_SUBJECT, html, text };
+  return { subject, html, text };
+}
+
+export function buildConfirmationEmail(input: ConfirmationEmailInput, links: ConfirmationEmailLinks): ConfirmationEmail {
+  const date = shortDate(input.remindOn);
+  return renderConfirmation(
+    {
+      subject: CONFIRMATION_SUBJECT,
+      lines: [
+        `Hey, your reapply reminder is set. We'll email you on ${date}, so you can check your plan before you reapply.`,
+        "Change the date any time in your plan.",
+        SIGN_OFF,
+      ],
+      button: { label: BUTTON_LABEL, href: `${links.appUrl}${deniedPath("plan", input.applicationId)}` },
+      footer: FOOTER,
+    },
+    links,
+  );
+}
+
+// The payment reminders' confirmation email, sent when a student sets or
+// changes a card's statement and due days (Ben, 2026-11-09). It names each
+// reminder that will go out and the day it goes, so the student knows what
+// to expect. Like the reapply one, it is not a reminder row and does not count
+// toward the one-email-a-day limit.
+
+export type PaymentRemindersEmailInput = {
+  applicationId: string;
+  cardName: string | null;
+  // Today on the student's calendar (YYYY-MM-DD).
+  today: string;
+  // The next reminder of each kind that is on, with the day it goes out; null
+  // when that email is off. The due-date one is also null while autopay is on.
+  statementClosing: { remindOn: string } | null;
+  paymentDue: { remindOn: string } | null;
+  autopayOn: boolean;
+};
+
+const PAYMENT_SUBJECT = "Your payment reminders are set";
+const PAYMENT_BUTTON = "See your reminders";
+const PAYMENT_FOOTER = "You're getting this because you set payment reminders.";
+
+// "today" or "on Nov 9", on the student's calendar, never shifted.
+function dayPhrase(date: string, today: string): string {
+  if (date === today) return "today";
+  return `on ${new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`))}`;
+}
+
+export function buildPaymentRemindersEmail(input: PaymentRemindersEmailInput, links: ConfirmationEmailLinks): ConfirmationEmail {
+  const card = input.cardName ?? "your card";
+  const lines = [`Hey, your reminders for ${card} are set.`];
+  if (input.statementClosing) {
+    lines.push(`We'll email you ${dayPhrase(input.statementClosing.remindOn, input.today)}, 3 days before your statement closes.`);
+  }
+  if (input.paymentDue) {
+    lines.push(`We'll email you ${dayPhrase(input.paymentDue.remindOn, input.today)}, 3 days before your payment is due.`);
+  } else if (input.autopayOn) {
+    lines.push("Autopay is on, so we won't email you about the due date.");
+  }
+  lines.push("Change them any time in Cense.", SIGN_OFF);
+  return renderConfirmation(
+    {
+      subject: PAYMENT_SUBJECT,
+      lines,
+      button: { label: PAYMENT_BUTTON, href: `${links.appUrl}${paymentRemindersPath(input.applicationId)}` },
+      footer: PAYMENT_FOOTER,
+    },
+    links,
+  );
 }

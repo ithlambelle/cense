@@ -8,7 +8,7 @@ const SAMPLE_ID = "00000000-0000-4000-8000-000000000001";
 // The frame's sample answers (Figma 144:1822). Saving waits a moment and
 // answers from here: nothing is sent to the API.
 const ANSWERS: Record<"saves" | "fails", ReminderSetupSave> = {
-  saves: { kind: "ok" },
+  saves: { kind: "ok", emailed: true },
   fails: {
     kind: "failed",
     stage: "choices",

@@ -6,6 +6,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { axeChecker, blockExternalRequests, signUp, uniqueEmail } from "./helpers";
+import { startFakeEmailServer } from "./support/fake-email-server";
 
 const DISCOVER = { id: "discover-it-student-cash-back", name: "Discover it Student Cash Back" };
 const CHIME = { id: "chime-card", name: "Chime Card" };
@@ -285,3 +286,55 @@ for (const size of [
     await fitsAndClear(page, page.getByRole("link", { name: "Back to Home" }), "Back");
   });
 }
+
+test.describe("the payment reminders' confirmation email", () => {
+  let fake: Awaited<ReturnType<typeof startFakeEmailServer>> | null = null;
+
+  test.beforeAll(async () => {
+    // Only where the app was started with the email variables pointing at the
+    // stand-in (CI does; README): elsewhere the app skips the email.
+    if (process.env.CI || process.env.E2E_CRON_SECRET) fake = await startFakeEmailServer();
+  });
+
+  test.afterAll(async () => {
+    await fake?.close();
+  });
+
+  test("goes out when the days are set or changed, never for the same days again", async ({ page }) => {
+    test.skip(!fake, "Start the app with the reminder job's variables (README).");
+    const email = uniqueEmail("reminder-confirm");
+    await signUp(page, email, async () => {});
+    const id = await track(page, DISCOVER);
+
+    await page.goto(`/applications/${id}/reminders`);
+    await page.getByLabel("Statement closes on day").fill("12");
+    await page.getByLabel("Payment due on day").fill("7");
+    await page.getByRole("heading", { level: 1, name: "Never miss a payment" }).click();
+    await page.getByRole("button", { name: "Save reminders" }).click();
+    // Sent, so the screen says so before it moves on.
+    await expect(page.getByRole("status").getByText("Saved. We emailed you a confirmation.")).toBeVisible();
+    await expect(page).toHaveURL(/\/home$/);
+    await expect.poll(() => fake!.emailsTo(email).length).toBe(1);
+    const sent = fake!.emailsTo(email)[0];
+    expect(sent.subject).toBe("Your payment reminders are set");
+    expect(sent.text).toContain(`your reminders for ${DISCOVER.name} are set`);
+    expect(sent.text).toContain("3 days before your statement closes.");
+    expect(sent.text).toContain("3 days before your payment is due.");
+    expect(sent.text).toContain(`/applications/${id}/reminders`);
+
+    // The same days again: saved, no second email.
+    await page.goto(`/applications/${id}/reminders`);
+    await saveDays(page, "12", "7");
+    expect(fake!.emailsTo(email)).toHaveLength(1);
+
+    // Changed days: a new confirmation.
+    await page.goto(`/applications/${id}/reminders`);
+    await saveDays(page, "20", "15");
+    await expect.poll(() => fake!.emailsTo(email).length).toBe(2);
+
+    // It is not a reminder row, so the daily limit and the job never see it.
+    const reminders = (await (await page.request.get("/api/v1/reminders")).json()) as { reminders: { sentAt: string | null }[] };
+    expect(reminders.reminders.every((r) => r.sentAt === null)).toBe(true);
+  });
+});
+
