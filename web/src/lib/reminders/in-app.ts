@@ -199,6 +199,16 @@ function copy(reminder: Reminder, card: ReminderCard, today: string, application
       };
     }
     case "payment_due":
+      // Once the date has passed it reads as past, with what still helps:
+      // issuers report a payment to the credit bureaus once it is 30 days late.
+      if (reminder.occurrence < today) {
+        return {
+          icon: "calendar",
+          title: `Payment was due ${monthDay(reminder.occurrence)}`,
+          description: "Not paid yet? Pay now, before it’s 30 days late.",
+          action: { type: "paid", label: "I paid it" },
+        };
+      }
       return {
         icon: "calendar",
         title: `Payment due ${monthDay(reminder.occurrence)}`,

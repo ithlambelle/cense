@@ -57,4 +57,17 @@ describe("profileUpdates (F5)", () => {
     expect(profileUpdates(reminders, CARDS, NY, new Date("2026-11-08T14:00:00Z")).latest?.when).toBe("Nov 7");
     expect(profileUpdates(reminders, CARDS, "UTC", new Date("2026-11-08T14:00:00Z")).latest?.when).toBe("Today");
   });
+
+  it("leaves out a reminder whose date has passed, one marked paid and one snoozed", () => {
+    // Sent Nov 1 for a payment due Nov 4; today is Nov 8. Updates keeps it under Earlier.
+    const past = sent("payment_due", "2026-11-04", "2026-11-01T13:00:00.000Z");
+    expect(profileUpdates([past], CARDS, NY, NOW)).toEqual({ newCount: 0, latest: null });
+    const paid = sent("payment_due", "2026-12-06", "2026-11-05T13:00:00.000Z", { actedAt: "2026-11-06T13:00:00.000Z" });
+    const snoozed = sent("statement_closing", "2026-11-13", "2026-11-07T13:00:00.000Z", { snoozedUntil: "2026-11-10T14:00:00.000Z" });
+    expect(profileUpdates([past, paid, snoozed], CARDS, NY, NOW).latest).toBeNull();
+    // An open one is still shown, even when an older passed one is newer to send.
+    const open = sent("statement_closing", "2026-11-13", "2026-10-30T13:00:00.000Z");
+    expect(profileUpdates([past, open], CARDS, NY, NOW).latest).toMatchObject({ title: "Statement closes Nov 13", when: "Oct 30" });
+  });
 });
+

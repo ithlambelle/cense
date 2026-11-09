@@ -142,6 +142,12 @@ describe("updateItem", () => {
     expect(updateItem(reminder({ occurrence: "2026-11-07" }), card(), NOW, NY)?.dismissable).toBe(false);
   });
 
+  it("reads a payment date that has passed as past, in Earlier", () => {
+    expect(updateItem(reminder({ kind: "payment_due", occurrence: "2026-11-04" }), card(), NOW, NY)).toMatchObject({
+      group: "earlier", title: "Payment was due Nov 4", description: "Not paid yet? Pay now, before it’s 30 days late.", action: null,
+    });
+  });
+
   it("gives each kind its one action", () => {
     expect(updateItem(reminder({ kind: "payment_due", occurrence: "2026-12-06" }), card(), NOW, NY)).toMatchObject({
       title: "Payment due Dec 6", description: "Pay the full statement balance.", action: { type: "paid", label: "I paid it" },

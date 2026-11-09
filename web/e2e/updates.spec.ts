@@ -104,6 +104,9 @@ test("the email's Open Cense opens Updates with the reminder as a card; I paid i
   await page.goto("/settings");
   const updates = page.getByRole("region", { name: "Updates" });
   await expect(updates.getByText("1 new")).toBeVisible();
+  // Only what still needs the student: the payment, not the statement just marked paid down.
+  await expect(updates.getByText(`Payment due ${monthDay(addDays(today(), 12))}`)).toBeVisible();
+  await expect(updates.getByText(/^Statement /)).toHaveCount(0);
   await updates.getByRole("link", { name: /^See all/ }).click();
   await expect(page).toHaveURL(/\/updates$/);
 
