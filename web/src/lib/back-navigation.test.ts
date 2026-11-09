@@ -38,6 +38,12 @@ describe("screenName", () => {
     expect(screenName(new URL(`${ORIGIN}/denied/plan?application=a`))).toBe("Plan");
     expect(screenName(new URL(`${ORIGIN}/cards/discover-it`))).toBe("Card details");
     expect(screenName(new URL(`${ORIGIN}/learn/student-loans`))).toBe("Student loans");
+    expect(screenName(new URL(`${ORIGIN}/updates`))).toBe("Updates");
+    expect(screenName(new URL(`${ORIGIN}/applications/a1/setup`))).toBe("Card setup");
+    expect(screenName(new URL(`${ORIGIN}/applications/a1/setup/autopay`))).toBe("Autopay steps");
+    expect(screenName(new URL(`${ORIGIN}/applications/a1/setup/autopay/on`))).toBe("Autopay is on");
+    expect(screenName(new URL(`${ORIGIN}/applications/a1/setup/spend-limit/suggestion?from=home`))).toBe("Your suggestion");
+    expect(screenName(new URL(`${ORIGIN}/applications/a1/setup/elsewhere`))).toBeNull();
     expect(screenName(new URL(`${ORIGIN}/somewhere`))).toBeNull();
   });
 });
