@@ -83,6 +83,7 @@ export function PennyComposer({ variant, onAsk, busy = false }: Props) {
         )}
       >
         {learn ? (
+          // Light Blue with a navy arrow: the design system's accent on the violet card.
           <Image src="/icons/penny-go.svg" alt="" width={34} height={34} />
         ) : (
           <ArrowRight aria-hidden="true" width={20} height={20} />
