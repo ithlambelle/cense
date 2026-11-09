@@ -108,11 +108,11 @@ export type PaymentRemindersEmailInput = {
   cardName: string | null;
   // Today on the student's calendar (YYYY-MM-DD).
   today: string;
-  // The card's next statement closing and payment due dates (YYYY-MM-DD) for
-  // each reminder that is on; null when that email is off. The due-date one is
-  // also null while autopay is on.
-  statementClosing: string | null;
-  paymentDue: string | null;
+  // Each monthly reminder that is on, with the card's next closing or due date
+  // (YYYY-MM-DD) when one is scheduled; null when that email is off. The
+  // due-date one is also null while autopay is on.
+  statementClosing: { next: string | null } | null;
+  paymentDue: { next: string | null } | null;
   // The one autopay check after a new card's first statement is on.
   autopayCheck: boolean;
   autopayOn: boolean;
@@ -122,10 +122,10 @@ const PAYMENT_SUBJECT = "Your payment reminders are set";
 const PAYMENT_BUTTON = "Change your reminders";
 const PAYMENT_FOOTER = "You're getting this because you set payment reminders.";
 
-// " Next close: Nov 20." for a date still ahead; nothing for one that is
-// today or past, which the next email will not be about.
-function nextDate(label: string, date: string, today: string): string {
-  if (date <= today) return "";
+// " Next close: Nov 20." for a date still ahead; nothing when there is none,
+// or for one that is today, which the next email may not be about.
+function nextDate(label: string, date: string | null, today: string): string {
+  if (date === null || date <= today) return "";
   const day = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
   return ` ${label}: ${day}.`;
 }
@@ -134,10 +134,10 @@ export function buildPaymentRemindersEmail(input: PaymentRemindersEmailInput, li
   const card = input.cardName ?? "your card";
   const lines = [`Hey, your reminders for ${card} are set.`];
   if (input.statementClosing) {
-    lines.push(`We'll email you before each statement closes, so you can pay it down.${nextDate("Next close", input.statementClosing, input.today)}`);
+    lines.push(`We'll email you before each statement closes, so you can pay it down.${nextDate("Next close", input.statementClosing.next, input.today)}`);
   }
   if (input.paymentDue) {
-    lines.push(`We'll email you before each payment is due.${nextDate("Next due date", input.paymentDue, input.today)}`);
+    lines.push(`We'll email you before each payment is due.${nextDate("Next due date", input.paymentDue.next, input.today)}`);
   } else if (input.autopayOn) {
     lines.push("Autopay is on, so we won't email you about due dates.");
   }

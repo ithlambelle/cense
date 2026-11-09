@@ -81,7 +81,7 @@ describe("sendReapplyConfirmation", () => {
 describe("sendPaymentRemindersConfirmation", () => {
   const INPUT = {
     applicationId: REMINDER.applicationId, cardName: "Discover it", today: "2026-11-09",
-    statementClosing: "2026-11-20", paymentDue: null, autopayCheck: false, autopayOn: true,
+    statementClosing: { next: "2026-11-20" }, paymentDue: null, autopayCheck: false, autopayOn: true,
   };
   const SAVED_AT = "2026-11-09T18:00:00.123456+00:00";
 

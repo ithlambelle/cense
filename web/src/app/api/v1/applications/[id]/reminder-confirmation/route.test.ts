@@ -22,9 +22,9 @@ const settings = (over: Record<string, unknown> = {}) => ({
 // 20th and due the 15th: the first due date is the one after the first close
 // (Dec 15), not Nov 15. Earliest first, as the route reads them.
 const SCHEDULED = [
-  { kind: "statement_closing", occurrence: "2026-11-20" },
-  { kind: "check_autopay", occurrence: "2026-11-21" },
-  { kind: "payment_due", occurrence: "2026-12-15" },
+  { kind: "statement_closing", occurrence: "2026-11-20", attempts: 0 },
+  { kind: "check_autopay", occurrence: "2026-11-21", attempts: 0 },
+  { kind: "payment_due", occurrence: "2026-12-15", attempts: 0 },
 ];
 
 // Each table answers its own result; the reminders read records its filters.
@@ -102,7 +102,7 @@ describe("POST /applications/{id}/reminder-confirmation", () => {
       expect.objectContaining({ studentId: "student-1" }),
       {
         applicationId: ID, cardName: "Discover it Student Cash", today: "2026-11-09",
-        statementClosing: "2026-11-20", paymentDue: "2026-12-15", autopayCheck: true, autopayOn: false,
+        statementClosing: { next: "2026-11-20" }, paymentDue: { next: "2026-12-15" }, autopayCheck: true, autopayOn: false,
       },
       SAVED_AT,
     );
@@ -111,21 +111,55 @@ describe("POST /applications/{id}/reminder-confirmation", () => {
   it("keeps only what the daily job would send: switches, autopay, and the check only for a card got through Cense", async () => {
     student({ data: card({ autopay_status: "on" }), error: null });
     await post();
-    expect(lastInput()).toMatchObject({ statementClosing: "2026-11-20", paymentDue: null, autopayCheck: false, autopayOn: true });
+    expect(lastInput()).toMatchObject({ statementClosing: { next: "2026-11-20" }, paymentDue: null, autopayCheck: false, autopayOn: true });
 
     student({ data: card({ source: "added" }), error: null });
     await post();
-    expect(lastInput()).toMatchObject({ autopayCheck: false, paymentDue: "2026-12-15" });
+    expect(lastInput()).toMatchObject({ autopayCheck: false, paymentDue: { next: "2026-12-15" } });
 
     student({ data: card(), error: null }, { data: settings({ remind_statement_closing: false, remind_check_autopay: false }), error: null });
     await post();
-    expect(lastInput()).toMatchObject({ statementClosing: null, paymentDue: "2026-12-15", autopayCheck: false });
+    expect(lastInput()).toMatchObject({ statementClosing: null, paymentDue: { next: "2026-12-15" }, autopayCheck: false });
+  });
+
+  it("names a reminder that is on even when this cycle's email already went, without a date", async () => {
+    student({ data: card(), error: null }, { data: settings(), error: null }, { data: [SCHEDULED[2]], error: null });
+    await post();
+    expect(lastInput()).toMatchObject({ statementClosing: { next: null }, paymentDue: { next: "2026-12-15" }, autopayCheck: false });
+  });
+
+  it("skips rows the daily job can no longer send: 3 attempts, a passed date, an autopay check past its window", async () => {
+    student({ data: card(), error: null }, { data: settings(), error: null }, {
+      data: [
+        { kind: "statement_closing", occurrence: "2026-11-08", attempts: 1 },
+        { kind: "check_autopay", occurrence: "2026-11-05", attempts: 0 },
+        { kind: "payment_due", occurrence: "2026-11-15", attempts: 3 },
+        { kind: "statement_closing", occurrence: "2026-12-20", attempts: 0 },
+        { kind: "payment_due", occurrence: "2026-12-15", attempts: 0 },
+      ],
+      error: null,
+    });
+    await post();
+    expect(lastInput()).toMatchObject({ statementClosing: { next: "2026-12-20" }, paymentDue: { next: "2026-12-15" }, autopayCheck: false });
+  });
+
+  it("asks only for the card's unsent reminders of the three kinds, earliest first", async () => {
+    student({ data: card(), error: null });
+    await post();
+    expect(reminderFilters).toEqual([
+      `select:["kind, occurrence, attempts"]`,
+      `eq:["card_application_id","${ID}"]`,
+      `eq:["student_id","student-1"]`,
+      `in:["kind",["statement_closing","payment_due","check_autopay"]]`,
+      `is:["sent_at",null]`,
+      `order:["occurrence",{"ascending":true}]`,
+    ]);
   });
 
   it("sends nothing when no reminder is on for this card", async () => {
     student({ data: card({ autopay_status: "on" }), error: null }, { data: settings({ remind_statement_closing: false }), error: null });
     expect(await (await post()).json()).toEqual({ confirmation: "skipped" });
-    student({ data: card(), error: null }, { data: settings(), error: null }, { data: [], error: null });
+    student({ data: card({ source: "added" }), error: null }, { data: settings({ remind_statement_closing: false, remind_payment_due: false }), error: null });
     expect(await (await post()).json()).toEqual({ confirmation: "skipped" });
     expect(send.sendPaymentRemindersConfirmation).not.toHaveBeenCalled();
   });

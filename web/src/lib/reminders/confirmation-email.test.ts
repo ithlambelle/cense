@@ -36,7 +36,7 @@ describe("buildConfirmationEmail (F4)", () => {
 describe("buildPaymentRemindersEmail", () => {
   const base = {
     applicationId: APP, cardName: "Discover it Student Cash", today: "2026-11-09",
-    statementClosing: "2026-11-20", paymentDue: "2026-12-15", autopayCheck: false, autopayOn: false,
+    statementClosing: { next: "2026-11-20" }, paymentDue: { next: "2026-12-15" }, autopayCheck: false, autopayOn: false,
   };
 
   it("names the card, each reminder that is on and the card's next dates, never a send day", () => {
@@ -52,10 +52,12 @@ describe("buildPaymentRemindersEmail", () => {
     expect(email.html).not.toMatch(/[—~]/);
   });
 
-  it("leaves out a next date that is today or past", () => {
-    const email = buildPaymentRemindersEmail({ ...base, statementClosing: "2026-11-09" }, links);
-    expect(email.text).toContain("We'll email you before each statement closes, so you can pay it down.\n");
-    expect(email.text).not.toContain("Next close");
+  it("leaves out a next date that is today, or when none is scheduled, and keeps the line", () => {
+    for (const next of ["2026-11-09", null]) {
+      const email = buildPaymentRemindersEmail({ ...base, statementClosing: { next } }, links);
+      expect(email.text).toContain("We'll email you before each statement closes, so you can pay it down.\n");
+      expect(email.text).not.toContain("Next close");
+    }
   });
 
   it("says autopay covers due dates when it is on, names the autopay check, and never promises an email that is off", () => {

@@ -3,6 +3,7 @@ import { databaseError } from "@/lib/api/database";
 import { apiError } from "@/lib/api/errors";
 import { calendarDate, safeTimeZone } from "@/lib/api/reminders";
 import { applicationIdSchema } from "@/lib/api/schemas";
+import { addDays } from "@/lib/reminders/schedule";
 import { sendPaymentRemindersConfirmation } from "@/lib/reminders/send-confirmation";
 
 type Params = { params: Promise<{ id: string }> };
@@ -24,7 +25,7 @@ type ProfileRow = {
   remind_check_autopay: boolean;
 };
 
-type ReminderRow = { kind: "statement_closing" | "payment_due" | "check_autopay"; occurrence: string };
+type ReminderRow = { kind: "statement_closing" | "payment_due" | "check_autopay"; occurrence: string; attempts: number };
 
 // Emails the student a confirmation of an approved card's payment reminders,
 // called by the payment reminder screen after it saves new days. Saving the
@@ -58,7 +59,7 @@ export async function POST(_request: Request, context: Params): Promise<Response
       .maybeSingle(),
     student.supabase
       .from("reminders")
-      .select("kind, occurrence")
+      .select("kind, occurrence, attempts")
       .eq("card_application_id", id)
       .eq("student_id", student.studentId)
       .in("kind", ["statement_closing", "payment_due", "check_autopay"])
@@ -76,21 +77,37 @@ export async function POST(_request: Request, context: Params): Promise<Response
 
   const settings = profile.data as ProfileRow | null;
   const today = calendarDate(new Date().toISOString(), safeTimeZone(settings?.time_zone));
-  const reminders = scheduled.data as ReminderRow[];
-  // The earliest unsent one of a kind, or null when there is none.
-  const next = (kind: ReminderRow["kind"]) => reminders.find((r) => r.kind === kind)?.occurrence ?? null;
+  // Only rows the daily job could still send (claim_due_reminders): fewer
+  // than 3 attempts, a closing or due date not passed, an autopay check at
+  // most 3 days after its first close. A failed send is kept, so it is skipped.
+  const sendable = (scheduled.data as ReminderRow[]).filter(
+    (r) => r.attempts < 3 && r.occurrence >= (r.kind === "check_autopay" ? addDays(today, -3) : today),
+  );
+  // The card's next date for a kind, or null when none is scheduled (this
+  // cycle's email already went, for example).
+  const next = (kind: ReminderRow["kind"]) => sendable.find((r) => r.kind === kind)?.occurrence ?? null;
   const autopayOn = row.autopay_status === "on";
-  // Each switch defaults to on, as in the database.
-  const statementClosing = settings?.remind_statement_closing === false ? null : next("statement_closing");
-  const paymentDue = settings?.remind_payment_due === false || autopayOn ? null : next("payment_due");
+  // Whether a monthly reminder is named follows its switch (default on, as in
+  // the database) and autopay; the scheduled row only gives the date.
+  const statementOn = settings?.remind_statement_closing !== false;
+  const dueOn = settings?.remind_payment_due !== false && !autopayOn;
+  // The one-time autopay check is named only while one can still go out.
   const autopayCheck =
     settings?.remind_check_autopay !== false && !autopayOn && row.source === "application" && next("check_autopay") !== null;
 
   const confirmation =
-    statementClosing || paymentDue || autopayCheck
+    statementOn || dueOn || autopayCheck
       ? await sendPaymentRemindersConfirmation(
           student,
-          { applicationId: id, cardName: row.card_name, today, statementClosing, paymentDue, autopayCheck, autopayOn },
+          {
+            applicationId: id,
+            cardName: row.card_name,
+            today,
+            statementClosing: statementOn ? { next: next("statement_closing") } : null,
+            paymentDue: dueOn ? { next: next("payment_due") } : null,
+            autopayCheck,
+            autopayOn,
+          },
           // Each save of the days changes updated_at: a new confirmation, while
           // a retry of the same request is still sent once.
           row.updated_at,
