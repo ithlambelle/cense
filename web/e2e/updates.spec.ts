@@ -100,6 +100,13 @@ test("the email's Open Cense opens Updates with the reminder as a card; I paid i
   await page.reload();
   await expect(group(page, "Earlier").getByText("You marked it paid.")).toBeVisible();
 
+  // Profile counts the one still New, and See all opens Updates.
+  await page.goto("/settings");
+  const updates = page.getByRole("region", { name: "Updates" });
+  await expect(updates.getByText("1 new")).toBeVisible();
+  await updates.getByRole("link", { name: /^See all/ }).click();
+  await expect(page).toHaveURL(/\/updates$/);
+
   // Mark all read moves the other card to Earlier, with its actions kept, and the chip goes.
   await page.getByRole("button", { name: "Mark all read" }).click();
   await expect(group(page, "New")).toHaveCount(0);
@@ -108,6 +115,8 @@ test("the email's Open Cense opens Updates with the reminder as a card; I paid i
   const due = card(page, `Payment due ${monthDay(addDays(today(), 12))}`);
   await expect(group(page, "Earlier").getByRole("article")).toHaveCount(2);
   await expect(due.getByRole("button", { name: "I paid it" })).toBeVisible();
+  await page.goto("/settings");
+  await expect(page.getByRole("region", { name: "Updates" }).getByText(/ new$/)).toHaveCount(0);
 
   // Home's bell opens Updates.
   await page.goto("/home");
