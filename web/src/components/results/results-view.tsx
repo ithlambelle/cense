@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { CardArt } from "@/components/cards/card-art";
 import { BackLink } from "@/components/ui/app-header";
 import { FitSignal } from "@/components/ui/fit-signal";
 import { BottomNav } from "@/components/ui/bottom-nav";
@@ -13,20 +14,24 @@ import { TrackOnMount } from "@/components/analytics/track-on-mount";
 import {
   cardDisplayName,
   cardTypeLabel,
+  ESTIMATE_DISCLAIMER,
   NO_CARD_FALLBACK,
   NOT_YET_NEXT_STEPS,
   RESULT_DISCLAIMER,
   RESULT_HEADLINES,
+  WHY_TITLE,
+  whyLines,
 } from "@/lib/copy/results";
 import { SENSITIVE } from "@/lib/analytics";
 import { moneyAmount } from "@/lib/money";
 import { quizProgress } from "@/lib/quiz/progress";
-import type { ResultView } from "@/lib/results/compute";
+import type { ResultOption, ResultView } from "@/lib/results/compute";
 import { cardPath, quizPath, ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
-// The result screen, drawn from Figma 397:822 (Wireframes Prototyping page).
-// Everything shown comes from computeResult (rules v1.2); nothing here decides fit.
+// The result screen: the header from Figma 397:822 (Wireframes Prototyping
+// page), the options from the proposal "Result / Three options" (371:10704).
+// Everything shown comes from computeResult (rules v1.3); nothing here decides fit.
 // `answered`: how many questions are answered, for a quiz not finished yet.
 export function ResultsView({ view, answered = 0 }: { view: ResultView; answered?: number }) {
   if (view.kind === "quiz_unfinished") {
@@ -48,7 +53,7 @@ export function ResultsView({ view, answered = 0 }: { view: ResultView; answered
   if (view.kind === "no_card") {
     return (
       <ResultLayout title={RESULT_HEADLINES.not_yet} subtitle="Based on your answers" footer>
-        <TrackOnMount event="recommendation_viewed" props={{ tier: "not_yet", card_id: null, has_alternative: false }} />
+        <TrackOnMount event="recommendation_viewed" props={{ tier: "not_yet", card_id: null, option_count: 0 }} />
         <div className="rounded-card bg-off-white p-5">
           <p className={cn(SENSITIVE, "text-body-m text-navy")}>{view.reason ?? NO_CARD_FALLBACK}</p>
         </div>
@@ -81,102 +86,128 @@ export function ResultsView({ view, answered = 0 }: { view: ResultView; answered
     );
   }
 
-  const { card, fit, alternative } = view;
+  const [top, ...others] = view.options;
+  const estimated = view.options.some((option) => whyLines(option).some((line) => line.id === "value"));
 
   return (
-    <ResultLayout title={RESULT_HEADLINES[fit.tier]} subtitle="Based on your answers" footer>
+    <ResultLayout title={RESULT_HEADLINES[top.fit.tier]} subtitle="Based on your answers" footer>
       <TrackOnMount
         event="recommendation_viewed"
-        props={{ tier: fit.tier, card_id: card.id, has_alternative: alternative !== null }}
+        props={{ tier: top.fit.tier, card_id: top.card.id, option_count: view.options.length }}
       />
-      <section aria-labelledby="top-match" className="flex flex-col gap-4">
+      <section aria-labelledby="top-match" className="flex flex-col gap-3">
         <h2 id="top-match" className="font-heading text-h6 font-medium text-indigo-black">
           Top match
         </h2>
-        {/* The whole card opens the card page: in interviews a student waited
-            instead of tapping View card (2026-10-18). View card's box is
-            stretched over the card (after:inset-0), the block-link pattern, so
-            the card holds one link rather than a link wrapping all its text. */}
-        <div className="relative flex flex-col gap-4 rounded-card bg-off-white p-5 transition-transform duration-200 motion-safe:has-[a:active]:scale-[0.99]">
-          <div className="flex flex-col gap-[9px]">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-body-s text-indigo-black">{cardTypeLabel(card)}</p>
-              {/* The fit tier as the designers' signal bars (G8). Nobody
-                  noticed the tier in interviews. */}
-              <FitSignal tier={fit.tier} className={SENSITIVE} />
-            </div>
-            <h3 className="font-heading text-h5 font-medium text-navy">{cardDisplayName(card)}</h3>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <h4 className="font-heading text-h6 font-medium text-navy">
-              {fit.tier === "likely_fit" ? "Why it fits you" : "What to know"}
-            </h4>
-            {/* The reasons restate the student's answers. */}
-            <ul className={cn(SENSITIVE, "flex flex-col gap-2")}>
-              {fit.reasons.map((reason) => (
-                <li key={reason} className="flex items-start gap-3 text-body-m text-navy">
-                  {/* A green check only for a likely fit. A stretch's reasons are cautions. */}
-                  {fit.tier === "likely_fit" ? (
-                    <Image src="/icons/fit-check.svg" alt="" width={14} height={11} className="mt-1.5 shrink-0" />
-                  ) : (
-                    <CircleInfo aria-hidden="true" width={14} height={14} className="mt-[5px] shrink-0 text-indigo-black" />
-                  )}
-                  <span>{reason}</span>
-                </li>
-              ))}
-            </ul>
-            {fit.notes.map((note) => (
-              <NoteLine key={note.id}>{note.text}</NoteLine>
-            ))}
-          </div>
-
-          <dl className="flex items-start justify-between gap-3">
-            <FactChip label="Annual fee" value={moneyAmount(card.annualFeeCents)} />
-            {card.secured && card.depositMinCents > 0 ? (
-              <FactChip label="Deposit" value={`From ${moneyAmount(card.depositMinCents)}`} />
-            ) : null}
-          </dl>
-
-          {/* translate-none: the button's pressed nudge would make it the box
-              its ::after is sized to, shrinking the card-wide tap area to the
-              button mid-tap so the tap never reaches the link. */}
-          <Link
-            href={cardPath(card.id, "results")}
-            aria-label={`View card: ${cardDisplayName(card)}`}
-            className={cn(
-              buttonVariants({ chevron: false }),
-              SENSITIVE,
-              "after:absolute after:inset-0 after:rounded-card motion-safe:active:translate-none",
-            )}
-          >
-            View card
-          </Link>
-        </div>
+        <OptionCard option={top} top />
       </section>
 
-      {alternative ? (
-        <section aria-labelledby="another-option" className="mt-6 flex flex-col gap-4">
-          <h2 id="another-option" className="font-heading text-h6 font-medium text-indigo-black">
-            Another option
+      {others.length > 0 ? (
+        <section aria-labelledby="other-options" className="mt-6 flex flex-col gap-3">
+          <h2 id="other-options" className="font-heading text-h6 font-medium text-indigo-black">
+            Other options
           </h2>
-          {/* Its own tier and first reason, so a stretch never reads as an equal pick. */}
-          <Link
-            href={cardPath(alternative.card.id, "results")}
-            className="flex flex-col gap-1 rounded-card border-[1.5px] border-violet bg-white p-5 hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          >
-            <span className="flex items-start justify-between gap-2">
-              <span className="font-heading text-h6 font-medium text-navy">{cardDisplayName(alternative.card)}</span>
-              <FitSignal tier={alternative.fit.tier} className={SENSITIVE} />
-            </span>
-            <span className="text-body-s text-indigo-black">{cardTypeLabel(alternative.card)}</span>
-            {alternative.fit.reasons[0] ? (
-              <span className={cn(SENSITIVE, "text-body-s text-navy")}>{alternative.fit.reasons[0]}</span>
-            ) : null}
-          </Link>
+          {others.map((option) => (
+            <OptionCard key={option.card.id} option={option} />
+          ))}
         </section>
       ) : null}
+
+      {estimated ? <p className="mt-4 text-body-s text-indigo-black/65">{ESTIMATE_DISCLAIMER}</p> : null}
     </ResultLayout>
+  );
+}
+
+// One card on the result, from "Result / Three options" (Figma
+// gPofkJWVZ2wUWyF9SfHW6O, 371:10704): the top match on off-white with a 1px
+// Amethyst border, the others white with a 1.5px one, radius 22, 20/16
+// padding, name with the fit signal. Added to the frame on Ben's direction
+// (2026-11-07): the card art, "Why it's right for you" as up to three large
+// lines in place of the frame's 13px ones, and the fee chips. The whole card
+// opens the card page: in interviews a student waited instead of tapping View
+// card (2026-10-18), so View card's box is stretched over the card
+// (after:inset-0), the block-link pattern, one link rather than a link
+// wrapping all its text.
+function OptionCard({ option, top = false }: { option: ResultOption; top?: boolean }) {
+  const { card, fit, rewards } = option;
+  const lines = whyLines(option);
+  return (
+    <div
+      className={cn(
+        "relative flex flex-col gap-4 rounded-card border-violet px-5 py-4 transition-transform duration-200 motion-safe:has-[a:active]:scale-[0.99]",
+        top ? "border bg-off-white" : "border-[1.5px] bg-white",
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <CardArt src={rewards?.image ?? null} className="w-16" />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <p className="text-body-s text-indigo-black/65">{cardTypeLabel(card)}</p>
+          <h3 className="font-heading text-h6 font-medium text-navy">{cardDisplayName(card)}</h3>
+        </div>
+        {/* The fit tier as the designers' signal bars (G8). The approval line
+            below says it in words: nobody noticed the label in interviews. */}
+        <FitSignal tier={fit.tier} className={SENSITIVE} />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <h4 className="text-body-s font-semibold text-indigo-black/70">{WHY_TITLE}</h4>
+        {/* Every line restates the student's answers or spending. */}
+        <ul className={cn(SENSITIVE, "flex flex-col gap-3")}>
+          {lines.map((line) => (
+            <li key={line.id} className="flex items-start gap-3">
+              {/* The designers' green check for good news, an info mark for a caution. */}
+              {line.mark === "check" ? (
+                <Image src="/icons/fit-check.svg" alt="" width={14} height={11} className="mt-[7px] shrink-0" />
+              ) : (
+                <CircleInfo aria-hidden="true" width={14} height={14} className="mt-[5px] shrink-0 text-indigo-black" />
+              )}
+              <span className="flex flex-col gap-0.5">
+                <span className="text-body-m font-medium text-navy">
+                  <LineText text={line.text} amount={line.amount} />
+                </span>
+                {line.detail ? <span className="text-body-s text-indigo-black/70">{line.detail}</span> : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+        {top ? fit.notes.map((note) => <NoteLine key={note.id}>{note.text}</NoteLine>) : null}
+      </div>
+
+      <div className="flex items-end justify-between gap-3">
+        <dl className="flex flex-wrap items-start gap-3">
+          <FactChip label="Annual fee" value={moneyAmount(card.annualFeeCents)} />
+          {card.secured && card.depositMinCents > 0 ? (
+            <FactChip label="Deposit" value={`From ${moneyAmount(card.depositMinCents)}`} />
+          ) : null}
+        </dl>
+        {/* translate-none: a pressed nudge would make the link the box its
+            ::after is sized to, shrinking the card-wide tap area mid-tap. */}
+        <Link
+          href={cardPath(card.id, "results")}
+          aria-label={`View card: ${cardDisplayName(card)}`}
+          className={cn(
+            buttonVariants({ variant: "secondary", size: null }),
+            "-mr-2 gap-1 px-2 after:absolute after:inset-0 after:rounded-card motion-safe:active:translate-none",
+          )}
+        >
+          View card
+          <ButtonChevron />
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+// The line's text with its amount in the number font ("About $48 in your first year").
+function LineText({ text, amount }: { text: string; amount: string | null }) {
+  const at = amount ? text.indexOf(amount) : -1;
+  if (!amount || at < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, at)}
+      <span className="font-number font-medium">{amount}</span>
+      {text.slice(at + amount.length)}
+    </>
   );
 }
 

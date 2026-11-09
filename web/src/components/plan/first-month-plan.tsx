@@ -2,6 +2,7 @@
 
 import Check from "@gravity-ui/icons/Check";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { AppHeader } from "@/components/ui/app-header";
@@ -10,8 +11,12 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatusPill } from "@/components/ui/status-pill";
+import { SENSITIVE } from "@/lib/analytics";
+import { saveAutopay } from "@/lib/api-client/applications";
 import { loadPlanSteps, savePlanStep, type PlanStepName } from "@/lib/api-client/plans";
 import type { Application } from "@/lib/api/application";
+import { moneyAmount } from "@/lib/money";
+import { SPEND_LIMIT_PERCENT, SPEND_LIMIT_SOURCE, suggestedSpendLimitCents } from "@/lib/plan/spend-limit";
 import { paymentRemindersPath, ROUTES, signInPath } from "@/lib/routes";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
 import { cn } from "@/lib/utils";
@@ -19,8 +24,9 @@ import { cn } from "@/lib/utils";
 type ActionKey = "autopay" | "plannedPurchase" | "paymentReminder";
 type PlanActions = Record<ActionKey, boolean>;
 
-// The saved step behind each action. Autopay is not a plan step: it will come
-// from the card's autopay status, which the API cannot save yet.
+// The saved step behind each action. Autopay is not a plan step: it is the
+// card's own autopay status (US-10), read on the server with the card and
+// saved with PATCH /applications/{id}, as on Home, so both agree.
 const STEP: Record<ActionKey, PlanStepName | null> = {
   autopay: null,
   plannedPurchase: "planned_purchase",
@@ -45,7 +51,7 @@ type SavedPlan = { actions: PlanActions; state: "saved" };
 // The reminder action opens the reminder screen, which saves the card's days and
 // then the step; a step without a reminder that is really on (saved days, the
 // due-date email on, emails not off) is not done.
-function loadPlan(applicationId: string, reminderOn: boolean) {
+function loadPlan(applicationId: string, reminderOn: boolean, autopayOn: boolean) {
   return async (): Promise<LoadOutcome<SavedPlan>> => {
     const result = await loadPlanSteps(applicationId, "first_month");
     if (result.kind === "ok") {
@@ -53,7 +59,7 @@ function loadPlan(applicationId: string, reminderOn: boolean) {
         status: "ready",
         data: {
           actions: {
-            autopay: false,
+            autopay: autopayOn,
             plannedPurchase: result.done.has("planned_purchase"),
             paymentReminder: reminderOn && result.done.has("payment_reminder"),
           },
@@ -67,15 +73,26 @@ function loadPlan(applicationId: string, reminderOn: boolean) {
 }
 
 // Your first-month plan (S20), from the lo-fi board 219:2. Progress is saved
-// as plan steps. The lo-fi's "suggested monthly spending limit" is left out: there is
-// no sourced, rules-approved way to work one out yet.
-export function FirstMonthPlan({ application, paymentReminderOn = false }: { application: Application; paymentReminderOn?: boolean }) {
+// as plan steps. The suggested monthly spending limit is 30% of the card's
+// credit limit (US-04, lib/plan/spend-limit.ts).
+export function FirstMonthPlan({
+  application,
+  paymentReminderOn = false,
+  autopayOn = false,
+}: {
+  application: Application;
+  paymentReminderOn?: boolean;
+  autopayOn?: boolean;
+}) {
   // useLoaded needs a load with one identity per application.
-  const load = useMemo(() => loadPlan(application.id, paymentReminderOn), [application.id, paymentReminderOn]);
+  const load = useMemo(
+    () => loadPlan(application.id, paymentReminderOn, autopayOn),
+    [application.id, paymentReminderOn, autopayOn],
+  );
   // The return-path allow-list does not include this page, so Home it is.
   const { loaded, retry } = useLoaded(load, signInPath(ROUTES.home));
   const start: { actions: PlanActions; state: SaveState } =
-    loaded.status === "ready" ? loaded.data : { actions: NONE_DONE, state: loaded.status };
+    loaded.status === "ready" ? loaded.data : { actions: { ...NONE_DONE, autopay: autopayOn }, state: loaded.status };
   // A key per load state, so the checks start again from what was loaded.
   return (
     <PlanScreen
@@ -96,6 +113,7 @@ function PlanScreen({
   start: { actions: PlanActions; state: SaveState };
   onRetry: (() => void) | null;
 }) {
+  const router = useRouter();
   const [actions, setActions] = useState<PlanActions>(start.actions);
   // Fixed for this load: the screen is keyed on the load state.
   const state: SaveState = start.state;
@@ -107,16 +125,23 @@ function PlanScreen({
     const value = !actions[key];
     setActions((current) => ({ ...current, [key]: value }));
     setError(null);
+    if (state !== "saved") return;
     const step = STEP[key];
-    if (state !== "saved" || !step) return;
     setSaving((current) => new Set(current).add(key));
-    const result = await savePlanStep(application.id, "first_month", step, value);
+    const result = step
+      ? await savePlanStep(application.id, "first_month", step, value)
+      : await saveAutopay(application.id, value);
     setSaving((current) => {
       const next = new Set(current);
       next.delete(key);
       return next;
     });
-    if (result.kind === "ok") return;
+    if (result.kind === "ok") {
+      // Autopay reaches this page in the server render: refresh it, or Back
+      // from another screen restores the cached page with the old check.
+      if (!step) router.refresh();
+      return;
+    }
     // Undo only this action, so other saves in flight are not overwritten.
     setActions((current) => ({ ...current, [key]: !value }));
     setError(result.kind === "failed" ? result.message : "Sign in again to save your plan.");
@@ -138,6 +163,8 @@ function PlanScreen({
             <h2 className="font-heading text-h6 font-medium text-navy">{application.cardName}</h2>
             <StatusPill>APPROVED</StatusPill>
           </section>
+
+          <SpendingGuide creditLimitCents={application.creditLimitCents} />
 
           <section aria-labelledby="actions" className="flex flex-col gap-3">
             <div className="flex items-baseline justify-between">
@@ -225,5 +252,42 @@ function PlanScreen({
         </div>
       </div>
     </div>
+  );
+}
+
+// The suggested monthly spending limit (US-04): 30% of the card's limit in
+// dollars, or the rule alone when the limit was skipped at setup.
+function SpendingGuide({ creditLimitCents }: { creditLimitCents: number | null }) {
+  const suggested = suggestedSpendLimitCents(creditLimitCents);
+  return (
+    <section aria-labelledby="spending-guide" className="flex flex-col gap-2 rounded-card bg-off-white p-5">
+      <h2 id="spending-guide" className="font-heading text-h6 font-medium text-indigo-black">
+        Monthly spending guide
+      </h2>
+      {suggested !== null && creditLimitCents !== null ? (
+        <>
+          {/* Amounts are hidden from session replay, like the limit on Home. */}
+          <p className={cn(SENSITIVE, "font-heading text-h3 font-medium text-navy")}>Up to {moneyAmount(suggested)} a month</p>
+          <p className={cn(SENSITIVE, "text-body-s text-indigo-black")}>
+            That’s {SPEND_LIMIT_PERCENT}% of your {moneyAmount(creditLimitCents)} limit. Keeping your balance under{" "}
+            {SPEND_LIMIT_PERCENT}% of your limit is better for your credit score, and lower is better.
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="font-heading text-h3 font-medium text-navy">Up to {SPEND_LIMIT_PERCENT}% of your limit</p>
+          <p className="text-body-s text-indigo-black">
+            Keeping your balance under {SPEND_LIMIT_PERCENT}% of your limit is better for your credit score.{" "}
+            <Link href={ROUTES.home} className="underline">
+              Add your credit limit on Home
+            </Link>{" "}
+            to see this in dollars.
+          </p>
+        </>
+      )}
+      <a href={SPEND_LIMIT_SOURCE.url} target="_blank" rel="noopener noreferrer" className="self-start text-body-s text-indigo-black underline">
+        Why {SPEND_LIMIT_PERCENT}%? ({SPEND_LIMIT_SOURCE.name})
+      </a>
+    </section>
   );
 }

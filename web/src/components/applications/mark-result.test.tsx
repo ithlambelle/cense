@@ -45,6 +45,7 @@ afterEach(() => {
 describe("limitToCents", () => {
   it("reads dollars with or without $, commas and cents", () => {
     expect(limitToCents("")).toBeNull();
+    expect(limitToCents(" $ ")).toBeNull();
     expect(limitToCents("500")).toBe(50000);
     expect(limitToCents("$1,500")).toBe(150000);
     expect(limitToCents("500.00")).toBe(50000);
@@ -54,6 +55,7 @@ describe("limitToCents", () => {
   it("refuses words, bad comma grouping, a zero limit and impossible amounts", () => {
     expect(limitToCents("five hundred")).toBeUndefined();
     expect(limitToCents("$1,5,0,0")).toBeUndefined();
+    expect(limitToCents("12,34")).toBeUndefined();
     expect(limitToCents("0")).toBeUndefined();
     expect(limitToCents("500.255")).toBeUndefined();
     expect(limitToCents("1000001")).toBeUndefined();

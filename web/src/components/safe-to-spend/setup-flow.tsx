@@ -14,11 +14,11 @@ import { SelectionMark } from "@/components/ui/selection-mark";
 import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE } from "@/lib/analytics";
 import {
-  amountInput,
   parseAmount,
   saveSafeToSpendAnswers,
   type BillAnswer,
 } from "@/lib/api-client/safe-to-spend";
+import { centsToInput } from "@/lib/money";
 import { ROUTES, safeToSpendSetupPath, signInPath } from "@/lib/routes";
 import { parseDay } from "@/lib/api-client/reminder-setup";
 import {
@@ -63,7 +63,7 @@ function firstUnfinished(draft: Draft): number | null {
 // The amount saved, as the student typed it: tuition back in semesters.
 function savedAmount(bill: Bill, monthlyCents: number | null): string {
   if (monthlyCents === null) return "";
-  return amountInput(bill === SEMESTER_BILL ? semesterFromMonthly(monthlyCents) : monthlyCents);
+  return centsToInput(bill === SEMESTER_BILL ? semesterFromMonthly(monthlyCents) : monthlyCents);
 }
 
 // "Who covers what" (Figma 222:2090), one bill a screen, then what to keep
@@ -95,7 +95,7 @@ export function SetupFlow({
     }
     return initial;
   });
-  const [setAside, setSetAside] = useState(answered && savedSetAsideCents > 0 ? amountInput(savedSetAsideCents) : "");
+  const [setAside, setSetAside] = useState(answered && savedSetAsideCents > 0 ? centsToInput(savedSetAsideCents) : "");
   // Shown only on the step it belongs to.
   const [error, setError] = useState<FieldError | null>(null);
   const [pending, setPending] = useState(false);

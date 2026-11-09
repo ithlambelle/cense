@@ -263,6 +263,24 @@ components:
             monthlySpendingCents:
               type: integer
               minimum: 0
+            spendingCategories:
+              type: array
+              items:
+                type: string
+                enum:
+                  - food_and_dining
+                  - groceries
+                  - gas_and_rides
+                  - travel_home
+                  - shopping_and_subscriptions
+              minItems: 1
+              maxItems: 2
+            spendingBand:
+              type: string
+              enum:
+                - under_200
+                - 200_to_500
+                - over_500
             goal:
               type: string
               enum:
@@ -1527,6 +1545,24 @@ paths:
                     monthlySpendingCents:
                       type: integer
                       minimum: 0
+                    spendingCategories:
+                      type: array
+                      items:
+                        type: string
+                        enum:
+                          - food_and_dining
+                          - groceries
+                          - gas_and_rides
+                          - travel_home
+                          - shopping_and_subscriptions
+                      minItems: 1
+                      maxItems: 2
+                    spendingBand:
+                      type: string
+                      enum:
+                        - under_200
+                        - 200_to_500
+                        - over_500
                     goal:
                       type: string
                       enum:

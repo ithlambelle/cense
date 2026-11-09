@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
-import { centsToField, limitToCents } from "@/components/applications/mark-result";
+import { limitToCents } from "@/components/applications/mark-result";
 import { Constellation, STAR } from "@/components/home/constellation";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
@@ -15,7 +15,7 @@ import { SENSITIVE } from "@/lib/analytics";
 import { saveAutopay, saveCreditLimit } from "@/lib/api-client/applications";
 import { loadPlanSteps, savePlanStep, type PlanStepName } from "@/lib/api-client/plans";
 import type { Application } from "@/lib/api/application";
-import { moneyAmount } from "@/lib/money";
+import { centsToInput, moneyAmount } from "@/lib/money";
 import { cardPath, CELEBRATE_PARAM, paymentRemindersPath, ROUTES, signInPath } from "@/lib/routes";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
 import { useNow } from "@/lib/use-now";
@@ -295,7 +295,7 @@ function CreditLimit({ application, sample }: { application: Application; sample
   const [saving, setSaving] = useState(false);
 
   function open() {
-    setValue(centsToField(cents));
+    setValue(centsToInput(cents));
     setError(null);
     setEditing(true);
   }

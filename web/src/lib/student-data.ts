@@ -24,6 +24,7 @@ import { listCards } from "@/lib/cards/catalog";
 import { firstStatementEmailUpcoming } from "@/lib/home/state";
 import { answeredCount } from "@/lib/quiz/progress";
 import { computeResult, type ResultView } from "@/lib/results/compute";
+import { spendingProfile, type SpendingProfile } from "@/lib/results/value";
 
 export type StudentSnapshot = {
   applications: Application[];
@@ -61,6 +62,12 @@ export async function loadApplications(student: Student): Promise<Application[]>
 // cards (the Cards tab).
 export async function loadQuizResult(student: Student): Promise<ResultView> {
   return computeResult(await readQuizAnswers(student, "result_read"), listCards());
+}
+
+// The student's saved spending answer, for a card page's year-one estimate.
+// Null when they skipped it or gave no monthly band.
+export async function loadSpendingProfile(student: Student): Promise<SpendingProfile | null> {
+  return spendingProfile(await readQuizAnswers(student, "spending_read"));
 }
 
 // Read the same way as GET /quiz: a draft the schema now rejects (an old

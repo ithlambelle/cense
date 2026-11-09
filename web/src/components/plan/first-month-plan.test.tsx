@@ -38,6 +38,7 @@ const application: Application = {
 };
 
 const PLAN_URL = `/api/v1/applications/${application.id}/plans/first_month`;
+const APPLICATION_URL = `/api/v1/applications/${application.id}`;
 
 const plan = (...steps: string[]) => ({
   applicationId: application.id,
@@ -60,6 +61,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   replace.mockClear();
+  router.refresh.mockClear();
 });
 
 describe("FirstMonthPlan", () => {
@@ -116,13 +118,50 @@ describe("FirstMonthPlan", () => {
     expect(screen.getByRole("link", { name: /^Set a payment reminder\s*, done/ })).toBeTruthy();
   });
 
-  it("keeps autopay on the page only, since it is not a saved step", async () => {
-    const fetchFn = server([{ status: 200, body: plan() }]);
-    render(<FirstMonthPlan application={application} />);
-    await screen.findByText("0 of 3 done");
-    fireEvent.click(screen.getByRole("checkbox", { name: /Turn on autopay/ }));
+  it("saves autopay on the card, as Home does, so a reload and Home agree", async () => {
+    const fetchFn = server([
+      { status: 200, body: plan() },
+      { status: 200, body: { ...application, autopayStatus: "off" } },
+      { status: 200, body: { ...application, autopayStatus: "on" } },
+    ]);
+    render(<FirstMonthPlan application={application} autopayOn />);
+    await screen.findByText("1 of 3 done");
+    const autopay = screen.getByRole("checkbox", { name: /Turn on autopay/ });
+
+    // Unticking saves autopay as off, not only on the page.
+    await waitFor(() => expect(autopay.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(autopay);
+    expect(screen.getByText("0 of 3 done")).toBeTruthy();
+    await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(2));
+    expect(fetchFn.mock.calls[1][0]).toBe(APPLICATION_URL);
+    expect(fetchFn.mock.calls[1][1]?.method).toBe("PATCH");
+    expect(JSON.parse(String(fetchFn.mock.calls[1][1]?.body))).toEqual({ autopayStatus: "off" });
+    // The page's autopay comes from the server render, so it is refreshed.
+    await waitFor(() => expect(router.refresh).toHaveBeenCalledOnce());
+
+    // Ticking it again saves it as on.
+    await waitFor(() => expect(autopay.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(autopay);
+    await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(3));
+    expect(JSON.parse(String(fetchFn.mock.calls[2][1]?.body))).toEqual({ autopayStatus: "on" });
+    await waitFor(() => expect(router.refresh).toHaveBeenCalledTimes(2));
     expect(screen.getByText("1 of 3 done")).toBeTruthy();
-    expect(fetchFn).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("puts autopay back and says why when its save fails", async () => {
+    server([
+      { status: 200, body: plan() },
+      { status: 400, body: { error: { code: "invalid_request", message: "The update is invalid." } } },
+    ]);
+    render(<FirstMonthPlan application={application} autopayOn />);
+    await screen.findByText("1 of 3 done");
+    const autopay = screen.getByRole("checkbox", { name: /Turn on autopay/ });
+    fireEvent.click(autopay);
+    expect((await screen.findByRole("alert")).textContent).toContain("The update is invalid.");
+    expect(autopay.getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByText("1 of 3 done")).toBeTruthy();
+    expect(router.refresh).not.toHaveBeenCalled();
   });
 
   it("puts a star back out when its save fails, and says why", async () => {
@@ -143,7 +182,7 @@ describe("FirstMonthPlan", () => {
     const fetchFn = vi.fn<typeof fetch>(async (url, init) => {
       if (!init?.method || init.method === "GET") return Response.json(plan(), { status: 200 });
       if (String(url).endsWith("planned_purchase")) return new Promise<Response>((resolve) => { failPurchase = resolve; });
-      return Response.json({}, { status: 500 });
+      return Response.json({ ...application, autopayStatus: "on" }, { status: 200 });
     });
     vi.stubGlobal("fetch", fetchFn);
     render(<FirstMonthPlan application={application} />);
@@ -175,5 +214,34 @@ describe("FirstMonthPlan", () => {
     server([{ status: 401, body: { error: { code: "unauthorized", message: "Sign in to continue." } } }]);
     render(<FirstMonthPlan application={application} />);
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/sign-in?next=%2Fhome"));
+  });
+
+  it("suggests 30% of the card's limit as a monthly spending guide, with its source", async () => {
+    server([{ status: 200, body: plan() }]);
+    render(<FirstMonthPlan application={application} />);
+    await screen.findByText("0 of 3 done");
+    const guide = screen.getByText("Up to $150 a month");
+    // Hidden from session replay, like the limit on Home.
+    expect(guide.className).toContain("ph-sensitive");
+    expect(screen.getByText(/30% of your \$500 limit/).className).toContain("ph-sensitive");
+    expect(screen.getByText(/30% of your \$500 limit/)).toBeTruthy();
+    const source = screen.getByRole("link", { name: /Why 30%\?/ });
+    expect(source.getAttribute("href")).toContain("consumerfinance.gov");
+  });
+
+  it("shows the 30% rule without dollars, and asks for the limit, when setup skipped it", async () => {
+    server([{ status: 200, body: plan() }]);
+    render(<FirstMonthPlan application={{ ...application, creditLimitCents: null }} />);
+    await screen.findByText("0 of 3 done");
+    expect(screen.getByText("Up to 30% of your limit")).toBeTruthy();
+    expect(screen.queryByText(/a month$/)).toBeNull();
+    expect(screen.getByRole("link", { name: "Add your credit limit on Home" }).getAttribute("href")).toBe("/home");
+  });
+
+  it("checks off autopay when the card's autopay is on", async () => {
+    server([{ status: 200, body: plan() }]);
+    render(<FirstMonthPlan application={application} autopayOn />);
+    expect(await screen.findByText("1 of 3 done")).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: /Turn on autopay/ }).getAttribute("aria-checked")).toBe("true");
   });
 });

@@ -1,4 +1,8 @@
 import type { ApiData } from "../api-client/client";
+import type { CardRewards } from "../cards/rewards";
+import { moneyAmount } from "../money";
+import type { CardFit } from "../rules/fit-tier";
+import { isCashbackMatch, type SpendingCategoryId, type YearOneEstimate } from "../results/value";
 
 export type FitTier = ApiData<"/recommendations/latest", "get">["fitTier"];
 
@@ -59,4 +63,108 @@ export function cardTypeLabel(card: { secured: boolean; studentsOnly: boolean })
   if (card.secured) return "Secured credit card";
   if (card.studentsOnly) return "Student credit card";
   return "Credit card";
+}
+
+// The result card's "Why it's right for you" (Ben, 2026-11-07): at most three
+// large lines, approval, value and bonus, each with an optional smaller detail.
+// Taral said the result told her why a card was great, not why it was good for
+// her; nobody noticed the Likely fit label. No small print as the main message.
+export const WHY_TITLE = "Why it’s right for you";
+
+// Under the cards whenever one shows an estimate. RESULT_DISCLAIMER stays too.
+export const ESTIMATE_DISCLAIMER = "An estimate from what you told us, not a promise.";
+
+export const APPROVAL_LINES = {
+  likely_fit: "You’re likely to be approved",
+  stretch: "Approval is less certain for you",
+} as const;
+
+export const BONUS_OUT_OF_REACH = "Likely out of reach at your spending";
+
+export const MATCH_LINE = "Cashback Match doubles your first year’s cash back";
+
+// How the picked areas read in "From your groceries and dining".
+const AREA_WORDS: Record<SpendingCategoryId, string> = {
+  "food-and-dining": "dining",
+  groceries: "groceries",
+  "gas-and-rides": "gas and rides",
+  "travel-home": "trips home",
+  "shopping-and-subscriptions": "shopping",
+};
+
+export type WhyLine = {
+  id: "approval" | "value" | "bonus";
+  // A check for good news, an info mark for a caution.
+  mark: "check" | "info";
+  text: string;
+  // Part of text set in the number font ("$48").
+  amount: string | null;
+  detail: string | null;
+};
+
+// An estimate in whole dollars: "About $48", never "$47.63".
+function aboutDollars(cents: number): string {
+  return moneyAmount(Math.round(cents / 100) * 100);
+}
+
+// The value line alone, for the card page.
+export function valueLine(estimate: YearOneEstimate | null): WhyLine | null {
+  if (!estimate) return null;
+  const areas = estimate.drivers.map((id) => AREA_WORDS[id]);
+  const from = areas.length > 0 ? `From your ${areas.join(" and ")}` : "On everything you buy";
+  if (estimate.rewardsCents !== null) {
+    const cents = estimate.rewardsCents + estimate.matchCents;
+    if (Math.round(cents / 100) <= 0) return null;
+    const amount = aboutDollars(cents);
+    const detail = estimate.matchCents > 0 ? `${from}, with Cashback Match` : from;
+    return { id: "value", mark: "check", text: `About ${amount} in your first year`, amount, detail };
+  }
+  if (estimate.points !== null && estimate.points > 0) {
+    const amount = `${estimate.points.toLocaleString("en-US")} points`;
+    return { id: "value", mark: "check", text: `About ${amount} in your first year`, amount, detail: from };
+  }
+  return null;
+}
+
+function bonusLine(rewards: CardRewards | null, estimate: YearOneEstimate | null): WhyLine | null {
+  const bonus = rewards?.bonus;
+  if (!rewards || !bonus) return null;
+  if (isCashbackMatch(rewards)) {
+    // With an estimate the match is already in the value line.
+    return estimate && estimate.matchCents > 0 ? null : { id: "bonus", mark: "check", text: MATCH_LINE, amount: null, detail: null };
+  }
+  const reachable = estimate?.bonus?.reachable ?? true;
+  const mark = reachable ? "check" : "info";
+  const detail = reachable ? null : BONUS_OUT_OF_REACH;
+  const { valueCents, spendCents, withinDays } = bonus;
+  if (valueCents !== null && spendCents !== null && withinDays !== null) {
+    const amount = moneyAmount(valueCents);
+    return { id: "bonus", mark, text: `${amount} sign-up bonus after ${moneyAmount(spendCents)} in ${withinDays} days`, amount, detail };
+  }
+  // Not a simple spend target (Chase's autopay credit): a short line, with
+  // the issuer's words as the detail so the condition is never hidden.
+  if (valueCents !== null) {
+    const amount = moneyAmount(valueCents);
+    if (bonus.resultLine) return { id: "bonus", mark, text: bonus.resultLine.text, amount, detail: detail ?? bonus.resultLine.detail };
+    return { id: "bonus", mark, text: `${amount} sign-up bonus`, amount, detail: detail ?? bonus.summary };
+  }
+  return { id: "bonus", mark, text: bonus.summary, amount: null, detail };
+}
+
+export function whyLines(option: { fit: CardFit; rewards: CardRewards | null; estimate: YearOneEstimate | null }): WhyLine[] {
+  const { fit, rewards, estimate } = option;
+  const likely = fit.tier === "likely_fit";
+  const approval: WhyLine = {
+    id: "approval",
+    mark: likely ? "check" : "info",
+    text: likely ? APPROVAL_LINES.likely_fit : APPROVAL_LINES.stretch,
+    amount: null,
+    detail: fit.reasons[0] ?? null,
+  };
+  return [approval, valueLine(estimate), bonusLine(rewards, estimate)].filter((line): line is WhyLine => line !== null);
+}
+
+// A rate as the card page lists it: "3%" cash back, "3x" points per $1.
+export function rateAmount(rate: { amount: number; unit: "percent" | "points_per_dollar" }): string {
+  return rate.unit === "percent" ? `${rate.amount}%` : `${rate.amount}x`;
 }

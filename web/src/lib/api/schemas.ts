@@ -91,6 +91,19 @@ export const cardSchema = z.strictObject({
   { message: "The largest required deposit cannot be below the smallest.", path: ["depositMaxCents"] },
 );
 
+// The spending question after question 6 (lib/quiz/spending.ts). Both answers
+// are optional: the question can be skipped, and drafts saved before it was
+// stored still count as complete. They rank cards by year-one value
+// (lib/results/value.ts) and never decide fit.
+export const spendingCategorySchema = z.enum([
+  "food_and_dining",
+  "groceries",
+  "gas_and_rides",
+  "travel_home",
+  "shopping_and_subscriptions",
+]);
+export const spendingBandSchema = z.enum(["under_200", "200_to_500", "over_500"]);
+
 export const quizAnswersSchema = z.strictObject({
   under21: z.boolean().optional(),
   incomeBand: z.enum(["none", "savings_only", "under_5k", "5k_to_15k", "over_15k"]).optional(),
@@ -99,6 +112,13 @@ export const quizAnswersSchema = z.strictObject({
   recentDenial: z.boolean().optional(),
   canDeposit: z.boolean().optional(),
   monthlySpendingCents: z.int().nonnegative().optional(),
+  // One or two areas, each once. No picks is no field, never an empty list.
+  spendingCategories: z.array(spendingCategorySchema).min(1).max(2).refine(
+    (picked) => new Set(picked).size === picked.length,
+    { message: "Each spending area can be picked once." },
+  ).optional(),
+  // About how much goes on a card each month.
+  spendingBand: spendingBandSchema.optional(),
   goal: z.enum(["build_credit", "learn", "other"]).optional(),
 });
 

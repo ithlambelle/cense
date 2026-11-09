@@ -92,8 +92,12 @@ async function call<T>(config: PlaidConfig, path: string, body: Record<string, u
 // Link for a new bank, or, given the access token, update mode for one that
 // needs the student to sign in again (the same Item, no new token).
 // Transactions is the product requested because Link needs one and Balance
-// alone is not allowed; Cense never calls the transactions endpoints. Only
-// everyday accounts and credit cards can be picked: no loans or investments.
+// alone is not allowed; Cense never calls the transactions endpoints yet. Its
+// history is set once, when the Item is created, and Plaid cannot change it
+// later: 180 days, the least Plaid recommends for recurring bills (US-09).
+// Liabilities (US-15: a card's statement and due dates) is optional, so a bank
+// without it still links. Only everyday accounts and credit cards can be
+// picked: no loans or investments.
 export async function createLinkToken(config: PlaidConfig, studentId: string, accessToken?: string) {
   const base = {
     client_name: "Cense",
@@ -107,6 +111,8 @@ export async function createLinkToken(config: PlaidConfig, studentId: string, ac
     : {
         ...base,
         products: ["transactions"],
+        transactions: { days_requested: 180 },
+        optional_products: ["liabilities"],
         account_filters: {
           depository: { account_subtypes: ["all"] },
           credit: { account_subtypes: ["credit card"] },

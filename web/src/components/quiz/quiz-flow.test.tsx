@@ -152,9 +152,11 @@ describe("QuizFlow", () => {
     expect(fetchFn).toHaveBeenCalledTimes(2);
   });
 
-  it("picks up to two spending areas and one amount, and never saves or tracks them", async () => {
+  it("picks up to two spending areas and one amount, saves them with the draft on Continue, and never tracks them", async () => {
     const five = { under21: true, incomeBand: "under_5k", student: true, standing: "none", recentDenial: false };
-    const fetchFn = server([saved(five), saved({ ...five, canDeposit: true })]);
+    const six = { ...five, canDeposit: true };
+    const withPicks = { ...six, spendingCategories: ["groceries", "travel_home"], spendingBand: "200_to_500" };
+    const fetchFn = server([saved(five), saved(six), saved(withPicks)]);
     render(<QuizFlow />);
     await screen.findByText("Question 6 of 7");
     await tap("Yes");
@@ -168,9 +170,61 @@ describe("QuizFlow", () => {
     expect(["Food and dining", "Groceries", "Travel home"].map(pressed)).toEqual(["false", "true", "true"]);
     expect(["Under $200", "$200 to $500"].map(pressed)).toEqual(["false", "true"]);
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    // Saved before the result opens, since the result ranks by it.
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith("/results"));
+    expect(fetchFn).toHaveBeenCalledTimes(3);
+    expect(fetchFn.mock.calls[2][1]?.method).toBe("PUT");
+    expect(sentAnswers(fetchFn, 2)).toEqual(withPicks);
+    expect(track).not.toHaveBeenCalled();
+  });
+
+  it("on a retake, shows the saved picks, and clearing them clears the saved answer", async () => {
+    const all = { under21: true, incomeBand: "under_5k", student: true, standing: "none", recentDenial: false, canDeposit: true };
+    const withPicks = { ...all, spendingCategories: ["food_and_dining"], spendingBand: "over_500" };
+    const fetchFn = server([saved(withPicks), saved(withPicks), saved(all)]);
+    render(<QuizFlow />);
+    await screen.findByText("Question 1 of 7");
+    for (const choice of ["18 to 20", "Under $5k", "Yes", "None", "No", "Yes"]) await tap(choice);
+    expect(await screen.findByText("Question 7 of 7")).toBeTruthy();
+    // The last question's save keeps the saved picks with the other answers.
+    expect(sentAnswers(fetchFn, 1)).toEqual(withPicks);
+    expect(answer("Food and dining").getAttribute("aria-pressed")).toBe("true");
+    expect(answer("Over $500").getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(answer("Food and dining"));
+    fireEvent.click(answer("Over $500"));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith("/results"));
+    expect(sentAnswers(fetchFn, 2)).toEqual(all);
+  });
+
+  it("on a retake that keeps the picks, opens the result without saving again", async () => {
+    const all = { under21: true, incomeBand: "under_5k", student: true, standing: "none", recentDenial: false, canDeposit: true };
+    const withPicks = { ...all, spendingCategories: ["groceries"], spendingBand: "under_200" };
+    const fetchFn = server([saved(withPicks), saved(withPicks)]);
+    render(<QuizFlow />);
+    await screen.findByText("Question 1 of 7");
+    for (const choice of ["18 to 20", "Under $5k", "Yes", "None", "No", "Yes"]) await tap(choice);
+    await screen.findByText("Question 7 of 7");
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(replace).toHaveBeenCalledWith("/results");
     expect(fetchFn).toHaveBeenCalledTimes(2);
-    expect(track).not.toHaveBeenCalled();
+  });
+
+  it("stays on the spending question with the error when its save fails", async () => {
+    const five = { under21: true, incomeBand: "under_5k", student: true, standing: "none", recentDenial: false };
+    const six = { ...five, canDeposit: true };
+    server([saved(five), saved(six), { status: 500, body: "crash" }, saved({ ...six, spendingBand: "under_200" })]);
+    render(<QuizFlow />);
+    await screen.findByText("Question 6 of 7");
+    await tap("Yes");
+    await screen.findByText("Question 7 of 7");
+    fireEvent.click(answer("Under $200"));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect((await screen.findByRole("alert")).textContent).not.toContain("crash");
+    expect(replace).not.toHaveBeenCalled();
+    expect(answer("Under $200").getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith("/results"));
   });
 
   it("goes back from the spending question to question 6 and counts the quiz completed once", async () => {
