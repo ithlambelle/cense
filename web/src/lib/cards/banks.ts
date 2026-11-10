@@ -17,7 +17,7 @@ export type BankGroup = {
 const PART_OF: Record<string, string> = { Discover: "Capital One" };
 
 const NOTES: Record<string, string> = {
-  Discover: "Now part of Capital One. Discover cards keep Discover’s site and app.",
+  Discover: "Now part of Capital One. You still apply, sign in and pay with Discover.",
 };
 
 const starterCount = (group: BankGroup) => group.cards.filter((card) => card.catalogRole === "recommend").length;
@@ -46,14 +46,11 @@ export function groupCardsByBank(cards: Card[]): BankGroup[] {
       starterCount(b) - starterCount(a) || b.cards.length - a.cards.length || a.bank.localeCompare(b.bank, "en"),
   );
 
-  // Move each brand to sit right after the bank it is part of.
-  const ordered = groups.filter((group) => !(PART_OF[group.bank] && byBank.has(PART_OF[group.bank])));
-  for (const child of groups) {
-    const parent = PART_OF[child.bank];
-    if (!parent || !byBank.has(parent)) continue;
-    ordered.splice(ordered.findIndex((group) => group.bank === parent) + 1, 0, child);
-  }
-  return ordered;
+  // Each brand sits right after the bank it is part of, in the order above.
+  const isChild = (group: BankGroup) => Boolean(PART_OF[group.bank] && byBank.has(PART_OF[group.bank]));
+  return groups
+    .filter((group) => !isChild(group))
+    .flatMap((group) => [group, ...groups.filter((child) => isChild(child) && PART_OF[child.bank] === group.bank)]);
 }
 
 // A section id for the bank's heading ("bank-capital-one").

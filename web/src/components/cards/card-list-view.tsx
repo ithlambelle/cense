@@ -131,7 +131,7 @@ function CardRow({ card }: { card: Card }) {
           {cardTypeLabel(card)}, {moneyAmount(card.annualFeeCents)} annual fee
         </span>
         {card.catalogRole === "recommend" ? (
-          <span className="mt-1 self-start rounded-pill bg-violet/15 px-2.5 py-[3px] text-body-s font-semibold text-violet">
+          <span className="mt-1 self-start rounded-pill bg-violet/15 px-2.5 py-[3px] text-body-s font-semibold text-violet-deep">
             Made for starting out
           </span>
         ) : null}

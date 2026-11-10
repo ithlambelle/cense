@@ -70,7 +70,7 @@ test("signed in, the bank sections sit above the bottom bar and the student's ca
 
   // The last bank's last card scrolls clear of the bottom bar and opens.
   const last = page.locator("main section").last().getByRole("link").last();
-  await last.scrollIntoViewIfNeeded();
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   const [cardBox, navBox] = await Promise.all([last.boundingBox(), page.getByRole("navigation", { name: "Main" }).boundingBox()]);
   expect(cardBox!.y + cardBox!.height).toBeLessThanOrEqual(navBox!.y + 1);
   const href = await last.getAttribute("href");
