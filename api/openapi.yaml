@@ -389,6 +389,20 @@ components:
             - on
             - off
             - unknown
+        autopayPaymentType:
+          type:
+            - string
+            - "null"
+          enum:
+            - statement_balance
+            - minimum
+            - fixed_amount
+            - null
+        spendLimitCents:
+          type:
+            - integer
+            - "null"
+          exclusiveMinimum: 0
         statementClosingDay:
           type:
             - integer
@@ -412,6 +426,8 @@ components:
         - denialReason
         - denialReasonNote
         - autopayStatus
+        - autopayPaymentType
+        - spendLimitCents
         - statementClosingDay
         - paymentDueDay
       additionalProperties: false
@@ -452,6 +468,7 @@ components:
           type: string
           enum:
             - planned_purchase
+            - spend_limit
             - payment_reminder
             - read_letter
             - check_reports
@@ -520,6 +537,26 @@ components:
             - string
             - "null"
           format: date-time
+        readAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        snoozedUntil:
+          type:
+            - string
+            - "null"
+          format: date-time
+        dismissedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        followUpAt:
+          type:
+            - string
+            - "null"
+          format: date-time
         createdAt:
           type: string
           format: date-time
@@ -532,6 +569,10 @@ components:
         - dueAt
         - sentAt
         - actedAt
+        - readAt
+        - snoozedUntil
+        - dismissedAt
+        - followUpAt
         - createdAt
       additionalProperties: false
     ReminderSettings:
@@ -550,6 +591,107 @@ components:
         - statementClosing
         - paymentDue
         - checkAutopay
+      additionalProperties: false
+    SavedReapplyReminder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        applicationId:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - statement_closing
+            - payment_due
+            - check_autopay
+            - reapply
+        occurrence:
+          type: string
+          format: date
+        remindOn:
+          type: string
+          format: date
+        dueAt:
+          type: string
+          format: date-time
+        sentAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        actedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        readAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        snoozedUntil:
+          type:
+            - string
+            - "null"
+          format: date-time
+        dismissedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        followUpAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        confirmation:
+          type: string
+          enum:
+            - sent
+            - skipped
+            - failed
+      required:
+        - id
+        - applicationId
+        - kind
+        - occurrence
+        - remindOn
+        - dueAt
+        - sentAt
+        - actedAt
+        - readAt
+        - snoozedUntil
+        - dismissedAt
+        - followUpAt
+        - createdAt
+        - confirmation
+      additionalProperties: false
+    ReminderConfirmation:
+      type: object
+      properties:
+        confirmation:
+          type: string
+          enum:
+            - sent
+            - skipped
+            - failed
+      required:
+        - confirmation
+      additionalProperties: false
+    MarkRemindersRead:
+      type: object
+      properties:
+        marked:
+          type: integer
+          minimum: 0
+      required:
+        - marked
       additionalProperties: false
     PennyReply:
       oneOf:
@@ -1760,6 +1902,20 @@ paths:
                     - on
                     - off
                     - unknown
+                autopayPaymentType:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - statement_balance
+                    - minimum
+                    - fixed_amount
+                    - null
+                spendLimitCents:
+                  type:
+                    - integer
+                    - "null"
+                  exclusiveMinimum: 0
                 statementClosingDay:
                   type:
                     - integer
@@ -1931,6 +2087,7 @@ paths:
             type: string
             enum:
               - planned_purchase
+              - spend_limit
               - payment_reminder
               - read_letter
               - check_reports
@@ -2007,6 +2164,7 @@ paths:
             type: string
             enum:
               - planned_purchase
+              - spend_limit
               - payment_reminder
               - read_letter
               - check_reports
@@ -2033,6 +2191,62 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "404":
           description: Application or plan step not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /applications/{id}/reminder-confirmation:
+    post:
+      operationId: confirmPaymentReminders
+      summary: Email the student a confirmation of an approved card's payment reminders
+      description: Called after the card's statement and due days are saved. The email
+        names each reminder the daily job will send for the card and the card's
+        next dates, read from the reminders the database scheduled, never a send
+        day. One email per save of the days (keyed to the card's updated_at).
+        confirmation is sent, skipped (no reminder on, emails off or not set up)
+        or failed.
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderConfirmation"
+        "400":
+          description: Invalid application ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Card not approved, or its days are not saved
           content:
             application/json:
               schema:
@@ -2081,7 +2295,9 @@ paths:
       summary: Set the reapply reminder for a denied application (replaces an unsent
         one)
       description: The day must be tomorrow to a year from now on the student's
-        calendar. The answer carries the day as remindOn.
+        calendar. The answer carries the day as remindOn, and confirmation says
+        whether the confirmation email was sent, skipped (emails off or not set
+        up) or failed.
       security:
         - studentSession: []
       requestBody:
@@ -2106,7 +2322,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Reminder"
+                $ref: "#/components/schemas/SavedReapplyReminder"
         "400":
           description: Invalid day or application not denied
           content:
@@ -2177,6 +2393,151 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "409":
           description: Reminder not sent yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /reminders/{id}/snooze:
+    post:
+      operationId: snoozeReminder
+      summary: "Snooze a sent reminder: tomorrow morning, in 2 days, or the day before
+        it is due"
+      description: Each choice is 9:00 on the student's calendar, worked out by the
+        server. A choice past the reminder's due date, or already gone, is
+        refused with past_due.
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                choice:
+                  type: string
+                  enum:
+                    - tomorrow
+                    - in_2_days
+                    - day_before_due
+              required:
+                - choice
+              additionalProperties: false
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reminder"
+        "400":
+          description: Invalid reminder ID or choice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Reminder not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Not sent yet, already done, or past the due date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /reminders/{id}/dismiss:
+    post:
+      operationId: dismissReminder
+      summary: Dismiss a sent reminder for the rest of its billing cycle (keeps the
+        first time)
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reminder"
+        "400":
+          description: Invalid reminder ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Reminder not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Reminder not sent yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /reminders/read:
+    post:
+      operationId: markRemindersRead
+      summary: Mark all of the student's sent reminders read
+      security:
+        - studentSession: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarkRemindersRead"
+        "401":
+          description: Sign-in required
           content:
             application/json:
               schema:

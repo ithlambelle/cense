@@ -192,11 +192,12 @@ A student can turn analytics and session recordings off with the Analytics switc
 
 Delete my account on Security and privacy deletes, at once: the student's PostHog person with its events and recordings (`DELETE_ANALYTICS_HISTORY` in `web/src/lib/account-deletion.ts`, decision S28; PostHog removes the events in its weekly batch, inside the 30 days the privacy policy promises), then their sign-in record, which deletes every row tied to them through `on delete cascade`, then their session. One thing outlives the account, briefly: a trigger on the sign-in record first copies a linked bank's encrypted Plaid token, with its Plaid item id and the student's id, into the private `plaid.account_cleanup` queue (no name, email or bank data). The daily reminders job removes the bank link at Plaid, then deletes that row, so deletion never waits on Plaid. If a setting is missing, the cleanup migration is not applied (the route answers 503), or a step fails, nothing of the account is deleted and the student can try again. On Vercel Production it needs `SUPABASE_SERVICE_ROLE_KEY`, `POSTHOG_PERSONAL_API_KEY` (only the `person:write` scope) and `POSTHOG_PROJECT_ID` (see `web/.env.example`); the cleanup uses the Plaid settings and `PLAID_TOKEN_KEY` already set for safe to spend.
 
+- To roll back, first revert the app to synchronous unlink, then run `supabase/rollbacks/20261109160000_plaid_account_cleanup.down.sql`. It locks account deletion and refuses to remove anything while the cleanup queue contains a token. Drain it first; never discard queued tokens.
 - `supabase/migrations/20261109160000_plaid_account_cleanup.sql` was applied by hand in the Supabase SQL editor on 2026-11-09, before the code that calls it. Merged without it, Delete my account answers 503.
 
 ## Reminder emails
 
-Vercel Cron calls `GET /api/v1/cron/reminders` once a day at 13:00 UTC (`web/vercel.json`; the Hobby plan runs it at some point in that hour, so 8:00 to 10:00 Eastern). The job schedules every card's next reminders, claims the ones due today, at most one per student, sends each through Resend's API and marks it sent. A failed send is tried again the next day, 3 times at most. Each email has one button, Open Cense, which opens Home; the app does not show reminders yet. Every email links to Reminder settings (`/settings/reminders`) and has an unsubscribe link and the one-click `List-Unsubscribe` headers. Rules and functions: [api/data-contract.md](api/data-contract.md).
+Vercel Cron calls `GET /api/v1/cron/reminders` once a day at 13:00 UTC (`web/vercel.json`; the Hobby plan runs it at some point in that hour, so 8:00 to 10:00 Eastern). The job schedules every card's next reminders, claims the ones due today, at most one per student, sends each through Resend's API and marks it sent. A failed send is tried again the next day, 3 times at most. Each email has one button, Open Cense, which opens Updates (`/updates`), where every sent reminder is also a card the student can act on, snooze or dismiss for the billing cycle; the same run raises the one in-app follow-up 2 days after a statement closes if it was not marked paid. Every email links to Reminder settings (`/settings/reminders`) and has an unsubscribe link and the one-click `List-Unsubscribe` headers. Rules and functions: [api/data-contract.md](api/data-contract.md).
 
 Before it can run:
 
@@ -212,6 +213,7 @@ Before it can run:
 | `REMINDER_UNSUBSCRIBE_SECRET` | Any long random string. Changing it breaks the unsubscribe links already sent. |
 | `APP_BASE_URL` | The app's public address, for the links in the emails: `https://censefinance.com`. |
 | `REMINDER_HEARTBEAT_URL` | Optional, the alert (below). The check's ping URL, `https://hc-ping.com/<uuid>`. |
+| `PLAID_CLEANUP_HEARTBEAT_URL` | Optional separate Healthchecks.io ping URL for Plaid cleanup. Create a daily check with grace time like the reminder check. Cleanup failures and a queue not drained within its request budget fail this check only; unset, no cleanup alert is sent. |
 
 To run it by hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/v1/cron/reminders`. It answers with counts only: `claimed`, `sent`, `failed`, `unconfirmed` (sent but not marked), `deferred` (out of time, sent next run) and `abandoned` (failed for the third time, never tried again). Running it again the same day does not retry a failed send; that waits for the next day.
 
@@ -266,6 +268,10 @@ To try it: Home, "See what's safe to spend", Connect (Preview). In Plaid's sandb
 New sandbox connections ask Link for 180 days of transaction history and add Liabilities as an optional product (US-15). Plaid fixes an Item's history when the Item is created, and Liabilities is available in Sandbox without extra product permissions. To get both on an existing sandbox connection, disconnect it (How we got this, Disconnect bank) and link it again with the test user above, selecting the credit card as well as checking; the normal reconnect flow only repairs an existing Item. Reading Liabilities (`/liabilities/get`), filling in statement dates and balances, and the Liabilities tables are follow-up work.
 
 Locally and in CI the journey tests (`web/e2e/safe-to-spend.spec.ts`) never call Plaid: they start a stand-in on :3597 (`web/e2e/support/fake-plaid.ts`) and answer Link's script in the browser. Start the app for them with `PLAID_CLIENT_ID=e2e-client PLAID_SECRET=e2e-placeholder PLAID_ENV=sandbox PLAID_BASE_URL=http://127.0.0.1:3597` and a `PLAID_TOKEN_KEY` in `web/.env.local`, as the `e2e` job does.
+
+## Keeping card data current
+
+Card rewards and sign-up bonuses (`web/src/lib/cards/rewards.ts`) change on the issuer's side without notice. Every Monday the Card data check workflow re-reads each card's issuer page and opens one issue, "Card data check: N cards need a look", listing what no longer matches; the unit tests fail once a promotion passes its `expiresOn` and warn about cards not re-read in 120 days. One person works the issue in about 15 minutes a week: [docs/card-data.md](docs/card-data.md).
 
 ## Quality checks
 

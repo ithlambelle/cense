@@ -85,8 +85,16 @@ const SCREENS = {
       reason={{ reason: "no_credit_history", note: null }}
     />
   ),
+  "denied-plan-reminder-set": () => (
+    <DeniedPlanScreen
+      applicationId={SAMPLE_ID}
+      start={{ done: ["read_letter", "check_reports", "pause_applications", "build_credit"], state: "saved" }}
+      reason={{ reason: "no_credit_history", note: null }}
+      reminderDate="Apr 5, 2027"
+    />
+  ),
   reminder: () => <ReminderSetup applicationId={SAMPLE_ID} />,
-  "reminder-saved": () => <ReminderSavedView dateLabel="April 16, 2027" />,
+  "reminder-saved": () => <ReminderSavedView applicationId={SAMPLE_ID} dateLabel="April 16, 2027" emailed />,
   fixable: () => <FixableView applicationId={SAMPLE_ID} />,
   "second-look": () => <SecondLook applicationId={SAMPLE_ID} />,
   "second-look-approved": () => <SecondLook applicationId={SAMPLE_ID} initialView="approved" />,

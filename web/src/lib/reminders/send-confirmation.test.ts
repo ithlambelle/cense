@@ -1,0 +1,105 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("server-only", () => ({}));
+
+import type { Student } from "@/lib/api/auth";
+
+import { sendPaymentRemindersConfirmation, sendReapplyConfirmation } from "./send-confirmation";
+
+const ENV = {
+  RESEND_API_KEY: "test-key",
+  REMINDER_FROM_EMAIL: "Cense <reminders@example.test>",
+  APP_BASE_URL: "http://localhost:3300",
+  REMINDER_UNSUBSCRIBE_SECRET: "test-secret",
+  RESEND_BASE_URL: "http://127.0.0.1:3598",
+};
+const REMINDER = { id: "00000000-0000-4000-8000-0000000000a1", applicationId: "00000000-0000-4000-8000-000000000001", remindOn: "2027-04-05" };
+
+function student(unsubscribedAt: string | null = null, email: string | null = "student@example.edu"): Student {
+  const query = { select: () => query, eq: () => query, maybeSingle: async () => ({ data: { reminders_unsubscribed_at: unsubscribedAt }, error: null }) };
+  return { supabase: { from: () => query }, studentId: "student-1", email } as unknown as Student;
+}
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+});
+
+function stubEnv() {
+  for (const [name, value] of Object.entries(ENV)) vi.stubEnv(name, value);
+}
+
+describe("sendReapplyConfirmation", () => {
+  it("sends one email through Resend, keyed to the student, card and day", async () => {
+    stubEnv();
+    const fetchFn = vi.fn<typeof fetch>(async () => Response.json({ id: "1" }));
+    expect(await sendReapplyConfirmation(student(), REMINDER, fetchFn)).toBe("sent");
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe("http://127.0.0.1:3598/emails");
+    expect((init?.headers as Record<string, string>)["Idempotency-Key"]).toBe(
+      `reapply-confirmation-student-1-${REMINDER.applicationId}-2027-04-05`,
+    );
+    const body = JSON.parse(String(init?.body));
+    expect(body.to).toEqual(["student@example.edu"]);
+    expect(body.subject).toBe("Your reapply reminder is set");
+  });
+
+  it("keeps the same key when the same day is saved again as a new reminder row", async () => {
+    stubEnv();
+    const fetchFn = vi.fn<typeof fetch>(async () => Response.json({ id: "1" }));
+    await sendReapplyConfirmation(student(), REMINDER, fetchFn);
+    const resaved = { ...REMINDER, id: "00000000-0000-4000-8000-0000000000a2" };
+    await sendReapplyConfirmation(student(), resaved, fetchFn);
+    await sendReapplyConfirmation(student(), { ...REMINDER, remindOn: "2027-04-06" }, fetchFn);
+    const keys = fetchFn.mock.calls.map(([, init]) => (init?.headers as Record<string, string>)["Idempotency-Key"]);
+    expect(keys[0]).toBe(keys[1]);
+    expect(keys[2]).not.toBe(keys[0]);
+  });
+
+  it("skips it when reminder emails are off, the settings are missing, or there is no address", async () => {
+    const fetchFn = vi.fn<typeof fetch>();
+    expect(await sendReapplyConfirmation(student(), REMINDER, fetchFn)).toBe("skipped");
+    stubEnv();
+    expect(await sendReapplyConfirmation(student("2026-11-01T00:00:00Z"), REMINDER, fetchFn)).toBe("skipped");
+    expect(await sendReapplyConfirmation(student(null, null), REMINDER, fetchFn)).toBe("skipped");
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it("never throws: a failed send is logged without the address", async () => {
+    stubEnv();
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const fetchFn = vi.fn<typeof fetch>(async () => Response.json({ name: "validation_error" }, { status: 422 }));
+    expect(await sendReapplyConfirmation(student(), REMINDER, fetchFn)).toBe("failed");
+    const thrown = vi.fn<typeof fetch>(async () => {
+      throw new TypeError("offline");
+    });
+    expect(await sendReapplyConfirmation(student(), REMINDER, thrown)).toBe("failed");
+    expect(JSON.stringify(error.mock.calls)).not.toContain("student@example.edu");
+  });
+});
+
+describe("sendPaymentRemindersConfirmation", () => {
+  const INPUT = {
+    applicationId: REMINDER.applicationId, cardName: "Discover it", today: "2026-11-09",
+    statementClosing: { next: "2026-11-20" }, paymentDue: null, autopayCheck: false, autopayOn: true,
+  };
+  const SAVED_AT = "2026-11-09T18:00:00.123456+00:00";
+
+  it("sends once per save of the card's days", async () => {
+    stubEnv();
+    const fetchFn = vi.fn<typeof fetch>(async () => Response.json({ id: "1" }));
+    expect(await sendPaymentRemindersConfirmation(student(), INPUT, SAVED_AT, fetchFn)).toBe("sent");
+    const [, init] = fetchFn.mock.calls[0];
+    expect((init?.headers as Record<string, string>)["Idempotency-Key"]).toBe(
+      `payment-reminders-confirmation-student-1-${REMINDER.applicationId}-${SAVED_AT}`,
+    );
+    expect(JSON.parse(String(init?.body)).subject).toBe("Your payment reminders are set");
+  });
+
+  it("is skipped after the student unsubscribed", async () => {
+    stubEnv();
+    const fetchFn = vi.fn<typeof fetch>();
+    expect(await sendPaymentRemindersConfirmation(student("2026-11-01T00:00:00Z"), INPUT, SAVED_AT, fetchFn)).toBe("skipped");
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+});

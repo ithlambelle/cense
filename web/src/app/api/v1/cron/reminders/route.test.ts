@@ -4,9 +4,9 @@ vi.mock("server-only", () => ({}));
 const service = vi.hoisted(() => ({ createServiceClient: vi.fn() }));
 vi.mock("@/lib/supabase/service", () => service);
 
-const cleanup = vi.hoisted(() => ({ runAccountCleanup: vi.fn() }));
+const cleanup = vi.hoisted(() => ({ runAccountCleanupWithHeartbeat: vi.fn() }));
 vi.mock("@/lib/plaid/account-cleanup", () => cleanup);
-const CLEANUP = { claimed: 0, removed: 0, failed: 0, unavailable: false };
+const CLEANUP = { claimed: 0, removed: 0, failed: 0, unavailable: false, deferred: false };
 
 import { verifyUnsubscribeToken } from "@/lib/reminders/unsubscribe-token";
 
@@ -61,7 +61,8 @@ const cron = (authorization: string | null = `Bearer ${ENV.CRON_SECRET}`) =>
   GET(new Request("https://app.test/api/v1/cron/reminders", { headers: authorization ? { authorization } : {} }));
 
 beforeEach(() => {
-  cleanup.runAccountCleanup.mockResolvedValue(CLEANUP);
+  cleanup.runAccountCleanupWithHeartbeat.mockReset();
+  cleanup.runAccountCleanupWithHeartbeat.mockResolvedValue(CLEANUP);
   others.length = 0;
   for (const [name, value] of Object.entries(ENV)) vi.stubEnv(name, value);
   vi.spyOn(console, "log").mockImplementation(() => undefined);
@@ -87,13 +88,46 @@ describe("GET /cron/reminders", () => {
     expect(calls).toEqual([]);
   });
 
-  it("names a missing setting in the log and stops", async () => {
+  it("names a missing email setting in the log and sends nothing, but still raises the follow-ups", async () => {
     vi.stubEnv("RESEND_API_KEY", "");
     const calls = database();
     const response = await cron();
     expect(response.status).toBe(500);
     expect(JSON.stringify(vi.mocked(console.error).mock.calls)).toContain("RESEND_API_KEY");
+    expect(calls.map((call) => call.name)).toEqual(["raise_reminder_follow_ups"]);
+    expect(cleanup.runAccountCleanupWithHeartbeat).toHaveBeenCalledWith(service.createServiceClient.mock.results[0].value, expect.objectContaining({ startedAt: expect.any(Number) }));
+    expect(service.createServiceClient).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops before the database without the service role", async () => {
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
+    const calls = database();
+    expect((await cron()).status).toBe(500);
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).toContain("SUPABASE_SERVICE_ROLE_KEY");
     expect(calls).toEqual([]);
+    expect(cleanup.runAccountCleanupWithHeartbeat).not.toHaveBeenCalled();
+  });
+
+  it("counts the follow-ups' time against the sending budget", async () => {
+    // Slow follow-ups use up the budget: the email is deferred, not started
+    // with seconds left in Vercel's limit.
+    let clock = 0;
+    const now = vi.spyOn(Date, "now").mockImplementation(() => clock);
+    const calls: string[] = [];
+    service.createServiceClient.mockReturnValue({
+      rpc: async (name: string) => {
+        calls.push(name);
+        if (name === "raise_reminder_follow_ups") clock = 46_000;
+        if (name === "claim_due_reminders") return { data: [claimed()], error: null };
+        return { data: null, error: null };
+      },
+    });
+    const fetchMock = resend();
+    const body = await (await cron()).json();
+    now.mockRestore();
+    expect(body).toMatchObject({ claimed: 1, sent: 0, deferred: 1 });
+    expect(fetchMock.emails()).toHaveLength(0);
+    expect(calls).toContain("release_reminder_claim");
   });
 
   it("refreshes, claims, sends through Resend and marks sent, answering with counts only", async () => {
@@ -103,9 +137,9 @@ describe("GET /cron/reminders", () => {
     const response = await cron();
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, plaidCleanup: CLEANUP });
-    expect(calls.map((call) => call.name)).toEqual(["refresh_all_reminders", "claim_due_reminders", "mark_reminder_sent"]);
-    expect(calls[2].args).toEqual({ p_reminder_id: claimed().reminder_id });
+    expect(body).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, followUps: { raised: 0, skipped: 0, failed: false }, plaidCleanup: CLEANUP });
+    expect(calls.map((call) => call.name)).toEqual(["raise_reminder_follow_ups", "refresh_all_reminders", "claim_due_reminders", "mark_reminder_sent"]);
+    expect(calls[3].args).toEqual({ p_reminder_id: claimed().reminder_id });
     expect(service.createServiceClient).toHaveBeenCalledWith(ENV.SUPABASE_SERVICE_ROLE_KEY);
 
     const [url, init] = fetchMock.emails()[0] as unknown as [string, RequestInit];
@@ -136,7 +170,7 @@ describe("GET /cron/reminders", () => {
 
     const body = await (await cron()).json();
     expect(body).toMatchObject({ claimed: 1, sent: 0, failed: 1 });
-    expect(calls.map((call) => call.name)).toEqual(["refresh_all_reminders", "claim_due_reminders", "release_reminder_claim"]);
+    expect(calls.map((call) => call.name)).toEqual(["raise_reminder_follow_ups", "refresh_all_reminders", "claim_due_reminders", "release_reminder_claim"]);
     const logs = JSON.stringify(vi.mocked(console.error).mock.calls);
     expect(logs).toContain("validation_error");
     expect(logs).not.toContain("student@example.test");
@@ -163,7 +197,7 @@ describe("GET /cron/reminders", () => {
   it("sends nothing when nothing is due", async () => {
     database({ claim_due_reminders: [{ data: [], error: null }] });
     const fetchMock = resend();
-    expect(await (await cron()).json()).toEqual({ claimed: 0, sent: 0, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, plaidCleanup: CLEANUP });
+    expect(await (await cron()).json()).toEqual({ claimed: 0, sent: 0, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, followUps: { raised: 0, skipped: 0, failed: false }, plaidCleanup: CLEANUP });
     expect(fetchMock.emails()).toHaveLength(0);
   });
 
@@ -204,20 +238,40 @@ describe("GET /cron/reminders", () => {
     expect(String(elsewhere.emails()[0][0])).toBe("https://api.resend.com/emails");
   });
 
-  it("runs cleanup even when email settings are missing", async () => {
-    vi.stubEnv("RESEND_API_KEY", "");
-    database();
-    expect((await cron()).status).toBe(500);
-    expect(cleanup.runAccountCleanup).toHaveBeenCalled();
+  it("raises the in-app follow-ups before sending, and a skipped one is not a failed run", async () => {
+    vi.stubEnv("REMINDER_HEARTBEAT_URL", "https://hc-ping.com/test-check");
+    const calls = database({ raise_reminder_follow_ups: [{ data: [{ raised: 2, skipped: 1 }], error: null }] });
+    resend();
+    const response = await cron();
+    expect(response.status).toBe(200);
+    expect((await response.json()).followUps).toEqual({ raised: 2, skipped: 1, failed: false });
+    expect(calls[0]).toEqual({ name: "raise_reminder_follow_ups", args: undefined });
+    expect(JSON.parse(others[1].body).followUps).toEqual({ raised: 2, skipped: 1, failed: false });
+    expect(others[1].url).not.toContain("/fail");
   });
 
-  it("alerts on failed cleanup without preventing reminders", async () => {
+  it("still sends the emails when the follow-ups cannot run, and the heartbeat says fail", async () => {
+    const calls = database({
+      raise_reminder_follow_ups: [{ data: null, error: { code: "42883", message: "function does not exist" } }],
+      claim_due_reminders: [{ data: [claimed()], error: null }],
+    });
     vi.stubEnv("REMINDER_HEARTBEAT_URL", "https://hc-ping.com/test-check");
-    cleanup.runAccountCleanup.mockResolvedValue({ ...CLEANUP, claimed: 1, failed: 1 });
+    resend();
+    const body = await (await cron()).json();
+    expect(body).toMatchObject({ sent: 1, followUps: { raised: 0, skipped: 0, failed: true } });
+    expect(calls.map((call) => call.name)).toContain("mark_reminder_sent");
+    expect(others[1].url).toContain("/fail");
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).toContain("reminder_follow_ups_failed");
+  });
+
+  it("keeps the reminder heartbeat green when only cleanup failed", async () => {
+    vi.stubEnv("REMINDER_HEARTBEAT_URL", "https://hc-ping.com/test-check");
+    cleanup.runAccountCleanupWithHeartbeat.mockResolvedValue({ ...CLEANUP, claimed: 1, failed: 1 });
     database({ claim_due_reminders: [{ data: [claimed()], error: null }] });
     resend();
     expect(await (await cron()).json()).toMatchObject({ sent: 1, plaidCleanup: { failed: 1 } });
-    expect(others.at(-1)?.url).toBe("https://hc-ping.com/test-check/fail");
+    expect(others.at(-1)?.url).toBe("https://hc-ping.com/test-check");
+    expect(JSON.parse(others.at(-1)!.body)).not.toHaveProperty("plaidCleanup");
   });
 
   describe("heartbeat", () => {
@@ -230,7 +284,7 @@ describe("GET /cron/reminders", () => {
       resend();
       await cron();
       expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, HEARTBEAT]);
-      expect(JSON.parse(others[1].body)).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, plaidCleanup: CLEANUP });
+      expect(JSON.parse(others[1].body)).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, followUps: { raised: 0, skipped: 0, failed: false } });
     });
 
     it("pings fail when a send failed, and the body has counts only", async () => {
@@ -247,7 +301,7 @@ describe("GET /cron/reminders", () => {
       resend();
       expect((await cron()).status).toBe(500);
       expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, `${HEARTBEAT}/fail`]);
-      expect(JSON.parse(others[1].body)).toEqual({ error: "not_configured", missing: ["RESEND_API_KEY"], plaidCleanup: CLEANUP });
+      expect(JSON.parse(others[1].body)).toEqual({ error: "not_configured", missing: ["RESEND_API_KEY"], followUps: { raised: 0, skipped: 0, failed: true } });
 
       others.length = 0;
       vi.stubEnv("RESEND_API_KEY", ENV.RESEND_API_KEY);

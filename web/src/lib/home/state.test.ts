@@ -129,13 +129,23 @@ describe("needsDetail", () => {
 });
 
 describe("paymentReminderOn", () => {
+  const on = { paymentDue: true, statementClosing: true, emailsOn: true };
+  const card = { autopayStatus: "unknown" as const, statementClosingDay: null, paymentDueDay: 9 };
+
   it("needs the due day saved, the due-date email on and emails not off", () => {
-    const on = { paymentDue: true, emailsOn: true };
-    expect(paymentReminderOn({ paymentDueDay: 9 }, on)).toBe(true);
-    expect(paymentReminderOn({ paymentDueDay: null }, on)).toBe(false);
+    expect(paymentReminderOn(card, on)).toBe(true);
+    expect(paymentReminderOn({ ...card, paymentDueDay: null }, on)).toBe(false);
     expect(paymentReminderOn(null, on)).toBe(false);
-    expect(paymentReminderOn({ paymentDueDay: 9 }, { ...on, paymentDue: false })).toBe(false);
-    expect(paymentReminderOn({ paymentDueDay: 9 }, { ...on, emailsOn: false })).toBe(false);
+    expect(paymentReminderOn(card, { ...on, paymentDue: false })).toBe(false);
+    expect(paymentReminderOn(card, { ...on, emailsOn: false })).toBe(false);
+  });
+
+  it("with autopay on, needs both days and the statement email, not the due-date email it never sends", () => {
+    const autopay = { autopayStatus: "on" as const, statementClosingDay: 14, paymentDueDay: 9 };
+    expect(paymentReminderOn(autopay, { ...on, paymentDue: false })).toBe(true);
+    expect(paymentReminderOn(autopay, { ...on, statementClosing: false })).toBe(false);
+    expect(paymentReminderOn({ ...autopay, statementClosingDay: null }, on)).toBe(false);
+    expect(paymentReminderOn(autopay, { ...on, emailsOn: false })).toBe(false);
   });
 });
 

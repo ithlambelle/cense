@@ -23,8 +23,12 @@ import { askPennySchema, pennyReplySchema } from "../src/lib/api/penny";
 import { planNameSchema, planProgressSchema, planStepNameSchema, planStepSchema } from "../src/lib/api/plans";
 import {
   createReapplyReminderSchema,
+  markRemindersReadSchema,
+  reminderConfirmationSchema,
   reminderSchema,
+  snoozeReminderSchema,
   reminderSettingsSchema,
+  savedReapplyReminderSchema,
   updateReminderSettingsSchema,
 } from "../src/lib/api/reminders";
 import { privacySettingsSchema, updatePrivacySettingsSchema } from "../src/lib/api/privacy";
@@ -228,6 +232,19 @@ registry.registerPath({
 });
 const reminderContract = registry.register("Reminder", reminderSchema);
 const reminderSettingsContract = registry.register("ReminderSettings", reminderSettingsSchema);
+const savedReapplyReminderContract = registry.register("SavedReapplyReminder", savedReapplyReminderSchema);
+const reminderConfirmationContract = registry.register("ReminderConfirmation", reminderConfirmationSchema);
+registry.registerPath({
+  method: "post", path: "/applications/{id}/reminder-confirmation", operationId: "confirmPaymentReminders",
+  summary: "Email the student a confirmation of an approved card's payment reminders",
+  description: "Called after the card's statement and due days are saved. The email names each reminder the daily job will send for the card and the card's next dates, read from the reminders the database scheduled, never a send day. One email per save of the days (keyed to the card's updated_at). confirmation is sent, skipped (no reminder on, emails off or not set up) or failed.",
+  security: [{ studentSession: [] }],
+  request: { params: z.object({ id: z.uuid() }) },
+  responses: {
+    200: ok(reminderConfirmationContract), 400: failure("Invalid application ID"), 404: failure("Application not found"),
+    409: failure("Card not approved, or its days are not saved"), ...protectedResponses,
+  },
+});
 registry.registerPath({
   method: "get", path: "/reminders", operationId: "listReminders",
   summary: "List the student's reminders, sent and upcoming",
@@ -237,11 +254,11 @@ registry.registerPath({
 registry.registerPath({
   method: "post", path: "/reminders", operationId: "createReapplyReminder",
   summary: "Set the reapply reminder for a denied application (replaces an unsent one)",
-  description: "The day must be tomorrow to a year from now on the student's calendar. The answer carries the day as remindOn.",
+  description: "The day must be tomorrow to a year from now on the student's calendar. The answer carries the day as remindOn, and confirmation says whether the confirmation email was sent, skipped (emails off or not set up) or failed.",
   security: [{ studentSession: [] }],
   request: { body: body(createReapplyReminderSchema) },
   responses: {
-    201: ok(reminderContract), 400: failure("Invalid day or application not denied"),
+    201: ok(savedReapplyReminderContract), 400: failure("Invalid day or application not denied"),
     404: failure("Application not found"), 409: failure("Already sent"), ...protectedResponses,
   },
 });
@@ -254,6 +271,33 @@ registry.registerPath({
     200: ok(reminderContract), 400: failure("Invalid reminder ID"), 404: failure("Reminder not found"),
     409: failure("Reminder not sent yet"), ...protectedResponses,
   },
+});
+registry.registerPath({
+  method: "post", path: "/reminders/{id}/snooze", operationId: "snoozeReminder",
+  summary: "Snooze a sent reminder: tomorrow morning, in 2 days, or the day before it is due",
+  description: "Each choice is 9:00 on the student's calendar, worked out by the server. A choice past the reminder's due date, or already gone, is refused with past_due.",
+  security: [{ studentSession: [] }],
+  request: { params: z.object({ id: z.uuid() }), body: body(snoozeReminderSchema) },
+  responses: {
+    200: ok(reminderContract), 400: failure("Invalid reminder ID or choice"), 404: failure("Reminder not found"),
+    409: failure("Not sent yet, already done, or past the due date"), ...protectedResponses,
+  },
+});
+registry.registerPath({
+  method: "post", path: "/reminders/{id}/dismiss", operationId: "dismissReminder",
+  summary: "Dismiss a sent reminder for the rest of its billing cycle (keeps the first time)",
+  security: [{ studentSession: [] }],
+  request: { params: z.object({ id: z.uuid() }) },
+  responses: {
+    200: ok(reminderContract), 400: failure("Invalid reminder ID"), 404: failure("Reminder not found"),
+    409: failure("Reminder not sent yet"), ...protectedResponses,
+  },
+});
+registry.registerPath({
+  method: "post", path: "/reminders/read", operationId: "markRemindersRead",
+  summary: "Mark all of the student's sent reminders read",
+  security: [{ studentSession: [] }],
+  responses: { 200: ok(registry.register("MarkRemindersRead", markRemindersReadSchema)), ...protectedResponses },
 });
 registry.registerPath({
   method: "get", path: "/me/reminder-settings", operationId: "getReminderSettings",

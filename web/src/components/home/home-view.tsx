@@ -1,3 +1,4 @@
+import Bell from "@gravity-ui/icons/Bell";
 import ChevronRight from "@gravity-ui/icons/ChevronRight";
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
 import CircleInfo from "@gravity-ui/icons/CircleInfo";
@@ -68,8 +69,11 @@ export function HomeView({
   const celebrate = celebrating(state, celebrateId);
   return (
     <div className="flex min-h-dvh justify-center bg-background">
-      <div className="relative flex w-full max-w-phone flex-col overflow-x-clip">
-        <header className="box-content flex h-11 items-center px-6 pt-[42px] pb-0.5">
+      {/* No overflow clip on this column: Safari clips a fixed child to it, so
+          the bottom bar stopped at the column's 390px on wider phones (Ben,
+          2026-11-09). Home's content is clipped by its main instead. */}
+      <div className="relative flex w-full max-w-phone flex-col">
+        <header className="box-content flex h-11 items-center justify-between px-6 pt-[42px] pb-0.5">
           {/* The initial in a circle replaces the labeled Profile button (Flow 1 frames). */}
           <Link
             href={ROUTES.settings}
@@ -78,12 +82,20 @@ export function HomeView({
           >
             <Image src="/mascot/astro-pig/avatar.png" alt={initial} width={40} height={40} className="rounded-input" />
           </Link>
+          {/* The bell from the Greeting header (Figma 273:2216) opens Updates (US-08). */}
+          <Link
+            href={ROUTES.updates}
+            aria-label="Updates"
+            className="flex size-11 items-center justify-center rounded-pill text-navy transition-colors hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <Bell aria-hidden="true" width={22} height={22} />
+          </Link>
         </header>
-        <main className="stagger flex flex-1 flex-col gap-[18px] px-6 pt-4 pb-6">
+        <main className="stagger flex flex-1 flex-col gap-[18px] overflow-x-clip px-6 pt-4 pb-6">
           <HomeContent state={state} detail={detail} reminderSettings={reminderSettings} celebrate={celebrate} sampleStars={sampleStars} />
           {/* Under the card module, which carries MVP2's reminders; design's
               Home/Today (Figma 222:2211) puts it on top once that is built. */}
-          {safeToSpend !== undefined ? <SafeToSpendHome safeToSpend={safeToSpend} /> : null}
+          {safeToSpend !== undefined ? <SafeToSpendHome safeToSpend={safeToSpend} preview={!celebrate} /> : null}
         </main>
         {celebrate ? <StarConfetti /> : null}
         {fromReminder ? <ReminderArrival kind={fromReminder} /> : null}
@@ -188,6 +200,8 @@ function HomeContent({
         <ApprovedCard
           application={primary}
           autopayOn={detail?.autopayStatus === "on"}
+          autopayPaymentType={detail?.autopayPaymentType ?? null}
+          spendLimitSet={detail?.spendLimitCents != null}
           paymentReminderOn={paymentReminderOn(detail, reminderSettings)}
           celebrate={celebrate}
           sampleStars={sampleStars}

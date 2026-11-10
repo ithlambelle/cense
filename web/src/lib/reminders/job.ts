@@ -40,6 +40,10 @@ export type ReminderJobResult = {
 };
 
 export type ReminderJobOptions = {
+  // When the run began (the cron route's start, on the same clock as `now`),
+  // so work done before the job, like the follow-ups, counts against the
+  // budget. Defaults to the job's own start.
+  startedAt?: number;
   fetch?: typeof fetch;
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
@@ -50,9 +54,10 @@ export type ReminderJobOptions = {
 // Vercel's function time limit at Resend's default rate of 2 requests a second
 export const CLAIM_LIMIT = 50;
 const SEND_INTERVAL_MS = 550;
-// No new email starts after this. The worst case still ends inside Vercel's
-// 60 seconds: 45 here, Resend's 10-second timeout on the last email, then the
-// analytics copy (2 s, analytics-server.ts) and the heartbeat (2 s).
+// No new email starts after this, counted from the start of the run. The
+// worst case still ends inside Vercel's 60 seconds: 45 here, Resend's
+// 10-second timeout on the last email, then the analytics copy (2 s,
+// analytics-server.ts) and the heartbeat (2 s).
 const TIME_BUDGET_MS = 45_000;
 const RESEND_TIMEOUT_MS = 10_000;
 
@@ -136,9 +141,9 @@ export class ReminderJobError extends Error {
 export async function runReminderJob(
   supabase: ServiceClient,
   config: ReminderJobConfig,
-  { fetch: fetchImpl = fetch, sleep = defaultSleep, now = Date.now, capture = captureServer }: ReminderJobOptions = {},
+  { startedAt, fetch: fetchImpl = fetch, sleep = defaultSleep, now = Date.now, capture = captureServer }: ReminderJobOptions = {},
 ): Promise<ReminderJobResult> {
-  const started = now();
+  const started = startedAt ?? now();
 
   // schedule every card's next cycle first. A failure here is logged, not
   // fatal: reminders already due can still go out.

@@ -5,10 +5,10 @@ import { useState, type FormEvent } from "react";
 
 import { limitToCents } from "@/components/applications/mark-result";
 import { AppHeader } from "@/components/ui/app-header";
-import { BottomNav } from "@/components/ui/bottom-nav";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE, track } from "@/lib/analytics";
+import { previousScreenIs } from "@/lib/back-navigation";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import { ROUTES, signInPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
@@ -68,7 +68,7 @@ function AddCardForm({ onAdded, onCancel, onSignedOut }: AddCardFormProps) {
   }
 
   return (
-    <form method="post" onSubmit={submit} className="flex flex-col gap-4" noValidate>
+    <form method="post" onSubmit={submit} className="flex flex-1 flex-col gap-4" noValidate>
       <TextField
         label="Card name"
         name="cardName"
@@ -95,41 +95,46 @@ function AddCardForm({ onAdded, onCancel, onSignedOut }: AddCardFormProps) {
           disabled={pending}
         />
       </div>
+      {/* The frame's spacer: the buttons sit at the bottom of the screen. */}
+      <div className="flex-1" />
       <Button type="submit" pending={pending}>
         Add card
       </Button>
-      <Button type="button" variant="link" className="self-center" disabled={pending} onClick={onCancel}>
+      {/* Button, Text (371:2838): 15px Semi Bold violet, no underline. */}
+      <Button type="button" variant="secondary" className="w-auto self-start px-3" disabled={pending} onClick={onCancel}>
         Cancel
       </Button>
     </form>
   );
 }
 
-// For a student who already has a card (US-02). No frame: built from the auth
-// form's parts and proposed to design.
-export function AddCardScreen() {
+// For a student who already has a card (US-02). Flow F, F7 (Figma 477:2899):
+// opened from Profile, Back, Cancel and Add card all return to Profile, and
+// Cancel and Add card replace this entry (G1), so Back afterwards never
+// reopens the form. Opened from anywhere else they return Home the same way.
+// The frame draws no bottom bar.
+export function AddCardScreen({ fromAccount = false }: { fromAccount?: boolean }) {
   const router = useRouter();
+  const back = fromAccount ? { href: ROUTES.settings, label: "Your account" } : { href: ROUTES.home, label: "Home" };
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
-        <AppHeader backHref={ROUTES.home} backLabel="Home" />
-        <main className="stagger flex flex-1 flex-col gap-6 px-6 pt-4 pb-6">
-          <div className="flex flex-col gap-2">
-            <h1 className="font-heading text-h2 font-medium text-navy">Add a card you already have</h1>
-            <p className="text-body-m text-indigo-black">We’ll show it on Home. Only its name is needed; you can add its credit limit too.</p>
-          </div>
+        <AppHeader backHref={back.href} backLabel={back.label} />
+        <main className="stagger flex flex-1 flex-col gap-4 px-6 pt-3 pb-6">
+          <h1 className="font-heading text-h3 font-medium text-navy">Add a card you already have</h1>
+          <p className="text-body-m text-indigo-black">We’ll show it on Home. Only its name is needed.</p>
           <AddCardForm
             onAdded={() => {
-              router.push(ROUTES.home);
+              router.replace(back.href);
               router.refresh();
             }}
-            onCancel={() => router.push(ROUTES.home)}
+            // Cancel returns to the screen behind when it is the parent, so it
+            // is never in the history twice. Adding still replaces, so the
+            // parent loads fresh with the new card.
+            onCancel={() => (previousScreenIs(back.href) ? window.history.back() : router.replace(back.href))}
             onSignedOut={() => router.replace(signInPath(ROUTES.home))}
           />
         </main>
-        <div className="sticky bottom-0">
-          <BottomNav />
-        </div>
       </div>
     </div>
   );

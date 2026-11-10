@@ -66,6 +66,23 @@ describe("PaymentReminderSetup", () => {
     ).toBeTruthy();
   });
 
+  it("with autopay on, neither promises nor offers the due-date email, and saves without touching it", async () => {
+    const fetchFn = server({ status: 200 }, { status: 200 });
+    renderSetup({ closing: 14, due: 9 }, { autopayOn: true });
+    expect(screen.getByText("We’ll email you before your statement closes.")).toBeTruthy();
+    expect(screen.queryByText(/before your bill is due/)).toBeNull();
+    expect(screen.queryByRole("switch", { name: "3 days before the due date" })).toBeNull();
+    expect(screen.getByText("Autopay is on, so no due-date email for this card.")).toBeTruthy();
+    expect(screen.getByRole("switch", { name: "3 days before the statement closes" })).toBeTruthy();
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
+    // The due-date setting covers other cards, so it is never sent from here.
+    expect(sent(fetchFn).map(([method, url]) => `${method} ${url}`)).toEqual([
+      `PATCH /api/v1/applications/${ID}`,
+      `PUT /api/v1/applications/${ID}/plans/first_month/steps/payment_reminder`,
+    ]);
+  });
+
   it("goes back, and after saving returns, to the card's page when opened from it", async () => {
     const fetchFn = server({ status: 200 }, { status: 201, body: {} });
     renderSetup({ closing: 14, due: 9 }, { back: { href: "/cards/discover-it-student-cash-back", label: "Card details" }, doneHref: "/cards/discover-it-student-cash-back" });
@@ -96,8 +113,8 @@ describe("PaymentReminderSetup", () => {
     expect(fetchFn).not.toHaveBeenCalled();
   });
 
-  it("saves the days, the changed toggle and the star in order, then goes Home", async () => {
-    const fetchFn = server({ status: 200 }, { status: 200 }, { status: 200 });
+  it("saves the days, the changed toggle and the star in order, asks for the confirmation, then goes Home", async () => {
+    const fetchFn = server({ status: 200 }, { status: 200 }, { status: 200 }, { status: 200, body: { confirmation: "skipped" } });
     renderSetup();
     fireEvent.change(closingField(), { target: { value: "14" } });
     fireEvent.change(dueField(), { target: { value: "9" } });
@@ -108,7 +125,38 @@ describe("PaymentReminderSetup", () => {
       ["PATCH", `/api/v1/applications/${ID}`, { statementClosingDay: 14, paymentDueDay: 9 }],
       ["PATCH", "/api/v1/me/reminder-settings", { statementClosing: false }],
       ["PUT", `/api/v1/applications/${ID}/plans/first_month/steps/payment_reminder`, undefined],
+      // New days: the confirmation email is asked for last.
+      ["POST", `/api/v1/applications/${ID}/reminder-confirmation`, undefined],
     ]);
+    // Skipped, so the screen never claims an email.
+    expect(screen.getByRole("status").textContent).toBe("");
+  });
+
+  it("says the confirmation was emailed when it was, then goes Home", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      server({ status: 200 }, { status: 200 }, { status: 200, body: { confirmation: "sent" } });
+      renderSetup();
+      fireEvent.change(closingField(), { target: { value: "12" } });
+      fireEvent.change(dueField(), { target: { value: "7" } });
+      fireEvent.click(saveButton());
+      await waitFor(() => expect(screen.getByRole("status").textContent).toBe("We emailed you a confirmation."));
+      expect(replace).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1500);
+      await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("asks for no confirmation when the days are the ones already saved", async () => {
+    const fetchFn = server({ status: 200 }, { status: 200 });
+    renderSetup({ closing: 14, due: 9 });
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
+    expect(sent(fetchFn).map(([method, url]) => `${method} ${url}`)).not.toContain(
+      `POST /api/v1/applications/${ID}/reminder-confirmation`,
+    );
   });
 
   it("stays with a clear message when the choices fail, never lights the star, and retries", async () => {

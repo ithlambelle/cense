@@ -350,6 +350,13 @@ for (const viewport of [
           .map(({ element, box }) => `${element.textContent?.trim() || element.getAttribute("aria-label")} ${Math.round(box.width)}x${Math.round(box.height)}`),
       );
       expect(small, `${path} has controls under 44px`).toEqual([]);
+      // Every text field is at least 16px: iPhones zoom into smaller ones when tapped.
+      const zooms = await page.evaluate(() =>
+        [...document.querySelectorAll("input, textarea")]
+          .filter((field) => parseFloat(getComputedStyle(field).fontSize) < 16)
+          .map((field) => field.getAttribute("aria-label") ?? field.getAttribute("name") ?? field.tagName),
+      );
+      expect(zooms, `${path} has text fields under 16px`).toEqual([]);
       // Scrolled to the end, the last thing on the page sits above what is
       // pinned to the bottom: the tab bar, or the chat's question box.
       await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));

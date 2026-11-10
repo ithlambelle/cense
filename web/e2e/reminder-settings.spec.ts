@@ -9,8 +9,8 @@ import { axeChecker, blockExternalRequests, signUp, uniqueEmail } from "./helper
 
 const DISCOVER = { id: "discover-it-student-cash-back", name: "Discover it Student Cash Back" };
 const CHIME = { id: "chime-card", name: "Chime Card" };
-const REMINDER_DONE = /^Set a payment reminder\s*, done/;
-const REMINDER = /^Set a payment reminder/;
+const REMINDER_DONE = /^Choose your reminders\s*, done/;
+const REMINDER = /^Choose your reminders/;
 
 test.beforeEach(async ({ context }) => {
   await blockExternalRequests(context);

@@ -12,49 +12,63 @@ import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE } from "@/lib/analytics";
-import { saveAutopay, saveCreditLimit } from "@/lib/api-client/applications";
-import { loadPlanSteps, savePlanStep, type PlanStepName } from "@/lib/api-client/plans";
+import { saveCreditLimit } from "@/lib/api-client/applications";
+import { loadPlanSteps } from "@/lib/api-client/plans";
 import type { Application } from "@/lib/api/application";
 import { centsToInput, moneyAmount } from "@/lib/money";
-import { cardPath, CELEBRATE_PARAM, paymentRemindersPath, ROUTES, signInPath } from "@/lib/routes";
+import { cardSetupPath, CELEBRATE_PARAM, paymentRemindersPath, ROUTES, signInPath, spendLimitPath } from "@/lib/routes";
+import { autopayCadence, type PaymentType } from "@/lib/setup/progress";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
 import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
 
-// Home's approved card (Flow 1, Figma 144:1555, 144:1655, 144:1733): the card,
-// its limit and the first month's three steps as stars in one module.
+// Home's approved card (Flow 1, Figma 144:1555, 144:1655, 144:1733; stars as
+// in Flow C's entry 477:1514, edited Nov 7): the card, its limit and the first
+// month's three steps as stars in one module, the same three as the card
+// setup list (US-10, I1).
 
-type StepKey = "autopay" | "plannedPurchase" | "paymentReminder";
+type StepKey = "autopay" | "spendLimit" | "paymentReminder";
 type Lit = Record<StepKey, boolean>;
 
-// Copy from the frames. Autopay is not a plan step: it is the card's own
-// autopay status, read on the server with the card and saved with PATCH
-// /applications/{id}. The payment reminder is not ticked here: its row opens
-// the reminder screen (US-08), which lights the star when it saves, so the
-// star is never lit without a reminder behind it.
-const STEPS: { key: StepKey; step: PlanStepName | null; title: string; detail: string; opensReminders?: true }[] = [
-  { key: "autopay", step: null, title: "Turn on autopay", detail: "Statement balance, every month" },
-  { key: "plannedPurchase", step: "planned_purchase", title: "Plan one purchase", detail: "A small cost you already budget for" },
-  { key: "paymentReminder", step: "payment_reminder", title: "Set a payment reminder", detail: "Use the due date on your statement", opensReminders: true },
+// Copy from the frames. No star is ticked here: each row opens the screen
+// where its step is done, so no star is ever lit without something behind it.
+// Autopay opens the card setup list (US-10, I1), where the student follows the
+// issuer's steps and says what they set up; the star reads the card's autopay
+// status. The spend limit opens its screens (US-04, Flow A); the star reads the
+// card's saved limit, so a limit cleared by a lower credit limit puts it out.
+// The payment reminder opens the reminder screen
+// (US-08), which lights the star when it saves.
+// Autopay's detail is the saved payment type (autopayCadence).
+const STEPS: { key: StepKey; title: string; detail: string; opens: "setup" | "spendLimit" | "reminders" }[] = [
+  { key: "autopay", title: "Turn on autopay", detail: "Every month", opens: "setup" },
+  { key: "spendLimit", title: "Set a spend limit", detail: "A monthly limit to try", opens: "spendLimit" },
+  { key: "paymentReminder", title: "Choose your reminders", detail: "One email before each date", opens: "reminders" },
 ];
+
+function stepHref(opens: (typeof STEPS)[number]["opens"], application: Application): string {
+  if (opens === "setup") return cardSetupPath(application.id);
+  if (opens === "spendLimit") return spendLimitPath(application.id, application.creditLimitCents, "home");
+  return paymentRemindersPath(application.id);
+}
 
 // List row, Tinted (273:2196), shared by the tick rows and the reminder link.
 const ROW =
   "flex w-full items-center gap-3 rounded-[14px] bg-off-white px-3.5 py-3 text-left text-indigo-black hover:bg-selected-outline/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
-const NONE_LIT: Lit = { autopay: false, plannedPurchase: false, paymentReminder: false };
+const NONE_LIT: Lit = { autopay: false, spendLimit: false, paymentReminder: false };
 
 // The reminder star needs the step and a reminder that is really on (saved
 // days, the due-date email on, emails not off): the old first-month page ticked
-// the step on its own, and the settings cover every card.
-function loadLit(applicationId: string, autopay: boolean, reminderOn: boolean) {
+// the step on its own, and the settings cover every card. The spend limit star
+// is the saved limit alone.
+function loadLit(applicationId: string, autopay: boolean, spendLimit: boolean, reminderOn: boolean) {
   return async (): Promise<LoadOutcome<Lit>> => {
     const result = await loadPlanSteps(applicationId, "first_month");
     if (result.kind === "signed-out") return "signed-out";
     if (result.kind === "failed") return { status: "failed", message: result.message };
     return {
       status: "ready",
-      data: { autopay, plannedPurchase: result.done.has("planned_purchase"), paymentReminder: reminderOn && result.done.has("payment_reminder") },
+      data: { autopay, spendLimit, paymentReminder: reminderOn && result.done.has("payment_reminder") },
     };
   };
 }
@@ -62,6 +76,8 @@ function loadLit(applicationId: string, autopay: boolean, reminderOn: boolean) {
 export function ApprovedCard({
   application,
   autopayOn,
+  autopayPaymentType = null,
+  spendLimitSet = false,
   paymentReminderOn = false,
   celebrate,
   sampleStars,
@@ -69,6 +85,10 @@ export function ApprovedCard({
   application: Application;
   // The saved autopay status is "on" (off and unknown leave the star out).
   autopayOn: boolean;
+  // What the student said autopay pays, once it is on.
+  autopayPaymentType?: PaymentType | null;
+  // The card has a saved spend limit (spendLimitCents is not null).
+  spendLimitSet?: boolean;
   // The card's payment reminder is really on (paymentReminderOn in lib/home/state.ts).
   paymentReminderOn?: boolean;
   celebrate: boolean;
@@ -80,25 +100,49 @@ export function ApprovedCard({
     return (
       <>
         {celebrate ? <ArrivalEffects /> : null}
-        <CardModule application={application} celebrate={celebrate} start={start} ready loadError={null} onRetry={() => {}} sample />
+        <CardModule
+          application={application}
+          autopayPaymentType={autopayPaymentType}
+          celebrate={celebrate}
+          start={start}
+          loadError={null}
+          onRetry={() => {}}
+          sample
+        />
       </>
     );
   }
-  return <SavedCard application={application} autopayOn={autopayOn} paymentReminderOn={paymentReminderOn} celebrate={celebrate} />;
+  return (
+    <SavedCard
+      application={application}
+      autopayOn={autopayOn}
+      autopayPaymentType={autopayPaymentType}
+      spendLimitSet={spendLimitSet}
+      paymentReminderOn={paymentReminderOn}
+      celebrate={celebrate}
+    />
+  );
 }
 
 function SavedCard({
   application,
   autopayOn,
+  autopayPaymentType,
+  spendLimitSet,
   paymentReminderOn,
   celebrate,
 }: {
   application: Application;
   autopayOn: boolean;
+  autopayPaymentType: PaymentType | null;
+  spendLimitSet: boolean;
   paymentReminderOn: boolean;
   celebrate: boolean;
 }) {
-  const load = useMemo(() => loadLit(application.id, autopayOn, paymentReminderOn), [application.id, autopayOn, paymentReminderOn]);
+  const load = useMemo(
+    () => loadLit(application.id, autopayOn, spendLimitSet, paymentReminderOn),
+    [application.id, autopayOn, spendLimitSet, paymentReminderOn],
+  );
   const { loaded, retry } = useLoaded(load, signInPath(ROUTES.home));
   // A key per load state, so the stars start again from what was loaded.
   // The arrival effects sit outside it, so they run once.
@@ -108,9 +152,9 @@ function SavedCard({
       <CardModule
         key={loaded.status}
         application={application}
+        autopayPaymentType={autopayPaymentType}
         celebrate={celebrate}
-        start={loaded.status === "ready" ? loaded.data : { ...NONE_LIT, autopay: autopayOn }}
-        ready={loaded.status === "ready"}
+        start={loaded.status === "ready" ? loaded.data : { ...NONE_LIT, autopay: autopayOn, spendLimit: spendLimitSet }}
         loadError={loaded.status === "failed" ? loaded.message : null}
         onRetry={retry}
       />
@@ -120,61 +164,29 @@ function SavedCard({
 
 function CardModule({
   application,
+  autopayPaymentType,
   celebrate,
-  start,
-  ready,
+  start: lit,
   loadError,
   onRetry,
   sample = false,
 }: {
   application: Application;
+  autopayPaymentType: PaymentType | null;
   celebrate: boolean;
   start: Lit;
-  ready: boolean;
   loadError: string | null;
   onRetry: () => void;
   sample?: boolean;
 }) {
-  const router = useRouter();
   const now = useNow();
-  const [lit, setLit] = useState<Lit>(start);
-  const [error, setError] = useState<string | null>(null);
-  // Steps whose save is in flight; each is locked until its answer arrives.
-  const [saving, setSaving] = useState<ReadonlySet<StepKey>>(new Set());
-
-  async function toggle(key: StepKey, step: PlanStepName | null) {
-    const value = !lit[key];
-    setLit((current) => ({ ...current, [key]: value }));
-    setError(null);
-    if (sample) return;
-    setSaving((current) => new Set(current).add(key));
-    const result = step
-      ? await savePlanStep(application.id, "first_month", step, value)
-      : await saveAutopay(application.id, value);
-    setSaving((current) => {
-      const next = new Set(current);
-      next.delete(key);
-      return next;
-    });
-    if (result.kind === "ok") {
-      // Autopay reaches Home in the server render: refresh it, or Back from
-      // another screen restores the cached Home with the old star.
-      if (!step) router.refresh();
-      return;
-    }
-    // Undo only this star, so other saves in flight are not overwritten.
-    setLit((current) => ({ ...current, [key]: !value }));
-    if (result.kind === "signed-out") router.replace(signInPath(ROUTES.home));
-    else setError(result.message);
-  }
 
   const count = STEPS.filter((step) => lit[step.key]).length;
 
   return (
     <section aria-label={application.cardName} className="flex flex-col gap-3.5 rounded-card border-[1.5px] border-violet bg-white p-5">
-      {/* The card's own page (with its status, from #62). The whole title row is the
-          link, with a chevron so it reads as tappable (G4). A card added from outside
-          the catalog has no page, so its row is not a link. */}
+      {/* "Set up your card" (Flow C, 477:1514 to I1): the whole title row opens the
+          card setup list, with a chevron so it reads as tappable (G4). */}
       <TitleRow application={application}>
         <span aria-hidden="true" className="relative h-[38px] w-14 shrink-0 rounded-[6px] bg-navy">
           <span className="absolute top-[9px] left-[7px] h-2 w-[11px] rounded-[2px] bg-amber" />
@@ -190,11 +202,9 @@ function CardModule({
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <h2 className="font-heading text-h6 font-medium text-navy">{application.cardName}</h2>
           {/* No approved_at column: the date is only known on the arrival from Mark result. */}
-          {celebrate && now ? (
-            <p className="text-[13px] leading-normal text-indigo-black/70" suppressHydrationWarning>
-              Approved {now.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-            </p>
-          ) : null}
+          <p className="text-[13px] leading-normal text-indigo-black/70" suppressHydrationWarning>
+            {celebrate && now ? `Approved ${now.toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "Approved"}
+          </p>
         </div>
       </TitleRow>
 
@@ -207,23 +217,14 @@ function CardModule({
       <ul className="flex flex-col gap-3.5">
         {STEPS.map((step) => (
           <li key={step.key}>
-            {step.opensReminders ? (
-              // Lit or not, it opens the screen, so the student can change the days.
-              <Link href={paymentRemindersPath(application.id)} className={ROW}>
-                <StepRowContent title={step.title} detail={step.detail} lit={lit[step.key]} saysDone />
-              </Link>
-            ) : (
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={lit[step.key]}
-                disabled={!ready || saving.has(step.key)}
-                onClick={() => toggle(step.key, step.step)}
-                className={cn(ROW, "disabled:cursor-progress")}
-              >
-                <StepRowContent title={step.title} detail={step.detail} lit={lit[step.key]} />
-              </button>
-            )}
+            {/* Lit or not, it opens the screen, so the student can change it there. */}
+            <Link href={stepHref(step.opens, application)} className={ROW}>
+              <StepRowContent
+                title={step.title}
+                detail={step.key === "autopay" ? autopayCadence(autopayPaymentType) : step.detail}
+                lit={lit[step.key]}
+              />
+            </Link>
           </li>
         ))}
       </ul>
@@ -242,14 +243,13 @@ function CardModule({
           </Button>
         </div>
       ) : null}
-      {error ? <ErrorMessage>{error}</ErrorMessage> : null}
     </section>
   );
 }
 
 // List row, Tinted (273:2196): a done step's star lights and its title goes
 // quiet. A link has no checked state, so it says "done" to screen readers.
-function StepRowContent({ title, detail, lit, saysDone = false }: { title: string; detail: string; lit: boolean; saysDone?: boolean }) {
+function StepRowContent({ title, detail, lit }: { title: string; detail: string; lit: boolean }) {
   return (
     <>
       {lit ? (
@@ -262,7 +262,7 @@ function StepRowContent({ title, detail, lit, saysDone = false }: { title: strin
       <span className="flex flex-col gap-[3px] leading-[normal]">
         <span className={cn("text-body-m leading-[normal]", lit ? "text-indigo-black/70" : "font-medium")}>
           {title}
-          {lit && saysDone ? <span className="sr-only">, done</span> : null}
+          {lit ? <span className="sr-only">, done</span> : null}
         </span>
         <span className="text-body-s leading-[normal] text-indigo-black/70">{detail}</span>
       </span>
@@ -270,13 +270,14 @@ function StepRowContent({ title, detail, lit, saysDone = false }: { title: strin
   );
 }
 
+// The card setup list (I1) for this card, any approved card, catalog or not.
 function TitleRow({ application, children }: { application: Application; children: ReactNode }) {
-  if (!application.cardId) return <div className="flex items-center gap-3">{children}</div>;
   return (
     <Link
-      href={cardPath(application.cardId, "home")}
-      aria-label={`${application.cardName} details`}
-      className="-m-2 flex items-center gap-3 rounded-input p-2 hover:bg-off-white/60 focus-visible:outline-2 focus-visible:outline-ring"
+      href={cardSetupPath(application.id)}
+      aria-label="Set up your card"
+      // No corners or fill of its own: the card (477:1514) is the only box here.
+      className="-m-2 flex items-center gap-3 p-2 hover:bg-off-white/60 focus-visible:outline-2 focus-visible:outline-ring"
     >
       {children}
       <ChevronRight aria-hidden="true" width={16} height={16} className="shrink-0 text-indigo-black/70" />
@@ -361,7 +362,7 @@ function CreditLimit({ application, sample }: { application: Application; sample
         {cents === null ? (
           <p className="flex-1 text-body-m text-indigo-black">Not added</p>
         ) : (
-          <p className={cn(SENSITIVE, "flex-1 font-number text-[2.25rem] leading-[2.75rem] font-medium text-navy")}>
+          <p className={cn(SENSITIVE, "flex-1 font-number text-[2.25rem] leading-[2.75rem] font-semibold text-navy")}>
             {moneyAmount(cents)}
           </p>
         )}

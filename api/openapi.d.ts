@@ -379,6 +379,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/applications/{id}/reminder-confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email the student a confirmation of an approved card's payment reminders
+         * @description Called after the card's statement and due days are saved. The email names each reminder the daily job will send for the card and the card's next dates, read from the reminders the database scheduled, never a send day. One email per save of the days (keyed to the card's updated_at). confirmation is sent, skipped (no reminder on, emails off or not set up) or failed.
+         */
+        post: operations["confirmPaymentReminders"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reminders": {
         parameters: {
             query?: never;
@@ -391,7 +411,7 @@ export interface paths {
         put?: never;
         /**
          * Set the reapply reminder for a denied application (replaces an unsent one)
-         * @description The day must be tomorrow to a year from now on the student's calendar. The answer carries the day as remindOn.
+         * @description The day must be tomorrow to a year from now on the student's calendar. The answer carries the day as remindOn, and confirmation says whether the confirmation email was sent, skipped (emails off or not set up) or failed.
          */
         post: operations["createReapplyReminder"];
         delete?: never;
@@ -411,6 +431,60 @@ export interface paths {
         put?: never;
         /** Mark a sent reminder acted on (keeps the first time) */
         post: operations["markReminderActed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reminders/{id}/snooze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Snooze a sent reminder: tomorrow morning, in 2 days, or the day before it is due
+         * @description Each choice is 9:00 on the student's calendar, worked out by the server. A choice past the reminder's due date, or already gone, is refused with past_due.
+         */
+        post: operations["snoozeReminder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reminders/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismiss a sent reminder for the rest of its billing cycle (keeps the first time) */
+        post: operations["dismissReminder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reminders/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark all of the student's sent reminders read */
+        post: operations["markRemindersRead"];
         delete?: never;
         options?: never;
         head?: never;
@@ -699,6 +773,9 @@ export interface components {
             denialReasonNote: string | null;
             /** @enum {string} */
             autopayStatus: "on" | "off" | "unknown";
+            /** @enum {string|null} */
+            autopayPaymentType: "statement_balance" | "minimum" | "fixed_amount" | null;
+            spendLimitCents: number | null;
             statementClosingDay: number | null;
             paymentDueDay: number | null;
         };
@@ -714,7 +791,7 @@ export interface components {
         };
         PlanStep: {
             /** @enum {string} */
-            step: "planned_purchase" | "payment_reminder" | "read_letter" | "check_reports" | "pause_applications" | "build_credit" | "reapply";
+            step: "planned_purchase" | "spend_limit" | "payment_reminder" | "read_letter" | "check_reports" | "pause_applications" | "build_credit" | "reapply";
             /** Format: date-time */
             completedAt: string;
         };
@@ -743,6 +820,14 @@ export interface components {
             /** Format: date-time */
             actedAt: string | null;
             /** Format: date-time */
+            readAt: string | null;
+            /** Format: date-time */
+            snoozedUntil: string | null;
+            /** Format: date-time */
+            dismissedAt: string | null;
+            /** Format: date-time */
+            followUpAt: string | null;
+            /** Format: date-time */
             createdAt: string;
         };
         ReminderSettings: {
@@ -750,6 +835,43 @@ export interface components {
             statementClosing: boolean;
             paymentDue: boolean;
             checkAutopay: boolean;
+        };
+        SavedReapplyReminder: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            applicationId: string;
+            /** @enum {string} */
+            kind: "statement_closing" | "payment_due" | "check_autopay" | "reapply";
+            /** Format: date */
+            occurrence: string;
+            /** Format: date */
+            remindOn: string;
+            /** Format: date-time */
+            dueAt: string;
+            /** Format: date-time */
+            sentAt: string | null;
+            /** Format: date-time */
+            actedAt: string | null;
+            /** Format: date-time */
+            readAt: string | null;
+            /** Format: date-time */
+            snoozedUntil: string | null;
+            /** Format: date-time */
+            dismissedAt: string | null;
+            /** Format: date-time */
+            followUpAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** @enum {string} */
+            confirmation: "sent" | "skipped" | "failed";
+        };
+        ReminderConfirmation: {
+            /** @enum {string} */
+            confirmation: "sent" | "skipped" | "failed";
+        };
+        MarkRemindersRead: {
+            marked: number;
         };
         PennyReply: {
             /** @enum {string} */
@@ -1930,6 +2052,9 @@ export interface operations {
                     denialReasonNote?: string | null;
                     /** @enum {string} */
                     autopayStatus?: "on" | "off" | "unknown";
+                    /** @enum {string|null} */
+                    autopayPaymentType?: "statement_balance" | "minimum" | "fixed_amount" | null;
+                    spendLimitCents?: number | null;
                     statementClosingDay?: number | null;
                     paymentDueDay?: number | null;
                 };
@@ -2058,7 +2183,7 @@ export interface operations {
             path: {
                 id: string;
                 plan: "first_month" | "denial";
-                step: "planned_purchase" | "payment_reminder" | "read_letter" | "check_reports" | "pause_applications" | "build_credit" | "reapply";
+                step: "planned_purchase" | "spend_limit" | "payment_reminder" | "read_letter" | "check_reports" | "pause_applications" | "build_credit" | "reapply";
             };
             cookie?: never;
         };
@@ -2136,7 +2261,7 @@ export interface operations {
             path: {
                 id: string;
                 plan: "first_month" | "denial";
-                step: "planned_purchase" | "payment_reminder" | "read_letter" | "check_reports" | "pause_applications" | "build_credit" | "reapply";
+                step: "planned_purchase" | "spend_limit" | "payment_reminder" | "read_letter" | "check_reports" | "pause_applications" | "build_credit" | "reapply";
             };
             cookie?: never;
         };
@@ -2169,6 +2294,73 @@ export interface operations {
             };
             /** @description Application or plan step not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    confirmPaymentReminders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderConfirmation"];
+                };
+            };
+            /** @description Invalid application ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Application not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Card not approved, or its days are not saved */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2251,7 +2443,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Reminder"];
+                    "application/json": components["schemas"]["SavedReapplyReminder"];
                 };
             };
             /** @description Invalid day or application not denied */
@@ -2350,6 +2542,185 @@ export interface operations {
             };
             /** @description Reminder not sent yet */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    snoozeReminder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    choice: "tomorrow" | "in_2_days" | "day_before_due";
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reminder"];
+                };
+            };
+            /** @description Invalid reminder ID or choice */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Reminder not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Not sent yet, already done, or past the due date */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    dismissReminder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reminder"];
+                };
+            };
+            /** @description Invalid reminder ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Reminder not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Reminder not sent yet */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    markRemindersRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarkRemindersRead"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

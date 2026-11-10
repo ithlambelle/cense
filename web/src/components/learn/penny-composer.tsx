@@ -70,7 +70,9 @@ export function PennyComposer({ variant, onAsk, busy = false }: Props) {
           // field, whose ring is drawn on the form, turns its own outline off.
           learn
             ? "h-11 bg-transparent text-body-m outline-none placeholder:text-indigo-black/70"
-            : "h-12 rounded-input bg-off-white px-4 text-body-s placeholder:text-indigo-black/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+            // 16px text: iPhones zoom the page into any field under 16px when
+            // it is tapped (Ben, 2026-11-09: the chat box zoomed in).
+            : "h-12 rounded-input bg-off-white px-4 text-body-m placeholder:text-indigo-black/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
         )}
       />
       <button
@@ -79,10 +81,12 @@ export function PennyComposer({ variant, onAsk, busy = false }: Props) {
         disabled={!canSend}
         className={cn(
           "flex size-11 shrink-0 items-center justify-center rounded-pill focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-40",
-          learn ? "" : "size-12 bg-violet text-white enabled:hover:bg-violet-hover enabled:active:bg-violet-pressed",
+          // Light Blue with a navy arrow, as on Learn's field: the accent marks sending to Penny.
+          learn ? "" : "size-12 bg-light-blue text-navy enabled:hover:bg-light-blue-hover enabled:active:bg-light-blue-pressed",
         )}
       >
         {learn ? (
+          // Light Blue with a navy arrow: the design system's accent on the violet card.
           <Image src="/icons/penny-go.svg" alt="" width={34} height={34} />
         ) : (
           <ArrowRight aria-hidden="true" width={20} height={20} />

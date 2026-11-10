@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { ReminderSavedView } from "@/components/denied/reminder-saved-view";
@@ -9,6 +10,28 @@ import { loadReminders as requestReminders, reapplyReminderFor, type Reminder } 
 import { formatIsoDate } from "@/lib/dates";
 import { deniedPath, ROUTES, signInPath } from "@/lib/routes";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
+
+// Set by the reminder form when its save sent the confirmation email, read
+// here once. Per tab, and cleared on log out (forgetTabState).
+export function confirmationKey(applicationId: string): string {
+  return `cense:reminder-emailed:${applicationId}`;
+}
+
+function readEmailed(applicationId: string): boolean {
+  try {
+    return sessionStorage.getItem(confirmationKey(applicationId)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function forgetEmailed(applicationId: string): void {
+  try {
+    sessionStorage.removeItem(confirmationKey(applicationId));
+  } catch {
+    // Storage can be off; nothing was kept then.
+  }
+}
 
 async function loadReminders(): Promise<LoadOutcome<Reminder[]>> {
   const result = await requestReminders();
@@ -32,11 +55,14 @@ export function ReminderSavedCheck({ applicationId }: { applicationId: string })
   // The return-path allow-list does not include this page, so Home it is.
   const { loaded, retry } = useLoaded(loadReminders, signInPath(ROUTES.home));
   const dateLabel = loaded.status === "ready" ? savedDateLabel(loaded.data, applicationId) : null;
+  const [emailed] = useState(() => (typeof window === "undefined" ? false : readEmailed(applicationId)));
+  // Read once: a reload or a later visit names the date, not a new email.
+  useEffect(() => forgetEmailed(applicationId), [applicationId]);
 
-  if (dateLabel) return <ReminderSavedView dateLabel={dateLabel} />;
+  if (dateLabel) return <ReminderSavedView applicationId={applicationId} dateLabel={dateLabel} emailed={emailed} />;
 
   return (
-    <DeniedLayout backHref={ROUTES.home} backLabel="Home">
+    <DeniedLayout backHref={deniedPath("plan", applicationId)} backLabel="Plan">
       {loaded.status === "loading" ? (
         <p role="status" className="pt-5 text-center text-body-m text-indigo-black">
           Checking your reminder…

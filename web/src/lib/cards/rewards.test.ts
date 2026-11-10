@@ -11,6 +11,31 @@ const catalog = listCards();
 const categoryIds = SPENDING_CATEGORIES.map((category) => category.id);
 const allRates = Object.entries(CARD_REWARDS).flatMap(([id, rewards]) => rewards.rates.map((rate) => ({ id, rate })));
 
+// Every rate and bonus, with the words that could carry an end date.
+const offers = Object.entries(CARD_REWARDS).flatMap(([id, rewards]) => [
+  ...rewards.rates.map((rate) => ({ id, what: `${rate.amount} on ${rate.category}`, words: [rate.category, rate.condition], expiresOn: rate.expiresOn })),
+  ...(rewards.bonus ? [{ id, what: "sign-up bonus", words: [rewards.bonus.summary], expiresOn: rewards.bonus.expiresOn }] : []),
+]);
+
+// A date as YYYY-MM-DD in the runner's own time zone.
+function isoDay(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+// The offers whose issuer-stated last day is before `today`.
+function endedOffers(today: string): string[] {
+  return offers.filter((offer) => offer.expiresOn != null && offer.expiresOn < today).map((offer) => `${offer.id}: ${offer.what} ended ${offer.expiresOn}`);
+}
+
+// Cards last read on their issuer's page more than `days` before `today`.
+const STALE_AFTER_DAYS = 120;
+function staleCards(today: Date, days: number): string[] {
+  const cutoff = isoDay(new Date(today.getFullYear(), today.getMonth(), today.getDate() - days));
+  return Object.entries(CARD_REWARDS)
+    .filter(([, rewards]) => rewards.verifiedAt < cutoff)
+    .map(([id, rewards]) => `${id} (read ${rewards.verifiedAt})`);
+}
+
 describe("CARD_REWARDS", () => {
   it("covers every card in the catalog, and only cards in the catalog", () => {
     expect(Object.keys(CARD_REWARDS).sort()).toEqual(catalog.map((card) => card.id).sort());
@@ -108,6 +133,63 @@ describe("CARD_REWARDS", () => {
       expect(rewards.image, id).toBe(`/cards/${id}.png`);
       expect(existsSync(path.join(process.cwd(), "public", rewards.image)), id).toBe(true);
     }
+  });
+
+  it("ships no promotion past the last day its issuer states", () => {
+    for (const offer of offers) {
+      if (offer.expiresOn == null) continue;
+      expect(offer.expiresOn, offer.id).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(isoDay(new Date(`${offer.expiresOn}T12:00:00`)), offer.id).toBe(offer.expiresOn);
+    }
+    // Failing here means a limited-time rate or bonus has ended. Re-read the
+    // issuer's page, then remove the offer or update it with its new terms,
+    // end date and the card's verifiedAt.
+    expect(endedOffers(isoDay(new Date()))).toEqual([]);
+  });
+
+  it("catches an ended promotion the day after its last day, not on it", () => {
+    for (const offer of offers) {
+      if (offer.expiresOn == null) continue;
+      const last = new Date(`${offer.expiresOn}T12:00:00`);
+      const line = `${offer.id}: ${offer.what} ended ${offer.expiresOn}`;
+      expect(endedOffers(offer.expiresOn)).not.toContain(line);
+      expect(endedOffers(isoDay(new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1)))).toContain(line);
+    }
+  });
+
+  it("dates every offer whose wording names an end date", () => {
+    const months = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+    for (const offer of offers) {
+      for (const words of offer.words) {
+        if (!words) continue;
+        const numeric = words.match(/\b(?:through|until|ends?|expires?|by)\s+(\d{1,2})\/(\d{1,2})\/(\d{4})\b/i);
+        const named = words.match(/\b(?:through|until|ends?|expires?|by)\s+([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})\b/i);
+        const stated = numeric
+          ? `${numeric[3]}-${numeric[1].padStart(2, "0")}-${numeric[2].padStart(2, "0")}`
+          : named && months.includes(named[1].toLowerCase())
+            ? `${named[3]}-${String(months.indexOf(named[1].toLowerCase()) + 1).padStart(2, "0")}-${named[2].padStart(2, "0")}`
+            : null;
+        if (stated) expect(offer.expiresOn, `${offer.id}: ${offer.what}`).toBe(stated);
+      }
+    }
+  });
+
+  // A warning, not a failure: the weekly card data check (docs/card-data.md)
+  // is what finds a changed page; this is the reminder to re-read the rest.
+  it(`warns about cards not re-read on the issuer's page in ${STALE_AFTER_DAYS} days`, () => {
+    const stale = staleCards(new Date(), STALE_AFTER_DAYS);
+    if (stale.length > 0) {
+      console.warn(
+        `${stale.length} card(s) were last read on the issuer's page more than ${STALE_AFTER_DAYS} days ago. ` +
+          `Re-read each page and its rewards terms, then update verifiedAt in web/src/lib/cards/rewards.ts:\n  ${stale.join("\n  ")}`,
+      );
+    }
+    // The oldest read is fine on its 120th day and stale on the 121st.
+    const oldest = Object.values(CARD_REWARDS).map((rewards) => rewards.verifiedAt).sort()[0];
+    const read = new Date(`${oldest}T12:00:00`);
+    const daysAfterRead = (days: number) => new Date(read.getFullYear(), read.getMonth(), read.getDate() + days);
+    expect(staleCards(daysAfterRead(STALE_AFTER_DAYS), STALE_AFTER_DAYS)).toEqual([]);
+    expect(staleCards(daysAfterRead(STALE_AFTER_DAYS + 1), STALE_AFTER_DAYS).length).toBeGreaterThan(0);
   });
 
   it("looks a card up by id", () => {
