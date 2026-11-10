@@ -8,6 +8,10 @@ import { ROUTES } from "@/lib/routes";
 
 import { CardListView } from "./card-list-view";
 
+// A card's link starts with its display name; the type and fee follow.
+const linkName = (card: { brand: string; name: string }) =>
+  new RegExp(`^${cardDisplayName(card).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
+
 vi.mock("next/navigation", () => ({ usePathname: () => "/cards" }));
 
 // A few cards from both groups are enough here. Rendering all 53 and then
@@ -63,7 +67,7 @@ describe("CardListView", () => {
     expect(discover.textContent).toContain("2 cards");
     expect(screen.getByRole("region", { name: "Citi" }).textContent).toContain("1 card");
     const first = sample[0];
-    const link = within(discover).getByRole("link", { name: cardDisplayName(first) });
+    const link = within(discover).getByRole("link", { name: linkName(first) });
     expect(link.getAttribute("href")).toBe(`/cards/${first.id}`);
   });
 
@@ -71,7 +75,7 @@ describe("CardListView", () => {
     render(<CardListView cards={cards} signedIn />);
     const starter = cards.find((card) => card.catalogRole === "recommend")!;
     const other = cards.find((card) => card.catalogRole === "explore")!;
-    expect(screen.getByRole("link", { name: cardDisplayName(starter) }).textContent).toContain("Made for starting out");
-    expect(screen.getByRole("link", { name: cardDisplayName(other) }).textContent).not.toContain("Made for starting out");
+    expect(screen.getByRole("link", { name: linkName(starter) }).textContent).toContain("Made for starting out");
+    expect(screen.getByRole("link", { name: linkName(other) }).textContent).not.toContain("Made for starting out");
   });
 });
