@@ -91,6 +91,10 @@ jobs:
           REMINDER_HEARTBEAT_URL: http://127.0.0.1:3598/heartbeat
           ANTHROPIC_API_KEY: e2e-placeholder
           ANTHROPIC_BASE_URL: http://127.0.0.1:3599
+          # Google sign-in on Cense's own address (e2e/google-sign-in.spec.ts).
+          # The test stops before Google, so these are never sent anywhere.
+          GOOGLE_OAUTH_CLIENT_ID: e2e-google-client
+          GOOGLE_OAUTH_CLIENT_SECRET: e2e-placeholder
         run: |
           npx next start -p 3300 > next.log 2>&1 &
           for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:3300/sign-in && exit 0; sleep 1; done
@@ -100,6 +104,7 @@ jobs:
         env:
           E2E_MAILPIT_URL: http://127.0.0.1:54324
           E2E_CRON_SECRET: e2e-cron-secret
+          E2E_GOOGLE_OAUTH_CLIENT_ID: e2e-google-client
       - name: Keep the report and traces when a test fails
         if: failure()
         uses: actions/upload-artifact@v4

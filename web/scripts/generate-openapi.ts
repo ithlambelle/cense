@@ -124,6 +124,12 @@ registry.registerPath({
   responses: { 303: { description: "Redirect to Google" }, 502: failure("Google sign-in unavailable") },
 });
 registry.registerPath({
+  method: "get", path: "/auth/google/callback", operationId: "finishGoogleSignInOnCense",
+  summary: "Finish Google sign-in that returned to Cense's own address (when GOOGLE_OAUTH_CLIENT_ID is set)",
+  request: { query: z.object({ code: z.string().optional(), state: z.string().optional(), error: z.string().optional() }) },
+  responses: { 303: { description: "Redirect to the app, or to /sign-in with ?error=cancelled or ?error=callback" } },
+});
+registry.registerPath({
   method: "get", path: "/auth/callback", operationId: "finishGoogleSignIn", summary: "Finish Google sign-in",
   request: { query: z.object({ code: z.string().optional(), next: z.string().optional() }) },
   responses: { 303: { description: "Redirect to the app" }, 400: failure("Missing or invalid code") },

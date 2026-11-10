@@ -17,10 +17,14 @@ cached.
    not be the student's. The student can set one with Forgot password. An
    account confirmed earlier keeps its password.
 3. The Google button navigates to `/api/v1/auth/google?next=/quiz`. The `next`
-   value must be an app-relative path. Supabase returns through
-   `/api/v1/auth/callback` and the API redirects to that path. A cancelled or
-   failed flow returns to `/sign-in?error=cancelled` or
-   `/sign-in?error=callback`.
+   value must be an app-relative path. When `GOOGLE_OAUTH_CLIENT_ID` and
+   `GOOGLE_OAUTH_CLIENT_SECRET` are set, Google returns to
+   `/api/v1/auth/google/callback` on the app's own address, which trades the
+   code for an ID token and signs in with `signInWithIdToken`, so Google's
+   account chooser names the app's domain instead of the Supabase project.
+   Otherwise Supabase returns through `/api/v1/auth/callback`. Either way the
+   API redirects to `next`, and a cancelled or failed flow returns to
+   `/sign-in?error=cancelled` or `/sign-in?error=callback`.
 4. `GET /api/v1/me` returns `{ id, email }` for a valid session and `401`
    otherwise. `POST /api/v1/auth/logout` ends the session.
 
