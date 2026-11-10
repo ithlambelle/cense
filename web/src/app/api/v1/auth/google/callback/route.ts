@@ -7,7 +7,7 @@ import {
   exchangeGoogleCode,
   GOOGLE_CALLBACK_PATH,
   GOOGLE_FLOW_COOKIE,
-  googleOAuthConfig,
+  googleOAuthConfigFor,
 } from "@/lib/auth/google";
 import { ROUTES } from "@/lib/routes";
 import { createStudentClient } from "@/lib/supabase/server";
@@ -29,17 +29,22 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   if (params.get("error") === "access_denied") return signInWith("cancelled");
 
-  const config = googleOAuthConfig();
+  const config = googleOAuthConfigFor(origin);
   const code = params.get("code");
   // The state has to match the one this browser was sent off with, or the
   // code may be someone else's (a forged sign-in link).
   if (!config || !flow || !code || params.get("state") !== flow.state) return signInWith("callback");
 
-  const idToken = await exchangeGoogleCode(config, code, flow, origin);
-  if (!idToken) return signInWith("callback");
+  const tokens = await exchangeGoogleCode(config, code, flow, origin);
+  if (!tokens) return signInWith("callback");
 
   const supabase = await createStudentClient();
-  const { error } = await supabase.auth.signInWithIdToken({ provider: "google", token: idToken, nonce: flow.nonce });
+  const { error } = await supabase.auth.signInWithIdToken({
+    provider: "google",
+    token: tokens.idToken,
+    access_token: tokens.accessToken,
+    nonce: flow.nonce,
+  });
   if (error) return signInWith("callback");
 
   return Response.redirect(new URL(safeReturnPath(flow.next), origin), 303);

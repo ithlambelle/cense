@@ -51,6 +51,15 @@ describe("GET /auth/google", () => {
     expect(location.searchParams.get("state")).toBe(flow?.state);
   });
 
+  it("keeps Supabase's flow on an address Google does not know, such as the vercel.app alias", async () => {
+    vi.stubEnv("GOOGLE_OAUTH_CLIENT_ID", "client");
+    vi.stubEnv("GOOGLE_OAUTH_CLIENT_SECRET", "secret");
+    signInWithOAuth.mockResolvedValue({ data: { url: "https://accounts.example.test/o/oauth2" }, error: null });
+    await GET(new NextRequest("https://cense-eta.vercel.app/api/v1/auth/google?next=%2Fhome"));
+    expect(signInWithOAuth).toHaveBeenCalled();
+    expect(cookieSet).not.toHaveBeenCalled();
+  });
+
   it("keeps an unsafe next out of the flow", async () => {
     vi.stubEnv("GOOGLE_OAUTH_CLIENT_ID", "client");
     vi.stubEnv("GOOGLE_OAUTH_CLIENT_SECRET", "secret");
@@ -61,6 +70,7 @@ describe("GET /auth/google", () => {
   it("does not mark the cookie Secure on plain-http localhost", async () => {
     vi.stubEnv("GOOGLE_OAUTH_CLIENT_ID", "client");
     vi.stubEnv("GOOGLE_OAUTH_CLIENT_SECRET", "secret");
+    vi.stubEnv("GOOGLE_OAUTH_ORIGINS", "http://localhost:3300");
     await GET(new NextRequest("http://localhost:3300/api/v1/auth/google"));
     expect(cookieSet.mock.calls[0][2].secure).toBe(false);
   });

@@ -190,18 +190,19 @@ A student can turn analytics and session recordings off with the Analytics switc
 
 ## Google sign-in that names Cense
 
-With Supabase's own Google flow, Google's account chooser says "to continue to `<project>.supabase.co`", because Google hands the student back to Supabase. When `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` are set, Google hands them back to `/api/v1/auth/google/callback` on our own address instead (`web/src/lib/auth/google.ts`), and the chooser says "to continue to censefinance.com". The callback signs in with `signInWithIdToken`, so it is the same Supabase account and session as before. Unset, the app keeps Supabase's flow, which is also what preview deployments use: Google only accepts return addresses listed on the client.
+With Supabase's own Google flow, Google's account chooser says "to continue to `<project>.supabase.co`", because Google hands the student back to Supabase. When `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` are set, Google hands them back to `/api/v1/auth/google/callback` on our own address instead (`web/src/lib/auth/google.ts`), and the chooser says "to continue to censefinance.com". The callback signs in with `signInWithIdToken`, so it is the same Supabase account and session as before. This runs only on `www.censefinance.com` and `censefinance.com`, the addresses registered with Google. Anywhere else (previews, the `vercel.app` alias), and whenever the two variables are unset, the app keeps Supabase's flow.
 
 To turn it on (Ben, about 10 minutes, no cost):
 
 1. Supabase dashboard, Authentication, Sign In / Providers, Google: note the Client ID there.
-2. Google Cloud console, APIs & Services, Credentials, that OAuth 2.0 client: add `https://www.censefinance.com/api/v1/auth/google/callback` under Authorized redirect URIs. Keep the `supabase.co` one. Copy the client secret (or make a new one; Supabase then needs it too).
-3. Vercel, Project Settings, Environment Variables, Production only: `GOOGLE_OAUTH_CLIENT_ID` (that Client ID) and `GOOGLE_OAUTH_CLIENT_SECRET` (marked Sensitive). Redeploy.
-4. Sign in with Google on the live site: the chooser should say censefinance.com.
+2. Google Cloud console, Google Auth Platform, Branding: under Authorized domains, add `censefinance.com` if it is not there (Google will not save a redirect URI on a domain missing from this list).
+3. Google Cloud console, APIs & Services, Credentials, the OAuth 2.0 client with that Client ID: under Authorized redirect URIs, add `https://www.censefinance.com/api/v1/auth/google/callback` and `https://censefinance.com/api/v1/auth/google/callback`. Keep the `supabase.co` one. Then Add secret and copy the new client secret (Google shows it once). The secret Supabase already has keeps working.
+4. Vercel, Project Settings, Environment Variables, Production only: `GOOGLE_OAUTH_CLIENT_ID` (that Client ID) and `GOOGLE_OAUTH_CLIENT_SECRET` (the new secret, marked Sensitive). Redeploy.
+5. Sign in with Google on the live site: the chooser should say censefinance.com, and you should land signed in to your usual account.
 
-To show the name "Cense" and its logo instead of the domain: Google Cloud console, Google Auth Platform, Branding: app name Cense, the logo, home page and privacy policy links, and `censefinance.com` as an authorized domain (verified in Google Search Console). Then submit it for brand verification, which Google says takes a few business days.
+To show the name "Cense" and its logo instead of the domain: Google Auth Platform, Branding: app name Cense, the logo, home page and privacy policy links, with `censefinance.com` verified in Google Search Console. Then submit it for brand verification, which Google says takes a few business days.
 
-If the Google client in step 3 is not the one Supabase uses, add its Client ID to the Supabase Google provider's Client IDs (comma-separated) first, or Supabase refuses its tokens.
+If the Google client in step 3 is not the one Supabase uses, add its Client ID to the Supabase Google provider's Client IDs (comma-separated) first, or Supabase refuses its tokens. To turn it off, delete the two variables and redeploy.
 
 ## Deleting an account
 

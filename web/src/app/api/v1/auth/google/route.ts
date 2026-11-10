@@ -9,7 +9,7 @@ import {
   GOOGLE_FLOW_COOKIE,
   GOOGLE_FLOW_MAX_AGE,
   googleAuthorizeUrl,
-  googleOAuthConfig,
+  googleOAuthConfigFor,
   newGoogleFlow,
 } from "@/lib/auth/google";
 import { createStudentClient } from "@/lib/supabase/server";
@@ -19,8 +19,9 @@ export async function GET(request: NextRequest): Promise<Response> {
   const origin = request.nextUrl.origin;
 
   // Google returns to Cense's own address, so its account chooser names
-  // Cense and not the Supabase project (src/lib/auth/google.ts).
-  const config = googleOAuthConfig();
+  // Cense and not the Supabase project (src/lib/auth/google.ts). Only on an
+  // address registered with Google; anywhere else keeps Supabase's flow.
+  const config = googleOAuthConfigFor(origin);
   if (config) {
     const flow = newGoogleFlow(next);
     const cookieStore = await cookies();
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     return Response.redirect(googleAuthorizeUrl(config, flow, origin), 303);
   }
 
-  // Not set up: Supabase's own Google flow, which returns through
+  // Not set up, or not on a registered address: Supabase's own Google flow, which returns through
   // /api/v1/auth/callback.
   const callback = new URL("/api/v1/auth/callback", origin);
   callback.searchParams.set("next", next);

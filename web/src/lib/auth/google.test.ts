@@ -10,11 +10,12 @@ import {
   exchangeGoogleCode,
   googleAuthorizeUrl,
   googleOAuthConfig,
+  googleOAuthConfigFor,
   hashedNonce,
   newGoogleFlow,
 } from "./google";
 
-const config = { clientId: "client-123.apps.googleusercontent.com", clientSecret: "secret-xyz" };
+const config = { clientId: "client-123.apps.googleusercontent.com", clientSecret: "secret-xyz", origins: ["https://www.censefinance.com"] };
 
 describe("googleOAuthConfig", () => {
   it("is off unless both the client id and secret are set", () => {
@@ -22,7 +23,21 @@ describe("googleOAuthConfig", () => {
     expect(googleOAuthConfig({ GOOGLE_OAUTH_CLIENT_ID: "id" })).toBeNull();
     expect(googleOAuthConfig({ GOOGLE_OAUTH_CLIENT_SECRET: "secret" })).toBeNull();
     expect(googleOAuthConfig({ GOOGLE_OAUTH_CLIENT_ID: " ", GOOGLE_OAUTH_CLIENT_SECRET: "secret" })).toBeNull();
-    expect(googleOAuthConfig({ GOOGLE_OAUTH_CLIENT_ID: " id ", GOOGLE_OAUTH_CLIENT_SECRET: "secret" })).toEqual({ clientId: "id", clientSecret: "secret" });
+    expect(googleOAuthConfig({ GOOGLE_OAUTH_CLIENT_ID: " id ", GOOGLE_OAUTH_CLIENT_SECRET: "secret" })).toMatchObject({ clientId: "id", clientSecret: "secret" });
+  });
+
+  it("only runs on an address registered with Google: censefinance.com by default, or the list given", () => {
+    const env = { GOOGLE_OAUTH_CLIENT_ID: "id", GOOGLE_OAUTH_CLIENT_SECRET: "secret" };
+    expect(googleOAuthConfigFor("https://www.censefinance.com", env)).not.toBeNull();
+    expect(googleOAuthConfigFor("https://censefinance.com", env)).not.toBeNull();
+    // The production vercel.app alias and previews keep Supabase's flow.
+    expect(googleOAuthConfigFor("https://cense-eta.vercel.app", env)).toBeNull();
+    expect(googleOAuthConfigFor("http://www.censefinance.com", env)).toBeNull();
+
+    const local = { ...env, GOOGLE_OAUTH_ORIGINS: "http://localhost:3300, not a url" };
+    expect(googleOAuthConfigFor("http://localhost:3300", local)).not.toBeNull();
+    expect(googleOAuthConfigFor("https://www.censefinance.com", local)).toBeNull();
+    expect(googleOAuthConfigFor("http://localhost:3300", {})).toBeNull();
   });
 });
 
@@ -45,6 +60,11 @@ describe("googleAuthorizeUrl", () => {
     // The secret never leaves the server.
     expect(url.toString()).not.toContain(config.clientSecret);
     expect(url.toString()).not.toContain(flow.verifier);
+  });
+
+  it("lands on /start instead of keeping a return path long enough to break the cookie", () => {
+    expect(newGoogleFlow(`/cards?q=${"a".repeat(600)}`).next).toBe("/start");
+    expect(newGoogleFlow("/home").next).toBe("/home");
   });
 
   it("makes a fresh state, nonce and verifier each time", () => {
@@ -84,8 +104,8 @@ describe("exchangeGoogleCode", () => {
 
   it("posts the code with the same redirect address and the PKCE verifier, and returns the ID token", async () => {
     const fetchImpl = vi.fn(async () => Response.json({ id_token: "header.payload.sig", access_token: "a" }));
-    const token = await exchangeGoogleCode(config, "code-1", flow, "https://www.censefinance.com", fetchImpl as unknown as typeof fetch);
-    expect(token).toBe("header.payload.sig");
+    const tokens = await exchangeGoogleCode(config, "code-1", flow, "https://www.censefinance.com", fetchImpl as unknown as typeof fetch);
+    expect(tokens).toEqual({ idToken: "header.payload.sig", accessToken: "a" });
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://oauth2.googleapis.com/token");
     expect(init.method).toBe("POST");
@@ -101,10 +121,11 @@ describe("exchangeGoogleCode", () => {
   it("returns null when Google refuses, answers without a token, or cannot be reached", async () => {
     const refused = vi.fn(async () => Response.json({ error: "invalid_grant" }, { status: 400 }));
     const noToken = vi.fn(async () => Response.json({ access_token: "a" }));
+    const notJson = vi.fn(async () => new Response("<html>", { status: 200 }));
     const offline = vi.fn(async () => {
       throw new TypeError("fetch failed");
     });
-    for (const fetchImpl of [refused, noToken, offline]) {
+    for (const fetchImpl of [refused, noToken, notJson, offline]) {
       expect(await exchangeGoogleCode(config, "c", flow, "https://x.test", fetchImpl as unknown as typeof fetch)).toBeNull();
     }
   });

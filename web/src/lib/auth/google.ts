@@ -2,6 +2,8 @@ import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
 
+import { ROUTES } from "@/lib/routes";
+
 // Google sign-in that runs on Cense's own address. With Supabase's own Google
 // flow, Google's account chooser says "to continue to <project>.supabase.co"
 // because Google returns the student to Supabase. Here Google returns them to
@@ -14,13 +16,39 @@ import { createHash, randomBytes } from "node:crypto";
 // Supabase flow runs, so this can ship before the Google Cloud settings are
 // done, and preview deployments, whose addresses Google does not know, keep
 // working.
-export type GoogleOAuthConfig = { clientId: string; clientSecret: string };
+export type GoogleOAuthConfig = { clientId: string; clientSecret: string; origins: string[] };
+
+// The addresses registered on the Google client as return addresses. Google
+// refuses any other with an error page the student cannot leave, so a visit
+// from anywhere else (a vercel.app alias, a preview) keeps Supabase's flow.
+// GOOGLE_OAUTH_ORIGINS replaces the list (the journey tests use localhost).
+const PRODUCTION_ORIGINS = ["https://www.censefinance.com", "https://censefinance.com"];
+
+function parseOrigins(value: string | undefined): string[] {
+  if (!value?.trim()) return PRODUCTION_ORIGINS;
+  const origins: string[] = [];
+  for (const part of value.split(",")) {
+    try {
+      const url = new URL(part.trim());
+      if (url.protocol === "https:" || url.protocol === "http:") origins.push(url.origin);
+    } catch {
+      // Not an address: left out.
+    }
+  }
+  return origins;
+}
 
 export function googleOAuthConfig(env: Record<string, string | undefined> = process.env): GoogleOAuthConfig | null {
   const clientId = env.GOOGLE_OAUTH_CLIENT_ID?.trim();
   const clientSecret = env.GOOGLE_OAUTH_CLIENT_SECRET?.trim();
   if (!clientId || !clientSecret) return null;
-  return { clientId, clientSecret };
+  return { clientId, clientSecret, origins: parseOrigins(env.GOOGLE_OAUTH_ORIGINS) };
+}
+
+// The settings, only when this request's address is one Google will return to.
+export function googleOAuthConfigFor(origin: string, env: Record<string, string | undefined> = process.env): GoogleOAuthConfig | null {
+  const config = googleOAuthConfig(env);
+  return config && config.origins.includes(origin) ? config : null;
 }
 
 export const GOOGLE_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -39,8 +67,12 @@ function randomToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
+// A longer return path could push the cookie past the browser's 4 KB limit,
+// and a dropped cookie fails the sign-in; no screen of ours needs one.
+const MAX_NEXT_LENGTH = 512;
+
 export function newGoogleFlow(next: string): GoogleFlow {
-  return { state: randomToken(), nonce: randomToken(), verifier: randomToken(), next };
+  return { state: randomToken(), nonce: randomToken(), verifier: randomToken(), next: next.length > MAX_NEXT_LENGTH ? ROUTES.start : next };
 }
 
 // Supabase hashes the nonce it is given with SHA-256 (hex) and compares it to
@@ -94,15 +126,18 @@ export function googleAuthorizeUrl(config: GoogleOAuthConfig, flow: GoogleFlow, 
   return url.toString();
 }
 
-// Trades Google's one-time code for the ID token. Null on any failure; never
-// logs the code, the secret or the token.
+export type GoogleTokens = { idToken: string; accessToken?: string };
+
+// Trades Google's one-time code for the ID token, and the access token that
+// Supabase checks against the ID token's at_hash. Null on any failure; never
+// logs the code, the secret or a token.
 export async function exchangeGoogleCode(
   config: GoogleOAuthConfig,
   code: string,
   flow: GoogleFlow,
   origin: string,
   fetchImpl: typeof fetch = fetch,
-): Promise<string | null> {
+): Promise<GoogleTokens | null> {
   try {
     const response = await fetchImpl(GOOGLE_TOKEN_URL, {
       method: "POST",
@@ -119,8 +154,10 @@ export async function exchangeGoogleCode(
     });
     if (!response.ok) return null;
     const body: unknown = await response.json();
-    const idToken = body && typeof body === "object" ? (body as { id_token?: unknown }).id_token : undefined;
-    return typeof idToken === "string" && idToken.length > 0 ? idToken : null;
+    if (!body || typeof body !== "object") return null;
+    const { id_token: idToken, access_token: accessToken } = body as { id_token?: unknown; access_token?: unknown };
+    if (typeof idToken !== "string" || idToken.length === 0) return null;
+    return typeof accessToken === "string" && accessToken.length > 0 ? { idToken, accessToken } : { idToken };
   } catch {
     return null;
   }

@@ -32,7 +32,7 @@ beforeEach(() => {
   vi.stubEnv("GOOGLE_OAUTH_CLIENT_SECRET", "secret-xyz");
   jar.value = encodeGoogleFlow(flow);
   jar.deleted = [];
-  exchangeGoogleCode.mockResolvedValue("id.token.value");
+  exchangeGoogleCode.mockResolvedValue({ idToken: "id.token.value", accessToken: "access-1" });
   signInWithIdToken.mockResolvedValue({ data: {}, error: null });
 });
 
@@ -46,8 +46,8 @@ describe("GET /auth/google/callback", () => {
     const response = await callback("code=c1&state=state-abc");
     expect(response.status).toBe(303);
     expect(location(response)).toBe(`${ORIGIN}/home`);
-    expect(exchangeGoogleCode).toHaveBeenCalledWith({ clientId: "client-123", clientSecret: "secret-xyz" }, "c1", flow, ORIGIN);
-    expect(signInWithIdToken).toHaveBeenCalledWith({ provider: "google", token: "id.token.value", nonce: "nonce-raw" });
+    expect(exchangeGoogleCode).toHaveBeenCalledWith(expect.objectContaining({ clientId: "client-123", clientSecret: "secret-xyz" }), "c1", flow, ORIGIN);
+    expect(signInWithIdToken).toHaveBeenCalledWith({ provider: "google", token: "id.token.value", access_token: "access-1", nonce: "nonce-raw" });
     expect(jar.deleted).toEqual([{ name: "cense_google_flow", path: "/api/v1/auth/google/callback" }]);
   });
 
@@ -79,6 +79,12 @@ describe("GET /auth/google/callback", () => {
 
     signInWithIdToken.mockResolvedValueOnce({ data: {}, error: new Error("Bad ID token") });
     expect(location(await callback("code=c1&state=state-abc"))).toBe(`${ORIGIN}/sign-in?error=callback`);
+  });
+
+  it("says it did not finish on an address Google does not know", async () => {
+    const response = await GET(new NextRequest("https://cense-eta.vercel.app/api/v1/auth/google/callback?code=c1&state=state-abc"));
+    expect(location(response)).toBe("https://cense-eta.vercel.app/sign-in?error=callback");
+    expect(exchangeGoogleCode).not.toHaveBeenCalled();
   });
 
   it("says it did not finish when the feature is off", async () => {

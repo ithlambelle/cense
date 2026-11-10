@@ -5,15 +5,16 @@
 // never reached (blockExternalRequests answers with a stand-in page).
 //
 // The app must be started with GOOGLE_OAUTH_CLIENT_ID and _SECRET set to any
-// made-up values, and E2E_GOOGLE_OAUTH_CLIENT_ID set to the same id (CI does
-// this). Locally, without it, this file is skipped; in CI it is required.
+// made-up values and GOOGLE_OAUTH_ORIGINS=http://localhost:3300, and
+// E2E_GOOGLE_OAUTH_CLIENT_ID set to the same id (CI does this). Locally,
+// without it, this file is skipped; in CI it is required.
 import { expect, test } from "@playwright/test";
 
 import { axeChecker, blockExternalRequests } from "./helpers";
 
 const CLIENT_ID = process.env.E2E_GOOGLE_OAUTH_CLIENT_ID;
 
-test.skip(!CLIENT_ID && !process.env.CI, "Start the app with GOOGLE_OAUTH_CLIENT_ID and _SECRET, and set E2E_GOOGLE_OAUTH_CLIENT_ID (web/.env.example).");
+test.skip(!CLIENT_ID && !process.env.CI, "Start the app with GOOGLE_OAUTH_CLIENT_ID, _SECRET and _ORIGINS, and set E2E_GOOGLE_OAUTH_CLIENT_ID (web/.env.example).");
 
 test.beforeEach(async ({ context }) => {
   await blockExternalRequests(context);

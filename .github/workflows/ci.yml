@@ -95,6 +95,7 @@ jobs:
           # The test stops before Google, so these are never sent anywhere.
           GOOGLE_OAUTH_CLIENT_ID: e2e-google-client
           GOOGLE_OAUTH_CLIENT_SECRET: e2e-placeholder
+          GOOGLE_OAUTH_ORIGINS: http://localhost:3300
         run: |
           npx next start -p 3300 > next.log 2>&1 &
           for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:3300/sign-in && exit 0; sleep 1; done

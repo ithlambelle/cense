@@ -18,8 +18,9 @@ cached.
    account confirmed earlier keeps its password.
 3. The Google button navigates to `/api/v1/auth/google?next=/quiz`. The `next`
    value must be an app-relative path. When `GOOGLE_OAUTH_CLIENT_ID` and
-   `GOOGLE_OAUTH_CLIENT_SECRET` are set, Google returns to
-   `/api/v1/auth/google/callback` on the app's own address, which trades the
+   `GOOGLE_OAUTH_CLIENT_SECRET` are set and the request is on a registered
+   address (`GOOGLE_OAUTH_ORIGINS`, by default the two censefinance.com
+   origins), Google returns to `/api/v1/auth/google/callback` on that address, which trades the
    code for an ID token and signs in with `signInWithIdToken`, so Google's
    account chooser names the app's domain instead of the Supabase project.
    Otherwise Supabase returns through `/api/v1/auth/callback`. Either way the
