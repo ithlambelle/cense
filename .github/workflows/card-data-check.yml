@@ -1,0 +1,105 @@
+name: Card data check
+
+# Re-reads every card's issuer page once a week and compares it with
+# web/src/lib/cards/rewards.ts (docs/card-data.md). When any card needs a
+# person's look it opens, or updates, one issue titled "Card data check: N
+# cards need a look"; when every card is OK it closes that issue. It never
+# edits the data, commits or opens a pull request. Scheduled runs only happen
+# from the default branch.
+on:
+  schedule:
+    # Mondays 13:00 UTC: 9:00 Eastern in summer, 8:00 in winter.
+    - cron: "0 13 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: card-data-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      # Always exits 0: it reports, people decide. About 10 minutes, with a
+      # pause between issuer pages.
+      - name: Read every card's issuer page
+        run: npx tsx scripts/check-card-sources.ts --out card-check.md --summary card-check.json --save-pages card-check-pages
+      - name: Keep the report and the text of every page it read
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: card-data-check
+          path: |
+            web/card-check.md
+            web/card-check.json
+            web/card-check-pages
+          retention-days: 30
+          if-no-files-found: ignore
+      # Runs even when a step above failed, so a broken check opens an issue
+      # instead of failing quietly.
+      - name: Open, update or close the issue
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          prefix="Card data check:"
+          existing=$(gh issue list --state open --limit 100 --json number,title \
+            --jq "[.[] | select(.title | startswith(\"$prefix\"))][0].number // empty")
+
+          if [ -f card-check.json ]; then
+            needs=$(jq -r .needsLook card-check.json)
+            date=$(jq -r .date card-check.json)
+          else
+            # The check itself broke. Say so, so a broken check is never silent.
+            needs=""
+            date=$(TZ=America/New_York date +%F)
+          fi
+
+          if [ "$needs" = "0" ]; then
+            if [ -n "$existing" ]; then
+              gh issue close "$existing" --comment "Every card checked OK on $date. Closing. Run: $RUN_URL"
+            fi
+            exit 0
+          fi
+
+          if [ -z "$needs" ]; then
+            title="$prefix the check did not finish"
+            printf 'The card data check did not finish on %s, so no card was checked. See the run log: %s\n' "$date" "$RUN_URL" > issue.md
+          else
+            if [ "$needs" = "1" ]; then title="$prefix 1 card needs a look"; else title="$prefix $needs cards need a look"; fi
+            # GitHub caps an issue body at 65,536 characters.
+            if [ "$(wc -c < card-check.md)" -gt 60000 ]; then
+              head -c 58000 card-check.md > issue.md
+              printf '\n\n(Cut short here; the full report is in the run artifact.)\n' >> issue.md
+            else
+              cp card-check.md issue.md
+            fi
+            printf '\n---\nRun: %s. The report and the text of every page read are in its card-data-check artifact for 30 days.\n' "$RUN_URL" >> issue.md
+          fi
+
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --title "$title" --body-file issue.md
+            # A comment, so whoever watches the issue hears about this week's run.
+            gh issue comment "$existing" --body "Updated for the $date run (${title#"$prefix "}): $RUN_URL"
+          else
+            gh issue create --title "$title" --body-file issue.md
+          fi

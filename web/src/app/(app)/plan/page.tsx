@@ -26,6 +26,7 @@ export default async function PlanPage({ searchParams }: PageProps<"/plan">) {
         application={approved}
         paymentReminderOn={paymentReminderOn(detail, settings)}
         autopayOn={detail?.autopayStatus === "on"}
+        spendLimitSet={detail?.spendLimitCents != null}
       />
     );
   }

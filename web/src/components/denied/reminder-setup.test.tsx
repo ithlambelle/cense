@@ -26,9 +26,10 @@ function server(...replies: ({ status: number; body: unknown } | "offline")[]) {
 }
 
 const apiError = (status: number, code: string, message: string) => ({ status, body: { error: { code, message } } });
-const created = (remindOn: string) => ({
+const created = (remindOn: string, confirmation = "sent") => ({
   status: 201,
   body: {
+    confirmation,
     id: "00000000-0000-4000-8000-0000000000aa",
     applicationId: ID,
     kind: "reapply",
@@ -98,6 +99,20 @@ describe("ReminderSetup", () => {
     expect(fetchFn.mock.calls[0][0]).toBe("/api/v1/reminders");
     expect(fetchFn.mock.calls[0][1]?.method).toBe("POST");
     expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toEqual({ applicationId: ID, remindOn: "2027-10-17" });
+  });
+
+  it.each([
+    ["sent", "1"],
+    ["skipped", null],
+    ["failed", null],
+  ])("tells the saved screen about the email only when it was sent (%s)", async (confirmation, flag) => {
+    sessionStorage.clear();
+    server(created("2027-04-17", confirmation));
+    render(<ReminderSetup applicationId={ID} />);
+    save();
+    await waitFor(() => expect(replace).toHaveBeenCalled());
+    expect(sessionStorage.getItem(`cense:reminder-emailed:${ID}`)).toBe(flag);
+    sessionStorage.clear();
   });
 
   it("saves the 6-month date by default", async () => {

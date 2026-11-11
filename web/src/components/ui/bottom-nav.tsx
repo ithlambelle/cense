@@ -105,6 +105,10 @@ function useTyping(): boolean {
   return typing
 }
 
+// The bar's padding, shared by the bar and the placeholder that holds its
+// place: 6px above the tabs, the safe area (at least 8px) below.
+const NAV_HEIGHT = "box-content min-h-12 border-t pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+
 function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`)
 }
@@ -122,12 +126,22 @@ function BottomNav() {
   // Always on screen (Apple's tab bar guidance: hiding it makes people lose
   // their place), except while the student is typing, when the keyboard needs
   // the room and a bar pinned above it only covers the field.
+  // Fixed to the bottom of the viewport (Global G2, Figma 477:983): sticky let
+  // it float up into the content on short screens. The placeholder keeps the
+  // bar's height in the page, so the last of the content can scroll clear of it.
+  // No z-index: it follows the content in the page, so it paints over it, and
+  // a sheet (portaled after it) still covers it.
   return (
-    <nav
-      aria-label="Main"
-      hidden={typing}
-      className="relative flex justify-center overflow-hidden border-t border-white/10 bg-navy px-3 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
-    >
+    <>
+      <div aria-hidden="true" hidden={typing} data-slot="bottom-nav-space" className={cn(NAV_HEIGHT, "border-transparent")} />
+      <nav
+        aria-label="Main"
+        hidden={typing}
+        className={cn(
+          NAV_HEIGHT,
+          "fixed inset-x-0 bottom-0 flex justify-center overflow-hidden border-white/10 bg-navy"
+        )}
+      >
       {STARS.map((star) => (
         <Image
           key={star.className}
@@ -139,7 +153,8 @@ function BottomNav() {
           className={cn("pointer-events-none absolute opacity-70", star.className)}
         />
       ))}
-      <ul className="relative flex w-full max-w-phone">
+      {/* The same 24px side margins as the content (G2). */}
+      <ul className="relative flex w-full max-w-phone px-6">
         {TABS.map(({ href, label, Icon }) => {
           const active = isActive(pathname, href)
           return (
@@ -149,13 +164,15 @@ function BottomNav() {
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "group flex min-h-12 flex-col items-center gap-0.5 rounded-input text-body-s transition-[color,scale] duration-200 motion-safe:active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
-                  active ? "font-semibold text-white" : "text-off-white/80 hover:text-off-white"
+                  active ? "font-semibold text-light-blue" : "text-white/70 hover:text-white"
                 )}
               >
-                {/* The pill behind the active icon, white at 16% as in the Figma bar
-                    component (light blue is not a palette color). It is
-                    decoration: the current tab is carried by the white,
-                    heavier label and aria-current. */}
+                {/* The active tab is Light Blue (#BAE4FF, light-blue/100) and the
+                    others white at 70%, as in the Figma bar component (371:2862);
+                    Light Blue is the design system's accent on dark navy. The
+                    pill behind the active icon, white at 16%, is decoration:
+                    the current tab is carried by the color, the heavier label
+                    and aria-current. */}
                 <span
                   aria-hidden="true"
                   className={cn(
@@ -171,7 +188,8 @@ function BottomNav() {
           )
         })}
       </ul>
-    </nav>
+      </nav>
+    </>
   )
 }
 

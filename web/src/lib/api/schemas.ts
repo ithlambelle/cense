@@ -157,6 +157,9 @@ export const denialReasonSchema = z.enum([
   "no_credit_history", "could_not_verify", "report_frozen", "income", "something_else", "no_letter_yet",
 ]);
 export const autopayStatusSchema = z.enum(["on", "off", "unknown"]);
+// What the student said their autopay pays at the issuer (US-10, I3). The
+// type only, never an amount; set only while autopay is on.
+export const autopayPaymentTypeSchema = z.enum(["statement_balance", "minimum", "fixed_amount"]);
 const dayOfMonthSchema = z.int().min(1).max(31);
 
 // One tracked card with everything its own screens use: the denial reason and
@@ -166,6 +169,9 @@ export const applicationDetailSchema = applicationSchema.extend({
   denialReason: denialReasonSchema.nullable(),
   denialReasonNote: z.string().max(200).nullable(),
   autopayStatus: autopayStatusSchema,
+  autopayPaymentType: autopayPaymentTypeSchema.nullable(),
+  // The monthly spend limit the student saved (Flow A, US-04), in cents.
+  spendLimitCents: z.int().positive().nullable(),
   statementClosingDay: dayOfMonthSchema.nullable(),
   paymentDueDay: dayOfMonthSchema.nullable(),
 });
@@ -181,6 +187,10 @@ export const updateApplicationSchema = z.strictObject({
   // Trimmed; an empty note is saved as no note.
   denialReasonNote: z.string().trim().max(200).nullable().optional(),
   autopayStatus: autopayStatusSchema.optional(),
+  // Needs autopay on (sent with it, or already saved). Autopay off or unknown clears it.
+  autopayPaymentType: autopayPaymentTypeSchema.nullable().optional(),
+  // Needs an approved card; at most the credit limit when one is saved.
+  spendLimitCents: z.int().positive().nullable().optional(),
   statementClosingDay: dayOfMonthSchema.nullable().optional(),
   paymentDueDay: dayOfMonthSchema.nullable().optional(),
 }).refine(

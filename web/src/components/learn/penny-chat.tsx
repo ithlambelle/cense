@@ -270,7 +270,7 @@ export function PennyChat({ initialAnswerId, from, back, canType }: Props) {
                 width={40}
                 height={40}
                 priority
-                className="size-10 shrink-0 rounded-pill bg-off-white"
+                className="size-10 shrink-0 rounded-pill bg-light-blue"
               />
               <h1 className="font-heading text-h5 font-medium text-navy">Penny</h1>
             </div>
@@ -306,7 +306,7 @@ export function PennyChat({ initialAnswerId, from, back, canType }: Props) {
               role="status"
               className="mt-4 flex scroll-mb-28 flex-col items-start gap-1.5"
             >
-              <span className="flex h-10 items-center gap-1.5 rounded-[20px] bg-off-white px-4" aria-hidden="true">
+              <span className="flex h-10 items-center gap-1.5 rounded-[20px] bg-light-blue/50 px-4" aria-hidden="true">
                 {[0, 1, 2].map((dot) => (
                   <span
                     key={dot}
@@ -357,8 +357,8 @@ function MessageView({ message, from, latest, lastRef, onPick, onRetry, busy }: 
 
   return (
     <article ref={lastRef} aria-label="Penny" className="flex scroll-mb-28 flex-col items-start gap-4">
-      {/* Lavender in place of the frame's light blue bubble (G3). */}
-      <div className="flex max-w-[302px] flex-col gap-1.5 rounded-[20px] bg-off-white px-4 py-2.5">
+      {/* Light Blue at 50% (accent/tint), as in the frame (371:11167). */}
+      <div className="flex max-w-[302px] flex-col gap-1.5 rounded-[20px] bg-light-blue/50 px-4 py-2.5">
         {/* Masked too: a typed answer can restate the question. */}
         <p className={cn(SENSITIVE, "text-body-s text-navy")}>{message.text}</p>
         {message.kind === "answer" ? (

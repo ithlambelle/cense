@@ -51,7 +51,7 @@ describe("saveReminderSetup", () => {
       choices: { paymentDue: true, statementClosing: false },
       savedChoices: ON,
     });
-    expect(result).toEqual({ kind: "ok" });
+    expect(result).toEqual({ kind: "ok", emailed: false });
     expect(calls(fetchFn)).toEqual([
       { method: "PATCH", url: `/api/v1/applications/${ID}`, body: DAYS },
       // Only the toggle that changed, and never check autopay.
@@ -63,7 +63,7 @@ describe("saveReminderSetup", () => {
   it("turns reminder emails back on for a student who unsubscribed, when a reminder is on", async () => {
     const fetchFn = server(ok, ok, ok);
     const result = await saveReminderSetup({ applicationId: ID, days: DAYS, choices: ON, savedChoices: ON, emailsOn: false });
-    expect(result).toEqual({ kind: "ok" });
+    expect(result).toEqual({ kind: "ok", emailed: false });
     expect(calls(fetchFn)[1]).toEqual({ method: "PATCH", url: "/api/v1/me/reminder-settings", body: { emailsOn: true } });
   });
 
@@ -75,7 +75,7 @@ describe("saveReminderSetup", () => {
       choices: { paymentDue: false, statementClosing: true },
       savedChoices: ON,
     });
-    expect(result).toEqual({ kind: "ok" });
+    expect(result).toEqual({ kind: "ok", emailed: false });
     expect(calls(fetchFn)[2]).toEqual({
       method: "DELETE",
       url: `/api/v1/applications/${ID}/plans/first_month/steps/payment_reminder`,
@@ -92,7 +92,7 @@ describe("saveReminderSetup", () => {
 
   it("skips the settings request when no toggle changed", async () => {
     const fetchFn = server(ok, ok);
-    expect(await saveReminderSetup({ applicationId: ID, days: DAYS, choices: ON, savedChoices: ON })).toEqual({ kind: "ok" });
+    expect(await saveReminderSetup({ applicationId: ID, days: DAYS, choices: ON, savedChoices: ON })).toEqual({ kind: "ok", emailed: false });
     expect(calls(fetchFn).map((call) => call.method)).toEqual(["PATCH", "PUT"]);
   });
 
@@ -142,5 +142,19 @@ describe("saveReminderSetup", () => {
       savedChoices: ON,
     });
     expect(result).toEqual({ kind: "signed-out" });
+  });
+
+  it("asks for the confirmation email last, only when told to, and says whether it went out", async () => {
+    const fetchFn = server(ok, ok, { status: 200, body: { confirmation: "sent" } });
+    const result = await saveReminderSetup({ applicationId: ID, days: DAYS, choices: ON, savedChoices: ON, confirm: true });
+    expect(result).toEqual({ kind: "ok", emailed: true });
+    expect(calls(fetchFn).at(-1)).toMatchObject({ method: "POST", url: `/api/v1/applications/${ID}/reminder-confirmation` });
+
+    server(ok, ok, { status: 200, body: { confirmation: "skipped" } });
+    expect(await saveReminderSetup({ applicationId: ID, days: DAYS, choices: ON, savedChoices: ON, confirm: true })).toEqual({ kind: "ok", emailed: false });
+
+    // A failed confirmation never fails the save: the days are already in.
+    server(ok, ok, failure(503, "data_unavailable", "Try again."));
+    expect(await saveReminderSetup({ applicationId: ID, days: DAYS, choices: ON, savedChoices: ON, confirm: true })).toEqual({ kind: "ok", emailed: false });
   });
 });

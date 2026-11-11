@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const auth = vi.hoisted(() => ({ authenticatedStudent: vi.fn() }));
 vi.mock("@/lib/api/auth", () => auth);
+const confirmation = vi.hoisted(() => ({ sendReapplyConfirmation: vi.fn(async () => "sent") }));
+vi.mock("@/lib/reminders/send-confirmation", () => confirmation);
 
 import { POST as ACTED } from "./[id]/acted/route";
 import { GET, POST } from "./route";
@@ -12,7 +14,8 @@ type Result = { data: unknown; error: { code?: string; message: string } | null 
 
 const row = (over: Record<string, unknown> = {}) => ({
   id: REM, card_application_id: APP, kind: "reapply", occurrence: "2027-04-16",
-  due_at: "2027-04-16T13:00:00+00:00", sent_at: null, acted_at: null, created_at: "2026-10-24T15:00:00+00:00", ...over,
+  due_at: "2027-04-16T13:00:00+00:00", sent_at: null, acted_at: null,
+  read_at: null, snoozed_until: null, dismissed_at: null, follow_up_at: null, created_at: "2026-10-24T15:00:00+00:00", ...over,
 });
 
 // The student's client: the profile read answers with `timeZone`; reminders
@@ -73,8 +76,28 @@ describe("POST /reminders (reapply)", () => {
     const calls = student({ rpcResult: { data: row(), error: null } });
     const response = await POST(post({ applicationId: APP, remindOn: "2027-04-16" }));
     expect(response.status).toBe(201);
-    expect(await response.json()).toMatchObject({ id: REM, kind: "reapply", remindOn: "2027-04-16" });
+    expect(await response.json()).toMatchObject({ id: REM, kind: "reapply", remindOn: "2027-04-16", confirmation: "sent" });
     expect(calls).toEqual([{ op: "create_reapply_reminder", args: { p_application_id: APP, p_remind_on: "2027-04-16" } }]);
+    // The confirmation email (F4) goes out for the saved reminder.
+    expect(confirmation.sendReapplyConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({ studentId: "student-1" }),
+      expect.objectContaining({ id: REM, applicationId: APP, remindOn: "2027-04-16" }),
+    );
+  });
+
+  it.each(["failed", "skipped"])("still answers 201 when the confirmation email is %s, and says so", async (outcome) => {
+    confirmation.sendReapplyConfirmation.mockResolvedValueOnce(outcome);
+    student({ rpcResult: { data: row(), error: null } });
+    const response = await POST(post({ applicationId: APP, remindOn: "2027-04-16" }));
+    expect(response.status).toBe(201);
+    expect((await response.json()).confirmation).toBe(outcome);
+  });
+
+  it("sends no confirmation when the database refuses the reminder", async () => {
+    confirmation.sendReapplyConfirmation.mockClear();
+    student({ rpcResult: { data: null, error: { code: "22023", message: "day" } } });
+    await POST(post({ applicationId: APP, remindOn: "2026-10-24" }));
+    expect(confirmation.sendReapplyConfirmation).not.toHaveBeenCalled();
   });
 
   it("maps the database's refusals", async () => {

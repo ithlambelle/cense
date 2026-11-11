@@ -68,7 +68,7 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
       <DeniedLayout backHref={ROUTES.home} backLabel="Home">
         <div className="flex flex-col items-center gap-4 pt-5 text-center">
           <OutcomeMark icon={Check} tone="success" />
-          <StatusPill>APPROVED AFTER REVIEW</StatusPill>
+          <StatusPill className="text-navy">APPROVED AFTER REVIEW</StatusPill>
           <div className="flex flex-col gap-2">
             <h1 className="font-heading text-h1 font-medium text-navy">The issuer approved your application</h1>
             <p className="text-body-m text-indigo-black">

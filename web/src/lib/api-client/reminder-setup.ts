@@ -5,6 +5,8 @@ import { savePlanStep } from "./plans";
 // days, the student's reminder choices, then the "Set a payment reminder"
 // star on Home. Three requests, in that order, each only after the one before
 // it worked, so the star never lights for reminders that were not saved.
+// When the days are new or changed, a fourth asks for the confirmation email;
+// it never fails the save, which is already done.
 
 export type CardDays = { statementClosingDay: number; paymentDueDay: number };
 
@@ -18,7 +20,8 @@ export type ReminderChoices = { paymentDue: boolean; statementClosing: boolean }
 export type SetupStage = "days" | "choices" | "star";
 
 export type ReminderSetupSave =
-  | { kind: "ok" }
+  // emailed: the confirmation email was sent, so the screen may say so.
+  | { kind: "ok"; emailed: boolean }
   | { kind: "signed-out" }
   | { kind: "failed"; stage: SetupStage; message: string };
 
@@ -49,6 +52,7 @@ export async function saveReminderSetup({
   choices,
   savedChoices,
   emailsOn = true,
+  confirm = false,
 }: {
   applicationId: string;
   days: CardDays;
@@ -57,6 +61,8 @@ export async function saveReminderSetup({
   savedChoices: ReminderChoices;
   // False after the student unsubscribed from an email's link.
   emailsOn?: boolean;
+  // The days are new or changed: email the student a confirmation.
+  confirm?: boolean;
 }): Promise<ReminderSetupSave> {
   // Saving the days makes the database schedule this card's reminders.
   const daysResult = await apiRequest("patch", "/applications/{id}", {
@@ -81,5 +87,9 @@ export async function saveReminderSetup({
   const star = await savePlanStep(applicationId, "first_month", "payment_reminder", choices.paymentDue);
   if (star.kind === "signed-out") return star;
   if (star.kind === "failed") return { kind: "failed", stage: "star", message: `${SAVED_BEFORE.star}${star.message}` };
-  return { kind: "ok" };
+  if (!confirm) return { kind: "ok", emailed: false };
+  const confirmation = await apiRequest("post", "/applications/{id}/reminder-confirmation", {
+    pathParams: { id: applicationId },
+  });
+  return { kind: "ok", emailed: confirmation.ok && confirmation.data.confirmation === "sent" };
 }

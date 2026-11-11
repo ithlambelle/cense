@@ -21,7 +21,7 @@ export default async function PaymentRemindersPage({ params, searchParams }: Pag
   const student = await requireStudent(paymentRemindersPath(id));
   const setup = await loadReminderSetup(student, id);
   if (!setup) notFound();
-  const back = remindersBackLink(from, cardFrom, setup.application.cardId);
+  const back = remindersBackLink(from, cardFrom, setup.application.cardId, id);
   return (
     <PaymentReminderSetup
       applicationId={id}
@@ -30,6 +30,7 @@ export default async function PaymentRemindersPage({ params, searchParams }: Pag
       savedChoices={{ paymentDue: setup.settings.paymentDue, statementClosing: setup.settings.statementClosing }}
       emailsOn={setup.settings.emailsOn}
       firstStatementEmail={setup.firstStatementEmail}
+      autopayOn={setup.application.autopayStatus === "on"}
       email={student.email}
       back={back}
       doneHref={back.href}

@@ -7,11 +7,10 @@ import { addDays, nextOnDay, payDownTargetCents } from "./schedule";
 // The reminder emails, one per kind, from the reminder copy (draft 2, Oct 24).
 // Short on purpose. No live balance anywhere: Cense does not have one yet.
 // Every email ends with the reminder settings and unsubscribe links. The one
-// button says "Open Cense" and opens Home: there is no screen yet that shows
-// the reminder or records "I paid it", so no button promises that (Reminders
-// audit R-02). Its link carries the email's kind, so Home can count the visit,
-// and nothing about the student; only the unsubscribe link carries a signed
-// token.
+// button says "Open Cense" and opens Updates, where the same reminder is a
+// card with its action and a Snooze (Flow B). Its link carries the email's
+// kind, so the visit is counted, and nothing about the student; only the
+// unsubscribe link carries a signed token.
 
 export type ReminderEmailKind = "statement_closing" | "payment_due" | "check_autopay" | "reapply";
 

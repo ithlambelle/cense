@@ -158,9 +158,30 @@ export const EVENTS = {
   },
   reminder_email_clicked: {
     question:
-      "Do reminder emails bring students back? Counted when a signed-in student lands on Home from an email's Open Cense button. Email opens are not tracked.",
+      "Do reminder emails bring students back? Counted when a signed-in student lands on Updates (Home for emails sent before Updates) from an email's Open Cense button. Email opens are not tracked.",
     owner: "Ben",
     addedIn: 3,
+    properties: z.strictObject({ kind: reminderKind }),
+  },
+  reminder_payment_reported: {
+    question: "US-08: do in-app reminders get acted on? Counted when a student taps I paid it (down) on a reminder card in Updates or on the follow-up screen.",
+    owner: "Ben",
+    addedIn: 4,
+    ledger: "reminders (acted_at)",
+    properties: z.strictObject({ kind: reminderKind, from: z.enum(["updates", "follow_up"]) }),
+  },
+  reminder_snooze_saved: {
+    question: "US-08: which snooze times do students pick, and for which reminders? Decides whether the three times stay (Ben, Nov 3).",
+    owner: "Ben",
+    addedIn: 4,
+    ledger: "reminders (snoozed_until)",
+    properties: z.strictObject({ kind: reminderKind, choice: z.enum(["tomorrow", "in_2_days", "day_before_due"]) }),
+  },
+  reminder_dismissal_saved: {
+    question: "US-08: how often do students dismiss a reminder for its billing cycle instead of snoozing it?",
+    owner: "Ben",
+    addedIn: 4,
+    ledger: "reminders (dismissed_at)",
     properties: z.strictObject({ kind: reminderKind }),
   },
   reminder_settings_changed: {

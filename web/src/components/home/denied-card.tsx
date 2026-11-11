@@ -160,7 +160,7 @@ function PlanCard({
 
       <Link
         href={planHref}
-        className="flex h-11 items-center justify-center rounded-input text-[15px] font-semibold text-violet hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="flex h-11 items-center justify-center rounded-button text-[15px] font-semibold text-violet hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         See my plan
       </Link>

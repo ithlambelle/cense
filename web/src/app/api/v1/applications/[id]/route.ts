@@ -59,6 +59,22 @@ function changes(body: Update, current: ApplicationDetailRow): Record<string, un
     set.credit_limit_cents = null;
   }
 
+  // The spend limit (US-04) needs an approved card and fits under the credit
+  // limit. Leaving approved, or a new credit limit below it, clears it.
+  const creditLimit = body.creditLimitCents !== undefined ? body.creditLimitCents : current.credit_limit_cents;
+  if (body.spendLimitCents !== undefined && body.spendLimitCents !== null) {
+    if (status !== "approved") return "Only approved cards can have a spend limit.";
+    if (creditLimit !== null && body.spendLimitCents > creditLimit) return "A spend limit can be at most the credit limit.";
+    set.spend_limit_cents = body.spendLimitCents;
+  } else if (body.spendLimitCents === null) {
+    set.spend_limit_cents = null;
+  } else if (
+    current.spend_limit_cents !== null &&
+    (status !== "approved" || (creditLimit !== null && current.spend_limit_cents > creditLimit))
+  ) {
+    set.spend_limit_cents = null;
+  }
+
   for (const [field, column] of [["denialReason", "denial_reason"], ["denialReasonNote", "denial_reason_note"]] as const) {
     const value = body[field];
     if (value === undefined) continue;
@@ -77,6 +93,18 @@ function changes(body: Update, current: ApplicationDetailRow): Record<string, un
   if (body.autopayStatus !== undefined) {
     set.autopay_status = body.autopayStatus;
     if (body.autopayStatus !== current.autopay_status) set.autopay_updated_at = new Date().toISOString();
+  }
+
+  // The payment type the student said (US-10) goes with autopay on: turning
+  // autopay off or unknown clears it, and a type needs autopay on.
+  const autopay = body.autopayStatus ?? current.autopay_status;
+  if (body.autopayPaymentType !== undefined && body.autopayPaymentType !== null && autopay !== "on") {
+    return "A payment type needs autopay on.";
+  }
+  if (autopay !== "on") {
+    if (current.autopay_payment_type !== null || body.autopayPaymentType !== undefined) set.autopay_payment_type = null;
+  } else if (body.autopayPaymentType !== undefined) {
+    set.autopay_payment_type = body.autopayPaymentType;
   }
   return set;
 }
@@ -114,5 +142,19 @@ export async function PATCH(request: Request, context: Params): Promise<Response
   if (error?.code === "23514") return apiError(400, "invalid_request", "The update is invalid.");
   if (error) return databaseError("application_update", error);
   if (!data) return apiError(404, "not_found", "Application not found.");
+
+  // A cleared spend limit takes its "Set a spend limit" step with it, so no
+  // plan shows the step done without a limit behind it. The stars read the
+  // limit itself, so a failed delete is logged and the update still stands.
+  if (set.spend_limit_cents === null) {
+    const step = await student.supabase
+      .from("plan_steps")
+      .delete()
+      .eq("card_application_id", id)
+      .eq("student_id", student.studentId)
+      .eq("plan", "first_month")
+      .eq("step", "spend_limit");
+    if (step.error) console.error(JSON.stringify({ event: "database_error", operation: "spend_limit_step_delete", code: step.error.code }));
+  }
   return detailResponse(data);
 }

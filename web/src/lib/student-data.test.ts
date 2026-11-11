@@ -76,6 +76,8 @@ describe("loadApplicationDetail", () => {
     denial_reason: "no_letter_yet",
     denial_reason_note: null,
     autopay_status: "unknown",
+    autopay_payment_type: null,
+    spend_limit_cents: null,
     statement_closing_day: null,
     payment_due_day: null,
   };

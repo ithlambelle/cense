@@ -70,8 +70,27 @@ describe("ReminderSavedCheck", () => {
       },
     ]);
     render(<ReminderSavedCheck applicationId={ID} />);
-    expect(await screen.findByRole("heading", { name: "Your reminder is saved" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Reminder saved" })).toBeTruthy();
     expect(screen.getAllByText(/May 1, 2027/).length).toBeGreaterThan(0);
+    // Back and "Back to your plan" both return to this card's plan.
+    const plan = `/denied/plan?application=${ID}`;
+    expect(screen.getByRole("link", { name: "Back to your plan" }).getAttribute("href")).toBe(plan);
+    expect(screen.getByRole("link", { name: "Back to Plan" }).getAttribute("href")).toBe(plan);
+    // Opened without a save in this tab, it names the date rather than an email.
+    expect(screen.queryByText("We emailed you a confirmation.")).toBeNull();
+  });
+
+  it("names the confirmation email right after a save in this tab, with no Penny", async () => {
+    sessionStorage.setItem(`cense:reminder-emailed:${ID}`, "1");
+    server([{ status: 200, body: { reminders: [reminder(ID, "2027-04-05", "2026-10-17T10:00:00Z")] } }]);
+    render(<ReminderSavedCheck applicationId={ID} />);
+    expect(await screen.findByText("We emailed you a confirmation.")).toBeTruthy();
+    expect(screen.getByText("April 5, 2027")).toBeTruthy();
+    // The back arrow is the only image: no Penny next to the check.
+    expect([...document.querySelectorAll("img")].map((img) => img.getAttribute("src"))).toEqual(["/icons/arrow-left-dark.svg"]);
+    // Read once: a reload names the date, never a second email.
+    expect(sessionStorage.getItem(`cense:reminder-emailed:${ID}`)).toBeNull();
+    sessionStorage.clear();
   });
 
   it("never claims a reminder that is not saved for this card", async () => {
@@ -99,7 +118,7 @@ describe("ReminderSavedCheck", () => {
     // The mistake is recorded, not swallowed.
     expect(error).toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    expect(await screen.findByRole("heading", { name: "Your reminder is saved" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Reminder saved" })).toBeTruthy();
   });
 
   it("says the check failed, not that the reminder is missing, and checks again on Try again", async () => {
@@ -111,7 +130,7 @@ describe("ReminderSavedCheck", () => {
     expect(await screen.findByRole("heading", { name: "We couldn’t check your reminder" })).toBeTruthy();
     expect(fetchFn.mock.calls[0][0]).toBe("/api/v1/reminders");
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    expect(await screen.findByRole("heading", { name: "Your reminder is saved" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Reminder saved" })).toBeTruthy();
   });
 
   it("sends a student whose session ended to sign in", async () => {

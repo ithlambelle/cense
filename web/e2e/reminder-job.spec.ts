@@ -75,6 +75,9 @@ const pathOf = (link: string) => {
   return url.pathname + url.search;
 };
 
+// The payment reminders' confirmation, sent when the days are saved, not by the job.
+const isConfirmation = (sent: { subject: string }) => sent.subject === "Your payment reminders are set";
+
 test("the job emails a due reminder once, and the email's button, settings link and unsubscribe work", async ({ page, request }) => {
   const closes = newYorkDay(2);
   const { email, id } = await studentWithReminderDueToday(page, "job-sent");
@@ -86,6 +89,9 @@ test("the job emails a due reminder once, and the email's button, settings link 
   await page.getByRole("heading", { level: 1, name: "Never miss a payment" }).click();
   await page.getByRole("button", { name: "Save reminders" }).click();
   await expect(page).toHaveURL(/\/home$/);
+  // New days send their confirmation at once; the job's own emails are the rest.
+  await expect.poll(() => fake.emailsTo(email).filter(isConfirmation).length).toBe(1);
+  const jobEmails = () => fake.emailsTo(email).filter((sent) => !isConfirmation(sent));
 
   // A caller without the secret is refused and pings nothing.
   expect((await request.get("/api/v1/cron/reminders")).status()).toBe(401);
@@ -95,7 +101,7 @@ test("the job emails a due reminder once, and the email's button, settings link 
   expect(first.sent).toBeGreaterThanOrEqual(1);
   expect(first.failed).toBe(0);
 
-  const [sent, ...more] = fake.emailsTo(email);
+  const [sent, ...more] = jobEmails();
   expect(more).toEqual([]);
   expect(sent.subject).toBe(`Your statement closes ${closes.weekday}. Quick move?`);
   // The job's variables as CI and the README start the app with them.
@@ -103,12 +109,12 @@ test("the job emails a due reminder once, and the email's button, settings link 
   expect(sent.idempotencyKey).toMatch(/^reminder-[0-9a-f-]{36}$/);
   expect(sent.authorization).toBe("Bearer e2e-placeholder");
   expect(sent.text).toContain("pay it down to $150 or less in your Discover app");
-  // One button, Open Cense, to Home marked with the email's kind; the footer
+  // One button, Open Cense, to Updates marked with the email's kind; the footer
   // opens Reminder settings.
   const buttons = [...sent.html.matchAll(/<a href="([^"]+)" style="display:inline-block[^"]*">([^<]+)<\/a>/g)];
   expect(buttons.map(([, , label]) => label)).toEqual(["Open Cense"]);
   const openCense = buttons[0][1];
-  expect(pathOf(openCense)).toBe("/home?reminder=statement_closing");
+  expect(pathOf(openCense)).toBe("/updates?reminder=statement_closing");
   const settingsLink = /<a href="([^"]+)"[^>]*>Reminder settings<\/a>/.exec(sent.html)?.[1];
   expect(settingsLink && pathOf(settingsLink)).toBe("/settings/reminders");
 
@@ -120,12 +126,14 @@ test("the job emails a due reminder once, and the email's button, settings link 
 
   // The job again the same day (Ben's runbook: run it by hand): no second email.
   await runJob(request);
-  expect(fake.emailsTo(email)).toHaveLength(1);
+  expect(jobEmails()).toHaveLength(1);
 
-  // Open Cense: Home, with the mark dropped from the address.
+  // Open Cense: Updates, with the mark dropped from the address and the same
+  // reminder as a new card with its action (US-08, Flow B).
   await page.goto(pathOf(openCense));
-  await expect(page).toHaveURL(/\/home$/);
-  await expect(page.getByRole("region", { name: DISCOVER.name })).toBeVisible();
+  await expect(page).toHaveURL(/\/updates$/);
+  const inApp = page.getByRole("region", { name: "New" }).getByRole("article", { name: `Statement closes ${closes.weekday}` });
+  await expect(inApp.getByRole("button", { name: "I paid it down" })).toBeVisible();
 
   // The footer link opens Reminder settings, all on.
   await page.goto(pathOf(settingsLink!));

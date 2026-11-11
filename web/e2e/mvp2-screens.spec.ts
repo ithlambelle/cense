@@ -97,7 +97,7 @@ test("a student adds a card they already have, and it stays on Home", async ({ p
   await visitor.context().close();
 });
 
-test("the first-month plan saves a ticked action and autopay, opens the reminder screen, and shows only the student's own card", async ({ page, browser }) => {
+test("the first-month plan saves autopay, opens the spend limit and reminder screens, and shows only the student's own card", async ({ page, browser }) => {
   const checkA11y = axeChecker(page);
   await signUp(page, uniqueEmail("plan"), checkA11y);
   // Two cards added by name: Home leads with the newer one and lists the other,
@@ -109,26 +109,18 @@ test("the first-month plan saves a ticked action and autopay, opens the reminder
   await expect(page).toHaveURL(new RegExp(`/plan\\?application=${older}$`));
   await expect(page.getByRole("heading", { level: 1, name: "Your first-month plan" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: "Older Credit Union Card" })).toBeVisible();
-  const purchase = page.getByRole("checkbox", { name: /Choose one planned purchase/ });
-  await expect(purchase).toBeEnabled();
+  await expect(page.getByRole("checkbox", { name: /Turn on autopay/ })).toBeEnabled();
   await expect(page.getByText("0 of 3 done")).toBeVisible();
   await checkA11y("first-month plan");
   await fitsEverySize(page, "first-month plan");
 
-  // A tick is saved: it survives a reload.
-  const saved = page.waitForResponse((r) => r.url().includes("/steps/planned_purchase") && r.request().method() === "PUT");
-  await purchase.click();
-  expect((await saved).status()).toBe(201);
-  await expect(page.getByText("1 of 3 done")).toBeVisible();
-  await page.reload();
-  await expect(page.getByRole("checkbox", { name: /Choose one planned purchase/ })).toHaveAttribute("aria-checked", "true");
-  await expect(page.getByText("1 of 3 done")).toBeVisible();
-
-  // Unticking is saved too.
-  await page.getByRole("checkbox", { name: /Choose one planned purchase/ }).click();
-  await expect(page.getByText("0 of 3 done")).toBeVisible();
-  await page.reload();
-  await expect(page.getByRole("checkbox", { name: /Choose one planned purchase/ })).toHaveAttribute("aria-checked", "false");
+  // The spend limit opens its screens rather than ticking (no limit saved
+  // without one behind it); with no credit limit, it asks for that first.
+  await expect(page.getByRole("checkbox", { name: /Set a spend limit/ })).toHaveCount(0);
+  await page.getByRole("link", { name: /^Set a spend limit/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/applications/${older}/setup/spend-limit$`));
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`/plan\\?application=${older}$`));
 
   // Autopay is saved on the card, as on Home: it survives a reload, ticked and unticked.
   for (const on of [true, false]) {
@@ -182,26 +174,32 @@ test("your account shows the student's card and email, every link opens its scre
   await expect(shown).toBeVisible();
   expect(await shown.evaluate((el) => el.closest(".ph-sensitive") !== null)).toBe(true);
   const card = page.getByRole("link", { name: /Discover it Student Cash Back/ });
-  await expect(card).toContainText("Approved, $500 limit");
+  await expect(card).toContainText("$500 limit");
   await checkA11y("account");
   await fitsEverySize(page, "account");
 
   for (const [name, path] of [
     [/Discover it Student Cash Back/, /\/home$/],
-    // No quiz yet: the quiz box opens the quiz, and Back on question 1 returns here (#77).
-    ["Start the quiz", /\/quiz\?from=account$/],
-    ["Add a card I already have", /\/home\/add-card$/],
-    ["Browse cards", /\/cards$/],
-    ["Back to Home", /\/home$/],
+    ["Cards", /\/cards\?from=account$/],
+    ["Add a card I already have", /\/home\/add-card\?from=account$/],
+    ["Reminder settings", /\/settings\/reminders$/],
+    ["Security and privacy", /\/settings\/privacy$/],
   ] as const) {
     await page.goto("/settings");
-    await page.getByRole("link", { name }).click();
+    await page.getByRole("link", { name, exact: typeof name === "string" }).click();
     await expect(page, String(name)).toHaveURL(path);
   }
 
+  // Back returns to the screen before Profile (G1), here Security and privacy.
+  await page.goto("/settings");
+  await page.getByRole("link", { name: "Back to Security and privacy" }).click();
+  await expect(page).toHaveURL(/\/settings\/privacy$/);
+
   await page.goto("/settings");
   await page.getByRole("button", { name: "Log out" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  // Logged out, the student lands on Welcome back to choose an account (F8).
+  await expect(page).toHaveURL(/\/signed-out$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Welcome back" })).toBeVisible();
   await page.goto("/settings");
   await expect(page).toHaveURL(/\/sign-in/);
 });
@@ -218,7 +216,7 @@ test("a denied student sets a reapply reminder, sees it saved after a reload, an
   })();
 
   await page.goto(`/denied/plan?application=${id}`);
-  await page.getByRole("link", { name: "Set a 6-month reminder" }).click();
+  await page.getByRole("link", { name: "Set a reminder" }).click();
   await expect(page).toHaveURL(new RegExp(`/denied/reminder\\?application=${id}$`));
   await expect(page.getByRole("heading", { level: 1, name: "Choose when to check in" })).toBeVisible();
   const sixMonthsOption = page.getByRole("button", { name: /In about 6 months/ });
@@ -251,22 +249,28 @@ test("a denied student sets a reapply reminder, sees it saved after a reload, an
   await date.fill(chosen.iso);
   await page.getByRole("button", { name: "Save reapply reminder" }).click();
   await expect(page).toHaveURL(new RegExp(`/denied/reminder/saved\\?application=${id}$`));
-  await expect(page.getByRole("heading", { level: 1, name: "Your reminder is saved" })).toBeVisible();
-  await expect(page.getByText(chosen.label)).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Reminder saved" })).toBeVisible();
+  // The date's own line, exact: with no confirmation email sent, the line
+  // above names the date too ("We’ll email you on ...").
+  await expect(page.getByText(chosen.label, { exact: true })).toBeVisible();
   await checkA11y("reapply reminder: saved");
   await fitsEverySize(page, "reapply reminder: saved");
   await page.reload();
-  await expect(page.getByText(chosen.label)).toBeVisible();
+  // Opened again, it never claims a second email: it names the day.
+  await expect(page.getByText(chosen.label, { exact: true })).toBeVisible();
+  await expect(page.getByText("We emailed you a confirmation.")).toHaveCount(0);
 
   // Choosing again replaces the date: one reapply reminder, now in six months.
   await page.goto(`/denied/reminder?application=${id}`);
   await page.getByRole("button", { name: "Save reapply reminder" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Your reminder is saved" })).toBeVisible();
-  await expect(page.getByText(sixMonths)).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Reminder saved" })).toBeVisible();
+  await expect(page.getByText(sixMonths, { exact: true })).toBeVisible();
   const reminders = (await (await page.request.get("/api/v1/reminders")).json()) as { reminders: { kind: string; applicationId: string }[] };
   expect(reminders.reminders.filter((r) => r.kind === "reapply" && r.applicationId === id)).toHaveLength(1);
-  await page.getByRole("link", { name: "Done" }).click();
-  await expect(page).toHaveURL(/\/home$/);
+  // Back to your plan returns to the plan, where step 5 now names the date.
+  await page.getByRole("link", { name: "Back to your plan" }).click();
+  await expect(page).toHaveURL(new RegExp(`/denied/plan\\?application=${id}$`));
+  await expect(page.getByRole("link", { name: "Change date" })).toBeVisible();
 
   // The saved screen for a card with no reminder never claims one is set.
   await page.goto(`/denied/reminder/saved?application=${other}`);
@@ -303,10 +307,16 @@ test("a student still waiting on the issuer sees what to expect, and nothing cha
   await page.getByRole("link", { name: "I heard back" }).click();
   await expect(page).toHaveURL(new RegExp(`/applications/${id}$`));
   await expect(page.getByRole("heading", { level: 1, name: "What did the issuer decide?" })).toBeVisible();
+  // Back returns to Mark result, the screen the student was on (G1).
   await page.goto(`/applications/${id}/waiting`);
-  // Opened with no origin, its back arrow goes Home (#78).
-  await page.getByRole("link", { name: "Back to Home" }).click();
-  await expect(page).toHaveURL(/\/home$/);
+  await page.getByRole("link", { name: "Back to Mark result" }).click();
+  await expect(page).toHaveURL(new RegExp(`/applications/${id}$`));
+  // Opened in a new tab, with no origin, its back arrow goes Home (#78).
+  const fresh = await page.context().newPage();
+  await fresh.goto(`/applications/${id}/waiting`);
+  await fresh.getByRole("link", { name: "Back to Home" }).click();
+  await expect(fresh).toHaveURL(/\/home$/);
+  await fresh.close();
   await page.goto(`/applications/${id}/waiting`);
   await page.getByRole("link", { name: "Go to Home" }).click();
   await expect(page).toHaveURL(/\/home$/);

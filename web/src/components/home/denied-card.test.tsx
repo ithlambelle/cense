@@ -28,7 +28,10 @@ const detail = (denialReason: CardDetail["denialReason"], denialReasonNote: stri
   denialReason,
   denialReasonNote,
   autopayStatus: "unknown",
+  autopayPaymentType: null,
+  statementClosingDay: null,
   paymentDueDay: null,
+  spendLimitCents: null,
 });
 
 const PLAN_URL = `/api/v1/applications/${ID}/plans/denial`;

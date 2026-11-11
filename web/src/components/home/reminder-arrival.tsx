@@ -8,7 +8,8 @@ import { REMINDER_PARAM, type ReminderKind } from "@/lib/routes";
 // Once per page load: Back to Home within the app can mount this again.
 let counted = false;
 
-// A visit from a reminder email's Open Cense button (/home?reminder=<kind>):
+// A visit from a reminder email's Open Cense button (/updates?reminder=<kind>,
+// or /home?reminder=<kind> from an email sent before Updates):
 // counted once as reminder_email_clicked, then the mark is dropped from the
 // address so a reload or Back is calm and not counted again. Renders nothing.
 export function ReminderArrival({ kind }: { kind: ReminderKind }) {

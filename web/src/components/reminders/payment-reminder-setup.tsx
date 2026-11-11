@@ -39,6 +39,9 @@ type Props = {
   // This card gets the one first-statement email (a card the student just
   // got, with that email on): the screen says so.
   firstStatementEmail?: boolean;
+  // The card's autopay is on: no due-date email goes out for it, so the
+  // screen neither promises nor offers one.
+  autopayOn?: boolean;
   email: string | null;
   // The back arrow: Home, or the card's page when opened from it.
   back?: { href: string; label: string };
@@ -62,6 +65,7 @@ export function PaymentReminderSetup({
   savedChoices,
   emailsOn = true,
   firstStatementEmail = false,
+  autopayOn = false,
   email,
   save = saveReminderSetup,
   back = { href: ROUTES.home, label: "Home" },
@@ -78,6 +82,8 @@ export function PaymentReminderSetup({
   const [baseline, setBaseline] = useState<ReminderChoices>(savedChoices);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // The confirmation email went out: said for a moment before leaving.
+  const [emailed, setEmailed] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -96,11 +102,19 @@ export function PaymentReminderSetup({
       choices,
       savedChoices: baseline,
       emailsOn,
+      // New or changed days get a confirmation email; saving the same days
+      // again, or only a toggle, does not.
+      confirm: closingDay !== statementClosingDay || dueDay !== paymentDueDay,
     });
     // The student left while it saved: the answer must not move them again.
     if (!isMounted()) return;
     if (result.kind === "ok") {
       track("reminder_setup_saved", { payment_due: choices.paymentDue, statement_closing: choices.statementClosing });
+      if (result.emailed) {
+        setEmailed(true);
+        await new Promise((resolve) => setTimeout(resolve, EMAILED_PAUSE_MS));
+        if (!isMounted()) return;
+      }
       // Stays pending while Home loads with the star lit. Replace, not push:
       // Back from Home goes where the student came from, not to this form (as
       // Mark result does).
@@ -126,11 +140,7 @@ export function PaymentReminderSetup({
             heading still starts 96px from the top as drawn. */}
         <form method="post" onSubmit={submit} noValidate className="flex flex-1 flex-col gap-4 px-6 pt-2 pb-6">
           <h1 className="font-heading text-h3 font-medium text-navy">Never miss a payment</h1>
-          <p className="text-body-s text-indigo-black/70">
-            {firstStatementEmail
-              ? "We’ll email you before your statement closes and before your bill is due, plus one autopay check after your first statement."
-              : "We’ll email you before your statement closes and before your bill is due."}
-          </p>
+          <p className="text-body-s text-indigo-black/70">{introLine(autopayOn, firstStatementEmail)}</p>
 
           <TextField
             label="Statement closes on day"
@@ -157,14 +167,20 @@ export function PaymentReminderSetup({
             inputClassName={DAY_INPUT}
           />
 
-          <ReminderToggle
-            title="3 days before the due date"
-            detail={email ? `Email to ${email}` : "By email"}
-            sensitive={email !== null}
-            checked={choices.paymentDue}
-            disabled={pending}
-            onChange={(paymentDue) => setChoices((current) => ({ ...current, paymentDue }))}
-          />
+          {autopayOn ? (
+            // The due-date setting covers every card, so it is left as saved,
+            // only not offered here.
+            <p className="py-3 text-caption leading-[normal] text-indigo-black/65">Autopay is on, so no due-date email for this card.</p>
+          ) : (
+            <ReminderToggle
+              title="3 days before the due date"
+              detail={email ? `Email to ${email}` : "By email"}
+              sensitive={email !== null}
+              checked={choices.paymentDue}
+              disabled={pending}
+              onChange={(paymentDue) => setChoices((current) => ({ ...current, paymentDue }))}
+            />
+          )}
           <ReminderToggle
             title="3 days before the statement closes"
             detail="Pay it down for a lower reported balance"
@@ -177,6 +193,11 @@ export function PaymentReminderSetup({
 
           <div className="flex-1" />
           {error ? <ErrorMessage>{error}</ErrorMessage> : null}
+          {/* Always in the page, so a screen reader hears the line when it appears;
+              out of the layout while empty. */}
+          <p role="status" className="text-center text-body-s text-indigo-black empty:absolute">
+            {emailed ? "We emailed you a confirmation." : ""}
+          </p>
           <Button
             type="submit"
             pending={pending}
@@ -197,6 +218,16 @@ export function PaymentReminderSetup({
       </div>
     </div>
   );
+}
+
+// Long enough to read one short line before the screen moves on.
+const EMAILED_PAUSE_MS = 1500;
+
+function introLine(autopayOn: boolean, firstStatementEmail: boolean): string {
+  if (autopayOn) return "We’ll email you before your statement closes.";
+  return firstStatementEmail
+    ? "We’ll email you before your statement closes and before your bill is due, plus one autopay check after your first statement."
+    : "We’ll email you before your statement closes and before your bill is due.";
 }
 
 // One reminder row (Figma 144:1834): title and detail on the left, the
