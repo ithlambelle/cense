@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { createLinkToken, exchangePublicToken, getAccounts, itemAlreadyGone, needsReconnect, removeItem } from "./client";
+import { createLinkToken, exchangePublicToken, getAccounts, itemAlreadyGone, needsReconnect, removeItem, syncTransactionsPage } from "./client";
 import type { PlaidConfig } from "./config";
 import type { TokenKey } from "./token-box";
 
@@ -107,5 +107,47 @@ describe("itemAlreadyGone", () => {
     expect(itemAlreadyGone({ ok: false, kind: "plaid", code: "INVALID_ACCESS_TOKEN" })).toBe(true);
     expect(itemAlreadyGone({ ok: false, kind: "plaid", code: "INTERNAL_SERVER_ERROR" })).toBe(false);
     expect(itemAlreadyGone({ ok: false, kind: "network" })).toBe(false);
+  });
+});
+
+describe("Transactions Sync", () => {
+  it("sends the cursor and reads only the fields Cense keeps", async () => {
+    const fetchMock = answer(200, {
+      added: [
+        {
+          transaction_id: "t1",
+          account_id: "acc-1",
+          amount: 12.34,
+          iso_currency_code: "USD",
+          date: "2026-11-05",
+          pending: false,
+          merchant_name: "Chipotle",
+          name: "CHIPOTLE 1234 BOSTON MA",
+          location: { city: "Boston" },
+          personal_finance_category: { primary: "FOOD_AND_DRINK", detailed: "FOOD_AND_DRINK_RESTAURANT" },
+        },
+      ],
+      modified: [],
+      removed: [{ transaction_id: "t0", account_id: "acc-1" }],
+      next_cursor: "c2",
+      has_more: false,
+      request_id: "r",
+    });
+    const result = await syncTransactionsPage(CONFIG, "access-sandbox-1", "c1");
+    const { url, body } = sent(fetchMock);
+    expect(url).toBe("https://sandbox.plaid.com/transactions/sync");
+    expect(body).toEqual({ access_token: "access-sandbox-1", cursor: "c1", count: 500 });
+    expect(result.ok).toBe(true);
+    const page = result.ok ? result.data : null;
+    expect(page?.added[0]).not.toHaveProperty("name");
+    expect(page?.added[0]).not.toHaveProperty("location");
+    expect(page?.added[0]).toMatchObject({ account_id: "acc-1", merchant_name: "Chipotle" });
+    expect(page?.removed).toEqual([{ transaction_id: "t0" }]);
+  });
+
+  it("starts from the beginning without a cursor", async () => {
+    const fetchMock = answer(200, { added: [], modified: [], removed: [], next_cursor: "c1", has_more: false });
+    await syncTransactionsPage(CONFIG, "access-sandbox-1", null);
+    expect(sent(fetchMock).body).not.toHaveProperty("cursor");
   });
 });

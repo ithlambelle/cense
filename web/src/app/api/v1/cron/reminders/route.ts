@@ -1,5 +1,6 @@
 import { apiError } from "@/lib/api/errors";
 import { runAccountCleanupWithHeartbeat, type CleanupResult } from "@/lib/plaid/account-cleanup";
+import { purgeOldTransactions } from "@/lib/plaid/transactions";
 import { cronAuthorized, reminderSettings, resendEmailsUrl } from "@/lib/reminders/config";
 import { raiseFollowUps } from "@/lib/reminders/follow-ups";
 import { pingHeartbeat } from "@/lib/reminders/heartbeat";
@@ -8,7 +9,8 @@ import { createServiceClient } from "@/lib/supabase/service";
 
 // The daily reminder job, called by Vercel Cron (web/vercel.json) with
 // CRON_SECRET. Not a student route: it uses the service role, the one
-// exception in api/data-contract.md, and calls reminder and cleanup functions.
+// exception in api/data-contract.md, and calls reminder and cleanup functions
+// and the daily purge of bank transactions older than 180 days (US-14).
 // The answer is counts only. It also raises the in-app follow-ups
 // (lib/reminders/follow-ups.ts), apart from the emails: one never stops the
 // other, and one bad reminder never fails the run. Each authorized run pings the heartbeat check
@@ -50,6 +52,10 @@ export async function GET(request: Request): Promise<Response> {
   // Reuse the checked service client. Cleanup has its own alert and time
   // budget and runs alongside follow-ups and emails, even without mail config.
   cleanup = runAccountCleanupWithHeartbeat(supabase, { startedAt });
+  // Retention, not reminders (US-14): bank transactions older than 180 days.
+  // Never throws; a failed purge is logged with its code, tried again
+  // tomorrow, and never fails the run or its heartbeat.
+  await purgeOldTransactions(supabase);
   // Never throws; a reminder it skipped is logged, not a failed run.
   const followUps = await raiseFollowUps(supabase);
 
