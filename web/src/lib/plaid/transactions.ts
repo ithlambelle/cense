@@ -71,24 +71,28 @@ export function toStoredTransaction(transaction: PlaidTransaction, oldestKept: s
 
 export type SyncOutcome =
   | { kind: "synced"; saved: number; removed: number }
-  // The bank was disconnected while Plaid answered.
-  | { kind: "not_linked" }
+  // Saved nothing: the bank was disconnected or relinked while Plaid
+  // answered, or another sync for this Item saved first.
+  | { kind: "not_applied" }
   | { kind: "plaid"; failure: PlaidFailure }
   | { kind: "too_many_pages" }
   | { kind: "database"; code: string | null };
 
 const MUTATION = "TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION";
 
-// Reads every page since the student's saved cursor, then saves them all at
+// Reads every page since the Item's saved cursor, then saves them all at
 // once with the new cursor, so a half-read sync is never saved. If Plaid's
-// data changes mid-way, it starts again from the saved cursor (once).
+// data changes mid-way, it starts again from the saved cursor (once). The
+// save names the Item and the cursor it started from, and the database
+// refuses it if either changed meanwhile (a relink, or another refresh).
 export async function syncStudentTransactions(
   student: Student,
   config: PlaidConfig,
-  accessToken: string,
+  item: { itemId: string; accessToken: string },
   now: Date = new Date(),
 ): Promise<SyncOutcome> {
-  const saved = await student.supabase.rpc("plaid_transactions_cursor");
+  const { itemId, accessToken } = item;
+  const saved = await student.supabase.rpc("plaid_transactions_cursor", { p_item_id: itemId });
   if (saved.error) return { kind: "database", code: saved.error.code ?? null };
   const start = (saved.data as string | null) || null;
 
@@ -121,13 +125,15 @@ export async function syncStudentTransactions(
     const keep = (list: PlaidTransaction[]) => list.map((transaction) => toStoredTransaction(transaction, oldestKept)).filter((row) => row !== null);
     const rows = { added: keep(added), modified: keep(modified) };
     const { data, error } = await student.supabase.rpc("apply_plaid_transactions_sync", {
+      p_item_id: itemId,
+      p_start_cursor: start ?? "",
       p_added: rows.added,
       p_modified: rows.modified,
       p_removed: removed,
       p_cursor: cursor ?? "",
     });
     if (error) return { kind: "database", code: error.code ?? null };
-    if (data !== true) return { kind: "not_linked" };
+    if (data !== true) return { kind: "not_applied" };
     return { kind: "synced", saved: rows.added.length + rows.modified.length, removed: removed.length };
   }
   return { kind: "plaid", failure: { ok: false, kind: "plaid", code: MUTATION } };

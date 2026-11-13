@@ -16,6 +16,7 @@ const CONFIG: PlaidConfig = { clientId: "c", secret: "s", baseUrl: "https://sand
 
 // A fixed today, so the 180-day window never moves under the tests.
 const NOW = new Date("2026-11-07T15:00:00Z");
+const ITEM = { itemId: "item-1", accessToken: "access-1" };
 const OLDEST = "2026-05-11";
 
 const txn = (id: string, overrides: Partial<PlaidTransaction> = {}): PlaidTransaction => ({
@@ -118,11 +119,12 @@ describe("syncStudentTransactions", () => {
       .mockResolvedValueOnce(page({ added: [txn("t1"), txn("cad", { iso_currency_code: "CAD" })], next: "c2", more: true }))
       .mockResolvedValueOnce(page({ modified: [txn("t0")], removed: ["gone"], next: "c3" }));
     const s = student((name) => (name === "plaid_transactions_cursor" ? { data: "c1", error: null } : { data: true, error: null }));
-    expect(await syncStudentTransactions(s, CONFIG, "access-1", NOW)).toEqual({ kind: "synced", saved: 2, removed: 1 });
+    expect(await syncStudentTransactions(s, CONFIG, ITEM, NOW)).toEqual({ kind: "synced", saved: 2, removed: 1 });
     expect(plaid.syncTransactionsPage.mock.calls.map((call) => call[2])).toEqual(["c1", "c2"]);
     const apply = s.supabase.rpc.mock.calls.filter((call) => call[0] === "apply_plaid_transactions_sync");
     expect(apply).toHaveLength(1);
-    expect(apply[0][1]).toMatchObject({ p_removed: ["gone"], p_cursor: "c3" });
+    expect(apply[0][1]).toMatchObject({ p_item_id: "item-1", p_start_cursor: "c1", p_removed: ["gone"], p_cursor: "c3" });
+    expect(s.supabase.rpc).toHaveBeenCalledWith("plaid_transactions_cursor", { p_item_id: "item-1" });
     expect((apply[0][1] as { p_added: { transaction_id: string }[] }).p_added.map((row) => row.transaction_id)).toEqual(["t1"]);
   });
 
@@ -131,7 +133,7 @@ describe("syncStudentTransactions", () => {
       page({ added: [txn("new"), txn("old", { date: "2026-04-01" })], modified: [txn("old-mod", { date: "2026-05-10" })], next: "c2" }),
     );
     const s = student((name) => (name === "plaid_transactions_cursor" ? { data: "c1", error: null } : { data: true, error: null }));
-    expect(await syncStudentTransactions(s, CONFIG, "access-1", NOW)).toEqual({ kind: "synced", saved: 1, removed: 0 });
+    expect(await syncStudentTransactions(s, CONFIG, ITEM, NOW)).toEqual({ kind: "synced", saved: 1, removed: 0 });
     const args = s.supabase.rpc.mock.calls.find((call) => call[0] === "apply_plaid_transactions_sync")?.[1] as {
       p_added: Record<string, unknown>[];
       p_modified: Record<string, unknown>[];
@@ -153,8 +155,10 @@ describe("syncStudentTransactions", () => {
   it("starts from the beginning when there is no cursor yet", async () => {
     plaid.syncTransactionsPage.mockResolvedValueOnce(page({ added: [txn("t1")], next: "c1" }));
     const s = student((name) => (name === "plaid_transactions_cursor" ? { data: null, error: null } : { data: true, error: null }));
-    await syncStudentTransactions(s, CONFIG, "access-1", NOW);
+    await syncStudentTransactions(s, CONFIG, ITEM, NOW);
     expect(plaid.syncTransactionsPage.mock.calls[0][2]).toBeNull();
+    // the database treats "" as no cursor, so a first sync is not refused
+    expect(s.supabase.rpc.mock.calls.find((call) => call[0] === "apply_plaid_transactions_sync")?.[1]).toMatchObject({ p_start_cursor: "" });
   });
 
   it("starts again from the saved cursor when Plaid's data changes mid-way", async () => {
@@ -163,27 +167,27 @@ describe("syncStudentTransactions", () => {
       .mockResolvedValueOnce({ ok: false, kind: "plaid", code: "TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION" })
       .mockResolvedValueOnce(page({ added: [txn("t1"), txn("t2")], next: "c9" }));
     const s = student((name) => (name === "plaid_transactions_cursor" ? { data: "c1", error: null } : { data: true, error: null }));
-    expect(await syncStudentTransactions(s, CONFIG, "access-1", NOW)).toEqual({ kind: "synced", saved: 2, removed: 0 });
+    expect(await syncStudentTransactions(s, CONFIG, ITEM, NOW)).toEqual({ kind: "synced", saved: 2, removed: 0 });
     expect(plaid.syncTransactionsPage.mock.calls.map((call) => call[2])).toEqual(["c1", "c2", "c1"]);
   });
 
   it("saves nothing when Plaid fails, or when there are too many pages", async () => {
     plaid.syncTransactionsPage.mockResolvedValueOnce({ ok: false, kind: "network" });
     const s = student(() => ({ data: "c1", error: null }));
-    expect(await syncStudentTransactions(s, CONFIG, "access-1", NOW)).toEqual({ kind: "plaid", failure: { ok: false, kind: "network" } });
+    expect(await syncStudentTransactions(s, CONFIG, ITEM, NOW)).toEqual({ kind: "plaid", failure: { ok: false, kind: "network" } });
 
     plaid.syncTransactionsPage.mockResolvedValue(page({ added: [txn("t1")], next: "cx", more: true }));
-    expect(await syncStudentTransactions(s, CONFIG, "access-1", NOW)).toEqual({ kind: "too_many_pages" });
+    expect(await syncStudentTransactions(s, CONFIG, ITEM, NOW)).toEqual({ kind: "too_many_pages" });
     expect(plaid.syncTransactionsPage).toHaveBeenCalledTimes(1 + MAX_SYNC_PAGES);
     expect(s.supabase.rpc.mock.calls.some((call) => call[0] === "apply_plaid_transactions_sync")).toBe(false);
   });
 
-  it("says when the bank was disconnected meanwhile, or the database failed", async () => {
+  it("says when the database refused the batch (relinked, or another sync saved first), or failed", async () => {
     plaid.syncTransactionsPage.mockResolvedValue(page({ next: "c2" }));
     const gone = student((name) => (name === "plaid_transactions_cursor" ? { data: "c1", error: null } : { data: false, error: null }));
-    expect(await syncStudentTransactions(gone, CONFIG, "access-1", NOW)).toEqual({ kind: "not_linked" });
+    expect(await syncStudentTransactions(gone, CONFIG, ITEM, NOW)).toEqual({ kind: "not_applied" });
     const broken = student(() => ({ data: null, error: { code: "57014", message: "canceling statement" } }));
-    expect(await syncStudentTransactions(broken, CONFIG, "access-1", NOW)).toEqual({ kind: "database", code: "57014" });
+    expect(await syncStudentTransactions(broken, CONFIG, ITEM, NOW)).toEqual({ kind: "database", code: "57014" });
   });
 });
 

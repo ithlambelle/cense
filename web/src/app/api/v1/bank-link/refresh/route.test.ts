@@ -42,7 +42,7 @@ describe("POST /bank-link/refresh", () => {
     transactions.syncStudentTransactions.mockResolvedValue({ kind: "plaid", failure: { ok: false, kind: "network" } });
     const response = await POST();
     expect(response.status).toBe(200);
-    expect(transactions.syncStudentTransactions).toHaveBeenCalledWith(expect.anything(), expect.anything(), "access-sandbox-1");
+    expect(transactions.syncStudentTransactions).toHaveBeenCalledWith(expect.anything(), expect.anything(), { itemId: "item-1", accessToken: "access-sandbox-1" });
     expect(logged).toHaveBeenCalledWith(JSON.stringify({ event: "plaid_transactions_sync_failed", kind: "plaid" }));
   });
 

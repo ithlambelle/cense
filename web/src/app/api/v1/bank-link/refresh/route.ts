@@ -45,7 +45,7 @@ export async function POST(): Promise<Response> {
   // Disconnected while Plaid answered.
   if (!saved.value) return notLinked();
 
-  const synced = await syncStudentTransactions(student, config, stored.value.accessToken);
+  const synced = await syncStudentTransactions(student, config, { itemId: stored.value.itemId, accessToken: stored.value.accessToken });
   if (synced.kind !== "synced") {
     // The kind only: never an amount, a merchant or an id.
     console.error(JSON.stringify({ event: "plaid_transactions_sync_failed", kind: synced.kind }));

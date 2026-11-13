@@ -1,7 +1,10 @@
--- Created with Claude Code (2026-11-07). The rules for Plaid transactions in
--- the database (US-14, 20261106210000_plaid_transactions.sql): who can touch
+-- Created with Claude Code (2026-11-07, Item binding added 2026-11-13). The
+-- rules for Plaid transactions in the database (US-14,
+-- 20261106210000_plaid_transactions.sql and
+-- 20261113000000_plaid_transactions_item_binding.sql): who can touch
 -- plaid.transactions and its functions, the 180-day window, what counts as
--- spending, the cap of 10,000 rows per student, and what deletes the rows.
+-- spending, the cap of 10,000 rows per student, that a sync only lands on the
+-- Item and cursor it was read from, and what deletes the rows.
 -- Run with `npx supabase test db` on the local stack (CI does this in the e2e
 -- job). One transaction, rolled back at the end.
 --
@@ -12,22 +15,26 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(45);
+select plan(60);
 
--- ana and ben have a linked bank, cap fills up to the limit, nobank has none.
+-- ana and ben have a linked bank, cap fills up to the limit, nobank has none,
+-- and relink disconnects and links a new bank while a sync is in flight.
 insert into auth.users (id, email) values
   ('d0000000-0000-4000-8000-000000000001', 'txn-ana@example.com'),
   ('d0000000-0000-4000-8000-000000000002', 'txn-ben@example.com'),
   ('d0000000-0000-4000-8000-000000000003', 'txn-cap@example.com'),
-  ('d0000000-0000-4000-8000-000000000004', 'txn-nobank@example.com');
+  ('d0000000-0000-4000-8000-000000000004', 'txn-nobank@example.com'),
+  ('d0000000-0000-4000-8000-000000000005', 'txn-relink@example.com');
 insert into plaid.items (student_id, item_id, token_ciphertext) values
   ('d0000000-0000-4000-8000-000000000001', 'item-ana', 'v1.test'),
   ('d0000000-0000-4000-8000-000000000002', 'item-ben', 'v1.test'),
-  ('d0000000-0000-4000-8000-000000000003', 'item-cap', 'v1.test');
+  ('d0000000-0000-4000-8000-000000000003', 'item-cap', 'v1.test'),
+  ('d0000000-0000-4000-8000-000000000005', 'item-old', 'v1.test');
 insert into public.bank_links (student_id, institution_name) values
   ('d0000000-0000-4000-8000-000000000001', 'First Platypus Bank'),
   ('d0000000-0000-4000-8000-000000000002', 'First Platypus Bank'),
-  ('d0000000-0000-4000-8000-000000000003', 'First Platypus Bank');
+  ('d0000000-0000-4000-8000-000000000003', 'First Platypus Bank'),
+  ('d0000000-0000-4000-8000-000000000005', 'First Platypus Bank');
 
 -- One row as the app sends it, posted p_days_ago days before today.
 create function pg_temp.txn(p_id text, p_days_ago int, p_cents bigint, p_category text default 'FOOD_AND_DRINK', p_pending boolean default false)
@@ -55,8 +62,8 @@ select is(
     'student_id', 'transaction_id'],
   'only the kept fields exist: no description, location, counterparty or payment details');
 
-select ok(not has_function_privilege('anon', 'public.plaid_transactions_cursor()', 'execute'), 'anon cannot read a cursor');
-select ok(not has_function_privilege('anon', 'public.apply_plaid_transactions_sync(jsonb, jsonb, jsonb, text)', 'execute'),
+select ok(not has_function_privilege('anon', 'public.plaid_transactions_cursor(text)', 'execute'), 'anon cannot read a cursor');
+select ok(not has_function_privilege('anon', 'public.apply_plaid_transactions_sync(text, text, jsonb, jsonb, jsonb, text)', 'execute'),
   'anon cannot save a sync');
 select ok(not has_function_privilege('anon', 'public.spending_by_category(integer)', 'execute'), 'anon cannot read spending');
 select ok(not has_function_privilege('anon', 'public.income_by_month(integer)', 'execute'), 'anon cannot read income');
@@ -67,7 +74,7 @@ select ok(has_function_privilege('service_role', 'public.purge_old_plaid_transac
 
 -- anon, as the Data API runs it
 set local role anon;
-select throws_ok($$select public.apply_plaid_transactions_sync('[]', '[]', '[]', 'c0')$$, '42501', null,
+select throws_ok($$select public.apply_plaid_transactions_sync('item-ana', null, '[]', '[]', '[]', 'c0')$$, '42501', null,
   'anon is refused when saving a sync');
 select throws_ok($$select * from public.spending_by_category(3)$$, '42501', null, 'anon is refused when reading spending');
 reset role;
@@ -75,8 +82,8 @@ reset role;
 -- ana saves a sync
 set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "d0000000-0000-4000-8000-000000000001", "role": "authenticated"}';
-select is(public.plaid_transactions_cursor(), null, 'no cursor before the first sync');
-select is(public.apply_plaid_transactions_sync(
+select is(public.plaid_transactions_cursor('item-ana'), null, 'no cursor before the first sync');
+select is(public.apply_plaid_transactions_sync('item-ana', null,
   jsonb_build_array(
     pg_temp.txn('ana-food', 5, 1200),
     pg_temp.txn('ana-pending', 3, 800, 'FOOD_AND_DRINK', true),
@@ -86,7 +93,8 @@ select is(public.apply_plaid_transactions_sync(
     pg_temp.txn('ana-edge', 180, 777),
     pg_temp.txn('ana-old', 181, 999)),
   '[]', '[]', 'c1'), true, 'a student saves their own sync');
-select is(public.plaid_transactions_cursor(), 'c1', 'and the cursor moves with it');
+select is(public.plaid_transactions_cursor('item-ana'), 'c1', 'and the cursor moves with it');
+select is(public.plaid_transactions_cursor('item-other'), null, 'a cursor is read only for the caller''s own Item');
 select throws_ok($$select count(*) from plaid.transactions$$, '42501', null, 'a student cannot read plaid.transactions');
 select throws_ok($$insert into plaid.transactions (student_id, transaction_id, posted_on, amount_cents)
   values ('d0000000-0000-4000-8000-000000000001', 'x', current_date, 1)$$, '42501', null, 'a student cannot insert a transaction');
@@ -107,12 +115,12 @@ select is((select merchant_name || ' / ' || account_id from plaid.transactions w
 -- ben cannot see or change ana's rows
 set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "d0000000-0000-4000-8000-000000000002", "role": "authenticated"}';
-select is(public.plaid_transactions_cursor(), null, 'a student reads only their own cursor');
-select is(public.apply_plaid_transactions_sync(jsonb_build_array(pg_temp.txn('ben-food', 1, 1000)), '[]', '[]', 'b1'), true,
-  'another student saves their own sync');
+select is(public.plaid_transactions_cursor('item-ana'), null, 'a student reads only their own cursor');
+select is(public.apply_plaid_transactions_sync('item-ben', '', jsonb_build_array(pg_temp.txn('ben-food', 1, 1000)), '[]', '[]', 'b1'), true,
+  'another student saves their own first sync, an empty starting cursor counting as none');
 select is((select sum(spent_cents)::bigint from public.spending_by_category(3)), 1000::bigint,
   'a student''s totals hold only their own transactions');
-select is(public.apply_plaid_transactions_sync('[]', jsonb_build_array(pg_temp.txn('ana-food', 5, 1)), '["ana-pay"]', 'b2'), true,
+select is(public.apply_plaid_transactions_sync('item-ben', 'b1', '[]', jsonb_build_array(pg_temp.txn('ana-food', 5, 1)), '["ana-pay"]', 'b2'), true,
   'a sync naming another student''s ids still runs');
 reset role;
 select is((select amount_cents from plaid.transactions
@@ -125,10 +133,10 @@ select is((select count(*)::int from plaid.transactions
 -- a student with no linked bank, and a session with no student
 set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "d0000000-0000-4000-8000-000000000004", "role": "authenticated"}';
-select is(public.apply_plaid_transactions_sync(jsonb_build_array(pg_temp.txn('x', 1, 1)), '[]', '[]', 'n1'), false,
+select is(public.apply_plaid_transactions_sync('item-none', null, jsonb_build_array(pg_temp.txn('x', 1, 1)), '[]', '[]', 'n1'), false,
   'with no linked bank nothing is saved');
 set local "request.jwt.claims" to '{"role": "authenticated"}';
-select throws_ok($$select public.apply_plaid_transactions_sync('[]', '[]', '[]', 'n1')$$, '28000', null,
+select throws_ok($$select public.apply_plaid_transactions_sync('item-none', null, '[]', '[]', '[]', 'n1')$$, '28000', null,
   'a session with no student is refused');
 reset role;
 
@@ -147,18 +155,54 @@ select 'd0000000-0000-4000-8000-000000000003', 'cap-' || g, 'acc-1', current_dat
 from generate_series(1, 9999) g;
 set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "d0000000-0000-4000-8000-000000000003", "role": "authenticated"}';
-select is(public.apply_plaid_transactions_sync(jsonb_build_array(pg_temp.txn('cap-10000', 1, 100)), '[]', '[]', 'k1'), true,
+select is(public.apply_plaid_transactions_sync('item-cap', null, jsonb_build_array(pg_temp.txn('cap-10000', 1, 100)), '[]', '[]', 'k1'), true,
   'a sync that reaches exactly 10,000 rows is saved');
-select is(public.apply_plaid_transactions_sync(
+select is(public.apply_plaid_transactions_sync('item-cap', 'k1',
   jsonb_build_array(pg_temp.txn('cap-1', 1, 100), pg_temp.txn('cap-2', 1, 100)),
   jsonb_build_array(pg_temp.txn('cap-3', 1, 250)), '[]', 'k2'), true,
   'sending rows already kept again at the cap still works');
-select throws_ok($$select public.apply_plaid_transactions_sync(jsonb_build_array(pg_temp.txn('cap-10001', 1, 100)), '[]', '[]', 'k3')$$,
+select throws_ok($$select public.apply_plaid_transactions_sync('item-cap', 'k2', jsonb_build_array(pg_temp.txn('cap-10001', 1, 100)), '[]', '[]', 'k3')$$,
   '54000', null, 'one row past 10,000 is refused');
-select is(public.plaid_transactions_cursor(), 'k2', 'and the refused sync saves nothing, not even its cursor');
-select is(public.apply_plaid_transactions_sync(jsonb_build_array(pg_temp.txn('cap-10001', 1, 100)), '[]', '["cap-4"]', 'k4'), true,
+select is(public.plaid_transactions_cursor('item-cap'), 'k2', 'and the refused sync saves nothing, not even its cursor');
+select is(public.apply_plaid_transactions_sync('item-cap', 'k2', jsonb_build_array(pg_temp.txn('cap-10001', 1, 100)), '[]', '["cap-4"]', 'k4'), true,
   'a sync that removes as many as it adds still fits');
 reset role;
+
+-- a sync only lands on the Item and cursor it was read from (review, Nov 12)
+set local role authenticated;
+set local "request.jwt.claims" to '{"sub": "d0000000-0000-4000-8000-000000000001", "role": "authenticated"}';
+select is(public.apply_plaid_transactions_sync('item-ana', 'c0', jsonb_build_array(pg_temp.txn('ana-late', 1, 500)), '[]', '[]', 'c9'), false,
+  'a batch read from an outdated cursor is refused');
+select is(public.plaid_transactions_cursor('item-ana'), 'c1', 'and the saved cursor stays where it was');
+select is(public.apply_plaid_transactions_sync('item-other', 'c1', jsonb_build_array(pg_temp.txn('ana-late', 1, 500)), '[]', '[]', 'c9'), false,
+  'a batch for an Item that is not the caller''s linked one is refused');
+reset role;
+select is((select count(*)::int from plaid.transactions where transaction_id = 'ana-late'), 0,
+  'and neither refused batch saved a row');
+
+-- relink: a sync read for item-old answers after the student disconnected
+-- and linked item-new
+set local role authenticated;
+set local "request.jwt.claims" to '{"sub": "d0000000-0000-4000-8000-000000000005", "role": "authenticated"}';
+select is(public.plaid_transactions_cursor('item-old'), null, 'the old Item has no cursor yet');
+select is(public.delete_bank_link(), true, 'the student disconnects while the sync is in flight');
+select lives_ok($$select public.save_bank_link('item-new', 'v1.test', 'First Platypus Bank')$$, 'and links a new bank');
+select is(public.apply_plaid_transactions_sync('item-old', null, jsonb_build_array(pg_temp.txn('old-row', 1, 700)), '[]', '[]', 'old-c1'), false,
+  'the old Item''s batch is refused on the new link');
+select is(public.plaid_transactions_cursor('item-new'), null, 'the new link keeps no cursor from the old Item');
+select is((select coalesce(sum(spent_cents), 0)::bigint from public.spending_by_category(3)), 0::bigint,
+  'and no old row counts in the new link''s totals');
+
+-- two refreshes for item-new read the same cursor; the newer one saves first
+select is(public.apply_plaid_transactions_sync('item-new', null, jsonb_build_array(pg_temp.txn('posted-1', 1, 900)), '[]', '["pending-1"]', 'C2'),
+  true, 'the first batch to arrive is saved');
+select is(public.apply_plaid_transactions_sync('item-new', null, jsonb_build_array(pg_temp.txn('pending-1', 1, 900, 'FOOD_AND_DRINK', true)), '[]', '[]', 'C1'),
+  false, 'the second batch, read from the same cursor, is refused');
+select is(public.plaid_transactions_cursor('item-new'), 'C2', 'so the cursor never goes back');
+reset role;
+select is((select count(*)::int from plaid.transactions
+           where student_id = 'd0000000-0000-4000-8000-000000000005' and transaction_id = 'pending-1'), 0,
+  'and the removed pending row does not come back');
 
 -- what deletes the rows: disconnecting, and deleting the account
 set local role authenticated;
