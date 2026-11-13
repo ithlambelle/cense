@@ -1,11 +1,16 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { listCards } from "@/lib/cards/catalog";
+import { cardDisplayName } from "@/lib/copy/results";
 import { ROUTES } from "@/lib/routes";
 
 import { CardListView } from "./card-list-view";
+
+// A card's link starts with its display name; the type and fee follow.
+const linkName = (card: { brand: string; name: string }) =>
+  new RegExp(`^${cardDisplayName(card).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/cards" }));
 
@@ -42,5 +47,35 @@ describe("CardListView", () => {
     render(<CardListView cards={cards} signedIn yourMatch={null} />);
     expect(screen.getByRole("link", { name: "Take the quiz" }).getAttribute("href")).toBe("/quiz?from=cards");
     expect(screen.queryByRole("link", { name: /Your match/ })).toBeNull();
+  });
+
+  it("groups the cards by bank, with Discover right after Capital One and its note", () => {
+    const sample = [
+      ...all.filter((card) => card.brand === "Discover").slice(0, 2),
+      ...all.filter((card) => card.brand === "Capital One").slice(0, 2),
+      ...all.filter((card) => card.brand === "Citi").slice(0, 1),
+    ];
+    render(<CardListView cards={sample} signedIn />);
+    const sections = screen.getAllByRole("region");
+    expect(sections.map((section) => within(section).getByRole("heading", { level: 2 }).textContent)).toEqual([
+      "Capital One",
+      "Discover",
+      "Citi",
+    ]);
+    const discover = screen.getByRole("region", { name: "Discover" });
+    expect(discover.textContent).toContain("Now part of Capital One");
+    expect(discover.textContent).toContain("2 cards");
+    expect(screen.getByRole("region", { name: "Citi" }).textContent).toContain("1 card");
+    const first = sample[0];
+    const link = within(discover).getByRole("link", { name: linkName(first) });
+    expect(link.getAttribute("href")).toBe(`/cards/${first.id}`);
+  });
+
+  it("marks the cards made for starting out", () => {
+    render(<CardListView cards={cards} signedIn />);
+    const starter = cards.find((card) => card.catalogRole === "recommend")!;
+    const other = cards.find((card) => card.catalogRole === "explore")!;
+    expect(screen.getByRole("link", { name: linkName(starter) }).textContent).toContain("Made for starting out");
+    expect(screen.getByRole("link", { name: linkName(other) }).textContent).not.toContain("Made for starting out");
   });
 });
