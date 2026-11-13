@@ -10,7 +10,9 @@ import { supabaseConfig } from "./config";
 // database functions made for them and read the Analytics switch
 // (profiles.analytics_opted_out_at, withAnalyticsOn in analytics-server.ts)
 // before sending an event, and Delete my account (DELETE
-// /api/v1/me), which only deletes the signed-in student's own sign-in record.
+// /api/v1/me), which checks the cleanup trigger and deletes only the signed-in
+// student's own sign-in record. The daily job also calls the service-only
+// Plaid cleanup claim/finish functions; it never reads the private table.
 // Every other student route uses createStudentClient instead.
 // "server-only" stops this file, and the key, from reaching the browser.
 export function createServiceClient(serviceRoleKey: string) {
