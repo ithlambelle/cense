@@ -1,4 +1,5 @@
 import { apiError } from "@/lib/api/errors";
+import { runAccountCleanupWithHeartbeat, type CleanupResult } from "@/lib/plaid/account-cleanup";
 import { purgeOldTransactions } from "@/lib/plaid/transactions";
 import { cronAuthorized, reminderSettings, resendEmailsUrl } from "@/lib/reminders/config";
 import { raiseFollowUps } from "@/lib/reminders/follow-ups";
@@ -8,7 +9,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 
 // The daily reminder job, called by Vercel Cron (web/vercel.json) with
 // CRON_SECRET. Not a student route: it uses the service role, the one
-// exception in api/data-contract.md, and only calls the reminder functions
+// exception in api/data-contract.md, and calls reminder and cleanup functions
 // and the daily purge of bank transactions older than 180 days (US-14).
 // The answer is counts only. It also raises the in-app follow-ups
 // (lib/reminders/follow-ups.ts), apart from the emails: one never stops the
@@ -31,9 +32,11 @@ export async function GET(request: Request): Promise<Response> {
   // the job's time; the run waits for it before the last ping, so the check
   // always sees start then finish.
   const started = pingHeartbeat("start");
+  let cleanup: Promise<CleanupResult> | undefined = undefined;
   const finish = async (signal: "success" | "fail", body: Record<string, unknown>) => {
     await started;
     await pingHeartbeat(signal, body);
+    await cleanup;
   };
   const notConfigured = async (missing: string[], extra: Record<string, unknown> = {}) => {
     console.error(JSON.stringify({ event: "reminder_job_not_configured", missing }));
@@ -46,6 +49,9 @@ export async function GET(request: Request): Promise<Response> {
   const service = reminderSettings(["serviceRoleKey"]);
   if (!service.ok) return notConfigured(service.missing);
   const supabase = createServiceClient(service.settings.serviceRoleKey);
+  // Reuse the checked service client. Cleanup has its own alert and time
+  // budget and runs alongside follow-ups and emails, even without mail config.
+  cleanup = runAccountCleanupWithHeartbeat(supabase, { startedAt });
   // Retention, not reminders (US-14): bank transactions older than 180 days.
   // Never throws; a failed purge is logged with its code, tried again
   // tomorrow, and never fails the run or its heartbeat.
@@ -66,7 +72,7 @@ export async function GET(request: Request): Promise<Response> {
     // So is a follow-up call that failed as a whole.
     const problem = sent.failed > 0 || sent.unconfirmed > 0 || sent.abandoned > 0 || followUps.failed;
     await finish(problem ? "fail" : "success", result);
-    return Response.json(result, { headers: { "Cache-Control": "no-store" } });
+    return Response.json({ ...result, plaidCleanup: await cleanup }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (!(error instanceof ReminderJobError)) {
       await finish("fail", { error: "unexpected" });

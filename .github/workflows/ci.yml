@@ -61,6 +61,12 @@ jobs:
       - name: Database tests
         working-directory: .
         run: supabase test db
+      - name: Account cleanup transaction and privilege tests
+        working-directory: .
+        run: psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/checks/plaid_account_cleanup.sql
+      - name: Account cleanup rollback guard
+        working-directory: .
+        run: python3 supabase/checks/plaid_account_cleanup_rollback.py postgresql://postgres:postgres@127.0.0.1:54322/postgres
       - name: Point the app at the local stack
         working-directory: .
         run: |
