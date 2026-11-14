@@ -21,7 +21,7 @@ import { PENNY_ANSWER_IDS } from "./penny/answers";
 // reminder job, an email's unsubscribe link).
 
 // Bump when an event or property is added, changed or removed.
-export const TRACKING_PLAN_VERSION = 4;
+export const TRACKING_PLAN_VERSION = 5;
 
 const cardId = z.string().regex(/^[a-z0-9-]{1,100}$/);
 const fitTier = z.enum(["likely_fit", "stretch", "not_yet"]);
@@ -194,6 +194,22 @@ export const EVENTS = {
       setting: z.enum(["emails", "statement_closing", "payment_due", "check_autopay"]),
       on: z.boolean(),
       source: z.enum(["settings", "email_link"]),
+    }),
+  },
+  your_money_viewed: {
+    question: "US-12: do students open Your money from the safe-to-spend card, and which tab do they read: how today's number adds up, or the month's budget?",
+    owner: "Ben",
+    addedIn: 5,
+    properties: z.strictObject({ tab: z.enum(["today", "this_month"]) }),
+  },
+  money_amount_saved: {
+    question: "US-12: do students correct the numbers on Your money, and which kind of line? Never the amount or the category.",
+    owner: "Ben",
+    addedIn: 5,
+    ledger: "bill_coverage and bank_links (Today), budget_amounts (This month)",
+    properties: z.strictObject({
+      tab: z.enum(["today", "this_month"]),
+      line: z.enum(["bill", "set_aside", "income", "need", "want"]),
     }),
   },
 } satisfies Record<string, CatalogEntry>;

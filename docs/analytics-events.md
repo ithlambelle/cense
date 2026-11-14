@@ -2,7 +2,7 @@
 
 # Analytics events
 
-Tracking plan version 4. Every event Cense sends to PostHog, the question it answers and the only properties it may carry. `track()` in `web/src/lib/analytics.ts` (the browser) and `captureServer()` in `web/src/lib/analytics-server.ts` (the server, for moments with no browser open) reject anything not listed here, and a lint rule stops code from calling PostHog any other way.
+Tracking plan version 5. Every event Cense sends to PostHog, the question it answers and the only properties it may carry. `track()` in `web/src/lib/analytics.ts` (the browser) and `captureServer()` in `web/src/lib/analytics-server.ts` (the server, for moments with no browser open) reject anything not listed here, and a lint rule stops code from calling PostHog any other way.
 
 Sent with every event: `plan_version`, `platform`, `app_version`, `environment`, `is_internal`, `$geoip_disable`. PostHog adds its own (`$current_url` and the like), with everything after "?" or "#" removed before sending. Events marked with a ledger copy a Postgres row; the falsifiers and the D24 numbers are counted from Postgres, and PostHog is checked against it.
 
@@ -26,3 +26,5 @@ Sent with every event: `plan_version`, `platform`, `app_version`, `environment`,
 | `reminder_snooze_saved` | US-08: which snooze times do students pick, and for which reminders? Decides whether the three times stay (Ben, Nov 3). | `kind`: `statement_closing`, `payment_due`, `check_autopay`, `reapply`<br>`choice`: `tomorrow`, `in_2_days`, `day_before_due` | browser | reminders (snoozed_until) | Ben | 4 |
 | `reminder_dismissal_saved` | US-08: how often do students dismiss a reminder for its billing cycle instead of snoozing it? | `kind`: `statement_closing`, `payment_due`, `check_autopay`, `reapply` | browser | reminders (dismissed_at) | Ben | 4 |
 | `reminder_settings_changed` | Which reminder emails do students turn off or back on, and where: Reminder settings or an email's unsubscribe link? | `setting`: `emails`, `statement_closing`, `payment_due`, `check_autopay`<br>`on`: boolean<br>`source`: `settings`, `email_link` | browser and server | profiles (the settings) | Ben | 3 |
+| `your_money_viewed` | US-12: do students open Your money from the safe-to-spend card, and which tab do they read: how today's number adds up, or the month's budget? | `tab`: `today`, `this_month` | browser | PostHog only | Ben | 5 |
+| `money_amount_saved` | US-12: do students correct the numbers on Your money, and which kind of line? Never the amount or the category. | `tab`: `today`, `this_month`<br>`line`: `bill`, `set_aside`, `income`, `need`, `want` | browser | bill_coverage and bank_links (Today), budget_amounts (This month) | Ben | 5 |

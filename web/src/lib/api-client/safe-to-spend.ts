@@ -22,29 +22,30 @@ function failed(failure: ApiFailure): Outcome<never> {
   return { kind: "failed", code: failure.kind === "api" ? failure.code : null, message: failureMessage(failure) };
 }
 
-async function run<T>(request: Promise<{ ok: true; data: T } | ApiFailure>): Promise<Outcome<T>> {
+// Shared with the other money screens' calls (budget.ts).
+export async function runOutcome<T>(request: Promise<{ ok: true; data: T } | ApiFailure>): Promise<Outcome<T>> {
   const result = await request;
   return result.ok ? { kind: "ok", data: result.data } : failed(result);
 }
 
 export function createLinkToken() {
-  return run(apiRequest("post", "/bank-link/link-token"));
+  return runOutcome(apiRequest("post", "/bank-link/link-token"));
 }
 
 export function linkBank(publicToken: string) {
-  return run(apiRequest("post", "/bank-link", { body: { publicToken } }));
+  return runOutcome(apiRequest("post", "/bank-link", { body: { publicToken } }));
 }
 
 export function refreshBank() {
-  return run(apiRequest("post", "/bank-link/refresh"));
+  return runOutcome(apiRequest("post", "/bank-link/refresh"));
 }
 
 export function disconnectBank() {
-  return run(apiRequest("delete", "/bank-link"));
+  return runOutcome(apiRequest("delete", "/bank-link"));
 }
 
 export function saveSafeToSpendAnswers(body: SaveAnswersBody) {
-  return run(apiRequest("put", "/safe-to-spend/answers", { body }));
+  return runOutcome(apiRequest("put", "/safe-to-spend/answers", { body }));
 }
 
 // An amount a student typed, in whole cents: "650", "$1,200.50", "40.5".
