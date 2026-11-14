@@ -274,7 +274,7 @@ test("Your money: a student edits a bill on Today, reads This month from their o
   const hero = page.getByRole("region", { name: /each month/ });
   await expect(hero).toContainText("Left over each month:");
   await expect(hero).toContainText("$669");
-  await expect(page.getByLabel("Income each month")).toHaveValue("1800");
+  await expect(page.getByLabel("Income each month")).toHaveValue("1,800");
   await expect(page.getByLabel("Rent and bills each month")).toHaveValue("650");
   await expect(page.getByLabel("Groceries each month")).toHaveValue("275");
   await expect(page.getByLabel("Eating out each month")).toHaveValue("70");
@@ -330,7 +330,7 @@ test("This month waits for the bank's transactions, then shows them after Refres
   await expect(page.getByRole("button", { name: "Refresh now" })).toBeEnabled();
   await page.goto("/safe-to-spend?tab=month");
   await expect(hero).toContainText("Left over each month:");
-  await expect(page.getByLabel("Income each month")).toHaveValue("1800");
+  await expect(page.getByLabel("Income each month")).toHaveValue("1,800");
 });
 
 test("Link cancelled, a bank error and an expired connection leave nothing linked, and a retry works", async ({ page }) => {

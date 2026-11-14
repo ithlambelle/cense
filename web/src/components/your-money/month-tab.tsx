@@ -8,7 +8,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { EditRow, GroupHeading, MoneyHero, MoneyTabs } from "@/components/your-money/parts";
+import { amountInput, EditRow, GroupHeading, MoneyHero, MoneyTabs } from "@/components/your-money/parts";
 import { track } from "@/lib/analytics";
 import type { Budget } from "@/lib/api/budget";
 import { saveBudgetLine, type BudgetLineKey } from "@/lib/api-client/budget";
@@ -16,7 +16,7 @@ import { parseAmount, saveSafeToSpendAnswers, type BillAnswer } from "@/lib/api-
 import { parseDollarsToCents } from "@/lib/budget/amount";
 import { bankMonthLine, EDUCATIONAL_DISCLAIMER, noIncomeLine, YOUR_MONEY_COPY } from "@/lib/budget/copy";
 import { monthName, summarize, type BudgetLine, type BudgetLines } from "@/lib/budget/lines";
-import { centsToInput, moneyAmount } from "@/lib/money";
+import { moneyAmount } from "@/lib/money";
 import { signInPath, yourMoneyPath } from "@/lib/routes";
 
 // Saving is the set-aside, so it saves with the safe-to-spend answers and
@@ -31,7 +31,7 @@ export function MonthTab({ budget, answers }: { budget: Budget; answers: { bills
   const lines = budget as unknown as BudgetLines;
   const all = [lines.income, ...lines.needs, ...lines.wants, lines.saving];
   const [values, setValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(all.map((line) => [line.key, centsToInput(line.amountCents)])),
+    Object.fromEntries(all.map((line) => [line.key, amountInput(line.amountCents)])),
   );
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
   const [saving, setSaving] = useState<string | null>(null);

@@ -196,7 +196,7 @@ describe("Your money, This month (709:1769)", () => {
     ]);
     expect(within(screen.getByRole("list", { name: "Wants" })).getByLabelText("Eating out each month")).toBeTruthy();
     expect(within(screen.getByRole("list", { name: "Saving" })).getByText("You typed")).toBeTruthy();
-    expect((screen.getByLabelText("Income each month") as HTMLInputElement).value).toBe("2080");
+    expect((screen.getByLabelText("Income each month") as HTMLInputElement).value).toBe("2,080");
     expect(screen.getByText("Bank numbers are from October.")).toBeTruthy();
     expect(screen.getByText(EDUCATIONAL_DISCLAIMER)).toBeTruthy();
     expect(track).toHaveBeenCalledWith("your_money_viewed", { tab: "this_month" });

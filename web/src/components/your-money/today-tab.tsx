@@ -12,11 +12,11 @@ import { useEffect, useRef, useState } from "react";
 import { minusMoney, signedMoney } from "@/components/safe-to-spend/parts";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
-import { EditRow, GroupHeading, MoneyHero, MoneyTabs, ReadRow, TotalRow } from "@/components/your-money/parts";
+import { amountInput, EditRow, GroupHeading, MoneyHero, MoneyTabs, ReadRow, TotalRow } from "@/components/your-money/parts";
 import { track } from "@/lib/analytics";
 import { parseAmount, refreshBank, saveSafeToSpendAnswers, type SafeToSpendData } from "@/lib/api-client/safe-to-spend";
 import { ordinalDay, YOUR_MONEY_COPY } from "@/lib/budget/copy";
-import { centsToInput, moneyAmount } from "@/lib/money";
+import { moneyAmount } from "@/lib/money";
 import { ROUTES, signInPath } from "@/lib/routes";
 import { BILL_COPY, SAFE_TO_SPEND_COPY } from "@/lib/safe-to-spend/copy";
 import { billCents, computeSafeToSpend, type Bill, type BillAnswer } from "@/lib/safe-to-spend/compute";
@@ -41,8 +41,8 @@ function billLine(answer: BillAnswer, today: number): string {
 }
 
 function initialValues(data: SafeToSpendData): Record<FieldKey, string> {
-  const values = { [SET_ASIDE]: centsToInput(data.setAsideCents) } as Record<FieldKey, string>;
-  for (const answer of paidBills(data.bills as BillAnswer[])) values[answer.bill] = centsToInput(answer.monthlyCents);
+  const values = { [SET_ASIDE]: amountInput(data.setAsideCents) } as Record<FieldKey, string>;
+  for (const answer of paidBills(data.bills as BillAnswer[])) values[answer.bill] = amountInput(answer.monthlyCents);
   return values;
 }
 

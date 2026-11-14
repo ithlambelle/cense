@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import { PreviewLabel } from "@/components/safe-to-spend/parts";
 import { SENSITIVE } from "@/lib/analytics";
 import { YOUR_MONEY_COPY } from "@/lib/budget/copy";
+import { moneyAmount } from "@/lib/money";
 import { yourMoneyPath, type YourMoneyTab } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -32,11 +33,14 @@ export function MoneyHero({
 }) {
   return (
     <section aria-label={label.replace(/:$/, "")} className="flex min-h-[150px] flex-col rounded-[28px] bg-navy px-[23px] pt-[22px] pb-[18px] text-white">
-      <div className="flex min-h-9 items-start justify-between gap-3">
+      {/* 36px tall with the number pulled up 7px in the frame (709:1526):
+          29px here, so a label that wraps at 320 wide pushes the number down
+          instead of running into it. */}
+      <div className="flex min-h-[29px] items-start justify-between gap-3">
         <p className="text-body-m leading-[18px] font-semibold">{label}</p>
         {preview ? <PreviewLabel onNavy className="-mt-0.5" /> : null}
       </div>
-      <p className={cn(SENSITIVE, "-mt-[7px] font-number text-[44px] leading-[44px] font-bold text-light-blue")}>
+      <p className={cn(SENSITIVE, "font-number text-[44px] leading-[44px] font-bold text-light-blue")}>
         {amount}
         {unit ? <span className="text-[20px]">{unit}</span> : null}
       </p>
@@ -105,6 +109,12 @@ export function TotalRow({ label, value }: { label: string; value: string }) {
       <span className={cn(SENSITIVE, "shrink-0 tabular-nums")}>{value}</span>
     </li>
   );
+}
+
+// An amount as its field shows it: thousands commas, cents only when not
+// whole dollars. 180000 -> "1,800", 1250 -> "12.50". The parsers read it back.
+export function amountInput(cents: number | null): string {
+  return cents === null ? "" : moneyAmount(cents).slice(1);
 }
 
 // A row the student edits in place (709:1548): the label and a quiet line
