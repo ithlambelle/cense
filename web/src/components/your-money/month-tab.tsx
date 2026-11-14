@@ -6,7 +6,7 @@
 // the top updating as they type. Below zero it says "Short each month by",
 // one plain line, no suggestion and no instruction (Ben, Nov 4).
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { EditRow, GroupHeading, MoneyHero, MoneyTabs } from "@/components/your-money/parts";
 import { track } from "@/lib/analytics";
@@ -53,14 +53,29 @@ export function MonthTab({ budget, answers }: { budget: Budget; answers: { bills
   // yet. No total to show until there is something to add up.
   const waiting = !budget.hasBankData && !lines.income.typed && lines.needs.length === 0 && lines.wants.length === 0;
 
-  async function commit(line: BudgetLine) {
-    const cents = parseLine(line, values[line.key] ?? "");
-    if (cents === null) {
+  // Saves run one after another, each with the field as it is when it runs,
+  // so a quick second edit is never dropped.
+  const latest = useRef(values);
+  const lastSaved = useRef<Record<string, number>>({});
+  const queue = useRef<Promise<void>>(Promise.resolve());
+
+  function setValue(key: string, value: string) {
+    latest.current = { ...latest.current, [key]: value };
+    setValues(latest.current);
+  }
+
+  function commit(line: BudgetLine) {
+    if (parseLine(line, latest.current[line.key] ?? "") === null) {
       setErrors((current) => ({ ...current, [line.key]: YOUR_MONEY_COPY.invalidAmount }));
       return;
     }
     setErrors((current) => ({ ...current, [line.key]: undefined }));
-    if (cents === line.amountCents || saving) return;
+    queue.current = queue.current.then(() => save(line));
+  }
+
+  async function save(line: BudgetLine) {
+    const cents = parseLine(line, latest.current[line.key] ?? "");
+    if (cents === null || cents === (lastSaved.current[line.key] ?? line.amountCents)) return;
     setSaving(line.key);
     const result =
       line.group === "saving"
@@ -72,8 +87,8 @@ export function MonthTab({ budget, answers }: { budget: Budget; answers: { bills
       setErrors((current) => ({ ...current, [line.key]: result.message }));
       return;
     }
+    lastSaved.current[line.key] = cents;
     track("money_amount_saved", { tab: "this_month", line: line.group === "saving" ? "set_aside" : line.group });
-    setValues((current) => ({ ...current, [line.key]: centsToInput(cents) }));
     router.refresh();
   }
 
@@ -98,10 +113,10 @@ export function MonthTab({ budget, answers }: { budget: Budget; answers: { bills
       error={errors[line.key]}
       pending={saving === line.key}
       onChange={(value) => {
-        setValues((current) => ({ ...current, [line.key]: value }));
+        setValue(line.key, value);
         if (errors[line.key] && parseLine(line, value) !== null) setErrors((current) => ({ ...current, [line.key]: undefined }));
       }}
-      onCommit={() => void commit(line)}
+      onCommit={() => commit(line)}
     />
   );
 

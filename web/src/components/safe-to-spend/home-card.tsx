@@ -55,7 +55,7 @@ export function SafeToSpendHome({ safeToSpend, preview = true }: { safeToSpend: 
             <Link
               href={ROUTES.safeToSpend}
               aria-label="Your money"
-              className="rounded-[28px] after:absolute after:inset-0 after:rounded-[28px] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-off-white"
+              className="flex min-h-6 items-center rounded-sm after:absolute after:inset-0 after:rounded-[28px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-off-white"
             >
               <ChevronRight aria-hidden="true" width={12} height={20} />
             </Link>

@@ -7,7 +7,7 @@
 // (PUT /safe-to-spend/answers). Disconnect lives on Accounts (E4), not here.
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { minusMoney, signedMoney } from "@/components/safe-to-spend/parts";
 import { Button } from "@/components/ui/button";
@@ -62,31 +62,50 @@ export function TodayTab({ data, today }: { data: SafeToSpendData; today: number
   }, []);
 
   // What a field holds, as cents: empty is $0, anything else not an amount is null.
-  const typed = (key: FieldKey): number | null => (values[key].trim() === "" ? 0 : parseAmount(values[key]));
-  const saved = (key: FieldKey): number =>
-    key === SET_ASIDE ? data.setAsideCents : (bills.find((answer) => answer.bill === key)?.monthlyCents ?? 0);
+  const typedIn = (from: Record<FieldKey, string>, key: FieldKey): number | null =>
+    from[key].trim() === "" ? 0 : parseAmount(from[key]);
 
-  // The answers with what is typed, a field that is not an amount keeping its saved number.
-  const withTyped = (): { bills: BillAnswer[]; setAsideCents: number } => ({
+  // The answers with what is typed over `saved`, a field that is not an
+  // amount keeping its saved number.
+  const answersFrom = (from: Record<FieldKey, string>, saved: (key: FieldKey) => number) => ({
     bills: bills.map((answer) =>
-      answer.coveredBy === "me" || answer.coveredBy === "split" ? { ...answer, monthlyCents: typed(answer.bill) ?? answer.monthlyCents } : answer,
+      answer.coveredBy === "me" || answer.coveredBy === "split" ? { ...answer, monthlyCents: typedIn(from, answer.bill) ?? saved(answer.bill) } : answer,
     ),
-    setAsideCents: typed(SET_ASIDE) ?? data.setAsideCents,
+    setAsideCents: typedIn(from, SET_ASIDE) ?? saved(SET_ASIDE),
   });
+  const savedIn = (key: FieldKey): number =>
+    key === SET_ASIDE ? data.setAsideCents : (bills.find((answer) => answer.bill === key)?.monthlyCents ?? 0);
   // The sum as the student types.
-  const sum = computeSafeToSpend({ accounts: data.accounts, ...withTyped(), today });
+  const sum = computeSafeToSpend({ accounts: data.accounts, ...answersFrom(values, savedIn), today });
 
-  async function commit(key: FieldKey) {
-    const cents = typed(key);
-    if (cents === null) {
+  // Saves run one after another, each with the fields as they are when it
+  // runs, so a quick second edit is never dropped or overwritten by the first.
+  const latest = useRef(values);
+  const lastSaved = useRef<Record<string, number>>({});
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  const savedNow = (key: FieldKey) => lastSaved.current[key] ?? savedIn(key);
+
+  function setValue(key: FieldKey, value: string) {
+    latest.current = { ...latest.current, [key]: value };
+    setValues(latest.current);
+  }
+
+  function commit(key: FieldKey) {
+    if (typedIn(latest.current, key) === null) {
       setErrors((current) => ({ ...current, [key]: YOUR_MONEY_COPY.invalidAmount }));
       return;
     }
     setErrors((current) => ({ ...current, [key]: undefined }));
-    if (cents === saved(key) || saving) return;
+    queue.current = queue.current.then(() => save(key));
+  }
+
+  async function save(key: FieldKey) {
+    const from = latest.current;
+    const cents = typedIn(from, key);
+    if (cents === null || cents === savedNow(key)) return;
     setSaving(key);
-    const answers = withTyped();
-    const result = await saveSafeToSpendAnswers({ bills: answers.bills, setAsideCents: answers.setAsideCents });
+    const answers = answersFrom(from, savedNow);
+    const result = await saveSafeToSpendAnswers(answers);
     if (!isMounted()) return;
     setSaving(null);
     if (result.kind === "signed-out") return router.replace(signInPath(ROUTES.safeToSpend));
@@ -94,8 +113,9 @@ export function TodayTab({ data, today }: { data: SafeToSpendData; today: number
       setErrors((current) => ({ ...current, [key]: result.message }));
       return;
     }
+    for (const answer of answers.bills) if (answer.monthlyCents !== null) lastSaved.current[answer.bill] = answer.monthlyCents;
+    lastSaved.current[SET_ASIDE] = answers.setAsideCents;
     track("money_amount_saved", { tab: "today", line: key === SET_ASIDE ? "set_aside" : "bill" });
-    setValues((current) => ({ ...current, [key]: centsToInput(cents) }));
     router.refresh();
   }
 
@@ -126,10 +146,10 @@ export function TodayTab({ data, today }: { data: SafeToSpendData; today: number
       error={errors[key]}
       pending={saving === key}
       onChange={(value) => {
-        setValues((current) => ({ ...current, [key]: value }));
+        setValue(key, value);
         if (errors[key] && (value.trim() === "" || parseAmount(value) !== null)) setErrors((current) => ({ ...current, [key]: undefined }));
       }}
-      onCommit={() => void commit(key)}
+      onCommit={() => commit(key)}
     />
   );
 

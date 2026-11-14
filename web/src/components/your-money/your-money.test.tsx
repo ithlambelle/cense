@@ -133,6 +133,19 @@ describe("Your money, Today (709:1520)", () => {
     expect(refresh).toHaveBeenCalled();
   });
 
+  it("saves a second bill edited while the first is saving, with both numbers", async () => {
+    let finish: (value: unknown) => void = () => {};
+    saveSafeToSpendAnswers.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+    render(<YourMoneyView tab="today" data={DATA} budget={null} today={5} />);
+    type("Rent each month", "700");
+    await commit("Rent each month");
+    type("Phone each month", "45");
+    await commit("Phone each month");
+    await act(async () => finish({ kind: "ok", data: DATA }));
+    expect(saveSafeToSpendAnswers).toHaveBeenCalledTimes(2);
+    expect(saveSafeToSpendAnswers.mock.calls[1][0].bills.slice(0, 2).map((answer: { monthlyCents: number }) => answer.monthlyCents)).toEqual([70000, 4500]);
+  });
+
   it("refuses text that is not an amount and saves nothing", async () => {
     render(<YourMoneyView tab="today" data={DATA} budget={null} today={5} />);
     type("Set aside each month", "a lot");
@@ -196,6 +209,21 @@ describe("Your money, This month (709:1769)", () => {
     await commit("Eating out each month");
     expect(saveBudgetLine).toHaveBeenCalledWith("eating_out", 10000);
     expect(track).toHaveBeenCalledWith("money_amount_saved", { tab: "this_month", line: "want" });
+  });
+
+  it("saves a second edit made while the first is still saving", async () => {
+    let finish: (value: unknown) => void = () => {};
+    saveBudgetLine.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+    render(<YourMoneyView tab="month" data={DATA} budget={budget()} today={5} />);
+    type("Eating out each month", "1000");
+    await commit("Eating out each month");
+    type("Rent and bills each month", "2000");
+    await commit("Rent and bills each month");
+    await act(async () => finish({ kind: "ok", data: {} }));
+    expect(saveBudgetLine.mock.calls).toEqual([
+      ["eating_out", 100000],
+      ["rent_and_bills", 200000],
+    ]);
   });
 
   it("saves the saving line as the set-aside, with the bill answers unchanged", async () => {

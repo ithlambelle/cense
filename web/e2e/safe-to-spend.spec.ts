@@ -103,6 +103,13 @@ async function linkedStudent(page: Page, journey: string) {
   return checkA11y;
 }
 
+// A day in the last full calendar month, where the stand-in bank's
+// transactions are, as YYYY-MM-DD.
+function lastMonth(): string {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 15)).toISOString().slice(0, 10);
+}
+
 // Exact: the invite's region is "See what’s safe to spend".
 const safeToSpendCard = (page: Page) => page.getByRole("region", { name: "Safe to spend", exact: true });
 
@@ -161,26 +168,36 @@ test("a student links the sandbox bank, says who covers what, and sees safe to s
   await page.reload();
   await expect(safeToSpendCard(page)).toContainText(DAILY);
 
-  // How we got this: each step of the sum, in plain words.
-  await safeToSpendCard(page).getByRole("link", { name: "How we got this" }).click();
+  // Your money (D2): tapping the card opens Today, each step of the sum.
+  await safeToSpendCard(page).getByRole("link", { name: "Your money" }).click();
   await expect(page).toHaveURL(/\/safe-to-spend$/);
-  await expect(page.getByRole("heading", { level: 1, name: "How we got this" })).toBeVisible();
-  const sum = page.getByRole("list", { name: "The sum" });
-  await expect(sum.getByRole("listitem").filter({ hasText: "Cash in checking" })).toContainText("$1,240");
-  await expect(sum.getByRole("listitem").filter({ hasText: "Card balances" })).toContainText("$310");
-  await expect(sum.getByRole("listitem").filter({ hasText: "Bills you cover" })).toContainText("$690");
-  await expect(sum.getByRole("listitem").filter({ hasText: "Set aside" })).toContainText("$50");
-  await expect(sum.getByRole("listitem").filter({ hasText: "Left for 30 days" })).toContainText("$190");
-  await expect(sum.getByRole("listitem").filter({ hasText: "Safe to spend a day" })).toContainText(DAILY);
-  const accounts = page.getByRole("list", { name: "Accounts from First Platypus Bank" });
-  await expect(accounts.getByRole("listitem").filter({ hasText: "Plaid Saving" })).toContainText("Not counted");
-  // Loans are never read into Cense.
-  await expect(accounts).not.toContainText("Student Loan");
-  await checkA11y("safe to spend: how we got this");
+  await expect(page.getByRole("heading", { level: 1, name: "Your money" })).toBeVisible();
+  const bank = page.getByRole("list", { name: "From your bank" });
+  await expect(bank.getByRole("listitem").filter({ hasText: "Cash in checking" })).toContainText("$1,240");
+  await expect(bank.getByRole("listitem").filter({ hasText: "Card balances" })).toContainText("$310");
+  await expect(page.getByLabel("Rent each month")).toHaveValue("650");
+  await expect(page.getByLabel("Phone each month")).toHaveValue("40");
+  await expect(page.getByLabel("Set aside each month")).toHaveValue("50");
+  const fromYou = page.getByRole("list", { name: "From you" });
+  await expect(fromYou.getByRole("listitem").filter({ hasText: "Left for 30 days" })).toContainText("$190");
+  await expect(fromYou.getByRole("listitem").filter({ hasText: "Left for 30 days" })).toContainText(`${DAILY} a day`);
+  // Disconnect is not on this page any more (E4).
+  await expect(page.getByRole("button", { name: "Disconnect bank" })).toHaveCount(0);
+  await checkA11y("your money: today");
+
+  // Accounts (E4) from Profile: the bank's kinds of account, never its loans.
+  await page.goto("/settings");
+  await page.getByRole("link", { name: "Accounts" }).click();
+  await expect(page).toHaveURL(/\/settings\/accounts$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Accounts" })).toBeVisible();
+  const yourBank = page.getByRole("list", { name: "Your bank" });
+  await expect(yourBank).toContainText("Checking, savings and credit card");
+  await expect(yourBank).not.toContainText("Student Loan");
+  await checkA11y("accounts");
 
   // Change an answer: tuition becomes mine at $100, so 90 left, $3 a day.
   // The saved answers are already picked, so Continue moves straight on.
-  await page.getByRole("link", { name: "Change your answers" }).click();
+  await page.getByRole("link", { name: /Change your answers/ }).click();
   const continueTo = async (title: string) => {
     await page.getByRole("button", { name: "Continue" }).click();
     await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
@@ -203,14 +220,14 @@ test("a student links the sandbox bank, says who covers what, and sees safe to s
   await expect(page.getByLabel("Set aside each month")).toHaveValue("50");
   await page.getByRole("button", { name: "See safe to spend" }).click();
   await expect(safeToSpendCard(page)).toContainText("$3 a day");
-  // Back returns to How we got this, where the change started.
+  // Back returns to Accounts, where the change started.
   await page.goBack();
-  await expect(page).toHaveURL(/\/safe-to-spend$/);
-  await expect(page.getByRole("heading", { level: 1, name: "How we got this" })).toBeVisible();
+  await expect(page).toHaveURL(/\/settings\/accounts$/);
   await page.goto("/home");
 
-  // Back from How we got this returns Home.
-  await safeToSpendCard(page).getByRole("link", { name: "How we got this" }).click();
+  // Back from Your money returns Home.
+  await safeToSpendCard(page).getByRole("link", { name: "Your money" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Your money" })).toBeVisible();
   await page.getByRole("link", { name: "Back to Home" }).click();
   await expect(page).toHaveURL(/\/home$/);
 
@@ -221,6 +238,99 @@ test("a student links the sandbox bank, says who covers what, and sees safe to s
   expect(bodies.some((body) => body.includes(token))).toBe(false);
   expect(received.every((call) => call.clientId && call.secret)).toBe(true);
   expect(received.some((call) => JSON.stringify(call.body).includes(String(call.secret)))).toBe(false);
+});
+
+test("Your money: a student edits a bill on Today, reads This month from their own transactions, edits a line, reloads, and sees Short", async ({ page, context }) => {
+  const checkA11y = await linkedStudent(page, "sts-your-money");
+  await safeToSpendCard(page).getByRole("link", { name: "Your money" }).click();
+  await expect(page.getByRole("link", { name: "Today" })).toHaveAttribute("aria-current", "page");
+
+  // Today: rent 650 to 700 updates the sum as typed, and saves on Enter.
+  // 1,240 - 310 - 700 - 40 - 50 = 140 left, $4.66 a day.
+  const total = page.getByRole("list", { name: "From you" }).getByRole("listitem").filter({ hasText: "Left for 30 days" });
+  await page.getByLabel("Rent each month").fill("700");
+  await expect(total).toContainText("$140");
+  await page.getByLabel("Rent each month").press("Enter");
+  await expect(page.getByRole("region", { name: "Safe to spend today" })).toContainText("$4.66");
+  // Not an amount: flagged, nothing saved.
+  await page.getByLabel("Set aside each month").fill("lots");
+  await page.getByLabel("Set aside each month").press("Enter");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("Use an amount like 25 or 25.50.");
+  await page.reload();
+  await expect(page.getByLabel("Rent each month")).toHaveValue("700");
+  await expect(page.getByLabel("Set aside each month")).toHaveValue("50");
+  // The same answers as Change your answers: the questions show the new rent.
+  await page.goto("/safe-to-spend/setup");
+  await expect(page.getByLabel("Your rent each month")).toHaveValue("700");
+  await page.goto("/home");
+  await expect(safeToSpendCard(page)).toContainText("$4.66 a day");
+
+  // This month, from the stand-in bank's last full month: income $1,800;
+  // needs 650 + 275 + 24; wants 70 + 12 + 50 (after a refund); $50 aside.
+  // A card payment and a move to savings are not spending. 669 left over.
+  await safeToSpendCard(page).getByRole("link", { name: "Your money" }).click();
+  await page.getByRole("link", { name: "This month" }).click();
+  await expect(page).toHaveURL(/\/safe-to-spend\?tab=month$/);
+  const hero = page.getByRole("region", { name: /each month/ });
+  await expect(hero).toContainText("Left over each month:");
+  await expect(hero).toContainText("$669");
+  await expect(page.getByLabel("Income each month")).toHaveValue("1800");
+  await expect(page.getByLabel("Rent and bills each month")).toHaveValue("650");
+  await expect(page.getByLabel("Groceries each month")).toHaveValue("275");
+  await expect(page.getByLabel("Eating out each month")).toHaveValue("70");
+  await expect(page.getByLabel("Shopping and personal care each month")).toHaveValue("50");
+  await expect(page.getByText("Educational, not financial advice.")).toBeVisible();
+  await checkA11y("your money: this month");
+
+  // Edit a line: the total moves as typed, the number is the student's after a reload.
+  await page.getByLabel("Groceries each month").fill("300");
+  await expect(hero).toContainText("$644");
+  await page.getByLabel("Groceries each month").press("Enter");
+  await expect(page.getByLabel("Groceries each month").locator("xpath=ancestor::li[1]")).toContainText("You typed");
+  await page.reload();
+  await expect(page.getByLabel("Groceries each month")).toHaveValue("300");
+  await expect(hero).toContainText("$644");
+
+  // Short: eating out at $1,000 is 286 short, and fixed costs did not pass income.
+  await page.getByLabel("Eating out each month").fill("1000");
+  await expect(hero).toContainText("Short each month by:");
+  await expect(hero).toContainText("$286");
+  await expect(hero).toContainText("After needs, wants and saving");
+  await page.getByLabel("Eating out each month").press("Enter");
+  await expect(page.getByLabel("Eating out each month").locator("xpath=ancestor::li[1]")).toContainText("You typed");
+  // Needs alone past income: the one plain line says so, no suggestion.
+  await page.getByLabel("Rent and bills each month").fill("2000");
+  await expect(hero).toContainText("Needs and fixed wants are more than income");
+  await page.getByLabel("Rent and bills each month").press("Enter");
+  await expect(page.getByLabel("Rent and bills each month").locator("xpath=ancestor::li[1]")).toContainText("You typed");
+  await page.reload();
+  await expect(hero).toContainText("Short each month by:");
+  await expect(hero).toContainText("Needs and fixed wants are more than income");
+  await checkA11y("your money: short");
+  const saved = await asStudent(context, { table: "budget_amounts" });
+  expect((saved.body as { line: string }[]).map((row) => row.line).sort()).toEqual(["eating_out", "groceries", "rent_and_bills"]);
+
+  // Back leaves Your money for Home; the tabs never stack in history.
+  await page.getByRole("link", { name: "Back to Home" }).click();
+  await expect(page).toHaveURL(/\/home$/);
+});
+
+test("This month waits for the bank's transactions, then shows them after Refresh now", async ({ page }) => {
+  behavior.transactions = "none";
+  await linkedStudent(page, "sts-month-waits");
+  await page.goto("/safe-to-spend?tab=month");
+  const hero = page.getByRole("region", { name: /each month/ });
+  await expect(hero).toContainText("Not yet");
+  await expect(hero).toContainText("No transactions from your bank yet");
+  await expect(page.getByText("Educational, not financial advice.")).toBeVisible();
+
+  behavior.transactions = "ok";
+  await page.goto("/settings/accounts");
+  await page.getByRole("button", { name: "Refresh now" }).click();
+  await expect(page.getByRole("button", { name: "Refresh now" })).toBeEnabled();
+  await page.goto("/safe-to-spend?tab=month");
+  await expect(hero).toContainText("Left over each month:");
+  await expect(page.getByLabel("Income each month")).toHaveValue("1800");
 });
 
 test("Link cancelled, a bank error and an expired connection leave nothing linked, and a retry works", async ({ page }) => {
@@ -269,8 +379,8 @@ test("Link cancelled, a bank error and an expired connection leave nothing linke
 test("when the bank needs a new sign-in, the student reconnects and safe to spend comes back", async ({ page }) => {
   await linkedStudent(page, "sts-reconnect");
   behavior.accounts = "login_required";
-  await safeToSpendCard(page).getByRole("link", { name: "How we got this" }).click();
-  await page.getByRole("button", { name: "Refresh" }).click();
+  await page.goto("/settings/accounts");
+  await page.getByRole("button", { name: "Refresh now" }).click();
   await expect(page.getByText("Your bank needs you to sign in again.")).toBeVisible();
 
   // Home says so too, instead of an old number.
@@ -283,7 +393,7 @@ test("when the bank needs a new sign-in, the student reconnects and safe to spen
   behavior.accounts = "ok";
   await page.getByRole("button", { name: "Reconnect your bank" }).click();
   await expect(page.getByText("Your bank needs you to sign in again.")).toHaveCount(0);
-  await expect(page.getByRole("list", { name: "The sum" })).toContainText(DAILY);
+  await expect(page).toHaveURL(/\/settings\/accounts$/);
   const opened = await page.evaluate(() => (window as unknown as { __fakePlaidOpened: { token: string }[] }).__fakePlaidOpened);
   expect(opened.at(-1)?.token).toContain("update");
   await page.goto("/home");
@@ -293,7 +403,7 @@ test("when the bank needs a new sign-in, the student reconnects and safe to spen
 test("when the bank link is gone at Plaid, Home stops showing the number and the student connects again", async ({ page }) => {
   await linkedStudent(page, "sts-relink");
   behavior.accounts = "gone";
-  await safeToSpendCard(page).getByRole("link", { name: "How we got this" }).click();
+  await safeToSpendCard(page).getByRole("link", { name: "Your money" }).click();
   await page.getByRole("button", { name: "Refresh" }).click();
   await expect(page.getByText("Your bank connection ended.")).toBeVisible();
 
@@ -301,6 +411,7 @@ test("when the bank link is gone at Plaid, Home stops showing the number and the
   await expect(safeToSpendCard(page)).toContainText("Your bank connection ended.");
   await expect(safeToSpendCard(page)).not.toContainText(DAILY);
   await safeToSpendCard(page).getByRole("link", { name: "Connect again" }).click();
+  await expect(page).toHaveURL(/\/settings\/accounts$/);
 
   // Connect again disconnects the dead link, then links the bank anew.
   await page.getByRole("button", { name: "Connect again" }).click();
@@ -342,16 +453,18 @@ test("the safe-to-spend links show a focus ring from the keyboard", async ({ pag
   await page.getByRole("button", { name: "Connect (Preview)" }).click();
   await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
   await answerWhoCovers(page);
-  rings["How we got this"] = await tabTo(page, "How we got this");
-  await safeToSpendCard(page).getByRole("link", { name: "How we got this" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "How we got this" })).toBeVisible();
-  rings["Change your answers"] = await tabTo(page, "Change your answers");
+  rings["Your money"] = await tabTo(page, "Your money");
+  await safeToSpendCard(page).getByRole("link", { name: "Your money" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Your money" })).toBeVisible();
+  rings["This month"] = await tabTo(page, "This month");
+  await page.goto("/settings/accounts");
+  rings["Refresh now"] = await tabTo(page, "Refresh now");
   await page.getByRole("button", { name: "Disconnect bank" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   rings["my.plaid.com"] = await tabTo(page, "my.plaid.com");
   behavior.accounts = "login_required";
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Refresh" }).click();
+  await page.getByRole("button", { name: "Refresh now" }).click();
   await expect(page.getByText("Your bank needs you to sign in again.")).toBeVisible();
   await page.goto("/home");
   rings["Reconnect your bank"] = await tabTo(page, "Reconnect your bank");
@@ -365,14 +478,17 @@ test("the safe-to-spend links show a focus ring from the keyboard", async ({ pag
 test("disconnecting removes the bank at Plaid and deletes every balance and answer", async ({ page, context }) => {
   const checkA11y = await linkedStudent(page, "sts-unlink");
   const token = issuedAccessTokens.at(-1)!;
-  await safeToSpendCard(page).getByRole("link", { name: "How we got this" }).click();
+  // A number typed on This month, so the check below proves it goes too.
+  expect((await page.request.put("/api/v1/budget/lines/groceries", { data: { amountCents: 25_000 } })).status()).toBe(200);
+  expect((await asStudent(context, { table: "budget_amounts" })).body).toHaveLength(1);
+  await page.goto("/settings/accounts");
 
   // Plaid down: nothing changes, and the student is told.
   behavior.remove = "down";
   await page.getByRole("button", { name: "Disconnect bank" }).click();
   const sheet = page.getByRole("dialog", { name: "Disconnect your bank?" });
   await expect(sheet).toContainText("my.plaid.com");
-  await checkA11y("safe to spend: disconnect sheet");
+  await checkA11y("accounts: disconnect sheet");
   await sheet.getByRole("button", { name: "Disconnect" }).click();
   await expect(sheet.getByRole("alert")).toContainText("Nothing changed");
   expect(await apiStatus(page)).toBe(200);
@@ -385,7 +501,7 @@ test("disconnecting removes the bank at Plaid and deletes every balance and answ
   await expect(safeToSpendCard(page)).toHaveCount(0);
   expect(removedAccessTokens).toContain(token);
   expect(await apiStatus(page)).toBe(404);
-  for (const table of ["bank_links", "bank_balances", "bill_coverage"]) {
+  for (const table of ["bank_links", "bank_balances", "bill_coverage", "budget_amounts"]) {
     const rows = await asStudent(context, { table });
     expect(rows, table).toEqual({ status: 200, body: [] });
   }
@@ -397,7 +513,7 @@ test("disconnecting removes the bank at Plaid and deletes every balance and answ
 });
 
 test("signed out: the screens send to sign-in and the API refuses", async ({ page }) => {
-  for (const path of ["/safe-to-spend", "/safe-to-spend/connect", "/safe-to-spend/setup"]) {
+  for (const path of ["/safe-to-spend", "/safe-to-spend/connect", "/safe-to-spend/setup", "/settings/accounts"]) {
     await page.goto(path);
     await expect(page).toHaveURL(new RegExp(`/sign-in\\?next=${encodeURIComponent(path)}$`));
   }
@@ -407,12 +523,15 @@ test("signed out: the screens send to sign-in and the API refuses", async ({ pag
   expect((await page.request.post("/api/v1/bank-link/refresh")).status()).toBe(401);
   expect((await page.request.delete("/api/v1/bank-link")).status()).toBe(401);
   expect((await page.request.put("/api/v1/safe-to-spend/answers", { data: {} })).status()).toBe(401);
+  expect((await page.request.get("/api/v1/budget")).status()).toBe(401);
+  expect((await page.request.put("/api/v1/budget/lines/groceries", { data: { amountCents: 1 } })).status()).toBe(401);
   expect(received).toEqual([]);
 });
 
 test("another student sees none of the first student's bank data, in the app or through the Data API", async ({ page, context, browser }) => {
   await linkedStudent(page, "sts-owner");
   const ownerToken = issuedAccessTokens.at(-1)!;
+  expect((await page.request.put("/api/v1/budget/lines/income", { data: { amountCents: 300_000 } })).status()).toBe(200);
 
   const otherContext: BrowserContext = await browser.newContext();
   await blockExternalRequests(otherContext);
@@ -426,8 +545,12 @@ test("another student sees none of the first student's bank data, in the app or 
   // Refresh and disconnect act only on the caller's own link.
   expect((await other.request.post("/api/v1/bank-link/refresh")).status()).toBe(404);
   expect((await other.request.delete("/api/v1/bank-link")).status()).toBe(404);
+  // No budget without a bank of their own, and none of the owner's numbers.
+  expect((await other.request.get("/api/v1/budget")).status()).toBe(404);
+  expect((await other.request.put("/api/v1/budget/lines/income", { data: { amountCents: 1 } })).status()).toBe(404);
+  expect(await asStudent(otherContext, { rpc: "spending_by_detailed_category", args: { p_month: lastMonth() } })).toEqual({ status: 200, body: [] });
 
-  for (const table of ["bank_links", "bank_balances", "bill_coverage"]) {
+  for (const table of ["bank_links", "bank_balances", "bill_coverage", "budget_amounts"]) {
     expect(await asStudent(otherContext, { table }), table).toEqual({ status: 200, body: [] });
   }
   expect(await asStudent(otherContext, { rpc: "bank_link_secret" })).toEqual({ status: 200, body: [] });
@@ -474,9 +597,16 @@ for (const size of [
     await answerWhoCovers(page);
     await expect(safeToSpendCard(page)).toContainText(DAILY);
     await fits("home card");
-    await safeToSpendCard(page).getByRole("link", { name: "How we got this" }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "How we got this" })).toBeVisible();
-    await fits("how we got this");
-    await checkA11y(`how we got this at ${size.width}`);
+    await safeToSpendCard(page).getByRole("link", { name: "Your money" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Your money" })).toBeVisible();
+    await fits("your money: today");
+    await checkA11y(`your money today at ${size.width}`);
+    await page.getByRole("link", { name: "This month" }).click();
+    await expect(page.getByLabel("Income each month")).toBeVisible();
+    await fits("your money: this month");
+    await checkA11y(`your money this month at ${size.width}`);
+    await page.goto("/settings/accounts");
+    await fits("accounts");
+    await checkA11y(`accounts at ${size.width}`);
   });
 }
