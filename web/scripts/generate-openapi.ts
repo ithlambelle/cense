@@ -411,6 +411,13 @@ registry.registerPath({
   request: { params: z.object({ line: budgetLineKeySchema }), body: body(saveBudgetLineSchema) },
   responses: { 200: ok(budgetContract), 400: failure("Unknown line or invalid amount"), 404: failure("No bank linked"), ...safeToSpendResponses },
 });
+registry.registerPath({
+  method: "delete", path: "/budget/lines/{line}", operationId: "deleteBudgetLine",
+  summary: "Go back to the bank's number for one line: delete the student's own",
+  security: [{ studentSession: [] }],
+  request: { params: z.object({ line: budgetLineKeySchema }) },
+  responses: { 200: ok(budgetContract), 400: failure("Unknown line"), 404: failure("No bank linked"), ...safeToSpendResponses },
+});
 
 // Left out on purpose: GET /cron/reminders (Vercel Cron) and
 // /reminders/unsubscribe (the link in reminder emails). No client calls them;

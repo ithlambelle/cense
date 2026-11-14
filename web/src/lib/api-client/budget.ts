@@ -10,3 +10,8 @@ export type BudgetLineKey = paths["/budget/lines/{line}"]["put"]["parameters"]["
 export function saveBudgetLine(line: BudgetLineKey, amountCents: number) {
   return runOutcome(apiRequest("put", "/budget/lines/{line}", { pathParams: { line }, body: { amountCents } }));
 }
+
+// Back to the bank's number for one line: the student's own is deleted.
+export function deleteBudgetLine(line: BudgetLineKey) {
+  return runOutcome(apiRequest("delete", "/budget/lines/{line}", { pathParams: { line } }));
+}

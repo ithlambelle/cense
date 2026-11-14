@@ -3301,4 +3301,60 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteBudgetLine
+      summary: "Go back to the bank's number for one line: delete the student's own"
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - income
+              - rent_and_bills
+              - groceries
+              - transportation
+              - school_supplies
+              - health
+              - student_loans
+              - eating_out
+              - entertainment
+              - subscriptions
+              - shopping_and_personal_care
+              - travel
+              - other
+          required: true
+          name: line
+          in: path
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Budget"
+        "400":
+          description: Unknown line
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No bank linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable or safe to spend off
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 webhooks: {}

@@ -17,7 +17,11 @@ vi.mock("@/lib/api-client/safe-to-spend", async (original) => ({
   refreshBank: (...args: unknown[]) => refreshBank(...args),
 }));
 const saveBudgetLine = vi.fn();
-vi.mock("@/lib/api-client/budget", () => ({ saveBudgetLine: (...args: unknown[]) => saveBudgetLine(...args) }));
+const deleteBudgetLine = vi.fn();
+vi.mock("@/lib/api-client/budget", () => ({
+  saveBudgetLine: (...args: unknown[]) => saveBudgetLine(...args),
+  deleteBudgetLine: (...args: unknown[]) => deleteBudgetLine(...args),
+}));
 
 import type { Budget } from "@/lib/api/budget";
 import type { SafeToSpendData } from "@/lib/api-client/safe-to-spend";
@@ -88,6 +92,7 @@ const ADVICE = /\b(should|recommend\w*|you may want|you might want|consider|try 
 beforeEach(() => {
   saveSafeToSpendAnswers.mockResolvedValue({ kind: "ok", data: DATA });
   saveBudgetLine.mockResolvedValue({ kind: "ok", data: {} });
+  deleteBudgetLine.mockResolvedValue({ kind: "ok", data: {} });
   refreshBank.mockResolvedValue({ kind: "ok", data: DATA });
 });
 
@@ -267,6 +272,61 @@ describe("Your money, This month (709:1769)", () => {
     render(<YourMoneyView tab="month" data={DATA} budget={budget({ typed: { groceries: 25000 } })} today={5} />);
     const groceries = screen.getByLabelText("Groceries each month").closest("li")!;
     expect(groceries.textContent).toContain("You typed");
+  });
+
+  it("has an undo only on a typed income or category line, never on saving or a bank line", () => {
+    render(<YourMoneyView tab="month" data={DATA} budget={budget({ typed: { groceries: 25000, income: 300000 } })} today={5} />);
+    expect(screen.getAllByRole("button", { name: /^Use the bank's number for / }).map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Use the bank's number for Income",
+      "Use the bank's number for Groceries",
+    ]);
+  });
+
+  it("goes back to the bank's number from the undo", async () => {
+    render(<YourMoneyView tab="month" data={DATA} budget={budget({ typed: { groceries: 25000 } })} today={5} />);
+    expect((screen.getByLabelText("Groceries each month") as HTMLInputElement).value).toBe("250");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Use the bank's number for Groceries" }));
+    });
+    expect(deleteBudgetLine).toHaveBeenCalledWith("groceries");
+    expect((screen.getByLabelText("Groceries each month") as HTMLInputElement).value).toBe("300");
+    // 2,080 - 700 - 300 - 200 - 100 = 780
+    expect(hero().textContent).toContain("$780");
+    expect(refresh).toHaveBeenCalled();
+    expect(track).not.toHaveBeenCalledWith("money_amount_saved", expect.anything());
+    // Back on the bank's number, leaving the field saves nothing.
+    await commit("Groceries each month");
+    expect(saveBudgetLine).not.toHaveBeenCalled();
+  });
+
+  it("disables the undo while it runs, and waits for a save still on its way", async () => {
+    let finishSave: (value: unknown) => void = () => {};
+    saveBudgetLine.mockImplementationOnce(() => new Promise((resolve) => (finishSave = resolve)));
+    render(<YourMoneyView tab="month" data={DATA} budget={budget({ typed: { groceries: 25000 } })} today={5} />);
+    type("Groceries each month", "400");
+    await commit("Groceries each month");
+    const undo = screen.getByRole("button", { name: "Use the bank's number for Groceries" }) as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(undo);
+    });
+    expect(undo.disabled).toBe(true);
+    expect(deleteBudgetLine).not.toHaveBeenCalled();
+    await act(async () => finishSave({ kind: "ok", data: {} }));
+    expect(saveBudgetLine).toHaveBeenCalledWith("groceries", 40000);
+    expect(deleteBudgetLine).toHaveBeenCalledWith("groceries");
+    expect(undo.disabled).toBe(false);
+    expect((screen.getByLabelText("Groceries each month") as HTMLInputElement).value).toBe("300");
+  });
+
+  it("keeps the student's number and says so when the undo fails", async () => {
+    deleteBudgetLine.mockResolvedValue({ kind: "failed", code: null, message: "Check your connection and try again." });
+    render(<YourMoneyView tab="month" data={DATA} budget={budget({ typed: { groceries: 25000 } })} today={5} />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Use the bank's number for Groceries" }));
+    });
+    expect(screen.getByRole("alert").textContent).toBe("Check your connection and try again.");
+    expect((screen.getByLabelText("Groceries each month") as HTMLInputElement).value).toBe("250");
+    expect(refresh).not.toHaveBeenCalled();
   });
 
   it("counts an empty field as $0 without flagging it", () => {

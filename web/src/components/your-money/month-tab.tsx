@@ -4,17 +4,20 @@
 // 709:1769, and B2, 709:1865): income, needs, wants and saving from the
 // student's last full month, every number editable in place, and the total at
 // the top updating as they type. Below zero it says "Short each month by",
-// one plain line, no suggestion and no instruction (Ben, Nov 4).
+// one plain line, no suggestion and no instruction (Ben, Nov 4). A line the
+// student typed over the bank's has a small undo that brings the bank's
+// number back (Ben, Nov 14).
+import ArrowUturnCcwLeft from "@gravity-ui/icons/ArrowUturnCcwLeft";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { amountInput, EditRow, GroupHeading, MoneyHero, MoneyTabs } from "@/components/your-money/parts";
 import { track } from "@/lib/analytics";
 import type { Budget } from "@/lib/api/budget";
-import { saveBudgetLine, type BudgetLineKey } from "@/lib/api-client/budget";
+import { deleteBudgetLine, saveBudgetLine, type BudgetLineKey } from "@/lib/api-client/budget";
 import { parseAmount, saveSafeToSpendAnswers, type BillAnswer } from "@/lib/api-client/safe-to-spend";
 import { parseDollarsToCents } from "@/lib/budget/amount";
-import { bankMonthLine, noIncomeLine, YOUR_MONEY_COPY } from "@/lib/budget/copy";
+import { bankMonthLine, bankNumberLabel, noIncomeLine, YOUR_MONEY_COPY } from "@/lib/budget/copy";
 import { monthName, summarize, type BudgetLine, type BudgetLines } from "@/lib/budget/lines";
 import { moneyAmount } from "@/lib/money";
 import { signInPath, yourMoneyPath } from "@/lib/routes";
@@ -35,6 +38,7 @@ export function MonthTab({ budget, answers }: { budget: Budget; answers: { bills
   );
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
   const [saving, setSaving] = useState<string | null>(null);
+  const [undoing, setUndoing] = useState<string | null>(null);
 
   useEffect(() => {
     track("your_money_viewed", { tab: "this_month" });
@@ -92,6 +96,29 @@ export function MonthTab({ budget, answers }: { budget: Budget; answers: { bills
     router.refresh();
   }
 
+  // Back to the bank's number: the student's own is deleted. In the same
+  // queue as the saves, so it runs after any save still on its way and
+  // cannot be overwritten by one.
+  function undo(line: BudgetLine) {
+    setErrors((current) => ({ ...current, [line.key]: undefined }));
+    setUndoing(line.key);
+    queue.current = queue.current.then(() => runUndo(line));
+  }
+
+  async function runUndo(line: BudgetLine) {
+    const result = await deleteBudgetLine(line.key as BudgetLineKey);
+    setUndoing(null);
+    if (result.kind === "signed-out") return router.replace(signInPath(yourMoneyPath("month")));
+    if (result.kind === "failed") {
+      setErrors((current) => ({ ...current, [line.key]: result.message }));
+      return;
+    }
+    const bankCents = line.bankCents ?? 0;
+    lastSaved.current[line.key] = bankCents;
+    setValue(line.key, amountInput(bankCents));
+    router.refresh();
+  }
+
   // The quiet line under a label. "Fixed" and "Changing" (and "looks like
   // pay" on income) come from the recurring detector (#109) and slot in here.
   function sub(line: BudgetLine): string | null {
@@ -100,6 +127,21 @@ export function MonthTab({ budget, answers }: { budget: Budget; answers: { bills
     if (line.recurrence) return line.recurrence === "recurring" ? "Fixed" : "Changing";
     return null;
   }
+
+  // Only income and the categories: saving is the safe-to-spend answer, with
+  // no bank number to go back to.
+  const undoButton = (line: BudgetLine) =>
+    line.typed && line.group !== "saving" ? (
+      <button
+        type="button"
+        aria-label={bankNumberLabel(line.label)}
+        disabled={undoing === line.key}
+        onClick={() => undo(line)}
+        className="-my-1 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-pill text-indigo-black/70 hover:bg-off-white hover:text-indigo-black focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50"
+      >
+        <ArrowUturnCcwLeft aria-hidden="true" width={16} height={16} />
+      </button>
+    ) : null;
 
   const row = (line: BudgetLine) => (
     <EditRow
@@ -111,7 +153,8 @@ export function MonthTab({ budget, answers }: { budget: Budget; answers: { bills
       value={values[line.key] ?? ""}
       invalid={errors[line.key] !== undefined}
       error={errors[line.key]}
-      pending={saving === line.key}
+      pending={saving === line.key || undoing === line.key}
+      action={undoButton(line)}
       onChange={(value) => {
         setValue(line.key, value);
         if (errors[line.key] && parseLine(line, value) !== null) setErrors((current) => ({ ...current, [line.key]: undefined }));

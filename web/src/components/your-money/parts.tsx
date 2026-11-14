@@ -119,7 +119,8 @@ export function amountInput(cents: number | null): string {
 
 // A row the student edits in place (709:1548): the label and a quiet line
 // under it, and the amount in a white box with a 35% Amethyst edge that is the
-// field itself. Saved when the field loses focus or on Enter.
+// field itself. Saved when the field loses focus or on Enter. `action` sits
+// just before the amount: This month's undo on a line the student typed.
 export function EditRow({
   id,
   label,
@@ -129,6 +130,7 @@ export function EditRow({
   invalid,
   error,
   pending,
+  action,
   onChange,
   onCommit,
 }: {
@@ -141,6 +143,7 @@ export function EditRow({
   invalid: boolean;
   error?: string | null;
   pending?: boolean;
+  action?: ReactNode;
   onChange: (value: string) => void;
   onCommit: () => void;
 }) {
@@ -152,6 +155,7 @@ export function EditRow({
           <span className="text-body-m text-indigo-black">{label}</span>
           {sub ? <span className="text-[13px] leading-[18px] text-indigo-black/70">{sub}</span> : null}
         </div>
+        {action}
         <label
           className={cn(
             SENSITIVE,

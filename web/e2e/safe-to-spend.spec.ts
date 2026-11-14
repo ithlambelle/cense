@@ -286,6 +286,8 @@ test("Your money: a student edits a bill on Today, reads This month from their o
   await expect(page.getByLabel("Shopping and personal care each month")).toHaveValue("50");
   await expect(page.getByLabel("Savings goal")).toHaveValue("50");
   await expect(page.getByText("Educational, not financial advice.")).toHaveCount(0);
+  // No undo on a line that is the bank's number.
+  await expect(page.getByRole("button", { name: /^Use the bank's number/ })).toHaveCount(0);
   await checkA11y("your money: this month");
 
   // Edit a line: the total moves as typed, the number is the student's after a reload.
@@ -296,6 +298,24 @@ test("Your money: a student edits a bill on Today, reads This month from their o
   await page.reload();
   await expect(page.getByLabel("Groceries each month")).toHaveValue("300");
   await expect(hero).toContainText("$644");
+
+  // Undo: the typed number goes, and the bank's $275 is back after a reload.
+  const groceries = page.getByLabel("Groceries each month").locator("xpath=ancestor::li[1]");
+  await expect(groceries).toContainText("You typed");
+  await page.getByRole("button", { name: "Use the bank's number for Groceries" }).click();
+  await expect(page.getByLabel("Groceries each month")).toHaveValue("275");
+  await expect(hero).toContainText("$669");
+  await expect(groceries).not.toContainText("You typed");
+  await expect(page.getByRole("button", { name: "Use the bank's number for Groceries" })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByLabel("Groceries each month")).toHaveValue("275");
+  await expect(groceries).not.toContainText("You typed");
+  await expect(hero).toContainText("$669");
+  expect((await asStudent(context, { table: "budget_amounts" })).body).toEqual([]);
+  // Typed again for the Short steps below.
+  await page.getByLabel("Groceries each month").fill("300");
+  await page.getByLabel("Groceries each month").press("Enter");
+  await expect(groceries).toContainText("You typed");
 
   // Short: eating out at $1,000 is 286 short, and fixed costs did not pass income.
   await page.getByLabel("Eating out each month").fill("1000");
@@ -531,6 +551,7 @@ test("signed out: the screens send to sign-in and the API refuses", async ({ pag
   expect((await page.request.put("/api/v1/safe-to-spend/answers", { data: {} })).status()).toBe(401);
   expect((await page.request.get("/api/v1/budget")).status()).toBe(401);
   expect((await page.request.put("/api/v1/budget/lines/groceries", { data: { amountCents: 1 } })).status()).toBe(401);
+  expect((await page.request.delete("/api/v1/budget/lines/groceries")).status()).toBe(401);
   expect(received).toEqual([]);
 });
 
@@ -554,6 +575,7 @@ test("another student sees none of the first student's bank data, in the app or 
   // No budget without a bank of their own, and none of the owner's numbers.
   expect((await other.request.get("/api/v1/budget")).status()).toBe(404);
   expect((await other.request.put("/api/v1/budget/lines/income", { data: { amountCents: 1 } })).status()).toBe(404);
+  expect((await other.request.delete("/api/v1/budget/lines/income")).status()).toBe(404);
   expect(await asStudent(otherContext, { rpc: "spending_by_detailed_category", args: { p_month: lastMonth() } })).toEqual({ status: 200, body: [] });
 
   for (const table of ["bank_links", "bank_balances", "bill_coverage", "budget_amounts"]) {
@@ -573,6 +595,7 @@ test("another student sees none of the first student's bank data, in the app or 
 
   // The owner's data is untouched.
   expect(await apiStatus(page)).toBe(200);
+  expect((await asStudent(context, { table: "budget_amounts" })).body).toHaveLength(1);
   expect(removedAccessTokens).not.toContain(ownerToken);
   await otherContext.close();
 });

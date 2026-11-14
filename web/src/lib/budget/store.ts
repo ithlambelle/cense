@@ -65,3 +65,11 @@ export async function saveBudgetLine(student: Student, line: LineKey, amountCent
   if (error) return { ok: false, error };
   return { ok: true, value: true };
 }
+
+// Deletes the student's own number for one line, so it follows the bank's
+// again. Deleting a line with no row is not an error.
+export async function deleteBudgetLine(student: Student, line: LineKey): Promise<StoreResult<null>> {
+  const { error } = await student.supabase.from("budget_amounts").delete().eq("student_id", student.studentId).eq("line", line);
+  if (error) return { ok: false, error };
+  return { ok: true, value: null };
+}

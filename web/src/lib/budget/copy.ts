@@ -33,6 +33,11 @@ export function bankMonthLine(monthName: string): string {
   return `Bank numbers are from ${monthName}.`;
 }
 
+// The small undo next to a typed line's amount, as a screen reader says it.
+export function bankNumberLabel(label: string): string {
+  return `Use the bank's number for ${label}`;
+}
+
 // Income with nothing seen in the month.
 export function noIncomeLine(monthName: string): string {
   return `None seen in ${monthName}`;

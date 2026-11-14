@@ -697,7 +697,8 @@ export interface paths {
         /** Save the student's own monthly number for one line, in place of the bank's */
         put: operations["saveBudgetLine"];
         post?: never;
-        delete?: never;
+        /** Go back to the bank's number for one line: delete the student's own */
+        delete: operations["deleteBudgetLine"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3576,6 +3577,64 @@ export interface operations {
                 };
             };
             /** @description Unknown line or invalid amount */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description No bank linked */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable or safe to spend off */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    deleteBudgetLine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                line: "income" | "rent_and_bills" | "groceries" | "transportation" | "school_supplies" | "health" | "student_loans" | "eating_out" | "entertainment" | "subscriptions" | "shopping_and_personal_care" | "travel" | "other";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Budget"];
+                };
+            };
+            /** @description Unknown line */
             400: {
                 headers: {
                     [name: string]: unknown;
