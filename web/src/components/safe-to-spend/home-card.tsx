@@ -19,8 +19,8 @@ const NAVY_LINK =
 // "Home with safe to spend" (Figma 222:2133). Linked but not answered: a
 // prompt to finish. Not linked: an invitation to try the sandbox preview.
 // Nothing at all when safe to spend is off (no Plaid settings).
-// `preview` false drops the Preview label: Home's approval celebration never
-// says "Preview" (Ben, 2026-11-08).
+// `preview` false drops the Preview label from the invite and setup cards:
+// Home's approval celebration never says "Preview" (Ben, 2026-11-08).
 export function SafeToSpendHome({ safeToSpend, preview = true }: { safeToSpend: SafeToSpend | null; preview?: boolean }) {
   if (safeToSpend === null) {
     return (
@@ -46,8 +46,9 @@ export function SafeToSpendHome({ safeToSpend, preview = true }: { safeToSpend: 
     <section aria-label="Safe to spend" className="relative flex flex-col rounded-[28px] bg-navy px-[23px] pt-[27px] pb-4 text-white shadow-glow-form">
       <div className="flex items-start justify-between gap-3">
         <p className="text-body-m leading-[18px] font-semibold">Safe to spend today:</p>
+        {/* No Preview label on the number (Ben, 2026-11-14); the invite and
+            setup cards keep it. */}
         <span className="flex items-center gap-3">
-          {preview ? <PreviewLabel onNavy className="-mt-0.5" /> : null}
           {/* The whole card opens Your money (D1 decided: tapping the card
               opens D2, no "How we got this" button). The chevron is the
               link; its tap area covers the card. */}

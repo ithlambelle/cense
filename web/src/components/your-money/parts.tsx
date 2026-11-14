@@ -5,7 +5,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { PreviewLabel } from "@/components/safe-to-spend/parts";
 import { SENSITIVE } from "@/lib/analytics";
 import { YOUR_MONEY_COPY } from "@/lib/budget/copy";
 import { moneyAmount } from "@/lib/money";
@@ -21,7 +20,6 @@ export function MoneyHero({
   unit,
   left,
   right,
-  preview = true,
 }: {
   label: string;
   amount: ReactNode;
@@ -29,16 +27,15 @@ export function MoneyHero({
   unit?: string;
   left: ReactNode;
   right?: ReactNode;
-  preview?: boolean;
 }) {
   return (
     <section aria-label={label.replace(/:$/, "")} className="flex min-h-[150px] flex-col rounded-[28px] bg-navy px-[23px] pt-[22px] pb-[18px] text-white">
       {/* 36px tall with the number pulled up 7px in the frame (709:1526):
           29px here, so a label that wraps at 320 wide pushes the number down
           instead of running into it. */}
-      <div className="flex min-h-[29px] items-start justify-between gap-3">
+      {/* No Preview label on the number (Ben, 2026-11-14). */}
+      <div className="flex min-h-[29px] items-start">
         <p className="text-body-m leading-[18px] font-semibold">{label}</p>
-        {preview ? <PreviewLabel onNavy className="-mt-0.5" /> : null}
       </div>
       <p className={cn(SENSITIVE, "font-number text-[44px] leading-[44px] font-bold text-light-blue")}>
         {amount}
