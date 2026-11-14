@@ -2,7 +2,7 @@
 
 // Created with Claude Code (2026-11-13). Your money, Today (Figma D2,
 // 709:1520): how the daily number adds up. Rows from the bank are read only;
-// rows the student typed (their bills and the set-aside) are edited right on
+// rows the student typed (their bills and the savings goal) are edited right on
 // the page and saved as the same answers Change your answers saves
 // (PUT /safe-to-spend/answers). Disconnect lives on Accounts (E4), not here.
 import Link from "next/link";
@@ -31,13 +31,16 @@ function paidBills(bills: BillAnswer[]): BillAnswer[] {
   return bills.filter((answer) => answer.coveredBy === "me" || answer.coveredBy === "split");
 }
 
-// "You cover it · due the 15th" (709:1551); "Your share" for a split bill.
-// A bill whose day has passed this month is out of the sum already.
-function billLine(answer: BillAnswer, today: number): string {
-  const who = answer.coveredBy === "split" ? "Your share" : "You cover it";
-  if (answer.dueDay === null) return `${who} · ${YOUR_MONEY_COPY.eachMonth.toLowerCase()}`;
-  const due = `due ${ordinalDay(answer.dueDay)}`;
-  return billCents(answer, today) === 0 ? `${who} · ${due}, done this month` : `${who} · ${due}`;
+// "Due the 15th" (709:1551, without "You cover it", Ben, Nov 14), and
+// "Your share · due the 15th" for a split bill. A bill whose day has passed
+// this month is out of the sum already: "Due the 12th, done this month". A
+// bill with no due day (tuition) has no line, or just "Your share".
+function billLine(answer: BillAnswer, today: number): string | null {
+  const share = answer.coveredBy === "split" ? "Your share" : null;
+  if (answer.dueDay === null) return share;
+  const day = ordinalDay(answer.dueDay);
+  const done = billCents(answer, today) === 0 ? ", done this month" : "";
+  return share ? `${share} · due ${day}${done}` : `Due ${day}${done}`;
 }
 
 function initialValues(data: SafeToSpendData): Record<FieldKey, string> {
@@ -134,7 +137,7 @@ export function TodayTab({ data, today }: { data: SafeToSpendData; today: number
   const broken = data.status !== "active";
   const time = (options: Intl.DateTimeFormatOptions) =>
     now && data.refreshedAt ? new Date(data.refreshedAt).toLocaleString("en-US", options) : "";
-  const field = (key: FieldKey, label: string, sub: string, fieldLabel: string) => (
+  const field = (key: FieldKey, label: string, sub: string | null, fieldLabel: string) => (
     <EditRow
       key={key}
       id={`your-money-${key}`}
@@ -179,10 +182,10 @@ export function TodayTab({ data, today }: { data: SafeToSpendData; today: number
           {paidBills(bills).map((answer) =>
             field(answer.bill, BILL_COPY[answer.bill].label, billLine(answer, today), `${BILL_COPY[answer.bill].label} each month`),
           )}
-          {field(SET_ASIDE, YOUR_MONEY_COPY.setAside, YOUR_MONEY_COPY.eachMonth, "Set aside each month")}
+          {field(SET_ASIDE, YOUR_MONEY_COPY.setAside, null, YOUR_MONEY_COPY.setAside)}
           <TotalRow label={`Left for ${sum.days} days · ${moneyAmount(sum.dailyCents)} a day`} value={signedMoney(sum.leftCents)} />
         </ul>
-        {sum.leftCents < 0 ? <p className="text-body-s text-indigo-black">Cards, bills and set aside are more than your checking.</p> : null}
+        {sum.leftCents < 0 ? <p className="text-body-s text-indigo-black">Cards, bills and your savings goal are more than your checking.</p> : null}
       </section>
 
       {refreshError ? <ErrorMessage>{refreshError}</ErrorMessage> : null}

@@ -177,7 +177,7 @@ test("a student links the sandbox bank, says who covers what, and sees safe to s
   await expect(bank.getByRole("listitem").filter({ hasText: "Card balances" })).toContainText("$310");
   await expect(page.getByLabel("Rent each month")).toHaveValue("650");
   await expect(page.getByLabel("Phone each month")).toHaveValue("40");
-  await expect(page.getByLabel("Set aside each month")).toHaveValue("50");
+  await expect(page.getByLabel("Savings goal")).toHaveValue("50");
   const fromYou = page.getByRole("list", { name: "From you" });
   await expect(fromYou.getByRole("listitem").filter({ hasText: "Left for 30 days" })).toContainText("$190");
   await expect(fromYou.getByRole("listitem").filter({ hasText: "Left for 30 days" })).toContainText(`${DAILY} a day`);
@@ -253,12 +253,17 @@ test("Your money: a student edits a bill on Today, reads This month from their o
   await page.getByLabel("Rent each month").press("Enter");
   await expect(page.getByRole("region", { name: "Safe to spend today" })).toContainText("$4.66");
   // Not an amount: flagged, nothing saved.
-  await page.getByLabel("Set aside each month").fill("lots");
-  await page.getByLabel("Set aside each month").press("Enter");
+  await page.getByLabel("Savings goal").fill("lots");
+  await page.getByLabel("Savings goal").press("Enter");
   await expect(page.getByRole("main").getByRole("alert")).toContainText("Use an amount like 25 or 25.50.");
   await page.reload();
   await expect(page.getByLabel("Rent each month")).toHaveValue("700");
-  await expect(page.getByLabel("Set aside each month")).toHaveValue("50");
+  await expect(page.getByLabel("Savings goal")).toHaveValue("50");
+  // The bills say when they are due, never "You cover it" (Ben, Nov 14).
+  const fromYouToday = page.getByRole("list", { name: "From you" });
+  await expect(fromYouToday.getByRole("listitem").filter({ hasText: "Phone" })).toContainText("Your share · due the");
+  await expect(fromYouToday).not.toContainText("You cover it");
+  await expect(fromYouToday).not.toContainText("Each month");
   // The same answers as Change your answers: the questions show the new rent.
   await page.goto("/safe-to-spend/setup");
   await expect(page.getByLabel("Your rent each month")).toHaveValue("700");
@@ -279,7 +284,8 @@ test("Your money: a student edits a bill on Today, reads This month from their o
   await expect(page.getByLabel("Groceries each month")).toHaveValue("275");
   await expect(page.getByLabel("Eating out each month")).toHaveValue("70");
   await expect(page.getByLabel("Shopping and personal care each month")).toHaveValue("50");
-  await expect(page.getByText("Educational, not financial advice.")).toBeVisible();
+  await expect(page.getByLabel("Savings goal")).toHaveValue("50");
+  await expect(page.getByText("Educational, not financial advice.")).toHaveCount(0);
   await checkA11y("your money: this month");
 
   // Edit a line: the total moves as typed, the number is the student's after a reload.
@@ -322,7 +328,7 @@ test("This month waits for the bank's transactions, then shows them after Refres
   const hero = page.getByRole("region", { name: /each month/ });
   await expect(hero).toContainText("Not yet");
   await expect(hero).toContainText("No transactions from your bank yet");
-  await expect(page.getByText("Educational, not financial advice.")).toBeVisible();
+  await expect(page.getByText("Educational, not financial advice.")).toHaveCount(0);
 
   behavior.transactions = "ok";
   await page.goto("/settings/accounts");

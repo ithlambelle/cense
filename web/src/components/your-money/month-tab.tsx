@@ -14,7 +14,7 @@ import type { Budget } from "@/lib/api/budget";
 import { saveBudgetLine, type BudgetLineKey } from "@/lib/api-client/budget";
 import { parseAmount, saveSafeToSpendAnswers, type BillAnswer } from "@/lib/api-client/safe-to-spend";
 import { parseDollarsToCents } from "@/lib/budget/amount";
-import { bankMonthLine, EDUCATIONAL_DISCLAIMER, noIncomeLine, YOUR_MONEY_COPY } from "@/lib/budget/copy";
+import { bankMonthLine, noIncomeLine, YOUR_MONEY_COPY } from "@/lib/budget/copy";
 import { monthName, summarize, type BudgetLine, type BudgetLines } from "@/lib/budget/lines";
 import { moneyAmount } from "@/lib/money";
 import { signInPath, yourMoneyPath } from "@/lib/routes";
@@ -107,7 +107,7 @@ export function MonthTab({ budget, answers }: { budget: Budget; answers: { bills
       id={`your-money-${line.key}`}
       label={line.label}
       sub={sub(line)}
-      fieldLabel={`${line.label} each month`}
+      fieldLabel={line.group === "saving" ? line.label : `${line.label} each month`}
       value={values[line.key] ?? ""}
       invalid={errors[line.key] !== undefined}
       error={errors[line.key]}
@@ -152,10 +152,7 @@ export function MonthTab({ budget, answers }: { budget: Budget; answers: { bills
       {group("needs", YOUR_MONEY_COPY.needs, lines.needs)}
       {group("wants", YOUR_MONEY_COPY.wants, lines.wants)}
       {group("saving", YOUR_MONEY_COPY.saving, [{ ...lines.saving, label: YOUR_MONEY_COPY.setAside }])}
-      <div className="flex flex-col gap-1 pt-2 text-[13px] leading-[18px] text-indigo-black/70">
-        {budget.hasBankData ? <p>{bankMonthLine(month)}</p> : null}
-        <p>{EDUCATIONAL_DISCLAIMER}</p>
-      </div>
+      {budget.hasBankData ? <p className="pt-2 text-[13px] leading-[18px] text-indigo-black/70">{bankMonthLine(month)}</p> : null}
     </>
   );
 }

@@ -2,11 +2,6 @@
 // Figma 709:1520, 709:1769, 709:1865). Kept short: read on a phone, and never
 // telling a student what to do.
 
-// Not in the frames; added per the Recommendation Language Guide. Still
-// undecided (Ben, Nov 13): rendered once, on the This month tab, from this
-// constant only, so taking it out is deleting one line in month-tab.tsx.
-export const EDUCATIONAL_DISCLAIMER = "Educational, not financial advice.";
-
 export const YOUR_MONEY_COPY = {
   title: "Your money",
   tabs: { today: "Today", month: "This month" },
@@ -16,8 +11,8 @@ export const YOUR_MONEY_COPY = {
   fromYou: "From you",
   cash: "Cash in checking",
   cards: "Card balances",
-  setAside: "Set aside",
-  eachMonth: "Each month",
+  // The set-aside from the safe-to-spend answers, on both tabs (Ben, Nov 14).
+  setAside: "Savings goal",
   // This month (709:1769, 709:1865)
   leftLabel: "Left over each month:",
   shortLabel: "Short each month by:",

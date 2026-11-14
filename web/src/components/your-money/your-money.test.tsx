@@ -21,7 +21,6 @@ vi.mock("@/lib/api-client/budget", () => ({ saveBudgetLine: (...args: unknown[])
 
 import type { Budget } from "@/lib/api/budget";
 import type { SafeToSpendData } from "@/lib/api-client/safe-to-spend";
-import { EDUCATIONAL_DISCLAIMER } from "@/lib/budget/copy";
 import { buildBudgetLines, summarize } from "@/lib/budget/lines";
 
 import { AccountsView, accountKinds } from "./accounts-view";
@@ -107,9 +106,15 @@ describe("Your money, Today (709:1520)", () => {
     const bank = within(screen.getByRole("list", { name: "From your bank" }));
     expect(bank.getByText("Cash in checking").parentElement!.textContent).toBe("Cash in checking$2,100");
     expect(bank.getByText("Card balances").parentElement!.textContent).toBe("Card balances−$240");
-    expect(screen.getByText("You cover it · due the 15th")).toBeTruthy();
+    expect(screen.getByText("Due the 15th")).toBeTruthy();
+    expect(screen.queryByText(/You cover it/)).toBeNull();
     expect((screen.getByLabelText("Rent each month") as HTMLInputElement).value).toBe("650");
-    expect((screen.getByLabelText("Set aside each month") as HTMLInputElement).value).toBe("100");
+    // The set-aside is the savings goal, with no line under it.
+    const goal = screen.getByLabelText("Savings goal") as HTMLInputElement;
+    expect(goal.value).toBe("100");
+    // The row's words, the field's value aside.
+    expect(goal.closest("li")!.textContent).toBe("Savings goal$");
+    expect(screen.queryByText(/Each month|Set aside/i)).toBeNull();
     expect(screen.getByText("Left for 30 days · $35.66 a day").parentElement!.textContent).toContain("$1,070");
     expect(track).toHaveBeenCalledWith("your_money_viewed", { tab: "today" });
   });
@@ -148,10 +153,10 @@ describe("Your money, Today (709:1520)", () => {
 
   it("refuses text that is not an amount and saves nothing", async () => {
     render(<YourMoneyView tab="today" data={DATA} budget={null} today={5} />);
-    type("Set aside each month", "a lot");
-    await commit("Set aside each month");
+    type("Savings goal", "a lot");
+    await commit("Savings goal");
     expect(screen.getByRole("alert").textContent).toBe("Use an amount like 25 or 25.50.");
-    expect(screen.getByLabelText("Set aside each month").getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByLabelText("Savings goal").getAttribute("aria-invalid")).toBe("true");
     expect(saveSafeToSpendAnswers).not.toHaveBeenCalled();
   });
 
@@ -172,7 +177,30 @@ describe("Your money, Today (709:1520)", () => {
 
   it("says a bill whose day has passed is done this month", () => {
     render(<YourMoneyView tab="today" data={DATA} budget={null} today={20} />);
-    expect(screen.getByText("You cover it · due the 15th, done this month")).toBeTruthy();
+    expect(screen.getByText("Due the 15th, done this month")).toBeTruthy();
+    expect(screen.getByText("Due the 12th, done this month")).toBeTruthy();
+  });
+
+  it("keeps the share on a split bill, and has no line for a bill with no due day unless it is split", () => {
+    const bills = [
+      { bill: "rent", coveredBy: "me", monthlyCents: 65000, dueDay: 15 },
+      { bill: "phone", coveredBy: "split", monthlyCents: 4000, dueDay: 12 },
+      { bill: "tuition", coveredBy: "me", monthlyCents: 10000, dueDay: null },
+      { bill: "groceries", coveredBy: "split", monthlyCents: 20000, dueDay: null },
+      { bill: "car", coveredBy: "none", monthlyCents: null, dueDay: null },
+    ] as SafeToSpendData["bills"];
+    render(<YourMoneyView tab="today" data={{ ...DATA, bills }} budget={null} today={5} />);
+    // The row's words, the field's value aside.
+    const line = (label: string) => screen.getByLabelText(label).closest("li")!.textContent;
+    expect(line("Phone each month")).toBe("PhoneYour share · due the 12th$");
+    expect(line("Tuition each month")).toBe("Tuition$");
+    expect(line("Groceries each month")).toBe("GroceriesYour share$");
+  });
+
+  it("says when cards, bills and the savings goal are more than checking", () => {
+    render(<YourMoneyView tab="today" data={DATA} budget={null} today={5} />);
+    type("Savings goal", "5000");
+    expect(screen.getByText("Cards, bills and your savings goal are more than your checking.")).toBeTruthy();
   });
 
   it("sends a broken bank link to Accounts instead of showing a number", () => {
@@ -198,7 +226,8 @@ describe("Your money, This month (709:1769)", () => {
     expect(within(screen.getByRole("list", { name: "Saving" })).getByText("You typed")).toBeTruthy();
     expect((screen.getByLabelText("Income each month") as HTMLInputElement).value).toBe("2,080");
     expect(screen.getByText("Bank numbers are from October.")).toBeTruthy();
-    expect(screen.getByText(EDUCATIONAL_DISCLAIMER)).toBeTruthy();
+    expect(within(screen.getByRole("list", { name: "Saving" })).getByLabelText("Savings goal")).toBeTruthy();
+    expect(screen.queryByText(/financial advice/)).toBeNull();
     expect(track).toHaveBeenCalledWith("your_money_viewed", { tab: "this_month" });
   });
 
@@ -228,8 +257,8 @@ describe("Your money, This month (709:1769)", () => {
 
   it("saves the saving line as the set-aside, with the bill answers unchanged", async () => {
     render(<YourMoneyView tab="month" data={DATA} budget={budget()} today={5} />);
-    type("Set aside each month", "150");
-    await commit("Set aside each month");
+    type("Savings goal", "150");
+    await commit("Savings goal");
     expect(saveSafeToSpendAnswers).toHaveBeenCalledWith({ bills: DATA.bills, setAsideCents: 15000 });
     expect(saveBudgetLine).not.toHaveBeenCalled();
   });
@@ -257,7 +286,7 @@ describe("Your money, This month (709:1769)", () => {
     expect(hero().textContent).toContain("Not yet");
     expect(hero().textContent).toContain("No transactions from your bank yet");
     expect(screen.queryByText(/Bank numbers are from/)).toBeNull();
-    expect(screen.getByText(EDUCATIONAL_DISCLAIMER)).toBeTruthy();
+    expect(screen.queryByText(/financial advice/)).toBeNull();
   });
 });
 
