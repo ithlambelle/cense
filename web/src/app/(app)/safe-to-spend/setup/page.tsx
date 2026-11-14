@@ -11,7 +11,7 @@ import { requireStudent } from "@/lib/session";
 export const metadata: Metadata = { title: "Who covers what | CENSE" };
 
 // Who covers which bills, then the set-aside (US-12, Figma 222:2090). Opens
-// after a bank is linked, and again from How we got this to change answers.
+// after a bank is linked, and again from Accounts to change answers.
 export default async function SafeToSpendSetupPage({ searchParams }: PageProps<"/safe-to-spend/setup">) {
   const student = await requireStudent(ROUTES.safeToSpendSetup);
   if (!plaidConfig()) notFound();

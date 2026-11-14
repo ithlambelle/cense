@@ -1,3 +1,4 @@
+import ChevronRight from "@gravity-ui/icons/ChevronRight";
 import Wallet from "@gravity-ui/icons/Wallet";
 import Link from "next/link";
 
@@ -42,10 +43,24 @@ export function SafeToSpendHome({ safeToSpend, preview = true }: { safeToSpend: 
     );
   }
   return (
-    <section aria-label="Safe to spend" className="flex flex-col rounded-[28px] bg-navy px-[23px] pt-[27px] pb-4 text-white shadow-glow-form">
+    <section aria-label="Safe to spend" className="relative flex flex-col rounded-[28px] bg-navy px-[23px] pt-[27px] pb-4 text-white shadow-glow-form">
       <div className="flex items-start justify-between gap-3">
         <p className="text-body-m leading-[18px] font-semibold">Safe to spend today:</p>
-        {preview ? <PreviewLabel onNavy className="-mt-0.5" /> : null}
+        <span className="flex items-center gap-3">
+          {preview ? <PreviewLabel onNavy className="-mt-0.5" /> : null}
+          {/* The whole card opens Your money (D1 decided: tapping the card
+              opens D2, no "How we got this" button). The chevron is the
+              link; its tap area covers the card. */}
+          {safeToSpend.status === "active" ? (
+            <Link
+              href={ROUTES.safeToSpend}
+              aria-label="Your money"
+              className="rounded-[28px] after:absolute after:inset-0 after:rounded-[28px] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-off-white"
+            >
+              <ChevronRight aria-hidden="true" width={12} height={20} />
+            </Link>
+          ) : null}
+        </span>
       </div>
       {/* A broken link shows what to do, never the last number as if current. */}
       {safeToSpend.status !== "active" ? (
@@ -53,7 +68,7 @@ export function SafeToSpendHome({ safeToSpend, preview = true }: { safeToSpend: 
           <p className="pt-3 text-body-s">
             {safeToSpend.status === "reconnect_needed" ? SAFE_TO_SPEND_COPY.reconnect : SAFE_TO_SPEND_COPY.relink}
           </p>
-          <Link href={ROUTES.safeToSpend} className={cn(NAVY_LINK, "self-start")}>
+          <Link href={ROUTES.accounts} className={cn(NAVY_LINK, "self-start")}>
             {safeToSpend.status === "reconnect_needed" ? "Reconnect your bank" : "Connect again"}
           </Link>
         </>
@@ -66,9 +81,6 @@ export function SafeToSpendHome({ safeToSpend, preview = true }: { safeToSpend: 
           </p>
           <div className="flex items-center justify-between gap-3 pt-2 text-body-s">
             <p>For the next {safeToSpend.days} days</p>
-            <Link href={ROUTES.safeToSpend} className={NAVY_LINK}>
-              How we got this
-            </Link>
           </div>
           <RefreshWhenStale refreshedAt={safeToSpend.refreshedAt} />
         </>

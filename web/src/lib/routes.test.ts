@@ -41,6 +41,7 @@ describe("allowedNext", () => {
     "/safe-to-spend/setup",
     "/settings",
     "/settings/reminders",
+    "/settings/accounts",
     "/home?reminder=statement_closing",
     "/home?reminder=reapply",
     "/updates",

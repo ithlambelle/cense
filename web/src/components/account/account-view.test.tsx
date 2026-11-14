@@ -36,9 +36,9 @@ describe("AccountView", () => {
     expect(screen.queryByRole("heading", { name: "Updates" })).toBeNull();
   });
 
-  it("shows Accounts, to the linked bank, only once a bank is linked", () => {
+  it("shows Accounts (Figma E4), only once a bank is linked", () => {
     render(<AccountView email={null} card={CARD} bankLinked />);
-    expect(screen.getByRole("link", { name: "Accounts" }).getAttribute("href")).toBe("/safe-to-spend");
+    expect(screen.getByRole("link", { name: "Accounts" }).getAttribute("href")).toBe("/settings/accounts");
   });
 
   it("shows Updates with the new count, the latest one and See all, both to Updates", () => {

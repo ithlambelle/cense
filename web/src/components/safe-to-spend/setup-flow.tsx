@@ -177,7 +177,7 @@ export function SetupFlow({
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
-        <StepHeader href={backHref} label={step === 1 ? (answered ? "How we got this" : "Home") : "the last question"} />
+        <StepHeader href={backHref} label={step === 1 ? (answered ? "Your money" : "Home") : "the last question"} />
         <main className="flex flex-1 flex-col">
           {step <= BILLS.length ? (
             <BillStep

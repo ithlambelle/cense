@@ -61,7 +61,8 @@ const SCREEN_NAMES: Record<string, string> = {
   [ROUTES.denied]: "Denial options",
   [`${ROUTES.denied}/plan`]: "Plan",
   [ROUTES.addCard]: "Add a card",
-  [ROUTES.safeToSpend]: "Safe to spend",
+  [ROUTES.safeToSpend]: "Your money",
+  [ROUTES.accounts]: "Accounts",
   [ROUTES.updates]: "Updates",
 };
 

@@ -23,14 +23,18 @@ export const ROUTES = {
   forgotPassword: "/forgot-password",
   // Opened from the password reset email.
   resetPassword: "/reset-password",
-  // Safe to spend on a Plaid sandbox bank (US-12): How we got this, the
-  // consent screen before Link, and who covers which bills.
+  // Safe to spend on a Plaid sandbox bank (US-12): Your money (Today and This
+  // month tabs, Figma 709:1520 and 709:1769), the consent screen before Link,
+  // and who covers which bills.
   safeToSpend: "/safe-to-spend",
   safeToSpendConnect: "/safe-to-spend/connect",
   safeToSpendSetup: "/safe-to-spend/setup",
   // Security and privacy (the "Soon" row of Profile, Figma 222:2282): the
   // Analytics switch and Delete my account.
   privacy: "/settings/privacy",
+  // Accounts (Figma E4, 709:1609): the linked bank's Refresh now, Change your
+  // answers and Disconnect bank, opened from Profile once a bank is linked.
+  accounts: "/settings/accounts",
   // Where a student lands, signed out, once their account is deleted.
   accountDeleted: "/account-deleted",
   // Where Log out and Switch account land (Flow F, F8): Welcome back, with
@@ -43,6 +47,13 @@ export const ROUTES = {
   learn: "/learn",
   penny: "/learn/penny",
 } as const;
+
+// Your money's tabs: Today (how safe to spend adds up) or This month (the budget).
+export type YourMoneyTab = "today" | "month";
+
+export function yourMoneyPath(tab: YourMoneyTab = "today"): string {
+  return tab === "today" ? ROUTES.safeToSpend : `${ROUTES.safeToSpend}?tab=month`;
+}
 
 // One step of who covers which bills (1 to 5), or the set-aside (6).
 export function safeToSpendSetupPath(step = 1): string {
@@ -301,6 +312,7 @@ const NEXT_ALLOW_LIST: readonly string[] = [
   ROUTES.safeToSpendSetup,
   ROUTES.settings,
   ROUTES.reminderSettings,
+  ROUTES.accounts,
   ROUTES.learn,
   ROUTES.penny,
   ROUTES.updates,
