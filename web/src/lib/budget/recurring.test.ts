@@ -6,7 +6,7 @@ import { detectRecurringTransactions, type RecurringTransaction } from "./recurr
 
 function series(dates: string[], overrides: Partial<RecurringTransaction> = {}): RecurringTransaction[] {
   return dates.map((posted_on) => ({
-    transaction_id: `${overrides.account_id ?? "checking"}:${overrides.merchant_name ?? "Internet"}:${posted_on}`,
+    transaction_id: `${overrides.account_id ?? "checking"}:${overrides.merchant_name ?? "Internet"}:${overrides.amount_cents ?? 5000}:${posted_on}`,
     account_id: "checking", posted_on, amount_cents: 5000, pending: false,
     category: "GENERAL_SERVICES", merchant_name: "Internet", ...overrides,
   }));
@@ -50,9 +50,49 @@ describe("recurring transaction suggestions", () => {
       ...series(dates, { merchant_name: "Transfer", category: "TRANSFER_OUT" }),
       ...series(dates, { merchant_name: "Payment", category: "LOAN_PAYMENTS" }),
       ...series(dates, { merchant_name: "Duplicate", transaction_id: "same-id" }),
-      ...series(dates, { merchant_name: null, category: "INCOME", amount_cents: -5000 }),
     ];
     expect(detectRecurringTransactions(inputs, "2026-11-11")).toEqual([]);
+  });
+
+  it("suggests named family support but excludes matched transfers and payment-app cash-outs", () => {
+    const dates = ["2026-09-03", "2026-10-03", "2026-11-03"];
+    const transfer = { category: "TRANSFER_IN", category_detailed: "TRANSFER_IN_OTHER_TRANSFER_IN" };
+    const inputs = [
+      ...series(dates, { ...transfer, merchant_name: "Zelle from Ana", amount_cents: -15000 }),
+      ...series(dates, { ...transfer, merchant_name: "Bank move", amount_cents: -10000 }),
+      ...series(["2026-09-01", "2026-10-01", "2026-11-01"], {
+        account_id: "savings", category: "TRANSFER_OUT", amount_cents: 10000,
+      }),
+      ...series(dates, { ...transfer, merchant_name: "Venmo Cash-Out", amount_cents: -25000 }),
+      ...series(dates, { ...transfer, category_detailed: "TRANSFER_IN_ACCOUNT_TRANSFER", amount_cents: -30000 }),
+      ...series(dates, { ...transfer, category_detailed: "TRANSFER_IN_TRANSFER_IN_FROM_APPS", amount_cents: -35000 }),
+    ];
+    expect(detectRecurringTransactions(inputs, "2026-11-11")).toMatchObject([
+      { name: "Zelle from Ana", kind: "income", familySupport: true, amountCents: 15000 },
+    ]);
+  });
+
+  it("keeps distinct unnamed income amounts apart and leaves deposits unlabeled as family support", () => {
+    const dates = ["2026-09-03", "2026-10-03", "2026-11-03"];
+    const wages = { merchant_name: null, category: "INCOME", category_detailed: "INCOME_WAGES" };
+    const candidates = detectRecurringTransactions([
+      ...series(dates, { ...wages, amount_cents: -30000 }),
+      ...series(dates, { ...wages, amount_cents: -65000 }),
+      ...series(dates, { ...wages, category: "TRANSFER_IN", category_detailed: "TRANSFER_IN_DEPOSIT", amount_cents: -10000 }),
+    ], "2026-11-11");
+    expect(candidates.map(({ name, kind, amountCents, familySupport }) => [name, kind, amountCents, familySupport]).sort())
+      .toEqual([["Deposit", "income", 10000, undefined], ["Income", "income", 30000, undefined], ["Income", "income", 65000, undefined]]);
+    expect(new Set(candidates.map(({ key }) => key)).size).toBe(3);
+  });
+
+  it("suggests student loan payments while excluding credit card payments", () => {
+    const dates = ["2026-09-03", "2026-10-03", "2026-11-03"];
+    expect(detectRecurringTransactions([
+      ...series(dates, { merchant_name: null, category: "LOAN_PAYMENTS", category_detailed: "LOAN_PAYMENTS_STUDENT_LOAN_PAYMENT" }),
+      ...series(dates, { merchant_name: "Card payment", category: "LOAN_PAYMENTS", category_detailed: "LOAN_PAYMENTS_CREDIT_CARD_PAYMENT" }),
+    ], "2026-11-11")).toMatchObject([
+      { name: "Student loan payment", kind: "bill", cadence: "monthly" },
+    ]);
   });
 
   it("does not combine evidence across accounts or extrapolate stale, irregular or out-of-window rows", () => {
