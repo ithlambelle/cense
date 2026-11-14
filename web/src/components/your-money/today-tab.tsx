@@ -183,7 +183,8 @@ export function TodayTab({ data, today }: { data: SafeToSpendData; today: number
             field(answer.bill, BILL_COPY[answer.bill].label, billLine(answer, today), `${BILL_COPY[answer.bill].label} each month`),
           )}
           {field(SET_ASIDE, YOUR_MONEY_COPY.setAside, null, YOUR_MONEY_COPY.setAside)}
-          <TotalRow label={`Left for ${sum.days} days · ${moneyAmount(sum.dailyCents)} a day`} value={signedMoney(sum.leftCents)} />
+          {/* No line break inside "$4.33 a day" at 320. */}
+          <TotalRow label={`Left for ${sum.days} days · ${moneyAmount(sum.dailyCents)}\u00a0a\u00a0day`} value={signedMoney(sum.leftCents)} />
         </ul>
         {sum.leftCents < 0 ? <p className="text-body-s text-indigo-black">Cards, bills and your savings goal are more than your checking.</p> : null}
       </section>

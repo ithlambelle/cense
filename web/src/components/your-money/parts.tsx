@@ -42,7 +42,13 @@ export function MoneyHero({
       </div>
       <p className={cn(SENSITIVE, "font-number text-[44px] leading-[44px] font-bold text-light-blue")}>
         {amount}
-        {unit ? <span className="text-[20px]">{unit}</span> : null}
+        {/* "a day" never splits over two lines at 320; it moves down whole. */}
+        {unit ? (
+          <span className="text-[20px]">
+            {" "}
+            <span className="whitespace-nowrap">{unit.trim()}</span>
+          </span>
+        ) : null}
       </p>
       <div className="flex items-start justify-between gap-3 pt-[13px] text-body-s leading-4">
         <p>{left}</p>
