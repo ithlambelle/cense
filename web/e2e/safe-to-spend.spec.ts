@@ -260,7 +260,7 @@ test("Your money: a student edits a bill on Today, reads This month from their o
   await expect(page.getByLabel("Rent each month")).toHaveValue("700");
   await expect(page.getByLabel("Savings goal")).toHaveValue("50");
   // The bills say when they are due, never "You cover it" (Ben, Nov 14).
-  const fromYouToday = page.getByRole("list", { name: "From you" });
+  const fromYouToday = page.getByRole("list", { name: "From you", exact: true });
   await expect(fromYouToday.getByRole("listitem").filter({ hasText: "Phone" })).toContainText("Your share · due the");
   await expect(fromYouToday).not.toContainText("You cover it");
   await expect(fromYouToday).not.toContainText("Each month");
