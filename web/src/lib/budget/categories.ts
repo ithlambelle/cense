@@ -13,9 +13,12 @@
 // personal care, Travel and Other. Every line stays editable, so a student
 // who disagrees changes the number, not the rule.
 //
-// Not spending: income, money moving between the student's own accounts
-// (Plaid's TRANSFER_IN and TRANSFER_OUT) and credit card payments, which
-// would count a purchase twice. A refund is money in under the purchase's
+// Not spending: income, money coming in (TRANSFER_IN), money moving to the
+// student's own accounts, savings or investments, and credit card payments,
+// which would count a purchase twice. Money sent out is Other: cash taken out
+// and payments to a named person (Ben, Nov 15). spending_by_detailed_category()
+// already leaves out the transfers out that are not spending (no name, a bare
+// payment app, or a match on another of the student's accounts). A refund is money in under the purchase's
 // own category and is subtracted from it (D35). Money in with no category is
 // never a refund (D37); whether it is income is income_by_month's rule.
 //
@@ -45,10 +48,16 @@ export type CategoryGroup = "need" | "want";
 export const CATEGORY_KEYS = BUDGET_CATEGORIES.map((category) => category.key) as CategoryKey[];
 
 // Primary categories that are never spending.
-const NOT_SPENDING_PRIMARY = new Set(["INCOME", "TRANSFER_IN", "TRANSFER_OUT"]);
+const NOT_SPENDING_PRIMARY = new Set(["INCOME", "TRANSFER_IN"]);
 // Detailed categories that are never spending: paying a card pays for
-// purchases already counted when they were made.
-const NOT_SPENDING_DETAILED = new Set(["LOAN_PAYMENTS_CREDIT_CARD_PAYMENT"]);
+// purchases already counted when they were made, and money moved to the
+// student's own accounts is still theirs.
+const NOT_SPENDING_DETAILED = new Set([
+  "LOAN_PAYMENTS_CREDIT_CARD_PAYMENT",
+  "TRANSFER_OUT_ACCOUNT_TRANSFER",
+  "TRANSFER_OUT_SAVINGS",
+  "TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS",
+]);
 
 // Detailed categories that do not follow their primary category's line.
 const BY_DETAILED: Record<string, CategoryKey> = {
@@ -78,6 +87,7 @@ const BY_PRIMARY: Record<string, CategoryKey> = {
   GENERAL_SERVICES: "other",
   BANK_FEES: "other",
   GOVERNMENT_AND_NON_PROFIT: "other",
+  TRANSFER_OUT: "other",
 };
 
 // Cense's category for a transaction with Plaid's primary and detailed

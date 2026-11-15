@@ -12,6 +12,15 @@
 --    (web/src/lib/budget/categories.ts), which also decides what is not
 --    spending (income, transfers between the student's own accounts, card
 --    payments) and nets a refund against its purchase's category (D35).
+--    Money sent out (TRANSFER_OUT) is spending, under Other, only when it is
+--    cash taken out (TRANSFER_OUT_WITHDRAWAL) or a payment to a named person
+--    (rent by Zelle, paying a friend back); the rule mirrors income_by_month's
+--    for money in (Ben, Nov 15). Never spending: transfers to the student's own
+--    accounts, savings or investments, a payment to a bare payment app name
+--    ("Venmo", "Venmo transfer", since topping up a wallet looks the same, D38),
+--    a payment with no name, and money that arrives in another of the
+--    student's accounts as TRANSFER_IN for the same amount within 3 days.
+--    Those rows are left out here, before the totals.
 --    Totals only: never a transaction, a merchant or an account.
 -- 2. public.budget_amounts: the numbers a student typed over the bank's on
 --    This month, one row per line. A line with no row follows the bank.
@@ -49,6 +58,34 @@ as $$
     and p_month is not null
     and t.posted_on >= date_trunc('month', p_month)::date
     and t.posted_on < (date_trunc('month', p_month) + interval '1 month')::date
+    and (
+      t.category is distinct from 'TRANSFER_OUT'
+      or (
+        coalesce(t.category_detailed, '') not in (
+          'TRANSFER_OUT_ACCOUNT_TRANSFER',
+          'TRANSFER_OUT_SAVINGS',
+          'TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS'
+        )
+        and (
+          t.category_detailed = 'TRANSFER_OUT_WITHDRAWAL'
+          or (
+            nullif(btrim(t.merchant_name), '') is not null
+            and btrim(t.merchant_name) !~* '^(venmo|cash ?app|pay ?pal)$'
+            and btrim(t.merchant_name) !~* '\m(venmo|cash ?app|pay ?pal)\M.*\m(cash[ -]?out|transfer)\M'
+          )
+        )
+        and not exists (
+          select 1
+          from plaid.transactions i
+          where i.student_id = t.student_id
+            and i.account_id <> t.account_id
+            and not i.pending
+            and i.category = 'TRANSFER_IN'
+            and i.amount_cents = -t.amount_cents
+            and i.posted_on between t.posted_on - 3 and t.posted_on + 3
+        )
+      )
+    )
   group by t.category, t.category_detailed
   order by 3 desc, 1, 2;
 $$;

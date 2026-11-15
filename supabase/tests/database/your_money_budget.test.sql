@@ -11,7 +11,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(33);
+select plan(36);
 
 -- ana and ben have a linked bank; nobank has none.
 insert into auth.users (id, email) values
@@ -42,6 +42,17 @@ insert into plaid.transactions (student_id, transaction_id, account_id, posted_o
   ('e0000000-0000-4000-8000-000000000001', 'a-this-month', 'acc', date_trunc('month', current_date)::date, 5000, false, 'FOOD_AND_DRINK', 'FOOD_AND_DRINK_GROCERIES'),
   ('e0000000-0000-4000-8000-000000000001', 'a-two-ago', 'acc', (date_trunc('month', current_date) - interval '1 day' * 1 - interval '1 month')::date, 3000, false, 'FOOD_AND_DRINK', 'FOOD_AND_DRINK_GROCERIES'),
   ('e0000000-0000-4000-8000-000000000002', 'b-groc', 'acc', pg_temp.last_month(4), 7700, false, 'FOOD_AND_DRINK', 'FOOD_AND_DRINK_GROCERIES');
+-- Money ana sent out (Ben, Nov 15): cash and a payment to a named person are
+-- spending; a bare "Venmo", no name, a move to savings and a move that lands
+-- in her other account are not.
+insert into plaid.transactions (student_id, transaction_id, account_id, posted_on, amount_cents, pending, category, category_detailed, merchant_name) values
+  ('e0000000-0000-4000-8000-000000000001', 'a-atm', 'acc', pg_temp.last_month(9), 6000, false, 'TRANSFER_OUT', 'TRANSFER_OUT_WITHDRAWAL', null),
+  ('e0000000-0000-4000-8000-000000000001', 'a-zelle-rent', 'acc', pg_temp.last_month(1), 65000, false, 'TRANSFER_OUT', 'TRANSFER_OUT_OTHER_TRANSFER_OUT', 'Zelle to Jordan Lee'),
+  ('e0000000-0000-4000-8000-000000000001', 'a-venmo-bare', 'acc', pg_temp.last_month(11), 2500, false, 'TRANSFER_OUT', 'TRANSFER_OUT_OTHER_TRANSFER_OUT', 'Venmo'),
+  ('e0000000-0000-4000-8000-000000000001', 'a-no-name', 'acc', pg_temp.last_month(13), 1500, false, 'TRANSFER_OUT', 'TRANSFER_OUT_OTHER_TRANSFER_OUT', null),
+  ('e0000000-0000-4000-8000-000000000001', 'a-to-savings', 'acc', pg_temp.last_month(14), 10000, false, 'TRANSFER_OUT', 'TRANSFER_OUT_SAVINGS', 'Savings'),
+  ('e0000000-0000-4000-8000-000000000001', 'a-move-out', 'acc', pg_temp.last_month(16), 30000, false, 'TRANSFER_OUT', 'TRANSFER_OUT_OTHER_TRANSFER_OUT', 'Online transfer'),
+  ('e0000000-0000-4000-8000-000000000001', 'a-move-in', 'acc-other', pg_temp.last_month(17), -30000, false, 'TRANSFER_IN', 'TRANSFER_IN_OTHER_TRANSFER_IN', 'Online transfer');
 
 -- What anon and students can reach.
 select ok(not has_function_privilege('anon', 'public.spending_by_detailed_category(date)', 'execute'), 'anon cannot read monthly totals');
@@ -78,7 +89,13 @@ select is((select out_cents from public.spending_by_detailed_category(pg_temp.la
   700::bigint, 'a transaction with no category is still counted, never dropped');
 select is((select out_cents from public.spending_by_detailed_category(pg_temp.last_month()) where category_detailed = 'TRANSPORTATION_PUBLIC_TRANSIT'),
   100::bigint, 'the first day of the month is in it');
-select is((select count(*)::int from public.spending_by_detailed_category(pg_temp.last_month())), 6,
+select is((select out_cents from public.spending_by_detailed_category(pg_temp.last_month()) where category_detailed = 'TRANSFER_OUT_WITHDRAWAL'),
+  6000::bigint, 'cash taken out is spending');
+select is((select out_cents from public.spending_by_detailed_category(pg_temp.last_month()) where category_detailed = 'TRANSFER_OUT_OTHER_TRANSFER_OUT'),
+  65000::bigint, 'only the payment to a named person counts: not a bare Venmo, no name, or a move to her other account');
+select is((select count(*)::int from public.spending_by_detailed_category(pg_temp.last_month()) where category_detailed = 'TRANSFER_OUT_SAVINGS'),
+  0, 'a move to savings is left out');
+select is((select count(*)::int from public.spending_by_detailed_category(pg_temp.last_month())), 9,
   'one row per detailed category, and nothing from this month or the month before');
 select is((select out_cents from public.spending_by_detailed_category(current_date) where category_detailed = 'FOOD_AND_DRINK_GROCERIES'),
   5000::bigint, 'any day of a month reads that whole month');

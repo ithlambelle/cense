@@ -24,6 +24,12 @@ describe("censeCategory", () => {
     expect(censeCategory("TRANSFER_IN", "TRANSFER_IN_ACCOUNT_TRANSFER")).toBeNull();
     expect(censeCategory("TRANSFER_OUT", "TRANSFER_OUT_SAVINGS")).toBeNull();
     expect(censeCategory("TRANSFER_OUT", "TRANSFER_OUT_ACCOUNT_TRANSFER")).toBeNull();
+    expect(censeCategory("TRANSFER_OUT", "TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS")).toBeNull();
+  });
+
+  it("counts cash taken out and money sent to a person as Other (Ben, Nov 15)", () => {
+    expect(censeCategory("TRANSFER_OUT", "TRANSFER_OUT_WITHDRAWAL")).toBe("other");
+    expect(censeCategory("TRANSFER_OUT", "TRANSFER_OUT_OTHER_TRANSFER_OUT")).toBe("other");
   });
 
   it("maps every D31 purpose Plaid has a category for", () => {
