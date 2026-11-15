@@ -52,7 +52,10 @@ export async function POST(): Promise<Response> {
     // The kind only: never an amount, a merchant or an id.
     console.error(JSON.stringify({ event: "plaid_transactions_sync_failed", kind: synced.kind }));
   }
-  const filled = await fillCardDueDays(student, config, stored.value.accessToken);
+  const filled = await fillCardDueDays(student, config, {
+    accessToken: stored.value.accessToken,
+    institutionName: accounts.data.item.institution_name ?? null,
+  });
   if (filled.kind === "plaid" || filled.kind === "database") {
     // The kind and code only: never a date or an account.
     console.error(JSON.stringify({ event: "plaid_card_dates_failed", kind: filled.kind, code: filled.code }));

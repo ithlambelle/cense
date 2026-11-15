@@ -31,7 +31,7 @@ beforeEach(() => {
   store.saveBalances.mockResolvedValue({ ok: true, value: true });
   store.markLinkStatus.mockResolvedValue({ ok: true, value: null });
   store.loadSafeToSpend.mockResolvedValue({ ok: true, value: { dailyCents: 633 } });
-  plaid.getAccounts.mockResolvedValue({ ok: true, data: { accounts: [], item: {} } });
+  plaid.getAccounts.mockResolvedValue({ ok: true, data: { accounts: [], item: { institution_name: "Chase" } } });
   transactions.syncStudentTransactions.mockResolvedValue({ kind: "synced", saved: 0, removed: 0 });
   liabilities.fillCardDueDays.mockResolvedValue({ kind: "skipped", reason: "not_one_card" });
 });
@@ -53,7 +53,10 @@ describe("POST /bank-link/refresh", () => {
   it("fills in the card's dates from the bank, and still answers when that fails, logging only the kind and code", async () => {
     const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
     expect((await POST()).status).toBe(200);
-    expect(liabilities.fillCardDueDays).toHaveBeenCalledWith(expect.anything(), expect.anything(), "access-sandbox-1");
+    expect(liabilities.fillCardDueDays).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
+      accessToken: "access-sandbox-1",
+      institutionName: "Chase",
+    });
     expect(logged).not.toHaveBeenCalled();
 
     liabilities.fillCardDueDays.mockResolvedValue({ kind: "plaid", code: "INTERNAL_SERVER_ERROR" });
