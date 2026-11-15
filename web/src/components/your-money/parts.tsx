@@ -151,8 +151,10 @@ export function EditRow({
   onCommit: () => void;
 }) {
   const errorId = `${id}-error`;
+  // The whole row is masked in session replay, as How we got this masked the
+  // answers: which bills a student pays and their due days are theirs too.
   return (
-    <li className="flex flex-col border-b border-off-white">
+    <li className={cn(SENSITIVE, "flex flex-col border-b border-off-white")}>
       <div className="flex items-center gap-3">
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-body-m text-indigo-black">{label}</span>

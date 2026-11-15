@@ -92,6 +92,7 @@ export function MonthTab({ budget, answers }: { budget: Budget; answers: { bills
       return;
     }
     lastSaved.current[line.key] = cents;
+    setErrors((current) => ({ ...current, [line.key]: undefined }));
     track("money_amount_saved", { tab: "this_month", line: line.group === "saving" ? "set_aside" : line.group });
     router.refresh();
   }
@@ -102,10 +103,13 @@ export function MonthTab({ budget, answers }: { budget: Budget; answers: { bills
   function undo(line: BudgetLine) {
     setErrors((current) => ({ ...current, [line.key]: undefined }));
     setUndoing(line.key);
-    queue.current = queue.current.then(() => runUndo(line));
+    // What the field held when undo was tapped: anything typed after it is
+    // the student's newer number and is kept (and saved on blur).
+    const tapped = latest.current[line.key];
+    queue.current = queue.current.then(() => runUndo(line, tapped));
   }
 
-  async function runUndo(line: BudgetLine) {
+  async function runUndo(line: BudgetLine, tapped: string | undefined) {
     const result = await deleteBudgetLine(line.key as BudgetLineKey);
     setUndoing(null);
     if (result.kind === "signed-out") return router.replace(signInPath(yourMoneyPath("month")));
@@ -115,7 +119,7 @@ export function MonthTab({ budget, answers }: { budget: Budget; answers: { bills
     }
     const bankCents = line.bankCents ?? 0;
     lastSaved.current[line.key] = bankCents;
-    setValue(line.key, amountInput(bankCents));
+    if (latest.current[line.key] === tapped) setValue(line.key, amountInput(bankCents));
     router.refresh();
   }
 

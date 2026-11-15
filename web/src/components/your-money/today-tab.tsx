@@ -118,6 +118,7 @@ export function TodayTab({ data, today }: { data: SafeToSpendData; today: number
     }
     for (const answer of answers.bills) if (answer.monthlyCents !== null) lastSaved.current[answer.bill] = answer.monthlyCents;
     lastSaved.current[SET_ASIDE] = answers.setAsideCents;
+    setErrors((current) => ({ ...current, [key]: undefined }));
     track("money_amount_saved", { tab: "today", line: key === SET_ASIDE ? "set_aside" : "bill" });
     router.refresh();
   }
