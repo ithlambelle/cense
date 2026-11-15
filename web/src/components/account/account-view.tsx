@@ -1,11 +1,10 @@
 import Bell from "@gravity-ui/icons/Bell";
-import ChevronRight from "@gravity-ui/icons/ChevronRight";
 import Link from "next/link";
-import type { ReactNode } from "react";
 
 import { LogOutButton } from "@/components/account/log-out-button";
 import { AppHeader } from "@/components/ui/app-header";
 import { MiniCardArt } from "@/components/ui/card-art";
+import { LIST_ROW as ROW, ListRowChevron as Chevron, SectionHeading } from "@/components/ui/list-row";
 import { STATUS_LABELS } from "@/lib/copy/applications";
 import { SENSITIVE } from "@/lib/analytics";
 import type { Application } from "@/lib/api/application";
@@ -127,23 +126,6 @@ export function AccountView({
         </main>
       </div>
     </div>
-  );
-}
-
-// List row, Divider (371:3199): 14px above and below, a 1px off-white line.
-const ROW =
-  "flex items-center gap-3 border-b border-off-white py-3.5 hover:bg-off-white/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring";
-
-function Chevron() {
-  return <ChevronRight aria-hidden="true" width={16} height={16} className="shrink-0 text-indigo-black" />;
-}
-
-// Section headings (477:2809, 2813, 2815): Inter Semi Bold 16, Deep navy.
-function SectionHeading({ id, children }: { id: string; children: ReactNode }) {
-  return (
-    <h2 id={id} className="text-body-m font-semibold text-navy">
-      {children}
-    </h2>
   );
 }
 

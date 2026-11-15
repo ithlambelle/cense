@@ -180,6 +180,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/google/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Finish Google sign-in that returned to Cense's own address (when GOOGLE_OAUTH_CLIENT_ID is set) */
+        get: operations["finishGoogleSignInOnCense"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/callback": {
         parameters: {
             query?: never;
@@ -1434,6 +1451,28 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiError"];
                 };
+            };
+        };
+    };
+    finishGoogleSignInOnCense: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to the app, or to /sign-in with ?error=cancelled or ?error=callback */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
