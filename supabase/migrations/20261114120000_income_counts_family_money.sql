@@ -11,7 +11,9 @@
 -- - money in marked INCOME counts;
 -- - money in marked TRANSFER_IN counts, except the student's own moves
 --   (account transfers, savings, investments, cash advances and loans, money
---   in from their own apps);
+--   in from their own apps), and except money that left another of the
+--   student's accounts as TRANSFER_OUT for the same amount within 3 days
+--   (their own move between two linked accounts, however Plaid labelled it);
 -- - a deposit (TRANSFER_IN_DEPOSIT) counts with or without a name (D37);
 -- - any other transfer in counts only when it has a sender name that is not a
 --   payment app cash-out ("Venmo", "Venmo Cash-Out"), because with no name a
@@ -48,6 +50,16 @@ as $$
           'TRANSFER_IN_INVESTMENT_AND_RETIREMENT_FUNDS',
           'TRANSFER_IN_CASH_ADVANCES_AND_LOANS',
           'TRANSFER_IN_TRANSFER_IN_FROM_APPS'
+        )
+        and not exists (
+          select 1
+          from plaid.transactions o
+          where o.student_id = t.student_id
+            and o.account_id <> t.account_id
+            and not o.pending
+            and o.category = 'TRANSFER_OUT'
+            and o.amount_cents = -t.amount_cents
+            and o.posted_on between t.posted_on - 3 and t.posted_on + 3
         )
         and (
           t.category_detailed = 'TRANSFER_IN_DEPOSIT'

@@ -271,6 +271,7 @@ Before it can run:
 
 - Yunho applies `supabase/migrations/20261025210000_bank_link_safe_to_spend.sql` by hand in the Supabase SQL editor, after the reminder sender migration. It is safe to run again.
 - For This month, `supabase/migrations/20261113120000_your_money_budget.sql` (after `20261113000000_plaid_transactions_item_binding.sql`), the same way. Until it is applied, This month fails to load; Today and Accounts work.
+- Then `supabase/migrations/20261114120000_income_counts_family_money.sql`, the same way. Until it is applied, This month loads but its Income leaves out money from family (D34).
 - Ben or Mabelle adds these on Vercel (Project Settings, Environment Variables), then redeploys. Until all four are set, safe to spend is hidden and its API answers 503.
 
 | Variable | Where it comes from |
