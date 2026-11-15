@@ -159,7 +159,8 @@ test("a student links the sandbox bank, says who covers what, and sees safe to s
   const card = safeToSpendCard(page);
   await expect(card).toContainText("Safe to spend today");
   await expect(card).toContainText(DAILY);
-  await expect(card).toContainText("Preview");
+  // The Preview label left the number on Nov 14 (Ben); the invite keeps it.
+  await expect(card).not.toContainText("Preview");
   await checkA11y("home: safe to spend");
   // Back goes where the student came from (Home), never into the finished
   // questions or the consent screen.
