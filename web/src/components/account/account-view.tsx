@@ -2,12 +2,13 @@ import Bell from "@gravity-ui/icons/Bell";
 import Link from "next/link";
 
 import { LogOutButton } from "@/components/account/log-out-button";
+import { CardArt } from "@/components/cards/card-art";
 import { AppHeader } from "@/components/ui/app-header";
-import { MiniCardArt } from "@/components/ui/card-art";
 import { LIST_ROW as ROW, ListRowChevron as Chevron, SectionHeading } from "@/components/ui/list-row";
 import { STATUS_LABELS } from "@/lib/copy/applications";
 import { SENSITIVE } from "@/lib/analytics";
 import type { Application } from "@/lib/api/application";
+import { cardRewards } from "@/lib/cards/rewards";
 import { moneyAmount } from "@/lib/money";
 import type { ProfileUpdates } from "@/lib/profile-updates";
 import { QUIZ_RETAKE, quizProgress } from "@/lib/quiz/progress";
@@ -80,7 +81,7 @@ export function AccountView({
           <SectionHeading id="your-card">Your card</SectionHeading>
           {card ? (
             <Link href={ROUTES.home} className={ROW}>
-              <MiniCardArt />
+              <CardArt src={card.cardId ? (cardRewards(card.cardId)?.image ?? null) : null} sizes="56px" className="w-14" />
               <span className="flex min-w-0 flex-1 flex-col gap-[3px] leading-[normal]">
                 <span className="text-body-m leading-[normal] font-medium text-indigo-black">
                   {card.cardName}

@@ -1,16 +1,17 @@
 import ChevronRight from "@gravity-ui/icons/ChevronRight";
 import Link from "next/link";
 
+import { CardArt } from "@/components/cards/card-art";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { ButtonChevron, buttonVariants } from "@/components/ui/button";
-import { MiniCardArt } from "@/components/ui/card-art";
 import { FitSignal } from "@/components/ui/fit-signal";
 import { LIST_ROW, ListRowChevron, ListRowText, SectionHeading } from "@/components/ui/list-row";
 import { NoteLine } from "@/components/ui/note";
 import { SENSITIVE } from "@/lib/analytics";
 import { bankSectionId, groupCardsByBank, type BankGroup } from "@/lib/cards/banks";
 import type { Card } from "@/lib/cards/catalog";
+import { cardRewards } from "@/lib/cards/rewards";
 import { cardDisplayName, cardTypeLabel, type FitTier } from "@/lib/copy/results";
 import { moneyAmount } from "@/lib/money";
 import { cardPath, quizPath, ROUTES, signInPath } from "@/lib/routes";
@@ -130,7 +131,7 @@ function CardRow({ card }: { card: Card }) {
       : `${cardTypeLabel(card)}, ${moneyAmount(card.annualFeeCents)} annual fee`;
   return (
     <Link href={cardPath(card.id)} className={LIST_ROW}>
-      <MiniCardArt />
+      <CardArt src={cardRewards(card.id)?.image ?? null} sizes="56px" className="w-14" />
       <ListRowText title={cardDisplayName(card)} subtitle={line} />
       <ListRowChevron />
     </Link>

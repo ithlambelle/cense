@@ -18,6 +18,17 @@ describe("AccountView", () => {
   };
   const hrefs = (names: string[]) => names.map((name) => screen.getByRole("link", { name }).getAttribute("href"));
 
+  it("shows the tracked card's own art when it is from the catalog, else a plain card", () => {
+    const { unmount } = render(
+      <AccountView email="student@example.edu" card={{ ...CARD, cardId: "capital-one-quicksilver", cardName: "Capital One Quicksilver" }} quizAnswered={6} quizResult="match" />,
+    );
+    const row = screen.getByRole("link", { name: /Capital One Quicksilver/ });
+    expect(decodeURIComponent(row.querySelector("img")?.getAttribute("src") ?? "")).toContain("/cards/capital-one-quicksilver.png");
+    unmount();
+    render(<AccountView email="student@example.edu" card={CARD} quizAnswered={6} quizResult="match" />);
+    expect(screen.getByRole("link", { name: /Sample Bank Card/ }).querySelector('[data-testid="card-art-fallback"]')).not.toBeNull();
+  });
+
   it("shows the email, the tracked card with its limit, the Account rows in the frame's order, and Log out with Switch account", () => {
     render(<AccountView email="student@example.edu" card={CARD} quizAnswered={6} quizResult="match" />);
     expect(screen.getByText("student@example.edu")).toBeTruthy();

@@ -9,11 +9,13 @@ import { cn } from "@/lib/utils";
 // the card (Oct 26). With no clean art, a plain violet 15% card with the card
 // symbol stands in, the fact chips' fill. Decorative: the card's name is
 // always beside or above it.
-export function CardArt({ src, className }: { src: string | null; className?: string }) {
+// sizes: how wide the art is drawn, so a 56px list row does not download art
+// sized for the card page.
+export function CardArt({ src, className, sizes = "(max-width: 430px) 40vw, 160px" }: { src: string | null; className?: string; sizes?: string }) {
   return (
     <div className={cn("relative aspect-[1.586] shrink-0 rounded-[6px]", className)}>
       {src ? (
-        <Image src={src} alt="" fill sizes="(max-width: 430px) 40vw, 160px" className="object-contain drop-shadow-[0_0_1px_rgb(15_11_46/0.45)]" />
+        <Image src={src} alt="" fill sizes={sizes} className="object-contain drop-shadow-[0_0_1px_rgb(15_11_46/0.45)]" />
       ) : (
         <div data-testid="card-art-fallback" className="flex size-full items-center justify-center rounded-[6px] bg-violet/15">
           <Image src="/icons/card-symbol.svg" alt="" width={24} height={18} />
