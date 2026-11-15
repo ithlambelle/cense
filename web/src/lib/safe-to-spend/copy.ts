@@ -34,8 +34,7 @@ export const SAFE_TO_SPEND_COPY = {
   connectTitle: "See what’s safe to spend",
   consent: [
     "Plaid connects. We never see your password.",
-    "We read your account balances",
-    "We keep totals, never transactions",
+    "We read balances and keep 180 days of transactions",
     "Disconnect anytime and we delete it",
   ],
   familyNote: "Family support counts as income.",

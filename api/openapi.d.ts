@@ -180,6 +180,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/google/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Finish Google sign-in that returned to Cense's own address (when GOOGLE_OAUTH_CLIENT_ID is set) */
+        get: operations["finishGoogleSignInOnCense"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/callback": {
         parameters: {
             query?: never;
@@ -227,7 +244,7 @@ export interface paths {
         post?: never;
         /**
          * Delete my account
-         * @description Deletes the student's PostHog person with its events and recordings (where analytics runs), then the account, which deletes every row tied to it, then signs out. A failure deletes nothing of the account.
+         * @description Deletes the student's PostHog person with its events and recordings (where analytics runs), then the account and saved data, then signs out. Encrypted Plaid tokens and their encryption bindings are queued atomically with account deletion for the daily cleanup job, so a Plaid outage does not block deletion. A missing cleanup migration refuses deletion before any external work.
          */
         delete: operations["deleteMe"];
         options?: never;
@@ -1434,6 +1451,28 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiError"];
                 };
+            };
+        };
+    };
+    finishGoogleSignInOnCense: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to the app, or to /sign-in with ?error=cancelled or ?error=callback */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

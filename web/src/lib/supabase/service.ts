@@ -5,12 +5,15 @@ import { createClient } from "@supabase/supabase-js";
 import { supabaseConfig } from "./config";
 
 // The service role skips row level security, so it is used in exactly three
-// places: the daily reminder job (app/api/v1/cron/reminders) and the signed
+// places: the daily reminder job (app/api/v1/cron/reminders, which also runs
+// the purge of bank transactions older than 180 days) and the signed
 // unsubscribe link (app/api/v1/reminders/unsubscribe), which only call the
 // database functions made for them and read the Analytics switch
 // (profiles.analytics_opted_out_at, withAnalyticsOn in analytics-server.ts)
 // before sending an event, and Delete my account (DELETE
-// /api/v1/me), which only deletes the signed-in student's own sign-in record.
+// /api/v1/me), which checks the cleanup trigger and deletes only the signed-in
+// student's own sign-in record. The daily job also calls the service-only
+// Plaid cleanup claim/finish functions; it never reads the private table.
 // Every other student route uses createStudentClient instead.
 // "server-only" stops this file, and the key, from reaching the browser.
 export function createServiceClient(serviceRoleKey: string) {

@@ -124,6 +124,12 @@ registry.registerPath({
   responses: { 303: { description: "Redirect to Google" }, 502: failure("Google sign-in unavailable") },
 });
 registry.registerPath({
+  method: "get", path: "/auth/google/callback", operationId: "finishGoogleSignInOnCense",
+  summary: "Finish Google sign-in that returned to Cense's own address (when GOOGLE_OAUTH_CLIENT_ID is set)",
+  request: { query: z.object({ code: z.string().optional(), state: z.string().optional(), error: z.string().optional() }) },
+  responses: { 303: { description: "Redirect to the app, or to /sign-in with ?error=cancelled or ?error=callback" } },
+});
+registry.registerPath({
   method: "get", path: "/auth/callback", operationId: "finishGoogleSignIn", summary: "Finish Google sign-in",
   request: { query: z.object({ code: z.string().optional(), next: z.string().optional() }) },
   responses: { 303: { description: "Redirect to the app" }, 400: failure("Missing or invalid code") },
@@ -139,7 +145,7 @@ registry.registerPath({
 });
 registry.registerPath({
   method: "delete", path: "/me", operationId: "deleteMe", summary: "Delete my account",
-  description: "Deletes the student's PostHog person with its events and recordings (where analytics runs), then the account, which deletes every row tied to it, then signs out. A failure deletes nothing of the account.",
+  description: "Deletes the student's PostHog person with its events and recordings (where analytics runs), then the account and saved data, then signs out. Encrypted Plaid tokens and their encryption bindings are queued atomically with account deletion for the daily cleanup job, so a Plaid outage does not block deletion. A missing cleanup migration refuses deletion before any external work.",
   security: [{ studentSession: [] }],
   responses: {
     204: { description: "Deleted and signed out" },

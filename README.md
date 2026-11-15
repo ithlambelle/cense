@@ -188,9 +188,28 @@ Error tracking uses the same PostHog project and the same token, so it is off wh
 
 A student can turn analytics and session recordings off with the Analytics switch on Security and privacy (`/settings/privacy`). It is saved to their profile (`profiles.analytics_opted_out_at`), so it follows them to every device, and applied with PostHog's own opt-out; a browser that sends Global Privacy Control or Do Not Track is opted out whatever the switch says (`respect_dnt`).
 
+## Google sign-in that names Cense
+
+With Supabase's own Google flow, Google's account chooser says "to continue to `<project>.supabase.co`", because Google hands the student back to Supabase. When `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` are set, Google hands them back to `/api/v1/auth/google/callback` on our own address instead (`web/src/lib/auth/google.ts`), and the chooser says "to continue to censefinance.com". The callback signs in with `signInWithIdToken`, so it is the same Supabase account and session as before. This runs only on `www.censefinance.com` and `censefinance.com`, the addresses registered with Google. Anywhere else (previews, the `vercel.app` alias), and whenever the two variables are unset, the app keeps Supabase's flow.
+
+To turn it on (Ben, about 10 minutes, no cost):
+
+1. Supabase dashboard, Authentication, Sign In / Providers, Google: note the Client ID there.
+2. Google Cloud console, Google Auth Platform, Branding: under Authorized domains, add `censefinance.com` if it is not there (Google will not save a redirect URI on a domain missing from this list).
+3. Google Cloud console, APIs & Services, Credentials, the OAuth 2.0 client with that Client ID: under Authorized redirect URIs, add `https://www.censefinance.com/api/v1/auth/google/callback` and `https://censefinance.com/api/v1/auth/google/callback`. Keep the `supabase.co` one. Then Add secret and copy the new client secret (Google shows it once). The secret Supabase already has keeps working.
+4. Vercel, Project Settings, Environment Variables, Production only: `GOOGLE_OAUTH_CLIENT_ID` (that Client ID) and `GOOGLE_OAUTH_CLIENT_SECRET` (the new secret, marked Sensitive). Redeploy.
+5. Sign in with Google on the live site: the chooser should say censefinance.com, and you should land signed in to your usual account.
+
+To show the name "Cense" and its logo instead of the domain: Google Auth Platform, Branding: app name Cense, the logo, home page and privacy policy links, with `censefinance.com` verified in Google Search Console. Then submit it for brand verification, which Google says takes a few business days.
+
+If the Google client in step 3 is not the one Supabase uses, add its Client ID to the Supabase Google provider's Client IDs (comma-separated) first, or Supabase refuses its tokens. To turn it off, delete the two variables and redeploy.
+
 ## Deleting an account
 
-Delete my account on Security and privacy deletes, at once: the student's PostHog person with its events and recordings (`DELETE_ANALYTICS_HISTORY` in `web/src/lib/account-deletion.ts`, decision S28; PostHog removes the events in its weekly batch, inside the 30 days the privacy policy promises), then their sign-in record, which deletes every row tied to them through `on delete cascade`, then their session. If a setting is missing or a step fails, nothing of the account is deleted and the student can try again. On Vercel Production it needs `SUPABASE_SERVICE_ROLE_KEY`, `POSTHOG_PERSONAL_API_KEY` (only the `person:write` scope) and `POSTHOG_PROJECT_ID` (see `web/.env.example`).
+Delete my account on Security and privacy deletes, at once: the student's PostHog person with its events and recordings (`DELETE_ANALYTICS_HISTORY` in `web/src/lib/account-deletion.ts`, decision S28; PostHog removes the events in its weekly batch, inside the 30 days the privacy policy promises), then their sign-in record, which deletes every row tied to them through `on delete cascade`, then their session. One thing outlives the account, briefly: a trigger on the sign-in record first copies a linked bank's encrypted Plaid token, with its Plaid item id and the student's id, into the private `plaid.account_cleanup` queue (no name, email or bank data). The daily reminders job removes the bank link at Plaid, then deletes that row, so deletion never waits on Plaid. If a setting is missing, the cleanup migration is not applied (the route answers 503), or a step fails, nothing of the account is deleted and the student can try again. On Vercel Production it needs `SUPABASE_SERVICE_ROLE_KEY`, `POSTHOG_PERSONAL_API_KEY` (only the `person:write` scope) and `POSTHOG_PROJECT_ID` (see `web/.env.example`); the cleanup uses the Plaid settings and `PLAID_TOKEN_KEY` already set for safe to spend.
+
+- To roll back, first revert the app to synchronous unlink, then run `supabase/rollbacks/20261109160000_plaid_account_cleanup.down.sql`. It locks account deletion and refuses to remove anything while the cleanup queue contains a token. Drain it first; never discard queued tokens.
+- `supabase/migrations/20261109160000_plaid_account_cleanup.sql` was applied by hand in the Supabase SQL editor on 2026-11-09, before the code that calls it. Merged without it, Delete my account answers 503.
 
 ## Reminder emails
 
@@ -210,6 +229,7 @@ Before it can run:
 | `REMINDER_UNSUBSCRIBE_SECRET` | Any long random string. Changing it breaks the unsubscribe links already sent. |
 | `APP_BASE_URL` | The app's public address, for the links in the emails: `https://censefinance.com`. |
 | `REMINDER_HEARTBEAT_URL` | Optional, the alert (below). The check's ping URL, `https://hc-ping.com/<uuid>`. |
+| `PLAID_CLEANUP_HEARTBEAT_URL` | Optional separate Healthchecks.io ping URL for Plaid cleanup. Create a daily check with grace time like the reminder check. Cleanup failures and a queue not drained within its request budget fail this check only; unset, no cleanup alert is sent. |
 
 To run it by hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/v1/cron/reminders`. It answers with counts only: `claimed`, `sent`, `failed`, `unconfirmed` (sent but not marked), `deferred` (out of time, sent next run) and `abandoned` (failed for the third time, never tried again). Running it again the same day does not retry a failed send; that waits for the next day.
 
@@ -245,7 +265,7 @@ Before typed questions work in production:
 
 A preview for MVP2 (US-12): a student links a bank through Plaid Link in Plaid's sandbox, says who covers rent, phone, tuition, groceries and car (me, family, split, not applicable) and how much to keep aside, and Home shows one number: (cash in checking - card balances - bills they pay - set aside) / 30 days. "How we got this" shows each step. Sandbox only: real bank sign-ins do not work there, and any `PLAID_ENV` other than `sandbox` turns the feature off.
 
-What is kept: the access token, encrypted with AES-256-GCM in the app before it is stored (key in `PLAID_TOKEN_KEY`, never in the database), in the `plaid` schema the Data API does not serve; each account's name, last 4 digits and balance; the student's answers. Never transactions, account or routing numbers, or a Plaid response. The browser never receives the access token. Disconnecting removes the Item at Plaid first, then deletes all of it. Schema: `supabase/migrations/20261025210000_bank_link_safe_to_spend.sql`.
+What is kept: the access token, encrypted with AES-256-GCM in the app before it is stored (key in `PLAID_TOKEN_KEY`, never in the database), in the `plaid` schema the Data API does not serve; each account's name, last 4 digits and balance; the student's answers; and 180 days of transactions (id, account id, date, amount, pending, category and merchant name, in the private `plaid` schema, read by students only as monthly totals, purged daily by the reminders cron). Never account or routing numbers, transaction descriptions or locations, or a Plaid response. The browser never receives the access token. Disconnecting removes the Item at Plaid first, then deletes all of it. Schema: `supabase/migrations/20261025210000_bank_link_safe_to_spend.sql`.
 
 Before it can run:
 

@@ -5,12 +5,14 @@ import { getAccounts, itemAlreadyGone, needsReconnect } from "@/lib/plaid/client
 import { plaidConfig } from "@/lib/plaid/config";
 import { bankUnreachable, NO_STORE, notLinked, reconnectNeeded, relinkNeeded, safeToSpendOff } from "@/lib/plaid/responses";
 import { loadSafeToSpend, markLinkStatus, readAccessToken, saveBalances } from "@/lib/plaid/store";
+import { syncStudentTransactions } from "@/lib/plaid/transactions";
 import { balanceRows } from "@/lib/safe-to-spend/compute";
 
 // Reads the balances from Plaid again and answers safe to spend (US-12).
 // Home calls it when the numbers are over an hour old, How we got this when
 // the student taps Refresh, and both after the student signs in to their
-// bank again.
+// bank again. It also brings the student's transactions up to date for
+// budgeting (US-14), best effort: a failed sync never stops safe to spend.
 export async function POST(): Promise<Response> {
   const student = await authenticatedStudent();
   if (!student) return apiError(401, "unauthorized", "Sign in to continue.");
@@ -42,6 +44,12 @@ export async function POST(): Promise<Response> {
   if (!saved.ok) return databaseError("bank_balances_save", saved.error);
   // Disconnected while Plaid answered.
   if (!saved.value) return notLinked();
+
+  const synced = await syncStudentTransactions(student, config, { itemId: stored.value.itemId, accessToken: stored.value.accessToken });
+  if (synced.kind !== "synced") {
+    // The kind only: never an amount, a merchant or an id.
+    console.error(JSON.stringify({ event: "plaid_transactions_sync_failed", kind: synced.kind }));
+  }
 
   const loaded = await loadSafeToSpend(student);
   if (!loaded.ok) return databaseError("safe_to_spend_read", loaded.error);
