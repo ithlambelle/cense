@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import type { PlaidConfig } from "./config";
 
-// The five Plaid calls safe to spend makes, over plain fetch (no SDK). Called
+// The Plaid calls safe to spend and budgeting make, over plain fetch (no SDK). Called
 // only from route handlers. The client id and secret go in headers, never in
 // a body. Nothing Plaid sends back is logged: a failure logs the endpoint,
 // Plaid's error type and code, and its request id, which Plaid support needs.
@@ -91,13 +91,14 @@ async function call<T>(config: PlaidConfig, path: string, body: Record<string, u
 
 // Link for a new bank, or, given the access token, update mode for one that
 // needs the student to sign in again (the same Item, no new token).
-// Transactions is the product requested because Link needs one and Balance
-// alone is not allowed; Cense never calls the transactions endpoints yet. Its
-// history is set once, when the Item is created, and Plaid cannot change it
-// later: 180 days, the least Plaid recommends for recurring bills (US-09).
-// Liabilities (US-15: a card's statement and due dates) is optional, so a bank
-// without it still links. Only everyday accounts and credit cards can be
-// picked: no loans or investments.
+// Transactions is the product requested: budgeting reads it through
+// Transactions Sync (syncTransactionsPage below, US-14), and Link needs one
+// product anyway because Balance alone is not allowed. Its history is set
+// once, when the Item is created, and Plaid cannot change it later: 180 days,
+// the least Plaid recommends for recurring bills (US-09). Liabilities (US-15:
+// a card's statement and due dates) is optional, so a bank without it still
+// links. Only everyday accounts and credit cards can be picked: no loans or
+// investments.
 export async function createLinkToken(config: PlaidConfig, studentId: string, accessToken?: string) {
   const base = {
     client_name: "Cense",
@@ -174,4 +175,33 @@ export function itemAlreadyGone(failure: PlaidFailure): boolean {
 // The bank wants the student to sign in again (Link in update mode fixes it).
 export function needsReconnect(failure: PlaidFailure): boolean {
   return failure.kind === "plaid" && failure.code === "ITEM_LOGIN_REQUIRED";
+}
+
+// One page of Transactions Sync (US-14): what was added, changed or removed
+// since the cursor (none: from the start of the Item's history). Only the
+// fields Cense keeps are read; descriptions, locations, counterparties and
+// payment details are dropped here. https://plaid.com/docs/api/products/transactions/#transactionssync
+const syncTransactionSchema = z.object({
+  transaction_id: z.string().min(1).max(200),
+  account_id: z.string().min(1).max(200),
+  amount: z.number(),
+  iso_currency_code: z.string().nullable(),
+  date: z.string(),
+  pending: z.boolean(),
+  merchant_name: z.string().nullable().optional(),
+  personal_finance_category: z.object({ primary: z.string(), detailed: z.string() }).nullable().optional(),
+});
+
+export type PlaidTransaction = z.infer<typeof syncTransactionSchema>;
+
+const syncPageSchema = z.object({
+  added: z.array(syncTransactionSchema),
+  modified: z.array(syncTransactionSchema),
+  removed: z.array(z.object({ transaction_id: z.string().min(1).max(200) })),
+  next_cursor: z.string().max(2000),
+  has_more: z.boolean(),
+});
+
+export async function syncTransactionsPage(config: PlaidConfig, accessToken: string, cursor: string | null) {
+  return call(config, "/transactions/sync", { access_token: accessToken, ...(cursor ? { cursor } : {}), count: 500 }, syncPageSchema);
 }
