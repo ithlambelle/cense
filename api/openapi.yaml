@@ -1367,6 +1367,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /auth/google/callback:
+    get:
+      operationId: finishGoogleSignInOnCense
+      summary: Finish Google sign-in that returned to Cense's own address (when
+        GOOGLE_OAUTH_CLIENT_ID is set)
+      parameters:
+        - schema:
+            type: string
+          required: false
+          name: code
+          in: query
+        - schema:
+            type: string
+          required: false
+          name: state
+          in: query
+        - schema:
+            type: string
+          required: false
+          name: error
+          in: query
+      responses:
+        "303":
+          description: Redirect to the app, or to /sign-in with ?error=cancelled or
+            ?error=callback
   /auth/callback:
     get:
       operationId: finishGoogleSignIn
