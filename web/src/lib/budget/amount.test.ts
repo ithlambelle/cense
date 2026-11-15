@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { dollarsInput, MAX_AMOUNT_CENTS, parseDollarsToCents } from "./amount";
+import { MAX_AMOUNT_CENTS, parseDollarsToCents } from "./amount";
 
 describe("parseDollarsToCents", () => {
   it("reads whole dollars and cents", () => {
@@ -30,20 +30,5 @@ describe("parseDollarsToCents", () => {
     expect(parseDollarsToCents("1,000,000")).toBe(MAX_AMOUNT_CENTS);
     expect(parseDollarsToCents("1,000,000.01")).toBeNull();
     expect(parseDollarsToCents("99999999999999999999")).toBeNull();
-  });
-});
-
-describe("dollarsInput", () => {
-  it("shows whole dollars without cents and other amounts with two", () => {
-    expect(dollarsInput(0)).toBe("0");
-    expect(dollarsInput(70000)).toBe("700");
-    expect(dollarsInput(1250)).toBe("12.50");
-    expect(dollarsInput(7)).toBe("0.07");
-  });
-
-  it("round-trips with parseDollarsToCents", () => {
-    for (const cents of [0, 7, 1250, 70000, 123456]) {
-      expect(parseDollarsToCents(dollarsInput(cents))).toBe(cents);
-    }
   });
 });

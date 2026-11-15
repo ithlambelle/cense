@@ -16,8 +16,8 @@
 // Not spending: income, money moving between the student's own accounts
 // (Plaid's TRANSFER_IN and TRANSFER_OUT) and credit card payments, which
 // would count a purchase twice. A refund is money in under the purchase's
-// own category and is subtracted from it (D35). Money in with no category
-// (a deposit with no name) is income, never a refund (D37).
+// own category and is subtracted from it (D35). Money in with no category is
+// never a refund (D37); whether it is income is income_by_month's rule.
 //
 // Plaid's taxonomy: https://plaid.com/documents/transactions-personal-finance-category-taxonomy.csv
 
@@ -43,10 +43,6 @@ export type CategoryKey = (typeof BUDGET_CATEGORIES)[number]["key"];
 export type CategoryGroup = "need" | "want";
 
 export const CATEGORY_KEYS = BUDGET_CATEGORIES.map((category) => category.key) as CategoryKey[];
-
-export function categoryInfo(key: CategoryKey): { key: CategoryKey; label: string; group: CategoryGroup } {
-  return BUDGET_CATEGORIES.find((category) => category.key === key)!;
-}
 
 // Primary categories that are never spending.
 const NOT_SPENDING_PRIMARY = new Set(["INCOME", "TRANSFER_IN", "TRANSFER_OUT"]);

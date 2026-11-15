@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  computeBudget,
-  monthlyFromIncome,
-  perPaycheck,
-  withMonthlyAmount,
-} from "./budget";
+import { computeBudget, monthlyFromIncome } from "./budget";
 import type { BudgetInput } from "./budget";
 
 // Test data for the waterfall arithmetic only, from draft PR #86. Never shown
@@ -84,19 +79,6 @@ describe("monthlyFromIncome", () => {
   });
 });
 
-describe("perPaycheck", () => {
-  it("divides a monthly amount by the paychecks in it", () => {
-    expect(perPaycheck(208000, "weekly")).toBe(48000);
-    expect(perPaycheck(200000, "semimonthly")).toBe(100000);
-    expect(perPaycheck(250000, "monthly")).toBe(250000);
-  });
-
-  it("rounds to the cent", () => {
-    // $100 a month over 52 weeks is 12 / 52 of $100.
-    expect(perPaycheck(10000, "weekly")).toBe(2308);
-  });
-});
-
 describe("computeBudget", () => {
   it("follows the template order for a student with money left over", () => {
     expect(computeBudget(SAM_WITH_SURPLUS)).toEqual({
@@ -161,37 +143,5 @@ describe("computeBudget", () => {
         savings: [],
       }),
     ).toThrow(RangeError);
-  });
-});
-
-describe("withMonthlyAmount", () => {
-  it("shows the other side of cutting a want: more is left over", () => {
-    const before = computeBudget(SAM_WITH_SURPLUS);
-    const after = computeBudget(
-      withMonthlyAmount(SAM_WITH_SURPLUS, "eating-out", 10000),
-    );
-    expect(after.variableWantsCents).toBe(before.variableWantsCents - 10000);
-    expect(after.remainingCents).toBe(before.remainingCents + 10000);
-    expect(after.surplusCents).toBe(before.surplusCents);
-  });
-
-  it("changes a savings goal the same way", () => {
-    const after = computeBudget(
-      withMonthlyAmount(SAM_WITH_SURPLUS, "investing", 30000),
-    );
-    expect(after.savingsCents).toBe(45000);
-    expect(after.remainingCents).toBe(13800);
-  });
-
-  it("does not change the budget it was given", () => {
-    const copy = structuredClone(SAM_WITH_SURPLUS);
-    withMonthlyAmount(SAM_WITH_SURPLUS, "rent", 1);
-    expect(SAM_WITH_SURPLUS).toEqual(copy);
-  });
-
-  it("leaves the budget alone for an id it does not know", () => {
-    expect(withMonthlyAmount(SAM_WITH_SURPLUS, "nope", 1)).toEqual(
-      SAM_WITH_SURPLUS,
-    );
   });
 });

@@ -31,9 +31,14 @@ export const FAKE_BANK = {
 // payment and a move to savings.
 export const FAKE_MONTH = { incomeCents: 180_000, rentCents: 65_000, groceriesCents: 27_500, ridesCents: 2_400, eatingOutCents: 7_000, entertainmentCents: 1_200, shoppingCents: 5_000 };
 
+// Last month on the app's calendar (Eastern, as lastFullMonth in
+// src/lib/budget/lines.ts), so the hours after midnight UTC on the 1st do not
+// put the transactions in a month This month does not show.
 function lastMonthDay(day: number): string {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, day)).toISOString().slice(0, 10);
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "numeric" }).formatToParts(new Date());
+  const year = Number(parts.find((part) => part.type === "year")!.value);
+  const month = Number(parts.find((part) => part.type === "month")!.value);
+  return new Date(Date.UTC(year, month - 2, day)).toISOString().slice(0, 10);
 }
 
 function transaction(id: string, day: number, dollars: number, primary: string, detailed: string, merchant: string | null) {

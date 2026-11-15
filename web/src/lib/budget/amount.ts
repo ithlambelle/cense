@@ -12,9 +12,3 @@ export const MAX_AMOUNT_CENTS = 100_000_000;
 export function parseDollarsToCents(text: string): number | null {
   return dollarsToCents(text, { minCents: 0, maxCents: MAX_AMOUNT_CENTS });
 }
-
-// What a field shows for a starting amount: no cents when it is whole
-// dollars, two digits when it is not. 70000 -> "700", 1250 -> "12.50".
-export function dollarsInput(cents: number): string {
-  return cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2);
-}

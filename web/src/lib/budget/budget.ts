@@ -77,14 +77,6 @@ export function monthlyFromIncome(income: Income): number {
   );
 }
 
-// A monthly amount as it falls on each paycheck, rounded to the cent. The
-// rounded paychecks can differ from the monthly figure by a few cents over a
-// year, which is why the app should say "about" next to these.
-export function perPaycheck(monthlyCents: number, cadence: PayCadence): number {
-  assertCents(monthlyCents, "amount");
-  return Math.round((monthlyCents * 12) / PAYCHECKS_PER_YEAR[cadence]);
-}
-
 function sum(values: number[]): number {
   return values.reduce((total, value) => total + value, 0);
 }
@@ -134,25 +126,5 @@ export function computeBudget(input: BudgetInput): BudgetResult {
     savingsCents,
     remainingCents,
     shortfallCents: Math.max(0, -remainingCents),
-  };
-}
-
-// The template's "reduce a want" tradeoff: the same budget with one expense
-// or goal changed to a new monthly amount, so the screen can show both sides
-// of the choice. It does not mutate the input.
-export function withMonthlyAmount(
-  input: BudgetInput,
-  id: string,
-  monthlyCents: number,
-): BudgetInput {
-  assertCents(monthlyCents, "amount");
-  return {
-    ...input,
-    expenses: input.expenses.map((expense) =>
-      expense.id === id ? { ...expense, monthlyCents } : expense,
-    ),
-    savings: input.savings.map((goal) =>
-      goal.id === id ? { ...goal, monthlyCents } : goal,
-    ),
   };
 }
