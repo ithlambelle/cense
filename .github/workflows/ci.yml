@@ -8,6 +8,13 @@ on:
 permissions:
   contents: read
 
+# A new push to a pull request cancels that pull request's run still in
+# progress, since only the latest commit's result matters. Runs on main are
+# never cancelled, so every merged commit is tested.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   web:
     runs-on: ubuntu-latest
@@ -28,9 +35,20 @@ jobs:
   # sign up by email code, use each control, reload, follow every link. Unit
   # tests and the build passed while three Home bugs shipped (Oct 24); these
   # tests are what catch that kind of bug.
+  #
+  # Split across three runners to cut wall time (about 10 minutes to about 5).
+  # Each runner starts its own Supabase stack, builds the app against it and
+  # runs one third of the spec files, so every test still gets a fresh,
+  # isolated stack. This is safe because no spec reads data another spec file
+  # creates: each test signs up its own student, and each file starts and stops
+  # its own stand-in servers.
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     defaults:
       run:
         working-directory: web
@@ -102,7 +120,9 @@ jobs:
           for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:3300/sign-in && exit 0; sleep 1; done
           cat next.log; exit 1
       - name: Journey tests
-        run: npx playwright test
+        # Playwright gives each runner whole spec files, about a third of the
+        # tests each. A new spec file is picked up automatically.
+        run: npx playwright test --shard=${{ matrix.shard }}/3
         env:
           E2E_MAILPIT_URL: http://127.0.0.1:54324
           E2E_CRON_SECRET: e2e-cron-secret
@@ -110,7 +130,8 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          # One name per runner: two failing runners cannot share a name.
+          name: playwright-report-${{ matrix.shard }}
           path: |
             web/playwright-report
             web/test-results
