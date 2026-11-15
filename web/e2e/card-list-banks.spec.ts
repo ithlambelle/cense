@@ -28,8 +28,11 @@ test("Cards lists each bank once, Discover right after Capital One, every card u
   expect(new Set(banks)).toEqual(new Set(CATALOG.map((card) => card.brand)));
   expect(new Set(banks).size).toBe(banks.length);
   expect(banks.indexOf("Discover")).toBe(banks.indexOf("Capital One") + 1);
-  // Banks with student cards come first.
-  expect(banks.slice(0, 3)).toEqual(["Bank of America", "Capital One", "Discover"]);
+  // Banks with cards made for starting out come before banks with none
+  // (Discover follows Capital One wherever that puts it).
+  const starts = (bank: string) => CATALOG.some((card) => card.brand === bank && card.catalogRole === "recommend");
+  const firstWithout = banks.findIndex((bank) => bank !== "Discover" && !starts(bank));
+  expect(banks.slice(firstWithout).filter((bank) => bank !== "Discover" && starts(bank))).toEqual([]);
 
   const discover = page.getByRole("region", { name: "Discover" });
   await expect(discover.getByText("Now part of Capital One.", { exact: false })).toBeVisible();
@@ -66,7 +69,8 @@ test("signed in, the bank sections sit above the bottom bar and the student's ca
   await page.goto("/cards");
   await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
   await checkA11y("cards: by bank, signed in");
-  expect((await bankHeadings(page)).slice(0, 3)).toEqual(["Bank of America", "Capital One", "Discover"]);
+  const signedInBanks = await bankHeadings(page);
+  expect(signedInBanks.indexOf("Discover")).toBe(signedInBanks.indexOf("Capital One") + 1);
 
   // The last bank's last card scrolls clear of the bottom bar and opens.
   const last = page.locator("main section").last().getByRole("link").last();

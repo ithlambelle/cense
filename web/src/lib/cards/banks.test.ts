@@ -43,6 +43,19 @@ describe("groupCardsByBank", () => {
     expect(groups.map((group) => group.bank)).toEqual(["Delta", "Beta", "Alpha", "Zeta"]);
   });
 
+  it("puts Discover right after Capital One even when Discover would sort first", () => {
+    const card = (id: string, brand: string, catalogRole: Card["catalogRole"]) => ({ ...all[0], id, brand, catalogRole });
+    const groups = groupCardsByBank([
+      card("z1", "Zeta", "recommend"),
+      card("z2", "Zeta", "recommend"),
+      card("z3", "Zeta", "recommend"),
+      card("d1", "Discover", "recommend"),
+      card("d2", "Discover", "recommend"),
+      card("c1", "Capital One", "recommend"),
+    ]);
+    expect(groups.map((group) => group.bank)).toEqual(["Zeta", "Capital One", "Discover"]);
+  });
+
   it("shows Discover with no Capital One cards as an ordinary bank", () => {
     const discover = all.filter((card) => card.brand === "Discover");
     expect(groupCardsByBank(discover).map((group) => group.bank)).toEqual(["Discover"]);

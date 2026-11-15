@@ -6,7 +6,7 @@ import { listCards } from "@/lib/cards/catalog";
 import { cardDisplayName } from "@/lib/copy/results";
 import { ROUTES } from "@/lib/routes";
 
-import { CardListView } from "./card-list-view";
+import { CardListView, STARTER_LINE } from "./card-list-view";
 
 // A card's link starts with its display name; the type and fee follow.
 const linkName = (card: { brand: string; name: string }) =>
@@ -71,11 +71,21 @@ describe("CardListView", () => {
     expect(link.getAttribute("href")).toBe(`/cards/${first.id}`);
   });
 
-  it("marks the cards made for starting out", () => {
+  it("gives a card made for starting out the frame's line, and the rest their type and fee (F6)", () => {
     render(<CardListView cards={cards} signedIn />);
     const starter = cards.find((card) => card.catalogRole === "recommend")!;
     const other = cards.find((card) => card.catalogRole === "explore")!;
-    expect(screen.getByRole("link", { name: linkName(starter) }).textContent).toContain("Made for starting out");
-    expect(screen.getByRole("link", { name: linkName(other) }).textContent).not.toContain("Made for starting out");
+    expect(screen.getByRole("link", { name: linkName(starter) }).textContent).toContain(STARTER_LINE);
+    const otherRow = screen.getByRole("link", { name: linkName(other) }).textContent;
+    expect(otherRow).not.toContain(STARTER_LINE);
+    expect(otherRow).toMatch(/annual fee$/);
+  });
+
+  it("uses the intro the frame approved, with no extra words about banks (F6)", () => {
+    const { unmount } = render(<CardListView cards={cards} signedIn yourMatch={{ name: "Chase Freedom Rise", tier: "likely_fit" }} />);
+    expect(screen.getByText("Cards picked for students. Your match is on top.")).toBeTruthy();
+    unmount();
+    render(<CardListView cards={cards} signedIn />);
+    expect(screen.getByText("Cards picked for students. Take the quiz to see which one fits you, and why.")).toBeTruthy();
   });
 });
