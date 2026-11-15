@@ -43,7 +43,7 @@ export function SafeToSpendHome({ safeToSpend, preview = true }: { safeToSpend: 
     );
   }
   return (
-    <section aria-label="Safe to spend" className="relative flex flex-col rounded-[28px] bg-navy px-[23px] pt-[27px] pb-4 text-white shadow-glow-form">
+    <section aria-label="Safe to spend" className="relative flex flex-col rounded-[28px] bg-navy px-[23px] pt-[27px] pb-4 text-white">
       <div className="flex items-start justify-between gap-3">
         <p className="text-body-m leading-[18px] font-semibold">Safe to spend today:</p>
         {/* No Preview label on the number (Ben, 2026-11-14); the invite and

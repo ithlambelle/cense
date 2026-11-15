@@ -1,9 +1,11 @@
+"use client";
+
 // Created with Claude Code (2026-11-13). The pieces both Your money tabs are
 // built from (Figma 709:1520 Today, 709:1769 This month, 709:1865 Short):
 // the designers' navy hero (371:13007), the two tabs, read-only rows, rows
 // with an amount the student edits in place, and the total row.
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 
 import { SENSITIVE } from "@/lib/analytics";
 import { YOUR_MONEY_COPY } from "@/lib/budget/copy";
@@ -48,17 +50,28 @@ export function MoneyHero({
         ) : null}
       </p>
       <div className="flex items-start justify-between gap-3 pt-[13px] text-body-s leading-4">
-        <p>{left}</p>
+        <p className="text-balance">{left}</p>
         {right ? <p className="shrink-0 text-right">{right}</p> : null}
       </div>
     </section>
   );
 }
 
+// Lets the tabs switch in place (YourMoneyView). `select` returns false when
+// the tab cannot open in place, and then the link loads the page.
+export const MoneyTabsContext = createContext<{
+  select: (tab: YourMoneyTab) => boolean;
+  from: YourMoneyTab | null;
+} | null>(null);
+
 // The two tabs (709:1535): an Off-white track, the open tab a white pill with
 // a 35% Amethyst edge. Each is a link, so a reload keeps the tab; it replaces
-// the history entry, so Back leaves Your money instead of swapping tabs.
+// the history entry, so Back leaves Your money instead of swapping tabs. On
+// the page the tap switches in place and the pill slides across from the tab
+// the student left (Ben, Nov 15), none with reduced motion.
 export function MoneyTabs({ active }: { active: YourMoneyTab }) {
+  const tabs = useContext(MoneyTabsContext);
+  const slide = tabs?.from && tabs.from !== active ? (active === "month" ? "tab-slide-right" : "tab-slide-left") : null;
   const tab = (key: YourMoneyTab, label: string) => {
     const open = key === active;
     return (
@@ -67,9 +80,13 @@ export function MoneyTabs({ active }: { active: YourMoneyTab }) {
         replace
         scroll={false}
         aria-current={open ? "page" : undefined}
+        onClick={(event) => {
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          if (tabs?.select(key)) event.preventDefault();
+        }}
         className={cn(
-          "flex min-w-0 flex-1 items-center justify-center rounded-pill border-[1.5px] py-2.5 text-body-s focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-          open ? "border-violet/35 bg-white font-semibold text-navy" : "border-transparent font-medium text-indigo-black/70 hover:text-indigo-black",
+          "relative z-10 flex min-w-0 flex-1 items-center justify-center rounded-pill border-[1.5px] border-transparent py-2.5 text-body-s transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+          open ? "font-semibold text-navy" : "font-medium text-indigo-black/70 hover:text-indigo-black",
         )}
       >
         {label}
@@ -77,7 +94,16 @@ export function MoneyTabs({ active }: { active: YourMoneyTab }) {
     );
   };
   return (
-    <nav aria-label={YOUR_MONEY_COPY.title} className="flex gap-1 rounded-pill bg-off-white p-1">
+    <nav aria-label={YOUR_MONEY_COPY.title} className="relative flex gap-1 rounded-pill bg-off-white p-1">
+      {/* The open pill, behind the open tab's words. */}
+      <span
+        aria-hidden="true"
+        style={slide ? { animation: `${slide} 260ms cubic-bezier(0.22, 1, 0.36, 1)` } : undefined}
+        className={cn(
+          "absolute inset-y-1 w-[calc(50%-6px)] rounded-pill border-[1.5px] border-violet/35 bg-white motion-reduce:!animate-none",
+          active === "today" ? "left-1" : "left-[calc(50%+2px)]",
+        )}
+      />
       {tab("today", YOUR_MONEY_COPY.tabs.today)}
       {tab("month", YOUR_MONEY_COPY.tabs.month)}
     </nav>
@@ -97,7 +123,7 @@ export function GroupHeading({ id, children }: { id?: string; children: ReactNod
 // Off-white line under it.
 export function ReadRow({ label, value }: { label: string; value: string }) {
   return (
-    <li className="flex items-center gap-3 border-b border-off-white py-2 text-body-m text-indigo-black">
+    <li className="flex items-center gap-3 border-b border-off-white py-2 text-body-m text-indigo-black [&:has(+[data-total])]:border-b-0">
       <span className="min-w-0 flex-1">{label}</span>
       <span className={cn(SENSITIVE, "shrink-0 tabular-nums")}>{value}</span>
     </li>
@@ -107,7 +133,7 @@ export function ReadRow({ label, value }: { label: string; value: string }) {
 // The total row (709:1566): a hairline above, Semi Bold.
 export function TotalRow({ label, value }: { label: string; value: string }) {
   return (
-    <li className="flex items-center gap-3 border-t border-hairline py-2 text-body-m font-semibold text-indigo-black">
+    <li data-total className="flex items-center gap-3 border-t border-hairline py-2 text-body-m font-semibold text-indigo-black">
       <span className={cn(SENSITIVE, "min-w-0 flex-1")}>{label}</span>
       <span className={cn(SENSITIVE, "shrink-0 tabular-nums")}>{value}</span>
     </li>
@@ -154,7 +180,7 @@ export function EditRow({
   // The whole row is masked in session replay, as How we got this masked the
   // answers: which bills a student pays and their due days are theirs too.
   return (
-    <li className={cn(SENSITIVE, "flex flex-col border-b border-off-white")}>
+    <li className={cn(SENSITIVE, "flex flex-col border-b border-off-white [&:has(+[data-total])]:border-b-0")}>
       <div className="flex items-center gap-3">
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-body-m text-indigo-black">{label}</span>

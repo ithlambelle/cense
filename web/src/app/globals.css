@@ -220,3 +220,16 @@
     display: none;
   }
 }
+
+/* Your money's tabs (Ben, Nov 15): the open pill slides from the tab the
+   student left, and the rows fade in. The pill is half the track less the
+   4px gap, so one tab over is its own width plus 4px. */
+@keyframes tab-slide-right {
+  from { transform: translateX(calc(-100% - 4px)); }
+}
+@keyframes tab-slide-left {
+  from { transform: translateX(calc(100% + 4px)); }
+}
+@keyframes tab-fade {
+  from { opacity: 0.4; }
+}

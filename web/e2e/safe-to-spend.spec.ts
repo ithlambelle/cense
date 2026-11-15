@@ -58,7 +58,9 @@ async function answerWhoCovers(page: Page, checkA11y?: (screen: string) => Promi
   ];
   for (const [index, step] of steps.entries()) {
     await expect(page.getByRole("heading", { level: 1, name: step.title })).toBeVisible();
-    await expect(page.getByText(`${step.bill} · ${index + 1} of 5`)).toBeVisible();
+    // Progress is the card quiz's bar; screen readers hear the step (Ben, Nov 15).
+    await expect(page.getByText(`Question ${index + 1} of 6`)).toHaveCount(1);
+    await expect(page.getByText(/· \d of 5|^Next:|^Preview$/)).toHaveCount(0);
     if (index === 0 && checkA11y) {
       // Continue with nothing picked asks for a pick and stays.
       await page.getByRole("button", { name: "Continue" }).click();
