@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { minusMoney, signedMoney } from "@/components/safe-to-spend/parts";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
-import { amountInput, EditRow, GroupHeading, MoneyHero, MoneyTabs, ReadRow, TotalRow } from "@/components/your-money/parts";
+import { amountInput, EditRow, GroupHeading, MoneyHero, MoneyTabs, ReadRow, TotalRow, type SavedAnswers, type SharedAnswers } from "@/components/your-money/parts";
 import { track } from "@/lib/analytics";
 import { parseAmount, refreshBank, saveSafeToSpendAnswers, type SafeToSpendData } from "@/lib/api-client/safe-to-spend";
 import { ordinalDay, YOUR_MONEY_COPY } from "@/lib/budget/copy";
@@ -43,18 +43,20 @@ function billLine(answer: BillAnswer, today: number): string | null {
   return share ? `${share} · due ${day}${done}` : `Due ${day}${done}`;
 }
 
-function initialValues(data: SafeToSpendData): Record<FieldKey, string> {
-  const values = { [SET_ASIDE]: amountInput(data.setAsideCents) } as Record<FieldKey, string>;
-  for (const answer of paidBills(data.bills as BillAnswer[])) values[answer.bill] = amountInput(answer.monthlyCents);
+function initialValues(answers: SavedAnswers): Record<FieldKey, string> {
+  const values = { [SET_ASIDE]: amountInput(answers.setAsideCents) } as Record<FieldKey, string>;
+  for (const answer of paidBills(answers.bills)) values[answer.bill] = amountInput(answer.monthlyCents);
   return values;
 }
 
-export function TodayTab({ data, today }: { data: SafeToSpendData; today: number }) {
+// `shared` holds the bills and savings goal for both tabs (YourMoneyView), so
+// a save finished after the student switched tabs is never lost.
+export function TodayTab({ data, today, shared }: { data: SafeToSpendData; today: number; shared: SharedAnswers }) {
   const router = useRouter();
   const isMounted = useIsMounted();
   const now = useNow();
-  const bills = data.bills as BillAnswer[];
-  const [values, setValues] = useState(() => initialValues(data));
+  const bills = shared.answers.bills;
+  const [values, setValues] = useState(() => initialValues(shared.answers));
   const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
   const [saving, setSaving] = useState<FieldKey | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -70,23 +72,24 @@ export function TodayTab({ data, today }: { data: SafeToSpendData; today: number
 
   // The answers with what is typed over `saved`, a field that is not an
   // amount keeping its saved number.
-  const answersFrom = (from: Record<FieldKey, string>, saved: (key: FieldKey) => number) => ({
-    bills: bills.map((answer) =>
+  const answersFrom = (from: Record<FieldKey, string>, saved: (key: FieldKey) => number): SavedAnswers => ({
+    bills: shared.latest().bills.map((answer) =>
       answer.coveredBy === "me" || answer.coveredBy === "split" ? { ...answer, monthlyCents: typedIn(from, answer.bill) ?? saved(answer.bill) } : answer,
     ),
     setAsideCents: typedIn(from, SET_ASIDE) ?? saved(SET_ASIDE),
   });
-  const savedIn = (key: FieldKey): number =>
-    key === SET_ASIDE ? data.setAsideCents : (bills.find((answer) => answer.bill === key)?.monthlyCents ?? 0);
+  // The saved number, from the copy both tabs share.
+  const savedIn = (key: FieldKey): number => {
+    const saved = shared.latest();
+    return key === SET_ASIDE ? saved.setAsideCents : (saved.bills.find((answer) => answer.bill === key)?.monthlyCents ?? 0);
+  };
   // The sum as the student types.
   const sum = computeSafeToSpend({ accounts: data.accounts, ...answersFrom(values, savedIn), today });
 
-  // Saves run one after another, each with the fields as they are when it
-  // runs, so a quick second edit is never dropped or overwritten by the first.
+  // Saves run one after another in the page's queue, each with the fields as
+  // they are when it runs, so a quick second edit is never dropped or
+  // overwritten by the first.
   const latest = useRef(values);
-  const lastSaved = useRef<Record<string, number>>({});
-  const queue = useRef<Promise<void>>(Promise.resolve());
-  const savedNow = (key: FieldKey) => lastSaved.current[key] ?? savedIn(key);
 
   function setValue(key: FieldKey, value: string) {
     latest.current = { ...latest.current, [key]: value };
@@ -99,16 +102,22 @@ export function TodayTab({ data, today }: { data: SafeToSpendData; today: number
       return;
     }
     setErrors((current) => ({ ...current, [key]: undefined }));
-    queue.current = queue.current.then(() => save(key));
+    void shared.enqueue(() => save(key));
   }
 
   async function save(key: FieldKey) {
     const from = latest.current;
     const cents = typedIn(from, key);
-    if (cents === null || cents === savedNow(key)) return;
+    if (cents === null || cents === savedIn(key)) return;
     setSaving(key);
-    const answers = answersFrom(from, savedNow);
+    const answers = answersFrom(from, savedIn);
     const result = await saveSafeToSpendAnswers(answers);
+    // Recorded and refreshed even if the student has switched tabs meanwhile.
+    if (result.kind === "ok") {
+      shared.saved(answers);
+      track("money_amount_saved", { tab: "today", line: key === SET_ASIDE ? "set_aside" : "bill" });
+      router.refresh();
+    }
     if (!isMounted()) return;
     setSaving(null);
     if (result.kind === "signed-out") return router.replace(signInPath(ROUTES.safeToSpend));
@@ -116,11 +125,7 @@ export function TodayTab({ data, today }: { data: SafeToSpendData; today: number
       setErrors((current) => ({ ...current, [key]: result.message }));
       return;
     }
-    for (const answer of answers.bills) if (answer.monthlyCents !== null) lastSaved.current[answer.bill] = answer.monthlyCents;
-    lastSaved.current[SET_ASIDE] = answers.setAsideCents;
     setErrors((current) => ({ ...current, [key]: undefined }));
-    track("money_amount_saved", { tab: "today", line: key === SET_ASIDE ? "set_aside" : "bill" });
-    router.refresh();
   }
 
   async function refresh() {

@@ -8,6 +8,7 @@ import Link from "next/link";
 import { createContext, useContext, type ReactNode } from "react";
 
 import { SENSITIVE } from "@/lib/analytics";
+import type { BillAnswer } from "@/lib/api-client/safe-to-spend";
 import { YOUR_MONEY_COPY } from "@/lib/budget/copy";
 import { moneyAmount } from "@/lib/money";
 import { yourMoneyPath, type YourMoneyTab } from "@/lib/routes";
@@ -63,6 +64,17 @@ export const MoneyTabsContext = createContext<{
   select: (tab: YourMoneyTab) => boolean;
   from: YourMoneyTab | null;
 } | null>(null);
+
+// The answers both tabs edit (YourMoneyView): what to show, the latest saved
+// copy for a save to build on, a way to record a save, and the page's one
+// save queue, so saves from either tab run one after another.
+export type SavedAnswers = { bills: BillAnswer[]; setAsideCents: number };
+export type SharedAnswers = {
+  answers: SavedAnswers;
+  latest: () => SavedAnswers;
+  saved: (answers: SavedAnswers) => void;
+  enqueue: <T>(task: () => Promise<T>) => Promise<T>;
+};
 
 // The two tabs (709:1535): an Off-white track, the open tab a white pill with
 // a 35% Amethyst edge. Each is a link, so a reload keeps the tab; it replaces
@@ -177,8 +189,8 @@ export function EditRow({
   onCommit: () => void;
 }) {
   const errorId = `${id}-error`;
-  // The whole row is masked in session replay, as How we got this masked the
-  // answers: which bills a student pays and their due days are theirs too.
+  // The whole row is masked in session replay: which bills a student pays
+  // and their due days are theirs, like their amounts.
   return (
     <li className={cn(SENSITIVE, "flex flex-col border-b border-off-white [&:has(+[data-total])]:border-b-0")}>
       <div className="flex items-center gap-3">

@@ -7,7 +7,7 @@
 // The tabs switch on the page, with no reload: the open pill slides across
 // and the address changes in place, so a reload still opens the same tab
 // (Ben, Nov 15: the reload between tabs felt harsh).
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { MonthTab } from "@/components/your-money/month-tab";
 import { TodayTab } from "@/components/your-money/today-tab";
@@ -15,6 +15,7 @@ import { MoneyTabsContext } from "@/components/your-money/parts";
 import { AppHeader } from "@/components/ui/app-header";
 import type { Budget } from "@/lib/api/budget";
 import type { BillAnswer, SafeToSpendData } from "@/lib/api-client/safe-to-spend";
+import type { SavedAnswers, SharedAnswers } from "@/components/your-money/parts";
 import { YOUR_MONEY_COPY } from "@/lib/budget/copy";
 import { ROUTES, yourMoneyPath, type YourMoneyTab } from "@/lib/routes";
 
@@ -51,6 +52,33 @@ export function YourMoneyView({
   );
   const context = useMemo(() => ({ select, from }), [select, from]);
 
+  // The student's answers (bills and savings goal), one copy for both tabs,
+  // and one queue for every save on the page. A save started on one tab and
+  // finished after the student switched lands here, so the other tab shows it
+  // and its next save sends it, never an older number (review of #113, Nov 15).
+  // Only this page changes them, so after the first load the page's own copy
+  // is the truth: a refresh that answers before a later save lands can never
+  // put an older number back.
+  const [answers, setAnswers] = useState<SavedAnswers>(() => ({ bills: data.bills as BillAnswer[], setAsideCents: data.setAsideCents }));
+  const answersRef = useRef(answers);
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const shared = useMemo<SharedAnswers>(
+    () => ({
+      answers,
+      latest: () => answersRef.current,
+      saved: (next) => {
+        answersRef.current = next;
+        setAnswers(next);
+      },
+      enqueue: (task) => {
+        const run = queue.current.then(task, task);
+        queue.current = run.catch(() => undefined);
+        return run;
+      },
+    }),
+    [answers],
+  );
+
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
@@ -62,9 +90,9 @@ export function YourMoneyView({
             {/* A quick fade as the rows change, none with reduced motion. */}
             <div key={tab} className="flex flex-1 flex-col gap-2 motion-safe:animate-[tab-fade_180ms_ease-out]">
               {tab === "month" && budget ? (
-                <MonthTab budget={budget} answers={{ bills: data.bills as BillAnswer[], setAsideCents: data.setAsideCents }} />
+                <MonthTab budget={budget} shared={shared} />
               ) : (
-                <TodayTab data={data} today={today} />
+                <TodayTab data={data} today={today} shared={shared} />
               )}
             </div>
           </MoneyTabsContext.Provider>

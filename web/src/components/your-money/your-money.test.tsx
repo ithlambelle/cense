@@ -433,3 +433,70 @@ describe("words", () => {
     expect(document.body.textContent).not.toMatch(/[—~]/);
   });
 });
+
+// Review of #113 (Nov 15): the tabs switch on the page, so a save can finish
+// after the student has moved to the other tab. It must still count there.
+describe("Your money, switching tabs while a save is on its way", () => {
+  const deferred = () => {
+    let resolve!: (value: unknown) => void;
+    const promise = new Promise((done) => (resolve = done));
+    return { promise, resolve };
+  };
+
+  it("keeps a rent edit from Today when the savings goal is then saved on This month", async () => {
+    const rent = deferred();
+    saveSafeToSpendAnswers.mockReturnValueOnce(rent.promise);
+    render(<YourMoneyView tab="today" data={DATA} budget={budget()} today={5} />);
+    type("Rent each month", "700");
+    await commit("Rent each month");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("link", { name: "This month" }));
+    });
+    expect(screen.getByRole("link", { name: "This month" }).getAttribute("aria-current")).toBe("page");
+    await act(async () => rent.resolve({ kind: "ok", data: DATA }));
+    expect(refresh).toHaveBeenCalledTimes(1);
+
+    type("Savings goal", "300");
+    await commit("Savings goal");
+    const last = saveSafeToSpendAnswers.mock.calls.at(-1)![0] as { bills: { bill: string; monthlyCents: number | null }[]; setAsideCents: number };
+    expect(last.setAsideCents).toBe(30000);
+    expect(last.bills.find((answer) => answer.bill === "rent")?.monthlyCents).toBe(70000);
+  });
+
+  it("shows a savings goal saved on This month on Today, and keeps it in Today's next save", async () => {
+    const goal = deferred();
+    saveSafeToSpendAnswers.mockReturnValueOnce(goal.promise);
+    render(<YourMoneyView tab="month" data={DATA} budget={budget()} today={5} />);
+    type("Savings goal", "300");
+    await commit("Savings goal");
+    await act(async () => goal.resolve({ kind: "ok", data: DATA }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("link", { name: "Today" }));
+    });
+    expect((screen.getByLabelText("Savings goal") as HTMLInputElement).value).toBe("300");
+
+    type("Rent each month", "700");
+    await commit("Rent each month");
+    const last = saveSafeToSpendAnswers.mock.calls.at(-1)![0] as { setAsideCents: number };
+    expect(last.setAsideCents).toBe(30000);
+  });
+
+  it("runs a save from one tab only after the other tab's save is done", async () => {
+    const rent = deferred();
+    saveSafeToSpendAnswers.mockReturnValueOnce(rent.promise);
+    render(<YourMoneyView tab="today" data={DATA} budget={budget()} today={5} />);
+    type("Rent each month", "700");
+    await commit("Rent each month");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("link", { name: "This month" }));
+    });
+    type("Savings goal", "300");
+    await commit("Savings goal");
+    expect(saveSafeToSpendAnswers).toHaveBeenCalledTimes(1);
+    await act(async () => rent.resolve({ kind: "ok", data: DATA }));
+    expect(saveSafeToSpendAnswers).toHaveBeenCalledTimes(2);
+    const last = saveSafeToSpendAnswers.mock.calls.at(-1)![0] as { bills: { bill: string; monthlyCents: number | null }[]; setAsideCents: number };
+    expect(last.bills.find((answer) => answer.bill === "rent")?.monthlyCents).toBe(70000);
+    expect(last.setAsideCents).toBe(30000);
+  });
+});

@@ -11,16 +11,16 @@ import ArrowUturnCcwLeft from "@gravity-ui/icons/ArrowUturnCcwLeft";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { amountInput, EditRow, GroupHeading, MoneyHero, MoneyTabs } from "@/components/your-money/parts";
+import { amountInput, EditRow, GroupHeading, MoneyHero, MoneyTabs, type SharedAnswers } from "@/components/your-money/parts";
 import { track } from "@/lib/analytics";
 import type { Budget } from "@/lib/api/budget";
 import { deleteBudgetLine, saveBudgetLine, type BudgetLineKey } from "@/lib/api-client/budget";
-import { parseAmount, saveSafeToSpendAnswers, type BillAnswer } from "@/lib/api-client/safe-to-spend";
+import { parseAmount, saveSafeToSpendAnswers } from "@/lib/api-client/safe-to-spend";
 import { parseDollarsToCents } from "@/lib/budget/amount";
 import { bankMonthLine, bankNumberLabel, noIncomeLine, YOUR_MONEY_COPY } from "@/lib/budget/copy";
 import { monthName, summarize, type BudgetLine, type BudgetLines } from "@/lib/budget/lines";
 import { moneyAmount } from "@/lib/money";
-import { signInPath, yourMoneyPath } from "@/lib/routes";
+import { ROUTES, signInPath } from "@/lib/routes";
 
 // Saving is the set-aside, so it saves with the safe-to-spend answers and
 // keeps that screen's range; every other line saves to the budget.
@@ -29,10 +29,14 @@ function parseLine(line: BudgetLine, text: string): number | null {
   return line.group === "saving" ? parseAmount(text) : parseDollarsToCents(text);
 }
 
-export function MonthTab({ budget, answers }: { budget: Budget; answers: { bills: BillAnswer[]; setAsideCents: number } }) {
+// `shared` holds the bills and savings goal for both tabs (YourMoneyView):
+// saving is the savings goal, so it shows and saves the shared copy, never
+// an older one from before a save on Today.
+export function MonthTab({ budget, shared }: { budget: Budget; shared: SharedAnswers }) {
   const router = useRouter();
   const lines = budget as unknown as BudgetLines;
-  const all = [lines.income, ...lines.needs, ...lines.wants, lines.saving];
+  const savingLine: BudgetLine = { ...lines.saving, amountCents: shared.answers.setAsideCents };
+  const all = [lines.income, ...lines.needs, ...lines.wants, savingLine];
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(all.map((line) => [line.key, amountInput(line.amountCents)])),
   );
@@ -50,18 +54,19 @@ export function MonthTab({ budget, answers }: { budget: Budget; answers: { bills
     const cents = parseLine(line, values[line.key] ?? "");
     if (cents !== null) typedAmounts[line.key] = cents;
   }
-  const summary = summarize(lines, typedAmounts);
+  const summary = summarize({ ...lines, saving: savingLine }, typedAmounts);
   const short = summary.remainingCents < 0;
   const month = monthName(budget.month);
   // Not drawn: linked, but no transactions have arrived and nothing is typed
   // yet. No total to show until there is something to add up.
   const waiting = !budget.hasBankData && !lines.income.typed && lines.needs.length === 0 && lines.wants.length === 0;
 
-  // Saves run one after another, each with the field as it is when it runs,
-  // so a quick second edit is never dropped.
+  // Saves run one after another in the page's queue, each with the field as
+  // it is when it runs, so a quick second edit is never dropped.
   const latest = useRef(values);
   const lastSaved = useRef<Record<string, number>>({});
-  const queue = useRef<Promise<void>>(Promise.resolve());
+  const savedCents = (line: BudgetLine) =>
+    line.group === "saving" ? shared.latest().setAsideCents : (lastSaved.current[line.key] ?? line.amountCents);
 
   function setValue(key: string, value: string) {
     latest.current = { ...latest.current, [key]: value };
@@ -74,19 +79,20 @@ export function MonthTab({ budget, answers }: { budget: Budget; answers: { bills
       return;
     }
     setErrors((current) => ({ ...current, [line.key]: undefined }));
-    queue.current = queue.current.then(() => save(line));
+    void shared.enqueue(() => save(line));
   }
 
   async function save(line: BudgetLine) {
     const cents = parseLine(line, latest.current[line.key] ?? "");
-    if (cents === null || cents === (lastSaved.current[line.key] ?? line.amountCents)) return;
+    if (cents === null || cents === savedCents(line)) return;
     setSaving(line.key);
+    const answers = { bills: shared.latest().bills, setAsideCents: cents };
     const result =
-      line.group === "saving"
-        ? await saveSafeToSpendAnswers({ bills: answers.bills, setAsideCents: cents })
-        : await saveBudgetLine(line.key as BudgetLineKey, cents);
+      line.group === "saving" ? await saveSafeToSpendAnswers(answers) : await saveBudgetLine(line.key as BudgetLineKey, cents);
     setSaving(null);
-    if (result.kind === "signed-out") return router.replace(signInPath(yourMoneyPath("month")));
+    if (result.kind === "ok" && line.group === "saving") shared.saved(answers);
+    // Your money, not ?tab=month: sign-in only goes back to plain paths.
+    if (result.kind === "signed-out") return router.replace(signInPath(ROUTES.safeToSpend));
     if (result.kind === "failed") {
       setErrors((current) => ({ ...current, [line.key]: result.message }));
       return;
@@ -106,13 +112,13 @@ export function MonthTab({ budget, answers }: { budget: Budget; answers: { bills
     // What the field held when undo was tapped: anything typed after it is
     // the student's newer number and is kept (and saved on blur).
     const tapped = latest.current[line.key];
-    queue.current = queue.current.then(() => runUndo(line, tapped));
+    void shared.enqueue(() => runUndo(line, tapped));
   }
 
   async function runUndo(line: BudgetLine, tapped: string | undefined) {
     const result = await deleteBudgetLine(line.key as BudgetLineKey);
     setUndoing(null);
-    if (result.kind === "signed-out") return router.replace(signInPath(yourMoneyPath("month")));
+    if (result.kind === "signed-out") return router.replace(signInPath(ROUTES.safeToSpend));
     if (result.kind === "failed") {
       setErrors((current) => ({ ...current, [line.key]: result.message }));
       return;
@@ -198,7 +204,7 @@ export function MonthTab({ budget, answers }: { budget: Budget; answers: { bills
       </ul>
       {group("needs", YOUR_MONEY_COPY.needs, lines.needs)}
       {group("wants", YOUR_MONEY_COPY.wants, lines.wants)}
-      {group("saving", YOUR_MONEY_COPY.saving, [{ ...lines.saving, label: YOUR_MONEY_COPY.setAside }])}
+      {group("saving", YOUR_MONEY_COPY.saving, [{ ...savingLine, label: YOUR_MONEY_COPY.setAside }])}
       {budget.hasBankData ? <p className="pt-2 text-[13px] leading-[18px] text-indigo-black/70">{bankMonthLine(month)}</p> : null}
     </>
   );

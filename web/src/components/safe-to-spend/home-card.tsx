@@ -50,7 +50,7 @@ export function SafeToSpendHome({ safeToSpend, preview = true }: { safeToSpend: 
             setup cards keep it. */}
         <span className="flex items-center gap-3">
           {/* The whole card opens Your money (D1 decided: tapping the card
-              opens D2, no "How we got this" button). The chevron is the
+              opens D2, no separate button). The chevron is the
               link; its tap area covers the card. */}
           {safeToSpend.status === "active" ? (
             <Link
