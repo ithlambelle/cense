@@ -18,18 +18,20 @@ describe("censeCategory", () => {
     expect(censeCategory("LOAN_PAYMENTS", "LOAN_PAYMENTS_PERSONAL_LOAN_PAYMENT")).toBe("other");
   });
 
-  it("never counts a card payment, income or a transfer between the student's own accounts as spending", () => {
+  it("never counts a card payment, income, money coming in or a move to savings or investments as spending", () => {
     expect(censeCategory("LOAN_PAYMENTS", "LOAN_PAYMENTS_CREDIT_CARD_PAYMENT")).toBeNull();
     expect(censeCategory("INCOME", "INCOME_WAGES")).toBeNull();
     expect(censeCategory("TRANSFER_IN", "TRANSFER_IN_ACCOUNT_TRANSFER")).toBeNull();
     expect(censeCategory("TRANSFER_OUT", "TRANSFER_OUT_SAVINGS")).toBeNull();
-    expect(censeCategory("TRANSFER_OUT", "TRANSFER_OUT_ACCOUNT_TRANSFER")).toBeNull();
     expect(censeCategory("TRANSFER_OUT", "TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS")).toBeNull();
   });
 
-  it("counts cash taken out and money sent to a person as Other (Ben, Nov 15)", () => {
+  // spending_by_detailed_category() returns only the transfers out that are
+  // spending, so each one left is Other, a Venmo payment included.
+  it("counts cash taken out, payment app payments and money sent to a person as Other (Ben, Nov 15)", () => {
     expect(censeCategory("TRANSFER_OUT", "TRANSFER_OUT_WITHDRAWAL")).toBe("other");
     expect(censeCategory("TRANSFER_OUT", "TRANSFER_OUT_OTHER_TRANSFER_OUT")).toBe("other");
+    expect(censeCategory("TRANSFER_OUT", "TRANSFER_OUT_ACCOUNT_TRANSFER")).toBe("other");
   });
 
   it("maps every D31 purpose Plaid has a category for", () => {
@@ -87,13 +89,19 @@ describe("spendingByCategory", () => {
     expect(spendingByCategory([row(null, null, 700, 50000)])).toEqual({ other: 700 });
   });
 
-  it("leaves out income, transfers and card payments", () => {
+  it("leaves out income, moves to savings and card payments", () => {
     expect(
       spendingByCategory([
         row("INCOME", "INCOME_WAGES", 0, 90000),
-        row("TRANSFER_OUT", "TRANSFER_OUT_ACCOUNT_TRANSFER", 50000),
+        row("TRANSFER_OUT", "TRANSFER_OUT_SAVINGS", 50000),
         row("LOAN_PAYMENTS", "LOAN_PAYMENTS_CREDIT_CARD_PAYMENT", 31000),
       ]),
     ).toEqual({});
+  });
+
+  // The database returns a general transfer out only when it went through a
+  // payment app, so it is a Venmo or Zelle payment (Ben, Nov 15).
+  it("counts a payment app payment as Other", () => {
+    expect(spendingByCategory([row("TRANSFER_OUT", "TRANSFER_OUT_ACCOUNT_TRANSFER", 2500)])).toEqual({ other: 2500 });
   });
 });

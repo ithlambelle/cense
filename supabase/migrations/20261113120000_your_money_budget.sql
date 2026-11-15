@@ -12,13 +12,14 @@
 --    (web/src/lib/budget/categories.ts), which also decides what is not
 --    spending (income, transfers between the student's own accounts, card
 --    payments) and nets a refund against its purchase's category (D35).
---    Money sent out (TRANSFER_OUT) is spending, under Other, only when it is
---    cash taken out (TRANSFER_OUT_WITHDRAWAL) or a payment to a named person
---    (rent by Zelle, paying a friend back); the rule mirrors income_by_month's
---    for money in (Ben, Nov 15). Never spending: transfers to the student's own
---    accounts, savings or investments, a payment to a bare payment app name
---    ("Venmo", "Venmo transfer", since topping up a wallet looks the same, D38),
---    a payment with no name, and money that arrives in another of the
+--    Money sent out (TRANSFER_OUT) is spending, under Other, when it is cash
+--    taken out (TRANSFER_OUT_WITHDRAWAL), money sent through a payment app
+--    (Venmo, Zelle, Cash App, PayPal), named or not, or a payment to a named
+--    person (rent by Zelle, paying a friend back) (Ben, Nov 15: students pay
+--    each other this way all the time, and the bank rarely shows who got it).
+--    Never spending: transfers to savings or investments, a general transfer
+--    to another account (TRANSFER_OUT_ACCOUNT_TRANSFER) that is not a payment
+--    app, a payment with no name, and money that arrives in another of the
 --    student's accounts as TRANSFER_IN for the same amount within 3 days.
 --    Those rows are left out here, before the totals.
 --    Totals only: never a transaction, a merchant or an account.
@@ -62,16 +63,15 @@ as $$
       t.category is distinct from 'TRANSFER_OUT'
       or (
         coalesce(t.category_detailed, '') not in (
-          'TRANSFER_OUT_ACCOUNT_TRANSFER',
           'TRANSFER_OUT_SAVINGS',
           'TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS'
         )
         and (
           t.category_detailed = 'TRANSFER_OUT_WITHDRAWAL'
+          or t.merchant_name ~* '\m(venmo|zelle|cash ?app|pay ?pal)\M'
           or (
-            nullif(btrim(t.merchant_name), '') is not null
-            and btrim(t.merchant_name) !~* '^(venmo|cash ?app|pay ?pal)$'
-            and btrim(t.merchant_name) !~* '\m(venmo|cash ?app|pay ?pal)\M.*\m(cash[ -]?out|transfer)\M'
+            coalesce(t.category_detailed, '') <> 'TRANSFER_OUT_ACCOUNT_TRANSFER'
+            and nullif(btrim(t.merchant_name), '') is not null
           )
         )
         and not exists (

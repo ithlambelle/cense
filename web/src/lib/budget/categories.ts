@@ -13,13 +13,15 @@
 // personal care, Travel and Other. Every line stays editable, so a student
 // who disagrees changes the number, not the rule.
 //
-// Not spending: income, money coming in (TRANSFER_IN), money moving to the
-// student's own accounts, savings or investments, and credit card payments,
-// which would count a purchase twice. Money sent out is Other: cash taken out
-// and payments to a named person (Ben, Nov 15). spending_by_detailed_category()
-// already leaves out the transfers out that are not spending (no name, a bare
-// payment app, or a match on another of the student's accounts). A refund is money in under the purchase's
-// own category and is subtracted from it (D35). Money in with no category is
+// Not spending: income, money coming in (TRANSFER_IN), money moved to
+// savings or investments, and credit card payments, which would count a
+// purchase twice. Money sent out is Other: cash taken out, money sent through
+// a payment app (Venmo, Zelle, Cash App, PayPal) and payments to a named
+// person (Ben, Nov 15). spending_by_detailed_category() already leaves out the
+// transfers out that are not spending (no name, a general transfer that is
+// not a payment app, or a match on another of the student's accounts), so
+// every TRANSFER_OUT row it returns is Other. A refund is money in under the
+// purchase's own category and is subtracted from it (D35). Money in with no category is
 // never a refund (D37); whether it is income is income_by_month's rule.
 //
 // Plaid's taxonomy: https://plaid.com/documents/transactions-personal-finance-category-taxonomy.csv
@@ -50,11 +52,10 @@ export const CATEGORY_KEYS = BUDGET_CATEGORIES.map((category) => category.key) a
 // Primary categories that are never spending.
 const NOT_SPENDING_PRIMARY = new Set(["INCOME", "TRANSFER_IN"]);
 // Detailed categories that are never spending: paying a card pays for
-// purchases already counted when they were made, and money moved to the
-// student's own accounts is still theirs.
+// purchases already counted when they were made, and money moved to savings
+// or investments is still the student's.
 const NOT_SPENDING_DETAILED = new Set([
   "LOAN_PAYMENTS_CREDIT_CARD_PAYMENT",
-  "TRANSFER_OUT_ACCOUNT_TRANSFER",
   "TRANSFER_OUT_SAVINGS",
   "TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS",
 ]);
