@@ -57,7 +57,11 @@ different account is signed in in that browser. Then `/reset-password` shows
 the account's email and sends `{ "password": "..." }` to
 `POST /api/v1/auth/password/reset/confirm` with the recovery session cookie.
 `GET /api/v1/auth/password/reset/verify` only forwards older links to the
-confirm screen.
+confirm screen. When it cannot tell who is signed in (anything but "no
+session"), the POST refuses with `503` `session_check_failed` before the link
+is used. What it cannot stop: a signed-out student who taps Continue on a
+link someone else asked for is signed in to that person's account; Set a new
+password names the account's email, which is the guard.
 The password fields require at least 8 characters and at most 72 UTF-8 bytes
 for sign-up and reset. Only a session from a reset link opened in the last
 10 minutes can confirm a reset (`openedResetLink` in `web/src/lib/api/password.ts`).

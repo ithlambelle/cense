@@ -1204,6 +1204,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description The limits could not be checked (sign_in_busy) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     signUpWithPassword: {
@@ -1331,6 +1340,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description The limits could not be checked (sign_in_busy) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
     };
     signInWithPassword: {
@@ -1391,6 +1409,15 @@ export interface operations {
             };
             /** @description Too many tries for this email or from this address (rate_limited) */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The limits could not be checked (sign_in_busy) */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1536,6 +1563,15 @@ export interface operations {
             };
             /** @description Too many tries from this address (rate_limited) */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Could not tell who is signed in here (session_check_failed) */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

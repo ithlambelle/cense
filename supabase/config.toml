@@ -238,9 +238,11 @@ max_frequency = "1s"
 # Number of characters used in the email OTP.
 otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
-# 10 minutes, for sign-in codes and reset links alike: with the app's limit of
-# 10 code checks per email per 10 minutes, a code cannot be guessed before it
-# expires. The hosted project's Auth settings must say 600 too.
+# 10 minutes, for sign-in codes and reset links alike. With the app's limits
+# (at most 50 code checks per email a day, migration
+# 20261117120000_auth_throttle.sql), the chance of guessing a code is about 1
+# in 20,000 a day per email: small, not zero. The hosted project's Auth
+# settings must say 600 too.
 otp_expiry = 600
 
 # Local and CI only. Mailpit (http://127.0.0.1:54324) catches every email.

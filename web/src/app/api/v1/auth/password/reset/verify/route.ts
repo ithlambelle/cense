@@ -1,3 +1,4 @@
+import { isAuthSessionMissingError } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
@@ -17,8 +18,14 @@ import { createDeferredStudentClient, createStudentClient } from "@/lib/supabase
 //
 // POST, from that screen's Continue button, verifies the link. If a different
 // student is signed in in this browser, it refuses and leaves their session
-// alone: they are told to log out first. Set a new password then shows the
-// account's email, so a link meant for someone else is noticed.
+// alone: they are told to log out first. If it cannot tell who is signed in
+// (anything but "no session"), it refuses too, before the link is used.
+//
+// What this cannot stop: a student who is NOT signed in and taps Continue on
+// a link someone else sent is signed in to that person's account, as with
+// any link that signs in. The guard then is Set a new password, which names
+// the account's email, so they can see it is not theirs before typing a
+// password.
 export function GET(request: NextRequest): Response {
   const target = new URL(ROUTES.resetPasswordConfirm, request.nextUrl.origin);
   for (const name of ["token_hash", "code"]) {
@@ -37,8 +44,15 @@ export async function POST(request: Request): Promise<Response> {
   const limited = await authThrottle(request, "link", null);
   if (limited) return limited;
 
-  // Who is signed in now, if anyone. src/proxy.ts has already refreshed the session.
-  const { data: current } = await (await createStudentClient()).auth.getUser();
+  // Who is signed in now, if anyone. src/proxy.ts has already refreshed the
+  // session. Only "no session" counts as signed out: any other failure (Auth
+  // down, a token it rejects) could hide a signed-in student, whose session
+  // must not be replaced.
+  const { data: current, error: currentError } = await (await createStudentClient()).auth.getUser();
+  if (currentError && !isAuthSessionMissingError(currentError)) {
+    console.error("Checking the current session failed", { code: currentError.code, status: currentError.status });
+    return apiError(503, "session_check_failed", "We couldn’t check who’s logged in here. Try again in a minute.");
+  }
   const signedInAs = current.user?.id ?? null;
 
   // The link's session is held back until it is known whose it is.

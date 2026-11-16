@@ -86,7 +86,7 @@ registry.registerPath({
   method: "post", path: "/auth/email/verify", operationId: "verifyEmailCode", summary: "Verify an email code and create a session",
   description: "When this code is what confirms the account, any password set before it is replaced with a random one and other sessions end.",
   request: { body: body(z.strictObject({ email: z.email(), code: z.string().regex(/^\d{6}$/) })) },
-  responses: { 200: ok(z.strictObject({ status: z.literal("signed_in") })), 400: failure("Invalid request"), 401: failure("Wrong or expired code"), 429: failure("Too many code checks (rate_limited)"), 502: failure("Account could not be secured") },
+  responses: { 200: ok(z.strictObject({ status: z.literal("signed_in") })), 400: failure("Invalid request"), 401: failure("Wrong or expired code"), 429: failure("Too many code checks (rate_limited)"), 502: failure("Account could not be secured"), 503: failure("The limits could not be checked (sign_in_busy)") },
 });
 registry.registerPath({
   method: "post", path: "/auth/password/signup", operationId: "signUpWithPassword", summary: "Create an optional password account",
@@ -97,12 +97,12 @@ registry.registerPath({
   method: "post", path: "/auth/password/signup/confirm", operationId: "confirmPasswordSignUp", summary: "Confirm a password sign-up with the emailed code and set its password",
   description: "Sets the chosen password and ends other sessions only when this code is what confirms the account. An account confirmed earlier keeps its password and sessions, and `passwordChanged` is false.",
   request: { body: body(passwordSignUpConfirmSchema) },
-  responses: { 200: ok(z.strictObject({ status: z.literal("signed_in"), passwordChanged: z.boolean() })), 400: failure("Invalid request"), 401: failure("Wrong or expired code"), 429: failure("Too many code checks (rate_limited)"), 502: failure("Password could not be set") },
+  responses: { 200: ok(z.strictObject({ status: z.literal("signed_in"), passwordChanged: z.boolean() })), 400: failure("Invalid request"), 401: failure("Wrong or expired code"), 429: failure("Too many code checks (rate_limited)"), 502: failure("Password could not be set"), 503: failure("The limits could not be checked (sign_in_busy)") },
 });
 registry.registerPath({
   method: "post", path: "/auth/password/signin", operationId: "signInWithPassword", summary: "Sign in with an existing password",
   request: { body: body(passwordSignInSchema) },
-  responses: { 200: ok(z.strictObject({ status: z.literal("signed_in") })), 400: failure("Invalid request"), 401: failure("Incorrect credentials"), 403: failure("Email not confirmed"), 429: failure("Too many tries for this email or from this address (rate_limited)") },
+  responses: { 200: ok(z.strictObject({ status: z.literal("signed_in") })), 400: failure("Invalid request"), 401: failure("Incorrect credentials"), 403: failure("Email not confirmed"), 429: failure("Too many tries for this email or from this address (rate_limited)"), 503: failure("The limits could not be checked (sign_in_busy)") },
 });
 registry.registerPath({
   method: "post", path: "/auth/password/reset", operationId: "requestPasswordReset", summary: "Send a password reset email",
@@ -125,6 +125,7 @@ registry.registerPath({
     401: failure("Link expired or already used (invalid_link)"),
     409: failure("Another account is signed in here (signed_in_as_other)"),
     429: failure("Too many tries from this address (rate_limited)"),
+    503: failure("Could not tell who is signed in here (session_check_failed)"),
   },
 });
 registry.registerPath({

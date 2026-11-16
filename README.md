@@ -222,7 +222,7 @@ Before it can run:
 
 | Variable | Where it comes from |
 | --- | --- |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase dashboard, Project Settings, API keys, service_role. Ben or Yunho pastes it in; never in Slack. Also turns on the sign-in limits (`claim_auth_attempt`); add it to Preview too, with the preview project's key, so they apply there. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase dashboard, Project Settings, API keys, service_role. Ben or Yunho pastes it in; never in Slack. Also turns on the sign-in limits (`claim_auth_attempt`): without it, Production refuses code and password sign-ins. Add it to Preview too, with the preview project's key, so the limits apply there. |
 | `CRON_SECRET` | Any long random string (`openssl rand -hex 32`). Vercel sends it with each cron call. |
 | `RESEND_API_KEY` | Resend dashboard (Ben), API Keys, sending access for `send.censefinance.com`. |
 | `REMINDER_FROM_EMAIL` | `Cense <reminders@send.censefinance.com>` |

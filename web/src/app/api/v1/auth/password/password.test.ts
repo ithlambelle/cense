@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthApiError, AuthRetryableFetchError } from "@supabase/supabase-js";
+import { AuthApiError, AuthRetryableFetchError, AuthSessionMissingError } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 
 const auth = vi.hoisted(() => ({
@@ -341,6 +341,16 @@ describe("optional password auth", () => {
       throttle.authThrottle.mockImplementation(async () => null);
     });
 
+    it("passes on a refusal when the count cannot be checked (sign_in_busy), before Supabase is called", async () => {
+      throttle.authThrottle.mockImplementation(async () =>
+        Response.json({ error: { code: "sign_in_busy", message: "Sign-in is busy right now. Try again in a minute." } }, { status: 503 }));
+      const answer = await signIn(request("/api/v1/auth/password/signin", SIGN_UP_BODY));
+      expect(answer.status).toBe(503);
+      expect((await answer.json()).error.code).toBe("sign_in_busy");
+      expect(auth.signInWithPassword).not.toHaveBeenCalled();
+      throttle.authThrottle.mockImplementation(async () => null);
+    });
+
     it("does not count a request that fails validation", async () => {
       await signUp(request("/api/v1/auth/password/signup", { email: "student@example.com", password: "short" }));
       await verifyLink(request("/api/v1/auth/password/reset/verify", { tokenHash: "" }));
@@ -387,6 +397,34 @@ describe("optional password auth", () => {
       expect(response.status).toBe(200);
       expect(deferred.commit).toHaveBeenCalledOnce();
     });
+
+    it("treats a browser with no session as signed out", async () => {
+      auth.getUser.mockResolvedValue({ data: { user: null }, error: new AuthSessionMissingError() });
+      deferred.auth.verifyOtp.mockResolvedValue({ data: { user: LINK_USER, session: {} }, error: null });
+      const response = await verifyLink(request("/api/v1/auth/password/reset/verify", { tokenHash: "abc" }));
+      expect(response.status).toBe(200);
+      expect(deferred.commit).toHaveBeenCalledOnce();
+    });
+
+    // Any other failure could hide a signed-in student, whose session must not be replaced.
+    for (const [what, failure] of [
+      ["Auth is down", new AuthRetryableFetchError("fetch failed", 0)],
+      ["Auth rejects the token", new AuthApiError("invalid JWT", 403, "bad_jwt")],
+    ] as const) {
+      it(`refuses, before the link is used, when it cannot tell who is signed in (${what})`, async () => {
+        const log = vi.spyOn(console, "error").mockImplementation(() => {});
+        auth.getUser.mockResolvedValue({ data: { user: null }, error: failure });
+        const response = await verifyLink(request("/api/v1/auth/password/reset/verify", { tokenHash: "abc" }));
+        expect(response.status).toBe(503);
+        expect((await response.json()).error).toEqual({
+          code: "session_check_failed",
+          message: "We couldn’t check who’s logged in here. Try again in a minute.",
+        });
+        expect(deferred.auth.verifyOtp).not.toHaveBeenCalled();
+        expect(deferred.commit).not.toHaveBeenCalled();
+        log.mockRestore();
+      });
+    }
 
     it("refuses when a different student is signed in, and leaves their session as it was", async () => {
       auth.getUser.mockResolvedValue({ data: { user: { id: "victim" } }, error: null });

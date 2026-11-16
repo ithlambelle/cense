@@ -63,6 +63,14 @@ describe("ConfirmResetLink", () => {
     expect(fetchFn.mock.calls[1][0]).toBe("/api/v1/auth/logout");
   });
 
+  it("stays put with the message when it cannot tell who is logged in", async () => {
+    server(apiFailure(503, "session_check_failed", "We couldn’t check who’s logged in here. Try again in a minute."));
+    render(<ConfirmResetLink link={{ tokenHash: "abc" }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("We couldn’t check who’s logged in here. Try again in a minute.");
+    expect(replace).not.toHaveBeenCalled();
+  });
+
   it("shows the limit's message and stays put", async () => {
     server(apiFailure(429, "rate_limited", "Too many tries. Try again in 6 minutes."));
     render(<ConfirmResetLink link={{ tokenHash: "abc" }} />);

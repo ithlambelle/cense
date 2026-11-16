@@ -1167,6 +1167,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "503":
+          description: The limits could not be checked (sign_in_busy)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /auth/password/signup:
     post:
       operationId: signUpWithPassword
@@ -1294,6 +1300,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "503":
+          description: The limits could not be checked (sign_in_busy)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /auth/password/signin:
     post:
       operationId: signInWithPassword
@@ -1350,6 +1362,12 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "429":
           description: Too many tries for this email or from this address (rate_limited)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: The limits could not be checked (sign_in_busy)
           content:
             application/json:
               schema:
@@ -1488,6 +1506,12 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "429":
           description: Too many tries from this address (rate_limited)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Could not tell who is signed in here (session_check_failed)
           content:
             application/json:
               schema:

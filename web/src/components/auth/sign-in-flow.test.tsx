@@ -109,6 +109,16 @@ describe("SignInFlow", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
+  it("shows the calm busy message when the code could not be checked against the limits", async () => {
+    server([CODE_SENT, { status: 503, body: { error: { code: "sign_in_busy", message: "Sign-in is busy right now. Try again in a minute." } } }]);
+    render(<SignInFlow mode="sign-in" next={null} initialError={null} />);
+    await reachCodeStep();
+    fireEvent.change(screen.getByLabelText("Verification code"), { target: { value: "482916" } });
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Sign-in is busy right now. Try again in a minute.");
+    expect(replace).not.toHaveBeenCalled();
+  });
+
   it("explains a short code instead of sending it", async () => {
     const fetchFn = server([CODE_SENT]);
     render(<SignInFlow mode="sign-in" next={null} initialError={null} />);

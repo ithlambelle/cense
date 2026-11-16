@@ -72,13 +72,27 @@ review sites for estimates, on 2026-10-15; 13 are `recommend`.
   and `POST /auth/password/reset/verify`) also use the service client, before
   anyone is signed in, for one call only: `claim_auth_attempt(action, email, ip)`
   (`web/src/lib/auth/throttle.ts`). It counts tries in `auth_throttle_events`,
-  which nobody else can read or write, over a sliding 10 minutes: 5 emails sent
-  and 10 code checks and 10 password tries per email; 300 emails and 600
-  checks per student IP (Vercel's `x-forwarded-for`, trusted only on Vercel).
-  Past a limit the route answers `429` `rate_limited`, "Too many tries. Try
-  again in N minutes.", with `Retry-After`, before Supabase is called. A
-  refused try is not counted. Without the key, or when the call fails, the try
-  goes ahead and the problem is logged.
+  which nobody else can read or write. Per email and IP together, over 10
+  minutes: 5 emails sent, 10 code checks, 10 password tries (and 20 code checks
+  a day). Per email alone: 30 emails and 50 password tries per 10 minutes, 50
+  code checks a day. Per IP: 300 emails and 600 checks per 10 minutes. Emails
+  are counted lowercased, trimmed and without a +tag; IPv6 by its /64; the IP
+  is Vercel's `x-forwarded-for`, trusted only on Vercel. The tight limits are
+  per email and IP so nobody can use up another student's tries from their own
+  address. What is left: an attacker with many addresses can still reach the
+  per-email ceilings and block that email for up to 10 minutes (up to a day
+  for code checks, which takes at least 3 addresses); Google sign-in is never
+  blocked. Past a limit the route answers `429` `rate_limited`, "Too many
+  tries. Try again in N minutes." (or hours), with `Retry-After`, before
+  Supabase is called. A refused try is not counted. When the count cannot be
+  checked (the call fails or takes over 3 seconds, or production has no key),
+  code and password checks answer `503` `sign_in_busy`, "Sign-in is busy right
+  now. Try again in a minute.", and emails and reset links go ahead; both are
+  logged.
+- Opening a reset link cannot protect a student who is signed out: if they
+  tap Continue on a link someone else asked for, they are signed in to that
+  person's account. Set a new password names the account's email, so they can
+  see it is not theirs; that is the guard.
 - Money is integer cents. Timestamps in API responses are UTC ISO 8601 strings.
 - `DELETE /me` also uses the service client solely to check the cleanup trigger
   and delete the authenticated student's own auth record. The auth trigger
