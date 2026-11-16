@@ -5,7 +5,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(6);
+select plan(7);
 
 insert into auth.users (id, email) values
   ('f3000000-0000-4000-8000-000000000001', 'limit-ana@example.com'),
@@ -23,6 +23,14 @@ select is(public.claim_confirmation_email(), false, 'the sixth is skipped');
 
 set local request.jwt.claims = '{"sub":"f3000000-0000-4000-8000-000000000002","role":"authenticated"}';
 select is(public.claim_confirmation_email(), true, 'another student still gets theirs');
+
+-- All students together: past 100 in the team's day, nobody gets one.
+reset role;
+insert into public.confirmation_email_sends (student_id)
+  select 'f3000000-0000-4000-8000-000000000002' from generate_series(1, 100);
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"f3000000-0000-4000-8000-000000000002","role":"authenticated"}';
+select is(public.claim_confirmation_email(), false, 'past 100 a day in all, the email is skipped');
 
 select * from finish();
 rollback;
