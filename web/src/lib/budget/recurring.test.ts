@@ -99,6 +99,39 @@ describe("recurring transaction suggestions", () => {
     ]);
   });
 
+  it("recognizes recurring family support from bank descriptions without grouping by app or reference number", () => {
+    const dates = ["2026-09-03", "2026-10-03", "2026-11-03"];
+    const incoming = { category: "TRANSFER_IN", category_detailed: "TRANSFER_IN_TRANSFER_IN_FROM_APPS", merchant_name: null };
+    const payments = (sender: string, amount_cents: number) => series(dates, { ...incoming, amount_cents })
+      .map((row, index) => ({
+        ...row,
+        transaction_id: `${sender}-${index}`,
+        category_detailed: index === 1 ? "TRANSFER_IN_ACCOUNT_TRANSFER" : incoming.category_detailed,
+        description: `ZELLE PAYMENT FROM ${sender} CONF# TEST${index}`,
+      }));
+
+    const candidates = detectRecurringTransactions([
+      ...payments("DANA EXAMPLE", -15000),
+      ...payments("TAYLOR EXAMPLE", -15000),
+    ], "2026-11-11");
+    expect(candidates).toMatchObject(Array.from({ length: 2 }, () => ({
+      name: "Family support", kind: "income", familySupport: true, cadence: "monthly", amountCents: 15000, occurrences: 3,
+    })));
+    expect(new Set(candidates.map(({ key }) => key)).size).toBe(2);
+  });
+
+  it("rejects cash-outs, own account descriptions and matched linked-account transfers", () => {
+    const dates = ["2026-09-03", "2026-10-03", "2026-11-03"];
+    const incoming = { category: "TRANSFER_IN", category_detailed: "TRANSFER_IN_TRANSFER_IN_FROM_APPS", merchant_name: null };
+    expect(detectRecurringTransactions([
+      ...series(dates, { ...incoming, amount_cents: -15000, description: "VENMO CASHOUT PPD ID TEST" }),
+      ...series(dates, { ...incoming, amount_cents: -16000, description: "ZELLE PAYMENT FROM CHK 1234" }),
+      ...series(dates, { ...incoming, amount_cents: -17000, description: "ZELLE PAYMENT FROM DANA EXAMPLE" }),
+      ...series(dates, { account_id: "savings", category: "TRANSFER_OUT", amount_cents: 17000 }),
+      ...series(dates, { ...incoming, amount_cents: -18000, description: "VENMO INSTANT TRANSFER FROM DANA EXAMPLE" }),
+    ], "2026-11-11")).toEqual([]);
+  });
+
   it("keeps distinct unnamed income amounts apart and leaves deposits unlabeled as family support", () => {
     const dates = ["2026-09-03", "2026-10-03", "2026-11-03"];
     const wages = { merchant_name: null, category: "INCOME", category_detailed: "INCOME_WAGES" };

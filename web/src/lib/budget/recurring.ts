@@ -12,6 +12,7 @@ export type RecurringTransaction = {
   category: string | null;
   category_detailed?: string | null;
   merchant_name: string | null;
+  description?: string | null;
 };
 
 export type RecurringCandidate = {
@@ -30,20 +31,31 @@ export type RecurringCandidate = {
 type Payday = number | "last";
 
 const DAY = 86_400_000;
-const PAYMENT_APP_CASH_OUT = /^(?:venmo|cash ?app|pay ?pal)$|\b(?:venmo|cash ?app|pay ?pal)\b.*\b(?:cash[ -]?out|transfer)\b/i;
+const GENERIC_APP_OR_TRANSFER = /^(?:venmo|cash ?app|pay ?pal)$|\b(?:venmo|cash ?app|pay ?pal)\b.*\b(?:cash[ -]?out|transfer)\b/i;
+const CASH_OUT = /\b(?:cash[ -]?out|instant transfer|standard transfer|transfer to bank|bank transfer|add money|top ?up)\b/i;
+const OWN_ACCOUNT = /\b(?:from|to)\s+(?:my\s+)?(?:chk|checking|sav|savings|acct|account|brokerage|x+\d|\*+\d|#\d)/i;
+const SENDER = /\bfrom\s+([a-z].*)/i;
+const REFERENCE_SUFFIX = /\s+(?:(?:conf(?:irmation)?|ref(?:erence)?|trace)(?:\b|#)|(?:ppd\s+)?id\b).*$/i;
 const STUDENT_LOAN = "LOAN_PAYMENTS_STUDENT_LOAN_PAYMENT";
 const NON_INCOME_TRANSFERS = new Set([
-  "TRANSFER_IN_ACCOUNT_TRANSFER",
   "TRANSFER_IN_SAVINGS",
   "TRANSFER_IN_INVESTMENT_AND_RETIREMENT_FUNDS",
   "TRANSFER_IN_CASH_ADVANCES_AND_LOANS",
-  "TRANSFER_IN_TRANSFER_IN_FROM_APPS",
 ]);
 const PATTERNS = [
   { cadence: "weekly", days: 7, tolerance: 1 },
   { cadence: "biweekly", days: 14, tolerance: 2 },
   { cadence: "monthly", days: null, tolerance: 3 },
 ] as const;
+
+// Keep this fallback aligned with plaid.is_income in the transaction-description migration.
+function transferSender(description: string, merchant: string, detail: string | null | undefined): string | undefined {
+  const sender = description.match(SENDER)?.[1].replace(REFERENCE_SUFFIX, "").trim();
+  if (sender) return sender;
+  if (detail === "TRANSFER_IN_ACCOUNT_TRANSFER") return /\bzelle\b/i.test(merchant) ? merchant : undefined;
+  if (detail === "TRANSFER_IN_TRANSFER_IN_FROM_APPS") return;
+  if (merchant && !GENERIC_APP_OR_TRANSFER.test(merchant)) return merchant;
+}
 
 function iso(day: number): string {
   return new Date(day * DAY).toISOString().slice(0, 10);
@@ -89,7 +101,7 @@ export function detectRecurringTransactions(rows: readonly RecurringTransaction[
   const seen = new Set<string>();
   for (const row of rows) {
     const day = dayOf(row.posted_on);
-    const merchant = row.merchant_name?.trim().replace(/\s+/g, " ");
+    const merchant = row.merchant_name?.trim().replace(/\s+/g, " ") ?? "";
     const detail = row.category_detailed;
     if (row.pending || !row.account_id || !row.transaction_id || day === null || day < today - 180 || day > today ||
       !Number.isSafeInteger(row.amount_cents) || row.amount_cents === 0 || seen.has(row.transaction_id)) continue;
@@ -99,14 +111,19 @@ export function detectRecurringTransactions(rows: readonly RecurringTransaction[
     const studentLoan = row.category === "LOAN_PAYMENTS" && detail === STUDENT_LOAN;
     const deposit = row.category === "TRANSFER_IN" && detail === "TRANSFER_IN_DEPOSIT";
     let familySupport = false;
+    let sender: string | undefined;
     if (kind === "income") {
       if (row.category === "TRANSFER_IN" && !NON_INCOME_TRANSFERS.has(detail ?? "")) {
         const matchingDays = outgoing.get(amount);
         if (matchingDays && [-3, -2, -1, 0, 1, 2, 3].some((offset) =>
           [...(matchingDays.get(day + offset) ?? [])].some((account) => account !== row.account_id))) continue;
-        // A payment app name alone cannot distinguish a sender from a cash-out.
-        if (!deposit && (!merchant || PAYMENT_APP_CASH_OUT.test(merchant))) continue;
-        familySupport = !deposit;
+        const description = row.description?.trim().replace(/\s+/g, " ") ?? "";
+        if (CASH_OUT.test(`${merchant} ${description}`) || OWN_ACCOUNT.test(description)) continue;
+        if (!deposit) {
+          sender = transferSender(description, merchant, detail);
+          if (!sender) continue;
+          familySupport = true;
+        }
       } else if (row.category !== "INCOME") {
         continue;
       }
@@ -116,10 +133,12 @@ export function detectRecurringTransactions(rows: readonly RecurringTransaction[
     }
     if (!merchant && kind === "bill" && !studentLoan) continue;
     seen.add(row.transaction_id);
-    const name = merchant || (studentLoan ? "Student loan payment" : deposit ? "Deposit" : "Income");
-    const source = merchant ? merchant.normalize("NFKC").toLowerCase() : detail ?? row.category;
-    const identity = JSON.stringify([row.account_id, kind, source, ...(!merchant || familySupport ? [!merchant, familySupport] : [])]);
-    const group = groups.get(identity) ?? { kind, familySupport, unnamed: !merchant, observations: [] };
+    const name = sender && sender !== merchant ? "Family support" : merchant || (studentLoan ? "Student loan payment" : deposit ? "Deposit" : "Income");
+    const knownSource = sender || merchant;
+    const source = knownSource ? knownSource.normalize("NFKC").toLowerCase() : detail ?? row.category;
+    const unnamed = !knownSource;
+    const identity = JSON.stringify([row.account_id, kind, source, ...(unnamed || familySupport ? [unnamed, familySupport] : [])]);
+    const group = groups.get(identity) ?? { kind, familySupport, unnamed, observations: [] };
     group.observations.push({ day, amount, name });
     groups.set(identity, group);
   }
