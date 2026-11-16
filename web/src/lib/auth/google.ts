@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 import { ROUTES } from "@/lib/routes";
 
@@ -85,14 +85,35 @@ function pkceChallenge(verifier: string): string {
   return createHash("sha256").update(verifier).digest("base64url");
 }
 
-export function encodeGoogleFlow(flow: GoogleFlow): string {
-  return Buffer.from(JSON.stringify(flow)).toString("base64url");
+// The cookie is signed (HMAC-SHA256), so a cookie this server did not set,
+// for example one planted from a sibling subdomain with a state the attacker
+// knows, is refused. The key is derived from GOOGLE_OAUTH_CLIENT_SECRET: a
+// server-only secret that is always set when this flow runs (the flow is off
+// without it), so there is no new setting and no unsigned fallback. Rotating
+// the client secret only voids sign-ins started in the last 10 minutes.
+// Created with Claude Code (2026-11-17), from the external audit of a8fe7d4.
+function flowSignature(payload: string, clientSecret: string): Buffer {
+  const key = createHmac("sha256", clientSecret).update("cense google flow cookie v1").digest();
+  return createHmac("sha256", key).update(payload).digest();
 }
 
-export function decodeGoogleFlow(value: string | undefined): GoogleFlow | null {
-  if (!value) return null;
+export function encodeGoogleFlow(flow: GoogleFlow, clientSecret: string): string {
+  const payload = Buffer.from(JSON.stringify(flow)).toString("base64url");
+  return `${payload}.${flowSignature(payload, clientSecret).toString("base64url")}`;
+}
+
+export function decodeGoogleFlow(value: string | undefined, clientSecret: string): GoogleFlow | null {
+  if (!value || !clientSecret) return null;
+  const dot = value.indexOf(".");
+  if (dot <= 0) return null;
+  const payload = value.slice(0, dot);
+  const given = Buffer.from(value.slice(dot + 1), "base64url");
+  const expected = flowSignature(payload, clientSecret);
+  // Compared in constant time; the lengths are checked first because
+  // timingSafeEqual throws on a mismatch.
+  if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null;
   try {
-    const parsed: unknown = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+    const parsed: unknown = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
     if (!parsed || typeof parsed !== "object") return null;
     const { state, nonce, verifier, next } = parsed as Record<string, unknown>;
     if ([state, nonce, verifier, next].every((part) => typeof part === "string" && part.length > 0)) {

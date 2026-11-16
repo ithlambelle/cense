@@ -25,7 +25,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   if (config) {
     const flow = newGoogleFlow(next);
     const cookieStore = await cookies();
-    cookieStore.set(GOOGLE_FLOW_COOKIE, encodeGoogleFlow(flow), {
+    cookieStore.set(GOOGLE_FLOW_COOKIE, encodeGoogleFlow(flow, config.clientSecret), {
       httpOnly: true,
       // Lax: the cookie has to come back on Google's top-level redirect.
       sameSite: "lax",
@@ -37,7 +37,11 @@ export async function GET(request: NextRequest): Promise<Response> {
   }
 
   // Not set up, or not on a registered address: Supabase's own Google flow, which returns through
-  // /api/v1/auth/callback.
+  // /api/v1/auth/callback. The return address is this request's own origin,
+  // not APP_BASE_URL as in emailed links: it is sent back to this same browser
+  // (never emailed to someone else), Supabase drops one not on its allow-list,
+  // and the PKCE cookie this sets lives only on this origin, so a student on
+  // the vercel.app alias must come back to the alias.
   const callback = new URL("/api/v1/auth/callback", origin);
   callback.searchParams.set("next", next);
 
