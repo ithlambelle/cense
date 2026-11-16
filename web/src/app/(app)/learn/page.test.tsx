@@ -7,7 +7,7 @@ import LearnPage from "./page";
 import PennyPage from "./penny/page";
 
 vi.mock("server-only", () => ({}));
-vi.mock("next/navigation", () => ({ usePathname: () => "/learn", useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/learn", useRouter: () => ({ push: vi.fn(), prefetch: vi.fn() }) }));
 vi.mock("@/lib/session", () => ({ requireStudent: async () => ({ studentId: "s", email: null }) }));
 
 beforeEach(() => {
