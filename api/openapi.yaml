@@ -911,6 +911,82 @@ components:
         - expiration
         - mode
       additionalProperties: false
+    Budget:
+      type: object
+      properties:
+        month:
+          type: string
+          format: date
+        hasBankData:
+          type: boolean
+        income:
+          $ref: "#/components/schemas/BudgetLine"
+        needs:
+          type: array
+          items:
+            $ref: "#/components/schemas/BudgetLine"
+        wants:
+          type: array
+          items:
+            $ref: "#/components/schemas/BudgetLine"
+        saving:
+          $ref: "#/components/schemas/BudgetLine"
+        remainingCents:
+          type: integer
+        shortfallCents:
+          type: integer
+        fixedOverIncome:
+          type: boolean
+      required:
+        - month
+        - hasBankData
+        - income
+        - needs
+        - wants
+        - saving
+        - remainingCents
+        - shortfallCents
+        - fixedOverIncome
+      additionalProperties: false
+    BudgetLine:
+      type: object
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        group:
+          type: string
+          enum:
+            - income
+            - need
+            - want
+            - saving
+        amountCents:
+          type: integer
+        bankCents:
+          type:
+            - integer
+            - "null"
+        typed:
+          type: boolean
+        recurrence:
+          type:
+            - string
+            - "null"
+          enum:
+            - recurring
+            - variable
+            - null
+      required:
+        - key
+        - label
+        - group
+        - amountCents
+        - bankCents
+        - typed
+        - recurrence
+      additionalProperties: false
   parameters: {}
   securitySchemes:
     studentSession:
@@ -3100,6 +3176,165 @@ paths:
                 $ref: "#/components/schemas/SafeToSpend"
         "400":
           description: Invalid answers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No bank linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable or safe to spend off
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /budget:
+    get:
+      operationId: getBudget
+      summary: "Read the last full month's budget: income, needs, wants, saving and
+        what is left over or short"
+      security:
+        - studentSession: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Budget"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No bank linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable or safe to spend off
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /budget/lines/{line}:
+    put:
+      operationId: saveBudgetLine
+      summary: Save the student's own monthly number for one line, in place of the
+        bank's
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - income
+              - rent_and_bills
+              - groceries
+              - transportation
+              - school_supplies
+              - health
+              - student_loans
+              - eating_out
+              - entertainment
+              - subscriptions
+              - shopping_and_personal_care
+              - travel
+              - other
+          required: true
+          name: line
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amountCents:
+                  type: integer
+                  minimum: 0
+                  maximum: 100000000
+              required:
+                - amountCents
+              additionalProperties: false
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Budget"
+        "400":
+          description: Unknown line or invalid amount
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No bank linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable or safe to spend off
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteBudgetLine
+      summary: "Go back to the bank's number for one line: delete the student's own"
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - income
+              - rent_and_bills
+              - groceries
+              - transportation
+              - school_supplies
+              - health
+              - student_loans
+              - eating_out
+              - entertainment
+              - subscriptions
+              - shopping_and_personal_care
+              - travel
+              - other
+          required: true
+          name: line
+          in: path
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Budget"
+        "400":
+          description: Unknown line
           content:
             application/json:
               schema:

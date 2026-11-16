@@ -52,7 +52,7 @@ export function AccountView({
     ...(card ? [done ? { href: ROUTES.results, label: "Card quiz results" } : quiz] : []),
     { href: fromAccount(ROUTES.cards), label: "Cards" },
     { href: fromAccount(ROUTES.addCard), label: "Add a card I already have" },
-    ...(bankLinked ? [{ href: ROUTES.safeToSpend, label: "Accounts" }] : []),
+    ...(bankLinked ? [{ href: ROUTES.accounts, label: "Accounts" }] : []),
     { href: ROUTES.reminderSettings, label: "Reminder settings" },
     { href: ROUTES.privacy, label: "Security and privacy" },
   ];

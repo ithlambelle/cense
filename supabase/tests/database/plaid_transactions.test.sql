@@ -102,7 +102,7 @@ select throws_ok($$update plaid.transactions set amount_cents = 0$$, '42501', nu
 select throws_ok($$delete from plaid.transactions$$, '42501', null, 'a student cannot delete a transaction');
 select is((select sum(spent_cents)::bigint from public.spending_by_category(3)), 1200::bigint,
   'spending leaves out pending items, transfers and loan payments');
-select is((select sum(income_cents)::bigint from public.income_by_month(3)), 48000::bigint, 'income is money in marked INCOME');
+select is((select sum(income_cents)::bigint from public.income_by_month(3)), 48000::bigint, 'income counts money marked INCOME');
 reset role;
 
 select is((select count(*)::int from plaid.transactions where transaction_id = 'ana-old'), 0,

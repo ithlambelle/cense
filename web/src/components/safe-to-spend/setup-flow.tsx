@@ -6,10 +6,10 @@ import { useRouter } from "next/navigation";
 import { useId, useState, type FormEvent } from "react";
 
 import { answerCardClass } from "@/components/quiz/quiz-screen";
-import { PreviewLabel } from "@/components/safe-to-spend/parts";
 import { BACK_CONTROL } from "@/components/ui/app-header";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
+import { ProgressBar } from "@/components/ui/progress-bar";
 import { SelectionMark } from "@/components/ui/selection-mark";
 import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE } from "@/lib/analytics";
@@ -177,12 +177,16 @@ export function SetupFlow({
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
-        <StepHeader href={backHref} label={step === 1 ? (answered ? "How we got this" : "Home") : "the last question"} />
+        <StepHeader
+          href={backHref}
+          label={step === 1 ? (answered ? "Your money" : "Home") : "the last question"}
+          step={step}
+          total={BILLS.length + 1}
+        />
         <main className="flex flex-1 flex-col">
           {step <= BILLS.length ? (
             <BillStep
               key={step}
-              step={step}
               bill={BILLS[step - 1]}
               answer={draft[BILLS[step - 1]]}
               error={stepError}
@@ -194,7 +198,6 @@ export function SetupFlow({
             />
           ) : (
             <form method="post" noValidate onSubmit={save} className="flex flex-1 flex-col gap-4 px-6 pt-4 pb-6">
-              <PreviewLabel className="self-start" />
               <h1 className="font-heading text-h3 font-medium text-navy">{SAFE_TO_SPEND_COPY.setAsideTitle}</h1>
               <p className="text-body-s text-indigo-black">{SAFE_TO_SPEND_COPY.setAsideBody}</p>
               <TextField
@@ -225,26 +228,33 @@ export function SetupFlow({
 }
 
 // The app's back control (AppHeader), but replacing the step in history
-// rather than adding one.
-function StepHeader({ href, label }: { href: string; label: string }) {
+// rather than adding one, and under it the card quiz's progress bar (Ben,
+// Nov 15: progress shows as the bar, as on the card quiz, not as "Rent · 1 of
+// 5" and a "Next:" line, and no Preview label). The bar is decorative; screen
+// readers hear the step.
+function StepHeader({ href, label, step, total }: { href: string; label: string; step: number; total: number }) {
   return (
-    <header className="box-content flex h-14 items-center px-6 pt-8">
-      <Link href={href} replace aria-label={`Back to ${label}`} className={cn(BACK_CONTROL, "focus-visible:outline-ring")}>
-        <Image src="/icons/arrow-left-dark.svg" alt="" width={48} height={48} />
-      </Link>
+    <header className="flex flex-col gap-4 px-6 pt-8">
+      <div className="flex h-14 items-center">
+        <Link href={href} replace aria-label={`Back to ${label}`} className={cn(BACK_CONTROL, "focus-visible:outline-ring")}>
+          <Image src="/icons/arrow-left-dark.svg" alt="" width={48} height={48} />
+        </Link>
+      </div>
+      <p className="sr-only">
+        Question {step} of {total}
+      </p>
+      <ProgressBar current={step} total={total} />
     </header>
   );
 }
 
 function BillStep({
-  step,
   bill,
   answer,
   error,
   onChange,
   onSubmit,
 }: {
-  step: number;
   bill: Bill;
   answer: BillDraft;
   error: { text: string; field?: "amount" | "day" } | null;
@@ -253,13 +263,8 @@ function BillStep({
 }) {
   const titleId = useId();
   const copy = BILL_COPY[bill];
-  const next = BILLS.slice(step).map((later) => BILL_COPY[later].label);
   return (
     <form method="post" noValidate onSubmit={onSubmit} className="flex flex-1 flex-col gap-4 px-6 pt-4 pb-6">
-      <PreviewLabel className="self-start" />
-      <p className="text-body-s font-semibold text-violet">
-        {copy.label} · {step} of {BILLS.length}
-      </p>
       <div className="flex flex-col gap-2">
         <h1 id={titleId} className="font-heading text-h3 font-medium text-navy">
           {copy.question}
@@ -312,9 +317,6 @@ function BillStep({
       <div className="flex-1" />
       {error && !error.field ? <ErrorMessage>{error.text}</ErrorMessage> : null}
       <Button type="submit">Continue</Button>
-      <p className="text-[13px] leading-[18px] text-indigo-black/75">
-        Next: {next.length > 0 ? next.join(", ") : "what to keep aside"}
-      </p>
     </form>
   );
 }

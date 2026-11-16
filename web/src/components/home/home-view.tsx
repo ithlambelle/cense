@@ -92,10 +92,16 @@ export function HomeView({
           </Link>
         </header>
         <main className="stagger flex flex-1 flex-col gap-[18px] overflow-x-clip px-6 pt-4 pb-6">
-          <HomeContent state={state} detail={detail} reminderSettings={reminderSettings} celebrate={celebrate} sampleStars={sampleStars} />
-          {/* Under the card module, which carries MVP2's reminders; design's
-              Home/Today (Figma 222:2211) puts it on top once that is built. */}
-          {safeToSpend !== undefined ? <SafeToSpendHome safeToSpend={safeToSpend} preview={!celebrate} /> : null}
+          {/* Safe to spend sits right under the greeting, above the card
+              module (Ben, Nov 15; design's Home/Today, Figma 222:2211). */}
+          <HomeContent
+            state={state}
+            detail={detail}
+            reminderSettings={reminderSettings}
+            celebrate={celebrate}
+            sampleStars={sampleStars}
+            top={safeToSpend !== undefined ? <SafeToSpendHome safeToSpend={safeToSpend} preview={!celebrate} /> : null}
+          />
         </main>
         {celebrate ? <StarConfetti /> : null}
         {fromReminder ? <ReminderArrival kind={fromReminder} /> : null}
@@ -113,12 +119,15 @@ function HomeContent({
   reminderSettings,
   celebrate,
   sampleStars,
+  top,
 }: {
   state: HomeState;
   detail: CardDetail | null;
   reminderSettings: StarSettings;
   celebrate: boolean;
   sampleStars?: number;
+  // Safe to spend, shown right after the greeting.
+  top: ReactNode;
 }) {
   if (state.kind === "no_quiz") {
     return (
@@ -127,6 +136,7 @@ function HomeContent({
           <Greeting subtitle="Let’s find your first card." />
           <MascotStill pose="idle" size={72} className="shrink-0" />
         </div>
+        {top}
         <QuizPrompt answered={state.answered} />
         <Link
           href={ROUTES.addCard}
@@ -142,6 +152,7 @@ function HomeContent({
     return (
       <>
         <Greeting subtitle="Here’s where your card search stands." />
+        {top}
         <NextStep
           icon={Comment}
           title="No card fits yet"
@@ -161,6 +172,7 @@ function HomeContent({
     return (
       <>
         <Greeting subtitle={`${RESULT_HEADLINES[fit.tier]}.`} />
+        {top}
         <StatusCard
           title={cardDisplayName(card)}
           subtitle={cardTypeLabel(card)}
@@ -197,6 +209,7 @@ function HomeContent({
     return (
       <>
         {celebrate ? <ApprovalHeading /> : <Greeting />}
+        {top}
         <ApprovedCard
           application={primary}
           autopayOn={detail?.autopayStatus === "on"}
@@ -214,6 +227,7 @@ function HomeContent({
     return (
       <>
         <Greeting />
+        {top}
         <DeniedCard
           application={primary}
           reason={detail?.denialReason ?? null}
@@ -226,6 +240,7 @@ function HomeContent({
   return (
     <>
       <Greeting subtitle="Here’s the latest on your first card application." />
+      {top}
       <TrackedCard application={primary} />
       <TrackedNextStep application={primary} />
       {others.length > 0 ? <OtherCards applications={others} /> : null}

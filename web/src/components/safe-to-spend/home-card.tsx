@@ -1,3 +1,4 @@
+import ChevronRight from "@gravity-ui/icons/ChevronRight";
 import Wallet from "@gravity-ui/icons/Wallet";
 import Link from "next/link";
 
@@ -18,8 +19,8 @@ const NAVY_LINK =
 // "Home with safe to spend" (Figma 222:2133). Linked but not answered: a
 // prompt to finish. Not linked: an invitation to try the sandbox preview.
 // Nothing at all when safe to spend is off (no Plaid settings).
-// `preview` false drops the Preview label: Home's approval celebration never
-// says "Preview" (Ben, 2026-11-08).
+// `preview` false drops the Preview label from the invite and setup cards:
+// Home's approval celebration never says "Preview" (Ben, 2026-11-08).
 export function SafeToSpendHome({ safeToSpend, preview = true }: { safeToSpend: SafeToSpend | null; preview?: boolean }) {
   if (safeToSpend === null) {
     return (
@@ -42,10 +43,25 @@ export function SafeToSpendHome({ safeToSpend, preview = true }: { safeToSpend: 
     );
   }
   return (
-    <section aria-label="Safe to spend" className="flex flex-col rounded-[28px] bg-navy px-[23px] pt-[27px] pb-4 text-white shadow-glow-form">
+    <section aria-label="Safe to spend" className="relative flex flex-col rounded-[28px] bg-navy px-[23px] pt-[27px] pb-4 text-white">
       <div className="flex items-start justify-between gap-3">
         <p className="text-body-m leading-[18px] font-semibold">Safe to spend today:</p>
-        {preview ? <PreviewLabel onNavy className="-mt-0.5" /> : null}
+        {/* No Preview label on the number (Ben, 2026-11-14); the invite and
+            setup cards keep it. */}
+        <span className="flex items-center gap-3">
+          {/* The whole card opens Your money (D1 decided: tapping the card
+              opens D2, no separate button). The chevron is the
+              link; its tap area covers the card. */}
+          {safeToSpend.status === "active" ? (
+            <Link
+              href={ROUTES.safeToSpend}
+              aria-label="Your money"
+              className="flex min-h-6 items-center rounded-sm after:absolute after:inset-0 after:rounded-[28px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-off-white"
+            >
+              <ChevronRight aria-hidden="true" width={12} height={20} />
+            </Link>
+          ) : null}
+        </span>
       </div>
       {/* A broken link shows what to do, never the last number as if current. */}
       {safeToSpend.status !== "active" ? (
@@ -53,7 +69,7 @@ export function SafeToSpendHome({ safeToSpend, preview = true }: { safeToSpend: 
           <p className="pt-3 text-body-s">
             {safeToSpend.status === "reconnect_needed" ? SAFE_TO_SPEND_COPY.reconnect : SAFE_TO_SPEND_COPY.relink}
           </p>
-          <Link href={ROUTES.safeToSpend} className={cn(NAVY_LINK, "self-start")}>
+          <Link href={ROUTES.accounts} className={cn(NAVY_LINK, "self-start")}>
             {safeToSpend.status === "reconnect_needed" ? "Reconnect your bank" : "Connect again"}
           </Link>
         </>
@@ -66,9 +82,6 @@ export function SafeToSpendHome({ safeToSpend, preview = true }: { safeToSpend: 
           </p>
           <div className="flex items-center justify-between gap-3 pt-2 text-body-s">
             <p>For the next {safeToSpend.days} days</p>
-            <Link href={ROUTES.safeToSpend} className={NAVY_LINK}>
-              How we got this
-            </Link>
           </div>
           <RefreshWhenStale refreshedAt={safeToSpend.refreshedAt} />
         </>

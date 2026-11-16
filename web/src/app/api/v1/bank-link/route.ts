@@ -6,6 +6,7 @@ import { exchangePublicToken, getAccounts, removeItem } from "@/lib/plaid/client
 import { plaidConfig, type PlaidConfig } from "@/lib/plaid/config";
 import { alreadyLinked, bankUnreachable, NO_STORE, notLinked, safeToSpendOff } from "@/lib/plaid/responses";
 import { linkStatus, loadSafeToSpend, saveBalances, saveBankLink } from "@/lib/plaid/store";
+import { syncStudentTransactions } from "@/lib/plaid/transactions";
 import { removeBankLinksForStudent } from "@/lib/plaid/unlink";
 import { balanceRows } from "@/lib/safe-to-spend/compute";
 
@@ -61,6 +62,11 @@ export async function POST(request: Request): Promise<Response> {
     const balances = await saveBalances(student, balanceRows(accounts.data.accounts));
     if (!balances.ok) return databaseError("bank_balances_save", balances.error);
   }
+  // Transactions are pulled right after linking (Ben, Nov 11, with D34), so
+  // Your money's This month has the month to show. Best effort, as on
+  // refresh: a failed sync never stops the link, and the next refresh retries.
+  const synced = await syncStudentTransactions(student, config, { itemId, accessToken });
+  if (synced.kind !== "synced") console.error(JSON.stringify({ event: "plaid_transactions_sync_failed", kind: synced.kind }));
 
   const loaded = await loadSafeToSpend(student);
   if (!loaded.ok) return databaseError("safe_to_spend_read", loaded.error);

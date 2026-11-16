@@ -10,7 +10,7 @@ import { requireStudent } from "@/lib/session";
 export const metadata: Metadata = { title: "See what’s safe to spend | CENSE" };
 
 // Before Plaid Link (US-12). A student who already linked a bank goes on to
-// the questions, or to How we got this once they are answered.
+// the questions, or to Your money once they are answered.
 export default async function SafeToSpendConnectPage() {
   const student = await requireStudent(ROUTES.safeToSpendConnect);
   if (!plaidConfig()) notFound();

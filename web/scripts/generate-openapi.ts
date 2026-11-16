@@ -19,6 +19,7 @@ import {
   saveQuizSchema,
   updateApplicationSchema,
 } from "../src/lib/api/schemas";
+import { budgetLineKeySchema, budgetSchema, saveBudgetLineSchema } from "../src/lib/api/budget";
 import { askPennySchema, pennyReplySchema } from "../src/lib/api/penny";
 import { planNameSchema, planProgressSchema, planStepNameSchema, planStepSchema } from "../src/lib/api/plans";
 import {
@@ -392,6 +393,30 @@ registry.registerPath({
   security: [{ studentSession: [] }],
   request: { body: body(saveSafeToSpendAnswersSchema) },
   responses: { 200: ok(safeToSpendContract), 400: failure("Invalid answers"), 404: failure("No bank linked"), ...safeToSpendResponses },
+});
+
+// Your money, This month (US-12): totals from the student's stored
+// transactions and their typed numbers. Never a transaction or a merchant.
+const budgetContract = registry.register("Budget", budgetSchema);
+registry.registerPath({
+  method: "get", path: "/budget", operationId: "getBudget",
+  summary: "Read the last full month's budget: income, needs, wants, saving and what is left over or short",
+  security: [{ studentSession: [] }],
+  responses: { 200: ok(budgetContract), 404: failure("No bank linked"), ...safeToSpendResponses },
+});
+registry.registerPath({
+  method: "put", path: "/budget/lines/{line}", operationId: "saveBudgetLine",
+  summary: "Save the student's own monthly number for one line, in place of the bank's",
+  security: [{ studentSession: [] }],
+  request: { params: z.object({ line: budgetLineKeySchema }), body: body(saveBudgetLineSchema) },
+  responses: { 200: ok(budgetContract), 400: failure("Unknown line or invalid amount"), 404: failure("No bank linked"), ...safeToSpendResponses },
+});
+registry.registerPath({
+  method: "delete", path: "/budget/lines/{line}", operationId: "deleteBudgetLine",
+  summary: "Go back to the bank's number for one line: delete the student's own",
+  security: [{ studentSession: [] }],
+  request: { params: z.object({ line: budgetLineKeySchema }) },
+  responses: { 200: ok(budgetContract), 400: failure("Unknown line"), 404: failure("No bank linked"), ...safeToSpendResponses },
 });
 
 // Left out on purpose: GET /cron/reminders (Vercel Cron) and
