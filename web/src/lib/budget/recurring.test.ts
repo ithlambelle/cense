@@ -31,6 +31,33 @@ describe("recurring transaction suggestions", () => {
     ]);
   });
 
+  it.each([
+    {
+      dates: ["2026-08-01", "2026-08-15", "2026-09-01", "2026-09-15", "2026-10-01", "2026-10-15"],
+      asOf: "2026-10-16", paydayDays: [1, 15], nextDate: "2026-11-01",
+    },
+    {
+      dates: ["2026-09-01", "2026-09-15", "2026-10-01", "2026-10-15"],
+      asOf: "2026-10-16", paydayDays: [1, 15], nextDate: "2026-11-01",
+    },
+    {
+      dates: ["2026-01-15", "2026-01-31", "2026-02-13", "2026-02-28", "2026-03-15", "2026-03-29"],
+      asOf: "2026-04-01", paydayDays: [15, "last"], nextDate: "2026-04-15",
+    },
+  ])("recognizes calendar paydays $paydayDays, including early deposits", ({ dates, asOf, paydayDays, nextDate }) => {
+    expect(detectRecurringTransactions(series(dates, { category: "INCOME", amount_cents: -32500 }), asOf))
+      .toMatchObject([{ cadence: "semimonthly", paydayDays, nextDate }]);
+  });
+
+  it.each([
+    { dates: ["2026-07-10", "2026-07-24", "2026-08-07", "2026-08-21", "2026-09-04", "2026-09-18", "2026-10-02"], asOf: "2026-10-03", cadence: "biweekly" },
+    { dates: ["2026-09-11", "2026-09-18", "2026-09-25", "2026-10-02"], asOf: "2026-10-03", cadence: "weekly" },
+    { dates: ["2026-07-15", "2026-08-15", "2026-09-15", "2026-10-15"], asOf: "2026-10-16", cadence: "monthly" },
+  ])("keeps $cadence income on its existing schedule", ({ dates, asOf, cadence }) => {
+    expect(detectRecurringTransactions(series(dates, { category: "INCOME", amount_cents: -32500 }), asOf))
+      .toMatchObject([{ cadence }]);
+  });
+
   it("keeps an internal key stable across runs and normalizes merchant casing and spaces", () => {
     const rows = series(["2026-07-03", "2026-08-03", "2026-09-03", "2026-10-03"], { merchant_name: "City Internet" });
     rows[1].merchant_name = " city  internet ";

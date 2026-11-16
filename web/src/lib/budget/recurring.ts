@@ -19,11 +19,15 @@ export type RecurringCandidate = {
   name: string;
   kind: "bill" | "income";
   familySupport?: true;
-  cadence: "weekly" | "biweekly" | "monthly";
   amountCents: number;
   nextDate: string;
   occurrences: number;
-};
+} & (
+  | { cadence: "weekly" | "biweekly" | "monthly" }
+  | { cadence: "semimonthly"; paydayDays: readonly [Payday, Payday] }
+);
+
+type Payday = number | "last";
 
 const DAY = 86_400_000;
 const PAYMENT_APP_CASH_OUT = /^(?:venmo|cash ?app|pay ?pal)$|\b(?:venmo|cash ?app|pay ?pal)\b.*\b(?:cash[ -]?out|transfer)\b/i;
@@ -141,6 +145,49 @@ export function detectRecurringTransactions(rows: readonly RecurringTransaction[
   return candidates.sort((a, b) => a.nextDate.localeCompare(b.nextDate) || a.key.localeCompare(b.key));
 }
 
+function payday(month: number, day: Payday): number {
+  const last = new Date(Date.UTC(Math.floor(month / 12), month % 12 + 1, 0));
+  last.setUTCDate(day === "last" ? last.getUTCDate() : Math.min(day, last.getUTCDate()));
+  return last.getTime() / DAY;
+}
+
+function semimonthlyFit(days: readonly number[], today: number) {
+  if (days.length < 4) return;
+  const first = new Date(days[0] * DAY);
+  const month = first.getUTCFullYear() * 12 + first.getUTCMonth();
+  let best: { paydayDays: readonly [Payday, Payday]; next: number; error: number } | undefined;
+  for (let early = 1; early <= 21; early += 1) {
+    // Try month end first so a tie keeps the calendar convention.
+    const later: Payday[] = ["last", ...Array.from({ length: Math.max(0, 21 - early) }, (_, index) => early + 10 + index)];
+    for (const late of later) {
+      const minLate = late === "last" ? 28 : Math.min(28, late);
+      const shortestGap = Math.min(minLate - early, 28 - minLate + early);
+      if (shortestGap < 10) continue;
+      const paydayDays = [early, late] as const;
+      for (let start = -2; start <= 3; start += 1) {
+        const scheduled = (index: number) => {
+          const slot = start + index;
+          return payday(month + Math.floor(slot / 2), paydayDays[Math.abs(slot % 2)]);
+        };
+        let error = 0;
+        for (const [index, posted] of days.entries()) {
+          const offset = posted - scheduled(index);
+          if (offset < -3 || offset > 1) {
+            error = Infinity;
+            break;
+          }
+          error += Math.abs(offset);
+        }
+        const next = scheduled(days.length);
+        if (next >= today - 1 && error < (best?.error ?? Infinity)) {
+          best = { paydayDays, next: next < today ? scheduled(days.length + 1) : next, error };
+        }
+      }
+    }
+  }
+  return best;
+}
+
 function estimateCandidate(
   identity: string,
   kind: RecurringCandidate["kind"],
@@ -156,16 +203,23 @@ function estimateCandidate(
   const middle = Math.floor(amounts.length / 2);
   const amountCents = amounts.length % 2 ? amounts[middle] : amounts[middle - 1] + Math.round((amounts[middle] - amounts[middle - 1]) / 2);
   if (amounts.some((amount) => Math.abs(amount - amountCents) > Math.max(50, amountCents * 0.3))) return;
+  const candidate = {
+    key: createHash("sha256").update(identity).digest("hex"),
+    name: last.name, kind, amountCents, occurrences: observations.length,
+    ...(familySupport ? { familySupport: true } as const : {}),
+  };
+  const dates = observations.map(({ day }) => day);
+  const semi = kind === "income" ? semimonthlyFit(dates, today) : undefined;
   for (const { cadence, days, tolerance } of PATTERNS) {
     const expected = (index: number) => days === null ? plusMonths(first, index) : first + index * days;
-    if (!observations.every((row, index) => Math.abs(row.day - expected(index)) <= tolerance)) continue;
-    const next = expected(observations.length);
+    if (!dates.every((day, index) => Math.abs(day - expected(index)) <= tolerance)) continue;
+    const next = expected(dates.length);
     if (next < today - tolerance) continue;
-    return {
-      // Named streams retain their key when dates or amounts change.
-      key: createHash("sha256").update(identity).digest("hex"),
-      name: last.name, kind, cadence, amountCents, nextDate: iso(next), occurrences: observations.length,
-      ...(familySupport ? { familySupport: true } as const : {}),
-    };
+    const error = dates.reduce((sum, day, index) => sum + Math.abs(day - expected(index)), 0);
+    if (cadence === "biweekly" && semi && semi.error < error) break;
+    return { ...candidate, cadence, nextDate: iso(next) };
+  }
+  if (semi) {
+    return { ...candidate, cadence: "semimonthly", paydayDays: semi.paydayDays, nextDate: iso(semi.next) };
   }
 }
