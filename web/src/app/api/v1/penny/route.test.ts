@@ -9,23 +9,36 @@ vi.mock("@/lib/penny/ask", async (importOriginal) => {
   return { ...actual, askPenny: penny.askPenny, pennyConfigured: () => penny.configured };
 });
 vi.mock("server-only", () => ({}));
+const service = vi.hoisted(() => ({ createServiceClient: vi.fn() }));
+vi.mock("@/lib/supabase/service", () => service);
 
 import { POST } from "./route";
 
 type Rpc = { data: unknown; error: { code?: string; message: string } | null };
 
-// The student's client: claim_penny_ask answers `claim`.
-function student(claim: Rpc = { data: "ok", error: null }) {
+// claim_penny_ask, called with the service role for the student in the
+// session (20261117110000_security_quotas.sql), answers `claim`. `legacy` is
+// what the old claim, called as the student, answers before that migration.
+// Each call is recorded as "<client> <function> <arguments>".
+function student(claim: Rpc = { data: "ok", error: null }, legacy: Rpc = { data: null, error: { message: "not expected" } }) {
   const calls: string[] = [];
   const supabase = {
-    rpc: async (name: string) => {
-      calls.push(name);
-      return claim;
+    rpc: async (name: string, args?: unknown) => {
+      calls.push(`student ${name} ${JSON.stringify(args ?? {})}`);
+      return legacy;
     },
   };
+  service.createServiceClient.mockReturnValue({
+    rpc: async (name: string, args?: unknown) => {
+      calls.push(`service ${name} ${JSON.stringify(args ?? {})}`);
+      return claim;
+    },
+  });
   auth.authenticatedStudent.mockResolvedValue({ supabase, studentId: "student-1", email: null });
   return calls;
 }
+
+const CLAIMED = `service claim_penny_ask ${JSON.stringify({ p_student_id: "student-1" })}`;
 
 const ask = (body: unknown) => POST(new Request("http://test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }));
 
@@ -42,10 +55,13 @@ const ANSWER = {
 
 beforeEach(() => {
   penny.configured = true;
+  vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "test-service-role-key"); // gitleaks:allow
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+  service.createServiceClient.mockReset();
   auth.authenticatedStudent.mockReset();
   penny.askPenny.mockReset();
 });
@@ -71,7 +87,8 @@ describe("POST /penny", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(await response.json()).toEqual(ANSWER);
-    expect(calls).toEqual(["claim_penny_ask"]);
+    expect(calls).toEqual([CLAIMED]);
+    expect(service.createServiceClient).toHaveBeenCalledWith("test-service-role-key");
     expect(penny.askPenny).toHaveBeenCalledWith("Does preapproval hurt my score? I'm [removed]");
   });
 
@@ -98,6 +115,34 @@ describe("POST /penny", () => {
     const response = await ask({ question: "What is a credit score?" });
     expect(response.status).toBe(429);
     expect(await response.json()).toMatchObject({ error: { code: "penny_limit", details: { limit } } });
+    expect(penny.askPenny).not.toHaveBeenCalled();
+  });
+
+  it("never takes the student to count from the request", async () => {
+    const calls = student();
+    expect((await ask({ question: "What is a credit score?", p_student_id: "someone-else" })).status).toBe(400);
+    expect(calls).toEqual([]);
+  });
+
+  it("says Penny is unavailable without the service role key, and counts nothing", async () => {
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const calls = student();
+    const response = await ask({ question: "What is a credit score?" });
+    expect(response.status).toBe(503);
+    expect((await response.json()).error.code).toBe("penny_unavailable");
+    expect(calls).toEqual([]);
+    expect(service.createServiceClient).not.toHaveBeenCalled();
+    expect(penny.askPenny).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(JSON.stringify({ event: "penny_not_configured", missing: ["SUPABASE_SERVICE_ROLE_KEY"] }));
+  });
+
+  it("falls back to the old claim until the migration is applied", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const calls = student({ data: null, error: { code: "PGRST202", message: "no such function" } }, { data: "student_limit", error: null });
+    const response = await ask({ question: "What is a credit score?" });
+    expect(response.status).toBe(429);
+    expect(calls).toEqual([CLAIMED, "student claim_penny_ask {}"]);
     expect(penny.askPenny).not.toHaveBeenCalled();
   });
 

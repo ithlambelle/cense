@@ -6,7 +6,7 @@ vi.mock("@/lib/supabase/service", () => service);
 
 const cleanup = vi.hoisted(() => ({ runAccountCleanupWithHeartbeat: vi.fn() }));
 vi.mock("@/lib/plaid/account-cleanup", () => cleanup);
-const CLEANUP = { claimed: 0, removed: 0, failed: 0, unavailable: false, deferred: false };
+const CLEANUP = { claimed: 0, removed: 0, failed: 0, gaveUp: 0, unavailable: false, deferred: false };
 
 import { verifyUnsubscribeToken } from "@/lib/reminders/unsubscribe-token";
 

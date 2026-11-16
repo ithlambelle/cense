@@ -7,18 +7,28 @@ import { itemAlreadyGone, removeItem } from "./client";
 import { plaidConfig, type PlaidConfig } from "./config";
 import { openToken } from "./token-box";
 
-type Claim = { id: string; student_id: string; item_id: string; token_ciphertext: string; claim_id: string };
-export type CleanupResult = { claimed: number; removed: number; failed: number; unavailable: boolean; deferred: boolean };
+// last_attempt (20261117110000_security_quotas.sql): a failure now gives the
+// row up. Missing before that migration, and then read as false.
+type Claim = { id: string; student_id: string; item_id: string; token_ciphertext: string; claim_id: string; last_attempt?: boolean };
+// gaveUp: rows that failed their last attempt (5 in all, about five days of
+// daily retries; a forged token saved before the account was deleted can
+// never be decrypted). The database keeps them encrypted and stops claiming
+// them, so they no longer fail the cleanup check.
+export type CleanupResult = { claimed: number; removed: number; failed: number; gaveUp: number; unavailable: boolean; deferred: boolean };
 
 // Stop starting batches after 30s from request start. Each batch has at most
 // five parallel 10s Plaid calls, leaving room under the cron's 60s limit for
 // acknowledgement and both alerts. Emails retain their own 45s budget.
 const CLAIM_BUDGET_MS = 30_000;
 
+function log(event: string, fields: Record<string, unknown>): void {
+  console.error(JSON.stringify({ event, ...fields }));
+}
+
 // Counts only: neither tokens nor their student/item bindings reach logs or
 // cron responses. A failed acknowledgement leaves the leased row for retry.
 export async function runAccountCleanup(service: ServiceClient, config: PlaidConfig | null = plaidConfig(), { startedAt = Date.now() }: { startedAt?: number } = {}): Promise<CleanupResult> {
-  const result: CleanupResult = { claimed: 0, removed: 0, failed: 0, unavailable: false, deferred: false };
+  const result: CleanupResult = { claimed: 0, removed: 0, failed: 0, gaveUp: 0, unavailable: false, deferred: false };
   try {
     while (Date.now() - startedAt < CLAIM_BUDGET_MS) {
       const { data, error } = await service.rpc("claim_plaid_account_cleanup");
@@ -36,7 +46,12 @@ export async function runAccountCleanup(service: ServiceClient, config: PlaidCon
             p_id: claim.id, p_claim_id: claim.claim_id, p_removed: removed,
           });
           if (removed && !finished.error && finished.data === true) result.removed++;
-          else result.failed++;
+          else if (!removed && claim.last_attempt === true && !finished.error && finished.data === true) {
+            // Logged once: a given-up row is never claimed again. Counts
+            // only, never the row's student, item or token.
+            log("plaid_cleanup_gave_up", {});
+            result.gaveUp++;
+          } else result.failed++;
         } catch {
           result.failed++;
         }

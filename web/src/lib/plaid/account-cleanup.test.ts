@@ -13,7 +13,7 @@ import { parseTokenKey, sealToken } from "./token-box";
 const config: PlaidConfig = { clientId: "fake", secret: "fake", baseUrl: "https://sandbox.plaid.com", tokenKey: parseTokenKey(Buffer.alloc(32, 1).toString("base64"))! };
 const binding = { studentId: "deleted-student", itemId: "item-test" };
 const claim = { id: "queue-test", student_id: binding.studentId, item_id: binding.itemId, claim_id: "lease-test", token_ciphertext: sealToken("access-test", config.tokenKey, binding) };
-function service(rows = [claim]) {
+function service(rows: Array<typeof claim & { last_attempt?: boolean }> = [claim]) {
   let claimed = false;
   const rpc = vi.fn(async (name: string) => ({ data: name === "claim_plaid_account_cleanup" ? (claimed ? [] : (claimed = true, rows)) : true, error: null }));
   return { client: { rpc } as unknown as ServiceClient, rpc };
@@ -26,7 +26,7 @@ beforeEach(() => { plaid.removeItem.mockReset(); plaid.removeItem.mockResolvedVa
 describe("deleted account Plaid cleanup", () => {
   it("decrypts only on the server and erases ciphertext after a confirmed removal", async () => {
     const { client, rpc } = service();
-    expect(await runAccountCleanup(client, config)).toEqual({ claimed: 1, removed: 1, failed: 0, unavailable: false, deferred: false });
+    expect(await runAccountCleanup(client, config)).toEqual({ claimed: 1, removed: 1, failed: 0, gaveUp: 0, unavailable: false, deferred: false });
     expect(plaid.removeItem).toHaveBeenCalledWith(config, "access-test");
     expect(rpc).toHaveBeenCalledWith("finish_plaid_account_cleanup", { p_id: claim.id, p_claim_id: claim.claim_id, p_removed: true });
   });
@@ -70,7 +70,7 @@ describe("deleted account Plaid cleanup", () => {
 
   it("reports a database outage without leaking its error text", async () => {
     const client = { rpc: vi.fn().mockRejectedValue(new Error("private database detail")) } as unknown as ServiceClient;
-    expect(await runAccountCleanup(client, config)).toEqual({ claimed: 0, removed: 0, failed: 0, unavailable: true, deferred: false });
+    expect(await runAccountCleanup(client, config)).toEqual({ claimed: 0, removed: 0, failed: 0, gaveUp: 0, unavailable: true, deferred: false });
   });
   it("drains more than one five-row batch", async () => {
     const { client, rpc } = service([]);
@@ -88,6 +88,40 @@ describe("deleted account Plaid cleanup", () => {
     const { client, rpc } = service();
     expect(await runAccountCleanup(client, config, { startedAt: 0 })).toMatchObject({ removed: 1, deferred: true });
     expect(rpc.mock.calls.filter(([name]) => name === "claim_plaid_account_cleanup")).toHaveLength(1);
+  });
+
+  // Security audit of a8fe7d4: a forged token saved before the account was
+  // deleted can never be decrypted. Its last failure gives it up (the
+  // database stops claiming it), is logged once, and does not fail the check.
+  it("gives up an unreadable row on its last attempt, logging once and staying green", async () => {
+    vi.stubEnv("PLAID_CLEANUP_HEARTBEAT_URL", "https://hc-ping.com/cleanup-test");
+    for (const [name, value] of Object.entries({ PLAID_CLIENT_ID: "fake", PLAID_SECRET: "fake", PLAID_ENV: "sandbox", PLAID_TOKEN_KEY: Buffer.alloc(32, 1).toString("base64") })) vi.stubEnv(name, value);
+    const send = vi.fn<typeof fetch>().mockResolvedValue(new Response("OK"));
+    vi.stubGlobal("fetch", send);
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const forged = { ...claim, token_ciphertext: "v1." + "A".repeat(40), last_attempt: true };
+    const { client, rpc } = service([forged]);
+    expect(await runAccountCleanupWithHeartbeat(client)).toMatchObject({ claimed: 1, removed: 0, failed: 0, gaveUp: 1 });
+    expect(rpc).toHaveBeenCalledWith("finish_plaid_account_cleanup", expect.objectContaining({ p_removed: false }));
+    expect(log.mock.calls).toEqual([[JSON.stringify({ event: "plaid_cleanup_gave_up" })]]);
+    expect(send.mock.calls.map(([url]) => url)).toEqual(["https://hc-ping.com/cleanup-test/start", "https://hc-ping.com/cleanup-test"]);
+    for (const secret of [forged.student_id, forged.item_id, forged.token_ciphertext]) expect(JSON.stringify([log.mock.calls, send.mock.calls])).not.toContain(secret);
+  });
+
+  it("still fails the check before the last attempt", async () => {
+    const { client } = service([{ ...claim, student_id: "wrong-binding", last_attempt: false }]);
+    expect(await runAccountCleanup(client, config)).toMatchObject({ failed: 1, gaveUp: 0 });
+  });
+
+  it("counts a removal on the last attempt as removed, not given up", async () => {
+    const { client } = service([{ ...claim, last_attempt: true }]);
+    expect(await runAccountCleanup(client, config)).toMatchObject({ removed: 1, failed: 0, gaveUp: 0 });
+  });
+
+  it("counts a given-up row as failed if the database did not take the acknowledgement", async () => {
+    const { client, rpc } = service([{ ...claim, student_id: "wrong-binding", last_attempt: true }]);
+    rpc.mockImplementation(async (name: string) => ({ data: name === "claim_plaid_account_cleanup" ? (rpc.mock.calls.length === 1 ? [{ ...claim, student_id: "wrong-binding", last_attempt: true }] : []) : false, error: null }));
+    expect(await runAccountCleanup(client, config)).toMatchObject({ failed: 1, gaveUp: 0 });
   });
 
   it("sends failures to the cleanup check, never the reminder check", async () => {

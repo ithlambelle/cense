@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 
 import { authenticatedStudent } from "@/lib/api/auth";
 import { databaseError } from "@/lib/api/database";
+import { claimQuota } from "@/lib/api/quota";
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { askPennySchema } from "@/lib/api/penny";
 import { askPenny, declined, pennyConfigured } from "@/lib/penny/ask";
@@ -39,10 +40,18 @@ export async function POST(request: Request): Promise<Response> {
     return apiError(503, "penny_unavailable", "Penny can’t answer typed questions right now.");
   }
 
-  const { data: claim, error } = await student.supabase.rpc("claim_penny_ask");
-  if (error) return databaseError("penny_ask_claim", error);
-  if (claim !== "ok") {
-    return apiError(429, "penny_limit", "That’s all the typed questions Penny can answer today.", { limit: claim });
+  // 20 typed questions per student and 300 in all, in any 24 hours, claimed
+  // by the server with the service role for the student in the session
+  // (20261117110000_security_quotas.sql). Without the service role key
+  // nothing is counted, so typed questions are off, as without a model key.
+  const claim = await claimQuota("claim_penny_ask", student);
+  if (!claim.ok && claim.reason === "not_configured") {
+    console.error(JSON.stringify({ event: "penny_not_configured", missing: ["SUPABASE_SERVICE_ROLE_KEY"] }));
+    return apiError(503, "penny_unavailable", "Penny can’t answer typed questions right now.");
+  }
+  if (!claim.ok) return databaseError("penny_ask_claim", { code: claim.code, message: "claim failed" });
+  if (claim.data !== "ok") {
+    return apiError(429, "penny_limit", "That’s all the typed questions Penny can answer today.", { limit: claim.data });
   }
 
   try {
