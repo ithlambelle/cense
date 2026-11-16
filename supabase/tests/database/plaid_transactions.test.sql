@@ -58,9 +58,11 @@ select ok((select relrowsecurity from pg_class where oid = 'plaid.transactions':
 select is(
   (select array_agg(column_name::text order by column_name::text) from information_schema.columns
    where table_schema = 'plaid' and table_name = 'transactions'),
-  array['account_id', 'amount_cents', 'category', 'category_detailed', 'merchant_name', 'pending', 'posted_on',
-    'student_id', 'transaction_id'],
-  'only the kept fields exist: no description, location, counterparty or payment details');
+  array['account_id', 'amount_cents', 'category', 'category_detailed', 'description', 'merchant_name', 'payment_app',
+    'pending', 'posted_on', 'student_id', 'transaction_id'],
+  -- The bank's description and the payment app were added on purpose (Ben,
+  -- Nov 15, 20261116000000): they tell a parent's Zelle from a cash-out.
+  'only the kept fields exist: no location, counterparty list or payment details');
 
 select ok(not has_function_privilege('anon', 'public.plaid_transactions_cursor(text)', 'execute'), 'anon cannot read a cursor');
 select ok(not has_function_privilege('anon', 'public.apply_plaid_transactions_sync(text, text, jsonb, jsonb, jsonb, text)', 'execute'),
