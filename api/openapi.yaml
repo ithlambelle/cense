@@ -289,7 +289,9 @@ components:
                 - other
           additionalProperties: false
         updatedAt:
-          type: string
+          type:
+            - string
+            - "null"
           format: date-time
       required:
         - answers
@@ -1734,12 +1736,6 @@ paths:
                 $ref: "#/components/schemas/QuizDraft"
         "401":
           description: Sign-in required
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-        "404":
-          description: No saved quiz
           content:
             application/json:
               schema:

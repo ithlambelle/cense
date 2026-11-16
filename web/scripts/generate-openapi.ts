@@ -178,7 +178,7 @@ registry.registerPath({
 registry.registerPath({
   method: "get", path: "/quiz", operationId: "getQuiz", summary: "Get saved quiz progress",
   security: [{ studentSession: [] }],
-  responses: { 200: ok(quizDraftContract), 404: failure("No saved quiz"), ...protectedResponses },
+  responses: { 200: ok(quizDraftContract), ...protectedResponses },
 });
 registry.registerPath({
   method: "put", path: "/quiz", operationId: "saveQuiz", summary: "Save partial quiz progress",

@@ -31,7 +31,9 @@ function server(replies: (Reply | Promise<Reply>)[]) {
   return fetchFn;
 }
 
-const NO_DRAFT: Reply = { status: 404, body: { error: { code: "not_found", message: "No saved quiz yet." } } };
+// No saved quiz yet: an empty draft, not a 404 (Testathon, Nov 16: a 404
+// showed as an error in the browser console on every first visit).
+const NO_DRAFT: Reply = { status: 200, body: { answers: {}, updatedAt: null } };
 const saved = (answers: unknown): Reply => ({ status: 200, body: { answers, updatedAt: "2026-10-11T00:00:00Z" } });
 
 function sentAnswers(fetchFn: ReturnType<typeof server>, call: number) {
