@@ -1,10 +1,10 @@
 -- Created with Claude Code (2026-11-17). Undoes
 -- 20261117100000_security_db_limits.sql: no card cap or length checks, the
--- one-statement refresh_all_reminders(), the table grants the earlier
--- migrations made, no issuer click or size limits, and snooze_reminder()
--- bounded only to 45 days. Roll back the app's job.ts change first, or with
--- this: the new job passes p_after, which the old function does not take.
--- Safe to run again.
+-- one-statement refresh_all_reminders() with no saved starting point, the
+-- table grants the earlier migrations made, no issuer click or size limits,
+-- save_recommendation() with no daily limit, and snooze_reminder() bounded
+-- only to 45 days. Roll back the app change first, or with this: the new job
+-- passes p_after, which the old function does not take. Safe to run again.
 
 -- 1a, 1b
 drop trigger if exists card_applications_limit_per_student on public.card_applications;
@@ -17,6 +17,7 @@ alter table public.issuer_clicks drop constraint if exists issuer_clicks_card_id
 -- 1c, as in 20261023200000_reminders_and_plan_steps.sql and
 -- 20261024220000_reminder_sender.sql
 drop function if exists public.refresh_all_reminders(uuid, interval);
+drop table if exists public.reminder_refresh_state;
 
 create or replace function public.refresh_all_reminders()
 returns void

@@ -62,12 +62,28 @@ describe("runReminderJob", () => {
       from: profiles().from,
     } as unknown as ServiceClient;
 
-    await runReminderJob(supabase, config, { sleep: async () => {} });
+    expect(await runReminderJob(supabase, config, { sleep: async () => {} })).toMatchObject({ refreshed: true });
     expect(refreshArgs).toEqual([
       { p_after: null },
       { p_after: "00000000-0000-4000-8000-0000000000c1" },
       { p_after: "00000000-0000-4000-8000-0000000000c2" },
     ]);
+  });
+
+  it("reports a failed refresh as not refreshed, and still claims", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const calls: string[] = [];
+    const supabase = {
+      rpc: async (name: string) => {
+        calls.push(name);
+        if (name === "refresh_all_reminders") return { data: null, error: { code: "57014" } };
+        return { data: name === "claim_due_reminders" ? [] : null, error: null };
+      },
+      from: profiles().from,
+    } as unknown as ServiceClient;
+    expect(await runReminderJob(supabase, config, { sleep: async () => {} })).toMatchObject({ refreshed: false });
+    expect(calls).toEqual(["refresh_all_reminders", "claim_due_reminders"]);
   });
 
   it("stops refreshing when its time is up, logs it, and still sends", async () => {
@@ -79,7 +95,7 @@ describe("runReminderJob", () => {
       rpc: async (name: string) => {
         if (name === "refresh_all_reminders") {
           refreshes += 1;
-          clock += 4_000;
+          clock += 2_000;
           return { data: "00000000-0000-4000-8000-0000000000c1", error: null };
         }
         if (name === "claim_due_reminders") return { data: [row(1)], error: null };
@@ -90,9 +106,10 @@ describe("runReminderJob", () => {
     const fetchMock = vi.fn(async () => Response.json({ id: "x" }));
 
     const result = await runReminderJob(supabase, config, { fetch: fetchMock as unknown as typeof fetch, sleep: async () => {}, now: () => clock });
-    expect(refreshes).toBe(4);
+    // 2 seconds a call: a third call starts at 4 seconds, none after 5
+    expect(refreshes).toBe(3);
     expect(JSON.stringify(errors.mock.calls)).toContain("reminder_refresh_incomplete");
-    expect(result).toMatchObject({ claimed: 1, sent: 1 });
+    expect(result).toMatchObject({ claimed: 1, sent: 1, refreshed: false });
   });
 
   it("spaces sends for Resend's rate limit and releases what is left when time runs out", async () => {
@@ -111,7 +128,7 @@ describe("runReminderJob", () => {
     const fetchMock = vi.fn(async () => { clock += 30_000; return Response.json({ id: "x" }); });
 
     const result = await runReminderJob(supabase, config, { fetch: fetchMock as unknown as typeof fetch, sleep, now: () => clock });
-    expect(result).toEqual({ claimed: 3, sent: 2, failed: 0, unconfirmed: 0, deferred: 1, abandoned: 0 });
+    expect(result).toEqual({ claimed: 3, sent: 2, failed: 0, unconfirmed: 0, deferred: 1, abandoned: 0, refreshed: true });
     expect(sleep).toHaveBeenCalledWith(550);
     expect(calls.filter((name) => name === "release_reminder_claim")).toHaveLength(1);
   });

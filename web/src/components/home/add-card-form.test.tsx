@@ -59,6 +59,16 @@ describe("AddCardScreen", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  it("at the card limit, says so plainly and stays on the form", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () =>
+      Response.json({ error: { code: "limit_reached", message: "You’ve reached the card limit." } }, { status: 409 })));
+    render(<AddCardScreen />);
+    addCard("Student Cash Card");
+    expect((await screen.findByRole("alert")).textContent).toBe("You’ve reached the card limit.");
+    expect(push).not.toHaveBeenCalled();
+    expect(track).not.toHaveBeenCalled();
+  });
+
   it("on a network failure, says the card may have been saved instead of inviting a duplicate", async () => {
     vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => Promise.reject(new TypeError("Failed to fetch"))));
     render(<AddCardScreen />);

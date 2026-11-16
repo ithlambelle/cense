@@ -332,7 +332,10 @@ export interface paths {
         /** List application status records */
         get: operations["listApplications"];
         put?: never;
-        /** Record a self-reported application or owned card */
+        /**
+         * Record a self-reported application or owned card
+         * @description 409 already_exists when the card is already tracked as applied or approved; 409 limit_reached at the card limit (25 records per student, kept for good).
+         */
         post: operations["createApplication"];
         delete?: never;
         options?: never;
@@ -538,7 +541,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Record an issuer link click */
+        /**
+         * Record an issuer link click
+         * @description 201 with the saved click. When the click cannot be recorded (at most 50 per student a day, or the database is unavailable), 200 with the same address and a null id and clickedAt: the student still goes to the issuer.
+         */
         post: operations["recordIssuerClick"];
         delete?: never;
         options?: never;
@@ -924,6 +930,17 @@ export interface components {
         };
         MarkRemindersRead: {
             marked: number;
+        };
+        IssuerClick: {
+            /** Format: uuid */
+            id: string | null;
+            cardId: string;
+            /** @enum {string} */
+            kind: "preapproval" | "apply";
+            /** Format: uri */
+            url: string;
+            /** Format: date-time */
+            clickedAt: string | null;
         };
         PennyReply: {
             /** @enum {string} */
@@ -2042,7 +2059,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
-            /** @description Already exists */
+            /** @description Already exists, or the card limit is reached */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2957,22 +2974,21 @@ export interface operations {
         };
         responses: {
             /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssuerClick"];
+                };
+            };
+            /** @description Success */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** Format: uuid */
-                        id: string;
-                        cardId: string;
-                        /** @enum {string} */
-                        kind: "preapproval" | "apply";
-                        /** Format: uri */
-                        url: string;
-                        /** Format: date-time */
-                        clickedAt: string;
-                    };
+                    "application/json": components["schemas"]["IssuerClick"];
                 };
             };
             /** @description Invalid request */

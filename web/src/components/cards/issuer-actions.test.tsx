@@ -136,6 +136,16 @@ describe("IssuerActions", () => {
     );
   });
 
+  it("still opens the issuer when the click could not be recorded, with no analytics copy", async () => {
+    vi.stubGlobal("fetch", answer(200, { ...click("https://issuer.example/apply"), id: null, clickedAt: null }));
+    render(<IssuerActions signedIn notes={[]} card={card} />);
+    await openApply();
+    await waitFor(() => expect(tab.location.replace).toHaveBeenCalledWith("https://issuer.example/apply"));
+    expect(tab.close).not.toHaveBeenCalled();
+    expect(await screen.findByText("Did you finish applying?")).toBeTruthy();
+    expect(track).not.toHaveBeenCalledWith("issuer_link_clicked", expect.anything(), expect.anything());
+  });
+
   it("does not ask about applying after a preapproval check", async () => {
     vi.stubGlobal("fetch", answer(201, click("https://issuer.example/preapproval")));
     render(<IssuerActions signedIn notes={[]} card={card} />);
@@ -257,6 +267,18 @@ describe("IssuerActions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Yes, I finished" }));
     expect((await screen.findByRole("status")).textContent).toContain("already on Home");
     // Nothing new was saved, so it is not a new report.
+    expect(track).not.toHaveBeenCalledWith("outcome_reported", expect.anything());
+  });
+
+  it("at the card limit, shows the API's message instead of claiming the card is on Home", async () => {
+    const fetchFn = answer(201, click("https://issuer.example/apply"));
+    await reachQuestion(fetchFn);
+    fetchFn.mockImplementation(async () =>
+      Response.json({ error: { code: "limit_reached", message: "You’ve reached the card limit." } }, { status: 409 }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Yes, I finished" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("You’ve reached the card limit.");
+    expect(screen.queryByText(/already on Home/)).toBeNull();
     expect(track).not.toHaveBeenCalledWith("outcome_reported", expect.anything());
   });
 

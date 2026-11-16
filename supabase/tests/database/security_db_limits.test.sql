@@ -8,7 +8,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(58);
+select plan(68);
 
 create temp table students (name text primary key, id uuid);
 insert into students values
@@ -155,20 +155,25 @@ create temp table before as select * from pg_temp.plan();
 select ok((select count(*) from before where not sent and kind = 'statement_closing') = 27,
   'the old way plans a closing reminder for each of the 27 subscribed cards with days');
 
--- now, one call as the old job made it (no arguments)
+-- The refresh covers every student in the database, so hold other writers
+-- off card_applications until this test ends (they only wait; none in CI).
+lock table public.card_applications in share mode;
+
+-- now, one call as the old job made it (no arguments), from the start
+update public.reminder_refresh_state set pivot = null, last_done = null;
 select pg_temp.reset();
 select is(public.refresh_all_reminders(), null::uuid, 'one call with no arguments finishes everyone on a small database');
 select set_eq($$ select * from pg_temp.plan() $$, $$ select * from before $$,
   'and plans exactly the same reminders as refreshing each card');
 
--- now in the smallest batches: one student per call
-select pg_temp.reset();
+-- now in the smallest batches: one student per call, as a run of the job
 create temp table calls (n int, answered uuid);
-do $$
+create function pg_temp.run_job() returns void language plpgsql as $$
 declare
   v_after uuid := null;
   v_n int := 0;
 begin
+  delete from calls;
   loop
     v_after := public.refresh_all_reminders(v_after, interval '0 seconds');
     v_n := v_n + 1;
@@ -177,12 +182,18 @@ begin
   end loop;
 end;
 $$;
+create function pg_temp.students_refreshed() returns int language sql as $$
+  select count(distinct student_id)::int from public.card_applications where status in ('approved', 'rejected');
+$$;
+select pg_temp.reset();
+select pg_temp.run_job();
 select is((select answered from calls where n = 1),
   (select student_id from public.card_applications where status in ('approved', 'rejected') order by student_id limit 1),
   'out of time, a call stops after one student and answers where to carry on');
-select is((select count(*)::int from calls),
-  (select count(distinct student_id)::int + 1 from public.card_applications where status in ('approved', 'rejected')),
+select is((select count(*)::int from calls), pg_temp.students_refreshed() + 1,
   'one student per call, then null when everyone is done');
+select is((select last_done from public.reminder_refresh_state), null::uuid,
+  'a finished pass leaves nothing to carry on');
 select ok((select count(*) from calls where answered = pg_temp.student('later')) = 1,
   'the student after the one with 25 cards gets a call of their own');
 select set_eq($$ select * from pg_temp.plan() $$, $$ select * from before $$,
@@ -191,6 +202,26 @@ select ok(exists (select 1 from pg_temp.plan() p join mine m on m.id = p.card
                   where m.student_id = pg_temp.student('later') and p.kind = 'statement_closing' and not p.sent),
   'the later student''s next closing reminder is planned');
 
+-- a run that stopped early: the next one starts right after the last
+-- student it finished, so nobody is skipped day after day
+select is(public.refresh_all_reminders(null, interval '0 seconds'),
+  (select student_id from public.card_applications where status in ('approved', 'rejected') order by student_id limit 1),
+  'a run that stops after one student');
+select is((select last_done from public.reminder_refresh_state),
+  (select student_id from public.card_applications where status in ('approved', 'rejected') order by student_id limit 1),
+  'remembers the last student it finished');
+update public.reminder_refresh_state set last_done = pg_temp.student('later');
+select pg_temp.run_job();
+select is((select answered from calls where n = 1),
+  (select student_id from public.card_applications where status in ('approved', 'rejected')
+   and student_id > pg_temp.student('later') order by student_id limit 1),
+  'the next run starts right after that student');
+select is((select count(*)::int from calls), pg_temp.students_refreshed() + 1,
+  'and still reaches every student once');
+select is((select answered from calls order by n desc offset 1 limit 1), pg_temp.student('later'),
+  'wrapping around to end with that student');
+select set_eq($$ select * from pg_temp.plan() $$, $$ select * from before $$,
+  'and plans the same reminders');
 select ok(not has_function_privilege('authenticated', 'public.refresh_all_reminders(uuid, interval)', 'execute'),
   'students cannot run the refresh');
 select ok(not has_function_privilege('anon', 'public.refresh_all_reminders(uuid, interval)', 'execute'),
@@ -319,6 +350,18 @@ select throws_ok(
 select throws_ok(
   format($$ select pg_temp.save(%L, '{}', '{}') $$, repeat('x', 1001)),
   '22023', null, 'a reason over 1,000 characters is refused');
+-- at most 20 saves a day: one saved above, 18 more here
+reset role;
+insert into public.recommendations (student_id, card_id, fit_tier, rules_version, card_data_version)
+select pg_temp.student('added'), 'chime-card', 'likely_fit', 'fit-rules v1.3', 'cards-abc' from generate_series(1, 18);
+insert into public.recommendations (student_id, card_id, fit_tier, rules_version, card_data_version, created_at)
+select pg_temp.student('denied'), 'chime-card', 'likely_fit', 'fit-rules v1.3', 'cards-abc', now() - interval '2 days' from generate_series(1, 30);
+set local role authenticated;
+select lives_ok($$ select pg_temp.save('Builds credit', '{}', '{}') $$, 'the 20th save in 24 hours goes through');
+select throws_ok($$ select pg_temp.save('Builds credit', '{}', '{}') $$,
+  '54000', 'save_recommendation: too many saves today', 'the 21st is refused');
+select pg_temp.as_student('denied');
+select lives_ok($$ select pg_temp.save('Builds credit', '{}', '{}') $$, 'saves older than 24 hours do not count');
 
 -------------------------------------------------------------------------------
 -- 4. snooze_reminder: the API's rule. Sent reminders on the 'added' card
@@ -362,10 +405,9 @@ select is(pg_temp.snooze('closing', pg_temp.today() + 2), pg_temp.at9(pg_temp.to
 select throws_ok(
   $$ select pg_temp.snooze('closing', pg_temp.today() + 3) $$,
   '22023', null, 'but not past the day it closes, though within 45 days');
-select throws_ok(
-  $$ select public.snooze_reminder(pg_temp.r('closing'), least(now() + interval '1 minute',
-       ((pg_temp.today() + 1)::timestamp at time zone 'America/New_York') - interval '1 second')) $$,
-  '22023', null, 'and not to later today');
+select lives_ok(
+  $$ select public.snooze_reminder(pg_temp.r('closing'), now() + interval '1 minute') $$,
+  'a minute from now is accepted, so the API''s "tomorrow" is never refused just after midnight');
 select is(pg_temp.snooze('due', pg_temp.today() + 3), pg_temp.at9(pg_temp.today() + 3),
   'a due-date reminder snoozes to the day before it is due');
 select throws_ok(

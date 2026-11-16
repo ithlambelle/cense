@@ -137,7 +137,7 @@ describe("GET /cron/reminders", () => {
     const response = await cron();
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, followUps: { raised: 0, skipped: 0, failed: false }, plaidCleanup: CLEANUP });
+    expect(body).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, refreshed: true, followUps: { raised: 0, skipped: 0, failed: false }, plaidCleanup: CLEANUP });
     expect(calls.map((call) => call.name)).toEqual([
       "purge_old_plaid_transactions",
       "raise_reminder_follow_ups",
@@ -209,7 +209,7 @@ describe("GET /cron/reminders", () => {
   it("sends nothing when nothing is due", async () => {
     database({ claim_due_reminders: [{ data: [], error: null }] });
     const fetchMock = resend();
-    expect(await (await cron()).json()).toEqual({ claimed: 0, sent: 0, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, followUps: { raised: 0, skipped: 0, failed: false }, plaidCleanup: CLEANUP });
+    expect(await (await cron()).json()).toEqual({ claimed: 0, sent: 0, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, refreshed: true, followUps: { raised: 0, skipped: 0, failed: false }, plaidCleanup: CLEANUP });
     expect(fetchMock.emails()).toHaveLength(0);
   });
 
@@ -318,7 +318,7 @@ describe("GET /cron/reminders", () => {
       resend();
       await cron();
       expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, HEARTBEAT]);
-      expect(JSON.parse(others[1].body)).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, followUps: { raised: 0, skipped: 0, failed: false } });
+      expect(JSON.parse(others[1].body)).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, refreshed: true, followUps: { raised: 0, skipped: 0, failed: false } });
     });
 
     it("still pings success when only the purge failed: retention is not a reminder problem", async () => {
@@ -329,7 +329,29 @@ describe("GET /cron/reminders", () => {
       resend();
       await cron();
       expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, HEARTBEAT]);
-      expect(JSON.parse(others[1].body)).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, followUps: { raised: 0, skipped: 0, failed: false } });
+      expect(JSON.parse(others[1].body)).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, refreshed: true, followUps: { raised: 0, skipped: 0, failed: false } });
+    });
+
+    it("pings fail when the refresh did not reach every student, and still sends", async () => {
+      // The refresh keeps answering where to carry on until its time is up.
+      let clock = 0;
+      const now = vi.spyOn(Date, "now").mockImplementation(() => clock);
+      service.createServiceClient.mockReturnValue({
+        rpc: async (name: string) => {
+          if (name === "refresh_all_reminders") {
+            clock += 3_000;
+            return { data: "00000000-0000-4000-8000-0000000000c1", error: null };
+          }
+          if (name === "claim_due_reminders") return { data: [claimed()], error: null };
+          return { data: name === "mark_reminder_sent" ? true : null, error: null };
+        },
+      });
+      resend();
+      const body = await (await cron()).json();
+      now.mockRestore();
+      expect(body).toMatchObject({ sent: 1, refreshed: false });
+      expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, `${HEARTBEAT}/fail`]);
+      expect(JSON.stringify(vi.mocked(console.error).mock.calls)).toContain("reminder_refresh_incomplete");
     });
 
     it("pings fail when a send failed, and the body has counts only", async () => {

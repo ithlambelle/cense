@@ -32,7 +32,16 @@ export async function POST(request: Request): Promise<Response> {
     })
     .select("id, clicked_at")
     .single();
-  if (error) return databaseError("issuer_click_create", error);
+  // A click that cannot be recorded (the daily limit, or the database is
+  // down) never stops the student reaching the issuer: the address goes back
+  // anyway, with no id, and only the error code is logged.
+  if (error) {
+    console.warn(JSON.stringify({ event: "issuer_click_not_recorded", code: error.code }));
+    return Response.json(
+      { id: null, cardId: card.id, kind: parsed.data.kind, url, clickedAt: null },
+      { status: 200, headers: { "Cache-Control": "no-store" } },
+    );
+  }
 
   return Response.json(
     { id: data.id, cardId: card.id, kind: parsed.data.kind, url, clickedAt: data.clicked_at },

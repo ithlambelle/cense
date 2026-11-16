@@ -195,7 +195,8 @@ registry.registerPath({
   method: "post", path: "/applications", operationId: "createApplication", summary: "Record a self-reported application or owned card",
   security: [{ studentSession: [] }],
   request: { body: body(createApplicationSchema) },
-  responses: { 201: ok(applicationContract), 400: failure("Invalid application"), 409: failure("Already exists"), ...protectedResponses },
+  description: "409 already_exists when the card is already tracked as applied or approved; 409 limit_reached at the card limit (25 records per student, kept for good).",
+  responses: { 201: ok(applicationContract), 400: failure("Invalid application"), 409: failure("Already exists, or the card limit is reached"), ...protectedResponses },
 });
 registry.registerPath({
   method: "patch", path: "/applications/{id}", operationId: "updateApplication",
@@ -320,15 +321,19 @@ registry.registerPath({
   request: { body: body(updateReminderSettingsSchema) },
   responses: { 200: ok(reminderSettingsContract), 400: failure("Invalid settings"), 404: failure("Profile not found"), ...protectedResponses },
 });
+// id and clickedAt are null when the click was not recorded.
+const issuerClickContract = registry.register("IssuerClick", z.strictObject({
+  id: z.uuid().nullable(), cardId: z.string(), kind: z.enum(["preapproval", "apply"]),
+  url: z.url(), clickedAt: z.iso.datetime({ offset: true }).nullable(),
+}));
 registry.registerPath({
   method: "post", path: "/issuer-clicks", operationId: "recordIssuerClick", summary: "Record an issuer link click",
+  description: "201 with the saved click. When the click cannot be recorded (at most 50 per student a day, or the database is unavailable), 200 with the same address and a null id and clickedAt: the student still goes to the issuer.",
   security: [{ studentSession: [] }],
   request: { body: body(issuerClickSchema) },
   responses: {
-    201: ok(z.strictObject({
-      id: z.uuid(), cardId: z.string(), kind: z.enum(["preapproval", "apply"]),
-      url: z.url(), clickedAt: z.iso.datetime({ offset: true }),
-    })),
+    201: ok(issuerClickContract),
+    200: ok(issuerClickContract),
     400: failure("Invalid request"), 404: failure("Card not found"),
     409: failure("No preapproval link"), ...protectedResponses,
   },
