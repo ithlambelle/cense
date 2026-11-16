@@ -21,7 +21,10 @@ export const ROUTES = {
   // For a student who already has a card.
   addCard: "/home/add-card",
   forgotPassword: "/forgot-password",
-  // Opened from the password reset email.
+  // Opened from the password reset email: a Continue button that verifies the
+  // link (so a mail scanner opening it, or a link someone else sent, signs no
+  // one in), then Set a new password.
+  resetPasswordConfirm: "/reset-password/confirm",
   resetPassword: "/reset-password",
   // Safe to spend on a Plaid sandbox bank (US-12): Your money (Today and This
   // month tabs, Figma 709:1520 and 709:1769), the consent screen before Link,

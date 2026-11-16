@@ -136,10 +136,17 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Verify a password reset link */
-        get: operations["verifyPasswordReset"];
+        /**
+         * Forward an older reset link to the confirm screen
+         * @description Verifies nothing: opening a link never signs anyone in. Redirects to /reset-password/confirm with the same token_hash or code.
+         */
+        get: operations["openPasswordResetLink"];
         put?: never;
-        post?: never;
+        /**
+         * Verify a password reset link from the confirm screen's button
+         * @description Starts the reset session. Refused with 409 `signed_in_as_other` when a different account is signed in in this browser, whose session is left as it was.
+         */
+        post: operations["verifyPasswordReset"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1112,6 +1119,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Too many codes sent to this email or from this address (rate_limited) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
             /** @description Email service unavailable */
             502: {
                 headers: {
@@ -1170,6 +1186,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Too many code checks (rate_limited) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
             /** @description Account could not be secured */
             502: {
                 headers: {
@@ -1219,7 +1244,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
-            /** @description Rate limited */
+            /** @description Too many emails to this address or from this address (rate_limited) */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -1281,6 +1306,15 @@ export interface operations {
             };
             /** @description Wrong or expired code */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Too many code checks (rate_limited) */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1355,7 +1389,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
-            /** @description Rate limited */
+            /** @description Too many tries for this email or from this address (rate_limited) */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -1403,6 +1437,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Too many emails to this address or from this address (rate_limited) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
             /** @description Email service unavailable */
             502: {
                 headers: {
@@ -1414,7 +1457,7 @@ export interface operations {
             };
         };
     };
-    verifyPasswordReset: {
+    openPasswordResetLink: {
         parameters: {
             query?: {
                 token_hash?: string;
@@ -1426,12 +1469,79 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Redirect to reset form or request a new link */
+            /** @description Redirect to /reset-password/confirm */
             303: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    verifyPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    tokenHash: string;
+                } | {
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "verified";
+                    };
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Link expired or already used (invalid_link) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Another account is signed in here (signed_in_as_other) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Too many tries from this address (rate_limited) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
             };
         };
     };

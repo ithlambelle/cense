@@ -222,12 +222,12 @@ Before it can run:
 
 | Variable | Where it comes from |
 | --- | --- |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase dashboard, Project Settings, API keys, service_role. Ben or Yunho pastes it in; never in Slack. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase dashboard, Project Settings, API keys, service_role. Ben or Yunho pastes it in; never in Slack. Also turns on the sign-in limits (`claim_auth_attempt`); add it to Preview too, with the preview project's key, so they apply there. |
 | `CRON_SECRET` | Any long random string (`openssl rand -hex 32`). Vercel sends it with each cron call. |
 | `RESEND_API_KEY` | Resend dashboard (Ben), API Keys, sending access for `send.censefinance.com`. |
 | `REMINDER_FROM_EMAIL` | `Cense <reminders@send.censefinance.com>` |
 | `REMINDER_UNSUBSCRIBE_SECRET` | Any long random string. Changing it breaks the unsubscribe links already sent. |
-| `APP_BASE_URL` | The app's public address, for the links in the emails: `https://censefinance.com`. |
+| `APP_BASE_URL` | The app's public address, for the links in the emails (reminders, and the password reset and sign-in emails): `https://censefinance.com`. On Production, without it no reset email is sent. |
 | `REMINDER_HEARTBEAT_URL` | Optional, the alert (below). The check's ping URL, `https://hc-ping.com/<uuid>`. |
 | `PLAID_CLEANUP_HEARTBEAT_URL` | Optional separate Healthchecks.io ping URL for Plaid cleanup. Create a daily check with grace time like the reminder check. Cleanup failures and a queue not drained within its request budget fail this check only; unset, no cleanup alert is sent. |
 

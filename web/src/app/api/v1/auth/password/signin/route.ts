@@ -1,10 +1,14 @@
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { passwordSignInSchema } from "@/lib/api/password";
+import { authThrottle } from "@/lib/auth/throttle";
 import { createStudentClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request): Promise<Response> {
   const parsed = passwordSignInSchema.safeParse(await parseJson(request));
   if (!parsed.success) return validationError(parsed.error);
+
+  const limited = await authThrottle(request, "password", parsed.data.email);
+  if (limited) return limited;
 
   const supabase = await createStudentClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);

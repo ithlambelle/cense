@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
@@ -26,6 +26,37 @@ export async function createStudentClient() {
       },
     },
   });
+}
+
+// Like createStudentClient, but the cookies a sign-in would write are held
+// back until commit() is called, so the route can look at whose session it
+// got before the browser is switched to it. Not committing leaves the
+// browser's current session exactly as it was. Used by the reset link, which
+// refuses to swap a signed-in student into another account (login CSRF).
+// Created with Claude Code (2026-11-17).
+export async function createDeferredStudentClient() {
+  const cookieStore = await cookies();
+  const { url, publishableKey } = supabaseConfig();
+  const pending: { name: string; value: string; options: CookieOptions }[] = [];
+
+  const client = createServerClient(url, publishableKey, {
+    cookieOptions: SESSION_COOKIE_OPTIONS,
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        pending.push(...cookiesToSet);
+      },
+    },
+  });
+
+  return {
+    client,
+    commit() {
+      for (const { name, value, options } of pending.splice(0)) cookieStore.set(name, value, options);
+    },
+  };
 }
 
 // Keeps nothing: no session and no cookies. For a call that must leave no trace

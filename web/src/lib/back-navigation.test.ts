@@ -17,7 +17,7 @@ describe("previousScreen", () => {
   });
 
   it("never returns to signing in or out, so a student who signed in goes to the parent", () => {
-    for (const path of ["/sign-in?next=%2Fhome", "/sign-up", "/start", "/signed-out", "/forgot-password", "/reset-password", "/account-deleted"]) {
+    for (const path of ["/sign-in?next=%2Fhome", "/sign-up", "/start", "/signed-out", "/forgot-password", "/reset-password/confirm", "/reset-password", "/account-deleted"]) {
       expect(previousScreen(at(path, "/settings"), 1, ORIGIN), path).toBeNull();
     }
     expect(previousScreen(at("/api/v1/auth/callback", "/home"), 1, ORIGIN)).toBeNull();

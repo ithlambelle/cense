@@ -1094,6 +1094,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Too many codes sent to this email or from this address (rate_limited)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
         "502":
           description: Email service unavailable
           content:
@@ -1149,6 +1155,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Too many code checks (rate_limited)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
         "502":
           description: Account could not be secured
           content:
@@ -1200,7 +1212,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "429":
-          description: Rate limited
+          description: Too many emails to this address or from this address (rate_limited)
           content:
             application/json:
               schema:
@@ -1270,6 +1282,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Too many code checks (rate_limited)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
         "502":
           description: Password could not be set
           content:
@@ -1331,7 +1349,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "429":
-          description: Rate limited
+          description: Too many tries for this email or from this address (rate_limited)
           content:
             application/json:
               schema:
@@ -1374,6 +1392,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Too many emails to this address or from this address (rate_limited)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
         "502":
           description: Email service unavailable
           content:
@@ -1382,8 +1406,10 @@ paths:
                 $ref: "#/components/schemas/ApiError"
   /auth/password/reset/verify:
     get:
-      operationId: verifyPasswordReset
-      summary: Verify a password reset link
+      operationId: openPasswordResetLink
+      summary: Forward an older reset link to the confirm screen
+      description: "Verifies nothing: opening a link never signs anyone in. Redirects
+        to /reset-password/confirm with the same token_hash or code."
       parameters:
         - schema:
             type: string
@@ -1397,7 +1423,75 @@ paths:
           in: query
       responses:
         "303":
-          description: Redirect to reset form or request a new link
+          description: Redirect to /reset-password/confirm
+    post:
+      operationId: verifyPasswordReset
+      summary: Verify a password reset link from the confirm screen's button
+      description: Starts the reset session. Refused with 409 `signed_in_as_other`
+        when a different account is signed in in this browser, whose session is
+        left as it was.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+                - type: object
+                  properties:
+                    tokenHash:
+                      type: string
+                      minLength: 1
+                      maxLength: 512
+                  required:
+                    - tokenHash
+                  additionalProperties: false
+                - type: object
+                  properties:
+                    code:
+                      type: string
+                      minLength: 1
+                      maxLength: 512
+                  required:
+                    - code
+                  additionalProperties: false
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - verified
+                required:
+                  - status
+                additionalProperties: false
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Link expired or already used (invalid_link)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Another account is signed in here (signed_in_as_other)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Too many tries from this address (rate_limited)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /auth/password/reset/confirm:
     post:
       operationId: confirmPasswordReset

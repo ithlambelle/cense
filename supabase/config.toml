@@ -184,7 +184,9 @@ enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
 enable_manual_linking = false
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
-minimum_password_length = 6
+# 8, the same as the app (web/src/lib/api/password.ts). The hosted project's
+# Auth settings must say 8 too.
+minimum_password_length = 8
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
 password_requirements = ""
@@ -236,7 +238,10 @@ max_frequency = "1s"
 # Number of characters used in the email OTP.
 otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 3600
+# 10 minutes, for sign-in codes and reset links alike: with the app's limit of
+# 10 code checks per email per 10 minutes, a code cannot be guessed before it
+# expires. The hosted project's Auth settings must say 600 too.
+otp_expiry = 600
 
 # Local and CI only. Mailpit (http://127.0.0.1:54324) catches every email.
 # Use a production-ready SMTP server
@@ -257,11 +262,12 @@ content_path = "./supabase/templates/code.html"
 subject = "Your Cense code"
 content_path = "./supabase/templates/code.html"
 
-# Password reset needs a link, not a code: the app's verify route reads
-# token_hash (web/src/app/api/v1/auth/password/reset/verify/route.ts), so the
-# link works in any browser, not only the one that asked for it. The hosted
-# project's "Reset password" template must use the same link
-# (docs/backend-integration.md).
+# Password reset needs a link, not a code: the link opens the app's confirm
+# screen (/reset-password/confirm), whose Continue button sends token_hash to
+# web/src/app/api/v1/auth/password/reset/verify/route.ts, so the link works in
+# any browser, not only the one that asked for it, and opening it alone signs
+# no one in. The hosted project's "Reset password" template must use the same
+# link (docs/backend-integration.md).
 [auth.email.template.recovery]
 subject = "Reset your Cense password"
 content_path = "./supabase/templates/recovery.html"

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { confirmedByThisCode, unusablePassword } from "@/lib/api/confirmation";
+import { authThrottle } from "@/lib/auth/throttle";
 import { createStudentClient } from "@/lib/supabase/server";
 
 const requestSchema = z.strictObject({
@@ -12,6 +13,9 @@ const requestSchema = z.strictObject({
 export async function POST(request: Request): Promise<Response> {
   const parsed = requestSchema.safeParse(await parseJson(request));
   if (!parsed.success) return validationError(parsed.error);
+
+  const limited = await authThrottle(request, "verify", parsed.data.email);
+  if (limited) return limited;
 
   const supabase = await createStudentClient();
   const { data, error } = await supabase.auth.verifyOtp({
