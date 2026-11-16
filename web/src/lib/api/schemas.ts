@@ -124,7 +124,8 @@ export const quizAnswersSchema = z.strictObject({
 
 export const quizDraftSchema = z.strictObject({
   answers: quizAnswersSchema,
-  updatedAt: z.iso.datetime({ offset: true }),
+  // null before the first answer is saved
+  updatedAt: z.iso.datetime({ offset: true }).nullable(),
 });
 
 export const saveQuizSchema = z.strictObject({ answers: quizAnswersSchema });

@@ -35,7 +35,7 @@ function student(row: Row | null) {
   return writes;
 }
 
-const patch = (body: unknown) => PATCH(new Request("http://test", { method: "PATCH", body: JSON.stringify(body) }));
+const patch = (body: unknown) => PATCH(new Request("http://test", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }));
 
 afterEach(() => {
   auth.authenticatedStudent.mockReset();

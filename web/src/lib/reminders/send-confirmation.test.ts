@@ -15,9 +15,10 @@ const ENV = {
 };
 const REMINDER = { id: "00000000-0000-4000-8000-0000000000a1", applicationId: "00000000-0000-4000-8000-000000000001", remindOn: "2027-04-05" };
 
-function student(unsubscribedAt: string | null = null, email: string | null = "student@example.edu"): Student {
+// `claimed`: what claim_confirmation_email() answers (false past the daily limit).
+function student(unsubscribedAt: string | null = null, email: string | null = "student@example.edu", claimed = true): Student {
   const query = { select: () => query, eq: () => query, maybeSingle: async () => ({ data: { reminders_unsubscribed_at: unsubscribedAt }, error: null }) };
-  return { supabase: { from: () => query }, studentId: "student-1", email } as unknown as Student;
+  return { supabase: { from: () => query, rpc: async () => ({ data: claimed, error: null }) }, studentId: "student-1", email } as unknown as Student;
 }
 
 afterEach(() => {
@@ -100,6 +101,15 @@ describe("sendPaymentRemindersConfirmation", () => {
     stubEnv();
     const fetchFn = vi.fn<typeof fetch>();
     expect(await sendPaymentRemindersConfirmation(student("2026-11-01T00:00:00Z"), INPUT, SAVED_AT, fetchFn)).toBe("skipped");
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  // Testathon security audit (Nov 16): a save-and-confirm loop must not spend
+  // the Resend quota sign-in codes share.
+  it("is skipped past the daily limit, and the save still stands", async () => {
+    stubEnv();
+    const fetchFn = vi.fn<typeof fetch>();
+    expect(await sendPaymentRemindersConfirmation(student(null, "student@example.edu", false), INPUT, SAVED_AT, fetchFn)).toBe("skipped");
     expect(fetchFn).not.toHaveBeenCalled();
   });
 });

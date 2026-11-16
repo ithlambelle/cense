@@ -44,7 +44,7 @@ function student({ results = [] as Result[], rpcResult = { data: null, error: nu
   return calls;
 }
 
-const post = (body: unknown) => new Request("http://test", { method: "POST", body: JSON.stringify(body) });
+const post = (body: unknown) => new Request("http://test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 const acted = (id = REM) => ACTED(new Request("http://test", { method: "POST" }), { params: Promise.resolve({ id }) });
 
 afterEach(() => {

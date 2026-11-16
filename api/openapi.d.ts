@@ -793,7 +793,7 @@ export interface components {
                 goal?: "build_credit" | "learn" | "other";
             };
             /** Format: date-time */
-            updatedAt: string;
+            updatedAt: string | null;
         };
         Application: {
             /** Format: uuid */
@@ -1870,15 +1870,6 @@ export interface operations {
             };
             /** @description Sign-in required */
             401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-            /** @description No saved quiz */
-            404: {
                 headers: {
                     [name: string]: unknown;
                 };

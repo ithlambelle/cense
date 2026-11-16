@@ -33,7 +33,9 @@ type Draft = {
   retake: boolean;
 };
 
-// Reads the saved draft. Returns "signed-out" when the session has ended.
+// Reads the saved draft (empty answers before the first save, so a new
+// student starts at the first question). Returns "signed-out" when the
+// session has ended.
 async function fetchDraft(): Promise<LoadOutcome<Draft>> {
   const result = await apiRequest("get", "/quiz");
   if (result.ok) {
@@ -42,10 +44,6 @@ async function fetchDraft(): Promise<LoadOutcome<Draft>> {
     return { status: "ready", data: { answers, index: next ?? 0, choiceIds: {}, retake: next === null } };
   }
   if (isUnauthorized(result)) return "signed-out";
-  // 404 means no saved quiz yet: start at the first question.
-  if (result.kind === "api" && result.status === 404) {
-    return { status: "ready", data: { answers: {}, index: 0, choiceIds: {}, retake: false } };
-  }
   return { status: "failed", message: failureMessage(result) };
 }
 
