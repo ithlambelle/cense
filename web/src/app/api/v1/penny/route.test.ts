@@ -27,7 +27,7 @@ function student(claim: Rpc = { data: "ok", error: null }) {
   return calls;
 }
 
-const ask = (body: unknown) => POST(new Request("http://test", { method: "POST", body: JSON.stringify(body) }));
+const ask = (body: unknown) => POST(new Request("http://test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }));
 
 const ANSWER = {
   kind: "answer",

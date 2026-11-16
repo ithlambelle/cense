@@ -47,6 +47,20 @@ async function sendConfirmation(
   }
   if ((profile.data as { reminders_unsubscribed_at: string | null } | null)?.reminders_unsubscribed_at) return "skipped";
 
+  // At most 5 a day per student and 100 a day in all
+  // (20261116090000_confirmation_email_limit.sql): a save-and-confirm loop
+  // would otherwise spend the Resend quota sign-in codes share. Past the
+  // limit the save still succeeds and the email is skipped.
+  const claim = await student.supabase.rpc("claim_confirmation_email");
+  if (claim.error) {
+    log("reminder_confirmation_failed", { code: claim.error.code ?? "claim" }, "error");
+    return "failed";
+  }
+  if (claim.data !== true) {
+    log("reminder_confirmation_limited", {});
+    return "skipped";
+  }
+
   const { resendApiKey, fromEmail, appUrl, unsubscribeSecret } = config.settings;
   const unsubscribeUrl = `${appUrl}/api/v1/reminders/unsubscribe?token=${unsubscribeToken(student.studentId, unsubscribeSecret)}`;
   const email = build({ appUrl, unsubscribeUrl });

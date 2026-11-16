@@ -36,7 +36,7 @@ const ACCOUNTS = {
   },
 };
 
-const post = (body: unknown) => POST(new Request("http://test", { method: "POST", body: JSON.stringify(body) }));
+const post = (body: unknown) => POST(new Request("http://test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }));
 
 beforeEach(() => {
   auth.authenticatedStudent.mockResolvedValue({ supabase: {}, studentId: "student-1", email: null });
