@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { contentSecurityPolicy, createNonce } from "@/lib/security/csp";
 import { updateSession } from "@/lib/supabase/proxy";
 
 // Where the PostHog reverse proxy lives (rewrites in next.config.ts).
@@ -33,7 +34,16 @@ export async function proxy(request: NextRequest) {
     url.pathname = pathname.replace(/\/+$/, "") || "/";
     return NextResponse.redirect(url, 308);
   }
-  return updateSession(request);
+  // A fresh nonce per response (lib/security/csp.ts). Set on the request so
+  // Next.js puts it on the page's own scripts as it renders, and on the
+  // response so the browser runs only those. updateSession forwards the
+  // request's headers to the render.
+  const csp = contentSecurityPolicy(createNonce(), { dev: process.env.NODE_ENV === "development" });
+  request.headers.set("content-security-policy", csp.enforced);
+  const response = await updateSession(request);
+  response.headers.set("content-security-policy", csp.enforced);
+  if (csp.reportOnly) response.headers.set("content-security-policy-report-only", csp.reportOnly);
+  return response;
 }
 
 export const config = {

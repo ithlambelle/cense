@@ -48,4 +48,17 @@ describe("proxy", () => {
     await proxy(new NextRequest("https://censefinance.com/home"));
     expect(updateSession).toHaveBeenCalledOnce();
   });
+
+  it("gives every page a CSP with a fresh nonce, on the request for Next.js and on the response for the browser", async () => {
+    updateSession.mockClear();
+    const nonceOf = (policy: string | null) => policy?.match(/'nonce-([^']+)'/)?.[1];
+    const first = await proxy(new NextRequest("https://censefinance.com/home"));
+    const second = await proxy(new NextRequest("https://censefinance.com/home"));
+    const forwarded = (updateSession.mock.calls[0] as unknown as [NextRequest])[0].headers.get("content-security-policy");
+    const sent = first.headers.get("content-security-policy");
+    expect(nonceOf(sent)).toBeTruthy();
+    expect(forwarded).toBe(sent);
+    expect(nonceOf(second.headers.get("content-security-policy"))).not.toBe(nonceOf(sent));
+    expect(sent).toContain("frame-ancestors 'none'");
+  });
 });

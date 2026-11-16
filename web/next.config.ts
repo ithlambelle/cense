@@ -4,6 +4,9 @@ import type { NextConfig } from "next";
 // stop other sites from framing the app to trick a tap on a button; nosniff
 // stops browsers guessing file types; the referrer policy keeps full URLs
 // from leaking to issuer sites; HSTS keeps students on https once they visit.
+// Pages and API routes also get the full Content-Security-Policy, with a
+// fresh nonce per response, from src/proxy.ts (lib/security/csp.ts); this
+// frame-ancestors-only policy covers what the proxy skips (static files).
 const SECURITY_HEADERS = [
   { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
   { key: "X-Frame-Options", value: "DENY" },
@@ -26,8 +29,8 @@ const nextConfig: NextConfig = {
   // first, then everything else to the ingestion host. The path is not
   // "posthog" or "analytics" on purpose, as blockers match those. A rewrite
   // forwards every request header, so src/proxy.ts passes on only an allowlist.
-  // The CSP above only sets frame-ancestors, so nothing blocks these
-  // same-origin requests or PostHog's lazily loaded replay script.
+  // The CSP (lib/security/csp.ts) allows these as same-origin requests, and
+  // PostHog's lazily loaded replay and error scripts through 'strict-dynamic'.
   // https://posthog.com/docs/advanced/proxy/nextjs
   async rewrites() {
     return [
