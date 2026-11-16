@@ -1,5 +1,4 @@
 import { authenticatedStudent } from "@/lib/api/auth";
-import { databaseError } from "@/lib/api/database";
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { issuerClickSchema } from "@/lib/api/schemas";
 import { catalogReady, findCard } from "@/lib/cards/catalog";
