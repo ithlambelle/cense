@@ -59,6 +59,9 @@ const SEND_INTERVAL_MS = 550;
 // 10-second timeout on the last email, then the analytics copy (2 s,
 // analytics-server.ts) and the heartbeat (2 s).
 const TIME_BUDGET_MS = 45_000;
+// No new refresh call starts after this, counted the same way. Each call
+// stops itself after about 3 seconds (refresh_all_reminders' p_budget).
+const REFRESH_BUDGET_MS = 15_000;
 const RESEND_TIMEOUT_MS = 10_000;
 
 export type ClaimedReminderRow = {
@@ -145,10 +148,20 @@ export async function runReminderJob(
 ): Promise<ReminderJobResult> {
   const started = startedAt ?? now();
 
-  // schedule every card's next cycle first. A failure here is logged, not
-  // fatal: reminders already due can still go out.
-  const refresh = await supabase.rpc("refresh_all_reminders");
-  if (refresh.error) log("reminder_refresh_failed", { code: refresh.error.code }, "error");
+  // schedule every card's next cycle first, a few seconds of students per
+  // call (each its own statement, inside the database's time limit), until
+  // the database answers null. A failure here is logged, not fatal:
+  // reminders already due can still go out.
+  let after: string | null = null;
+  do {
+    const refresh: { data: unknown; error: { code?: string } | null } = await supabase.rpc("refresh_all_reminders", { p_after: after });
+    if (refresh.error) {
+      log("reminder_refresh_failed", { code: refresh.error.code }, "error");
+      break;
+    }
+    after = (refresh.data as string | null) ?? null;
+  } while (after !== null && now() - started < REFRESH_BUDGET_MS);
+  if (after !== null) log("reminder_refresh_incomplete", {}, "error");
 
   const claim = await supabase.rpc("claim_due_reminders", { p_limit: CLAIM_LIMIT });
   if (claim.error) throw new ReminderJobError("reminder_claim", claim.error.code);

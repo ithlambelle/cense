@@ -47,6 +47,54 @@ function sentAll(n: number, rows: Profiles) {
 }
 
 describe("runReminderJob", () => {
+  it("refreshes in batches, carrying on from where each call stopped, until the database answers null", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const refreshArgs: unknown[] = [];
+    const cursors = ["00000000-0000-4000-8000-0000000000c1", "00000000-0000-4000-8000-0000000000c2", null];
+    const supabase = {
+      rpc: async (name: string, args?: unknown) => {
+        if (name === "refresh_all_reminders") {
+          refreshArgs.push(args);
+          return { data: cursors.shift(), error: null };
+        }
+        return { data: name === "claim_due_reminders" ? [] : null, error: null };
+      },
+      from: profiles().from,
+    } as unknown as ServiceClient;
+
+    await runReminderJob(supabase, config, { sleep: async () => {} });
+    expect(refreshArgs).toEqual([
+      { p_after: null },
+      { p_after: "00000000-0000-4000-8000-0000000000c1" },
+      { p_after: "00000000-0000-4000-8000-0000000000c2" },
+    ]);
+  });
+
+  it("stops refreshing when its time is up, logs it, and still sends", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let clock = 0;
+    let refreshes = 0;
+    const supabase = {
+      rpc: async (name: string) => {
+        if (name === "refresh_all_reminders") {
+          refreshes += 1;
+          clock += 4_000;
+          return { data: "00000000-0000-4000-8000-0000000000c1", error: null };
+        }
+        if (name === "claim_due_reminders") return { data: [row(1)], error: null };
+        return { data: name === "mark_reminder_sent" ? true : null, error: null };
+      },
+      from: profiles().from,
+    } as unknown as ServiceClient;
+    const fetchMock = vi.fn(async () => Response.json({ id: "x" }));
+
+    const result = await runReminderJob(supabase, config, { fetch: fetchMock as unknown as typeof fetch, sleep: async () => {}, now: () => clock });
+    expect(refreshes).toBe(4);
+    expect(JSON.stringify(errors.mock.calls)).toContain("reminder_refresh_incomplete");
+    expect(result).toMatchObject({ claimed: 1, sent: 1 });
+  });
+
   it("spaces sends for Resend's rate limit and releases what is left when time runs out", async () => {
     vi.spyOn(console, "log").mockImplementation(() => undefined);
     const calls: string[] = [];
