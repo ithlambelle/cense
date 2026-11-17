@@ -45,9 +45,20 @@ test("every page sends a nonce policy and puts that nonce on each of its scripts
     expect(scripts.length, path).toBeGreaterThan(0);
     expect(scripts.every((value) => value === nonce), path).toBe(true);
   }
+  // One policy per response: a missing image's not-found page keeps
+  // frame-ancestors, and an API route's own CSP (the unsubscribe page) is
+  // left as the route set it.
+  const missing = await page.request.get("/no-such-image.png");
+  expect(missing.status()).toBe(404);
+  expect(missing.headers()["content-security-policy"]).toBe("frame-ancestors 'none'");
+  const unsubscribe = await page.request.get("/api/v1/reminders/unsubscribe?token=bad");
+  expect(unsubscribe.headers()["content-security-policy"]).toMatch(/^default-src 'none';/);
+  expect(unsubscribe.headers()["content-security-policy-report-only"]).toBeUndefined();
   expect(violations).toEqual([]);
 });
 
+// The browser sends the report itself, outside the page, so the test cannot
+// see it; the route's unit tests cover reading it.
 test("an injected inline script does not run", async ({ page }) => {
   await page.goto("/sign-in");
   await page.evaluate(() => {

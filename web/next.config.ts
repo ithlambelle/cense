@@ -4,15 +4,22 @@ import type { NextConfig } from "next";
 // stop other sites from framing the app to trick a tap on a button; nosniff
 // stops browsers guessing file types; the referrer policy keeps full URLs
 // from leaking to issuer sites; HSTS keeps students on https once they visit.
-// Pages and API routes also get the full Content-Security-Policy, with a
-// fresh nonce per response, from src/proxy.ts (lib/security/csp.ts); this
-// frame-ancestors-only policy covers what the proxy skips (static files).
+// Pages get the Content-Security-Policy, with a fresh nonce per response,
+// from src/proxy.ts (lib/security/csp.ts), which carries frame-ancestors
+// 'none'. It is not repeated here: two CSP headers would both apply.
 const SECURITY_HEADERS = [
-  { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+];
+
+// The complement of the proxy's matcher (src/proxy.ts, config.matcher).
+const PROXY_SKIPPED = [
+  "/_next/static/:path*",
+  "/_next/image",
+  "/favicon.ico",
+  "/:path*.(svg|png|jpg|jpeg|gif|webp|avif|ico)",
 ];
 
 const nextConfig: NextConfig = {
@@ -22,7 +29,13 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
   },
   async headers() {
-    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
+    return [
+      { source: "/:path*", headers: SECURITY_HEADERS },
+      // The paths src/proxy.ts skips (images, icons, /_next/static) never
+      // get its policy. A missing image there is answered with the HTML
+      // not-found page, so it still gets frame-ancestors.
+      ...PROXY_SKIPPED.map((source) => ({ source, headers: [{ key: "Content-Security-Policy", value: "frame-ancestors 'none'" }] })),
+    ];
   },
   // PostHog through this app's own origin (src/instrumentation-client.ts sets
   // api_host "/rx"), so ad blockers keep the funnel intact. Static assets

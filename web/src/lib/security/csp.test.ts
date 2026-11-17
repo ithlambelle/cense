@@ -1,7 +1,7 @@
 // Created with Claude Code (2026-11-17).
 import { describe, expect, it } from "vitest";
 
-import { contentSecurityPolicy, createNonce, ENFORCE_FULL_POLICY } from "./csp";
+import { contentSecurityPolicy, createNonce, CSP_REPORT_PATH, ENFORCE_FULL_POLICY } from "./csp";
 
 function directives(policy: string): Map<string, string[]> {
   return new Map(policy.split("; ").map((part) => {
@@ -41,6 +41,35 @@ describe("contentSecurityPolicy", () => {
     expect(full.get("script-src")).toEqual(directives(enforced).get("script-src"));
     // PostHog only through the app's own /rx proxy; Supabase only from the server.
     expect(ENFORCE_FULL_POLICY ? enforced : reportOnly).not.toMatch(/posthog|supabase|\*/);
+  });
+});
+
+describe("preview deployments", () => {
+  it("only report script-src, so Vercel's toolbar loads, and still enforce the rest", () => {
+    const { enforced, reportOnly, request } = contentSecurityPolicy("n", { preview: true });
+    expect(directives(enforced).has("script-src")).toBe(false);
+    expect(directives(enforced).get("frame-ancestors")).toEqual(["'none'"]);
+    expect(directives(enforced).get("object-src")).toEqual(["'none'"]);
+    expect(directives(reportOnly ?? "").get("script-src")).toContain("'nonce-n'");
+    // Next.js still finds the nonce, so the app's own scripts never report.
+    expect(directives(request).get("script-src")).toContain("'nonce-n'");
+  });
+
+  it("are the only place script-src is not enforced", () => {
+    expect(directives(contentSecurityPolicy("n").enforced).get("script-src")).toContain("'nonce-n'");
+  });
+});
+
+describe("reports", () => {
+  it("go to the app's report route from both headers, by report-uri only", () => {
+    for (const options of [{}, { preview: true }]) {
+      const { enforced, reportOnly } = contentSecurityPolicy("n", options);
+      for (const policy of [enforced, reportOnly ?? enforced]) {
+        expect(directives(policy).get("report-uri")).toEqual([CSP_REPORT_PATH]);
+        // report-to would make Chrome ignore report-uri.
+        expect(directives(policy).has("report-to")).toBe(false);
+      }
+    }
   });
 });
 

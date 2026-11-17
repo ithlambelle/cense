@@ -15,10 +15,28 @@
 // - Content-Security-Policy-Report-Only: the whole policy, including the
 //   allowlists for requests, frames, images, fonts and styles. These depend on
 //   what Plaid Link's and PostHog's own code loads in production, which the
-//   local tests cannot reach (they stand in for both). A browser only reports
-//   a breach of these in its console, blocking nothing. Once a preview
-//   deployment shows none on Safe to spend's connect step (real Plaid sandbox
-//   Link) and with analytics on, set ENFORCE_FULL_POLICY to true.
+//   local tests cannot reach (they stand in for both). A breach of these is
+//   reported, never blocked.
+//
+// On Vercel preview deployments (VERCEL_ENV=preview) script-src is
+// report-only too, so Vercel's toolbar, which Vercel injects without a nonce,
+// still loads there; production and local runs (and so the journey tests)
+// enforce it. Reports from previews about vercel.live or vercel.com are the
+// toolbar and can be ignored.
+//
+// Reports go to /api/v1/csp-report by report-uri, which every browser sends
+// at once. report-to is left out on purpose: with it, Chrome ignores report-uri,
+// and in testing headless Chrome delivered no report-to report at all, while
+// report-uri reports arrived within seconds. The route logs the broken rule,
+// the blocked origin and the page's path as one "csp_violation" line.
+//
+// Checking a preview: curl -sI <preview URL>/sign-in shows
+// content-security-policy-report-only with script-src and a nonce, and
+// content-security-policy without script-src. In the browser console, walk
+// Safe to spend's connect step (real Plaid sandbox Link) and a few screens
+// with analytics on: any "[Report Only] Refused to ..." line other than
+// vercel.live is a gap, and shows in the logs as csp_violation. With none,
+// set ENFORCE_FULL_POLICY to true.
 //
 // Every origin the browser uses, and why:
 // - The app itself ('self'): pages, API routes, /_next assets, fonts (next/font
@@ -32,10 +50,14 @@
 // - Not listed: Supabase (the browser never calls it; the app's server does,
 //   see lib/supabase/config.ts), Google sign-in (a full-page navigation to
 //   accounts.google.com, which CSP does not restrict), and Vercel Analytics
-//   (not installed). Vercel's toolbar on preview deployments is injected
-//   without a nonce, so it does not load there; production has no toolbar.
+//   (not installed). Vercel's toolbar (previews only) is covered above.
+//
+// API routes get no policy from the proxy: they answer JSON, and the one that
+// answers HTML (the unsubscribe page) sets its own, stricter one. Files the
+// proxy skips (images, /_next/static) get frame-ancestors from next.config.ts.
 
-// When true, the whole policy is enforced and no report-only header is sent.
+// When true, the whole policy is enforced (outside previews) and no
+// report-only header is sent.
 export const ENFORCE_FULL_POLICY = false;
 
 const PLAID_CDN = "https://cdn.plaid.com";
@@ -55,16 +77,26 @@ export function createNonce(): string {
   return btoa(String.fromCharCode(...bytes));
 }
 
-export function contentSecurityPolicy(nonce: string, { dev = false } = {}): { enforced: string; reportOnly: string | null } {
+// Where browsers send reports (app/api/v1/csp-report/route.ts).
+export const CSP_REPORT_PATH = "/api/v1/csp-report";
+
+export type CspHeaders = {
+  // For the request, so Next.js finds the nonce: always holds script-src.
+  request: string;
+  enforced: string;
+  reportOnly: string | null;
+};
+
+export function contentSecurityPolicy(nonce: string, { dev = false, preview = false } = {}): CspHeaders {
   // Only scripts with this response's nonce run, and scripts those load
   // ('strict-dynamic': Next's page chunks, Plaid Link, PostHog's lazy
   // scripts). Browsers that know 'strict-dynamic' ignore 'self' and the Plaid
   // host; they are there for older ones. No 'unsafe-inline' and, outside
   // next dev (React's dev tools need it), no 'unsafe-eval'.
   const scriptSrc = [`'nonce-${nonce}'`, "'strict-dynamic'", "'self'", PLAID_CDN, ...(dev ? ["'unsafe-eval'"] : [])];
+  const reporting: Directives = { "report-uri": [CSP_REPORT_PATH] };
 
-  const enforced: Directives = {
-    "script-src": scriptSrc,
+  const always: Directives = {
     "object-src": ["'none'"],
     "base-uri": ["'self'"],
     // Every form submits to the app (they are all handled in the page, with
@@ -90,8 +122,12 @@ export function contentSecurityPolicy(nonce: string, { dev = false } = {}): { en
     // drops 'self'.
     "worker-src": ["'self'", "blob:"],
     "manifest-src": ["'self'"],
-    ...enforced,
+    ...always,
+    ...reporting,
   };
 
-  return ENFORCE_FULL_POLICY ? { enforced: serialize(full), reportOnly: null } : { enforced: serialize(enforced), reportOnly: serialize(full) };
+  const request = serialize(full);
+  if (preview) return { request, enforced: serialize({ ...always, ...reporting }), reportOnly: request };
+  if (ENFORCE_FULL_POLICY) return { request, enforced: request, reportOnly: null };
+  return { request, enforced: serialize({ "script-src": scriptSrc, ...always, ...reporting }), reportOnly: request };
 }

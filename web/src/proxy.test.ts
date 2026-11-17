@@ -57,8 +57,35 @@ describe("proxy", () => {
     const forwarded = (updateSession.mock.calls[0] as unknown as [NextRequest])[0].headers.get("content-security-policy");
     const sent = first.headers.get("content-security-policy");
     expect(nonceOf(sent)).toBeTruthy();
-    expect(forwarded).toBe(sent);
+    // The request carries the whole policy, so Next.js finds the same nonce.
+    expect(nonceOf(forwarded)).toBe(nonceOf(sent));
+    expect(forwarded).toContain("default-src 'self'");
     expect(nonceOf(second.headers.get("content-security-policy"))).not.toBe(nonceOf(sent));
     expect(sent).toContain("frame-ancestors 'none'");
+    expect(sent).toContain("report-uri /api/v1/csp-report");
+  });
+
+  it("leaves API routes' own CSP alone (the unsubscribe page sets a stricter one)", async () => {
+    const strict = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'";
+    updateSession.mockImplementationOnce(async () => new Response("page", { headers: { "content-security-policy": strict } }));
+    const response = await proxy(new NextRequest("https://censefinance.com/api/v1/reminders/unsubscribe?token=x"));
+    expect(response.headers.get("content-security-policy")).toBe(strict);
+    expect(response.headers.get("content-security-policy-report-only")).toBeNull();
+    const json = await proxy(new NextRequest("https://censefinance.com/api/v1/quiz"));
+    expect(json.headers.get("content-security-policy")).toBeNull();
+  });
+
+  it("sends CSP reports straight on, with no session refresh", async () => {
+    updateSession.mockClear();
+    await proxy(new NextRequest("https://censefinance.com/api/v1/csp-report", { method: "POST" }));
+    expect(updateSession).not.toHaveBeenCalled();
+  });
+
+  it("reports, but does not enforce, script-src on Vercel previews", async () => {
+    vi.stubEnv("VERCEL_ENV", "preview");
+    const response = await proxy(new NextRequest("https://censefinance.com/home"));
+    vi.unstubAllEnvs();
+    expect(response.headers.get("content-security-policy")).not.toContain("script-src");
+    expect(response.headers.get("content-security-policy-report-only")).toContain("'strict-dynamic'");
   });
 });
