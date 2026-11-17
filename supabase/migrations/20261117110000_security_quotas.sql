@@ -22,7 +22,9 @@
 --      wherever they are), so no setting moves the window;
 --    - the rows keep only the student's id and the time, with no foreign key,
 --      so they outlive the account and the shared count cannot be reset.
---      They are still deleted after two days, as new claims arrive;
+--      They are deleted once two days old: by each claim, and every day by
+--      purge_old_quota_rows() from the reminders cron, so a deleted
+--      student's id is gone within two days even when nobody asks or saves;
 --    - the claims take the student's id as an argument and only the service
 --      role may call them. The server passes the id from the verified session
 --      (web/src/app/api/v1/penny/route.ts,
@@ -33,15 +35,26 @@
 -- 2. Deleted-account Plaid cleanup (plaid.account_cleanup).
 --    save_bank_link stored whatever ciphertext it was given, so a student
 --    could save garbage and delete the account, leaving a row that can never
---    be decrypted and fails the cleanup check every day. Now a row that has
---    failed 5 times (about five days of daily retries) is marked given up
---    (gave_up_at), is no longer claimed and no longer fails the check; the
---    app logs the give-up once. The encrypted row is kept, not deleted, so a
---    real token that failed during a long Plaid outage can still be retried:
---    update plaid.account_cleanup set gave_up_at = null, attempts = 0,
---    retry_at = now() where id = '<id>';
+--    be decrypted and fails the cleanup check every day. Now the app tells
+--    finish_plaid_account_cleanup why a removal failed (p_reason):
+--    - 'undecryptable': the token does not open with the configured key.
+--      Only these failures are counted (unreadable_failures); after 5 in a
+--      row (about five days of daily retries, each one failing the cleanup
+--      check) the row is given up (gave_up_at) and no longer claimed. The run
+--      that gives it up still reports fail to the cleanup check, once, and
+--      logs plaid_cleanup_gave_up;
+--    - 'plaid_error' (Plaid refused or could not be reached) and
+--      'not_configured' (no Plaid settings): retried every day for ever, and
+--      the check keeps failing, as before. A token that opens proves the key
+--      is right, so a plaid_error also resets the unreadable count;
+--    - claims alone (a worker that crashed mid-lease) count nothing.
+--    A given-up row is kept encrypted, never deleted. If a key was missing or
+--    rotated when it was given up, retry it once the right key is set:
+--    update plaid.account_cleanup set gave_up_at = null,
+--    unreadable_failures = 0, retry_at = now() where id = '<id>';
 --    save_bank_link also refuses a value that is not shaped like a sealed
---    token ("v1." then base64url, at least the IV and tag).
+--    token. That only stops obviously malformed input; it is not a defense,
+--    since a student can send any well-formed garbage.
 --
 -- 3. Row level security on every plaid table, with no policies, as defense in
 --    depth: the plaid schema is not served by the Data API and students have
@@ -134,21 +147,49 @@ $$;
 revoke execute on function public.claim_confirmation_email(uuid) from public, anon, authenticated;
 grant execute on function public.claim_confirmation_email(uuid) to service_role;
 
+-- Deletes quota rows older than two days, whether or not anyone claims, so a
+-- deleted student's id never outlives that. Run daily by the reminders cron.
+-- Returns the number deleted.
+create or replace function public.purge_old_quota_rows()
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_asks integer;
+  v_sends integer;
+begin
+  delete from public.penny_asks where asked_at < now() - interval '2 days';
+  get diagnostics v_asks = row_count;
+  delete from public.confirmation_email_sends where sent_at < now() - interval '2 days';
+  get diagnostics v_sends = row_count;
+  return v_asks + v_sends;
+end;
+$$;
+
+revoke execute on function public.purge_old_quota_rows() from public, anon, authenticated;
+grant execute on function public.purge_old_quota_rows() to service_role;
+
 -- 2. Deleted-account Plaid cleanup -------------------------------------------
 
 alter table plaid.account_cleanup add column if not exists gave_up_at timestamptz;
+-- Failures because the token did not open with the configured key, in a row.
+-- attempts still counts claims, as before, and is informational only.
+alter table plaid.account_cleanup add column if not exists unreadable_failures integer not null default 0;
 
--- How many failed attempts before a queued row is given up.
-create or replace function plaid.account_cleanup_max_attempts()
+-- How many unreadable failures in a row before a queued row is given up.
+create or replace function plaid.account_cleanup_max_unreadable()
 returns integer language sql immutable set search_path = '' as $$ select 5 $$;
-revoke all on function plaid.account_cleanup_max_attempts() from public, anon, authenticated, service_role;
+revoke all on function plaid.account_cleanup_max_unreadable() from public, anon, authenticated, service_role;
 
--- As before, plus last_attempt: true when a failure now gives the row up, so
--- the app can log it once and leave the cleanup check green. The return type
--- changes, so the function is dropped and made again.
+-- As before, never claiming a given-up row, plus gives_up_if_unreadable: true
+-- when one more unreadable failure gives the row up, so the app can log it
+-- once and report it. The return type changes, so the function is dropped
+-- and made again.
 drop function if exists public.claim_plaid_account_cleanup();
 create function public.claim_plaid_account_cleanup()
-returns table (id uuid, student_id uuid, item_id text, token_ciphertext text, claim_id uuid, last_attempt boolean)
+returns table (id uuid, student_id uuid, item_id text, token_ciphertext text, claim_id uuid, gives_up_if_unreadable boolean)
 language sql security definer set search_path = '' as $$
   with due as (
     select q.id from plaid.account_cleanup q
@@ -159,21 +200,32 @@ language sql security definer set search_path = '' as $$
   set claim_id = gen_random_uuid(), retry_at = now() + interval '15 minutes', attempts = attempts + 1
   from due where q.id = due.id
   returning q.id, q.student_id, q.item_id, q.token_ciphertext, q.claim_id,
-    q.attempts >= plaid.account_cleanup_max_attempts();
+    q.unreadable_failures + 1 >= plaid.account_cleanup_max_unreadable();
 $$;
 
 -- A stale worker cannot acknowledge a newer claim. A failed row is retried a
--- day later, and given up (kept, encrypted, never claimed again) once it has
--- failed the maximum number of times.
-create or replace function public.finish_plaid_account_cleanup(p_id uuid, p_claim_id uuid, p_removed boolean)
+-- day later. p_reason says why it failed: only 'undecryptable' counts toward
+-- giving up; anything else ('plaid_error', 'not_configured', or none, as the
+-- app sent before this migration) is retried for ever. The parameter is new,
+-- so the three-argument function is dropped; calls with three arguments still
+-- reach this one through the default.
+drop function if exists public.finish_plaid_account_cleanup(uuid, uuid, boolean);
+create or replace function public.finish_plaid_account_cleanup(p_id uuid, p_claim_id uuid, p_removed boolean, p_reason text default null)
 returns boolean language plpgsql security definer set search_path = '' as $$
 begin
   if p_removed then
     delete from plaid.account_cleanup where id = p_id and claim_id = p_claim_id;
-  else
+  elsif p_reason = 'undecryptable' then
     update plaid.account_cleanup
     set claim_id = null, retry_at = now() + interval '1 day',
-      gave_up_at = case when attempts >= plaid.account_cleanup_max_attempts() then now() end
+      unreadable_failures = unreadable_failures + 1,
+      gave_up_at = case when unreadable_failures + 1 >= plaid.account_cleanup_max_unreadable() then now() end
+    where id = p_id and claim_id = p_claim_id;
+  else
+    -- p_reason = 'plaid_error' means the token opened, so the key is right.
+    update plaid.account_cleanup
+    set claim_id = null, retry_at = now() + interval '1 day',
+      unreadable_failures = case when p_reason = 'plaid_error' then 0 else unreadable_failures end
     where id = p_id and claim_id = p_claim_id;
   end if;
   return found;
@@ -181,15 +233,18 @@ end;
 $$;
 
 revoke all on function public.claim_plaid_account_cleanup() from public, anon, authenticated;
-revoke all on function public.finish_plaid_account_cleanup(uuid, uuid, boolean) from public, anon, authenticated;
+revoke all on function public.finish_plaid_account_cleanup(uuid, uuid, boolean, text) from public, anon, authenticated;
 grant execute on function public.claim_plaid_account_cleanup() to service_role;
-grant execute on function public.finish_plaid_account_cleanup(uuid, uuid, boolean) to service_role;
+grant execute on function public.finish_plaid_account_cleanup(uuid, uuid, boolean, text) to service_role;
 
 -- link a bank for the caller: the item, the token ciphertext and the bank's
 -- name. Fails with unique_violation (23505) when the caller already has one;
 -- the app then removes the new Item at Plaid. A value not shaped like a
 -- sealed token (web/src/lib/plaid/token-box.ts: "v1." then base64url of the
--- 12-byte IV, the 16-byte tag and the ciphertext) fails with 22023.
+-- 12-byte IV, the 16-byte tag and the ciphertext) fails with 22023. That
+-- check only stops obviously malformed input. It is not a defense: a student
+-- can still send well-formed garbage, which the cleanup gives up on after 5
+-- unreadable tries.
 create or replace function public.save_bank_link(p_item_id text, p_token_ciphertext text, p_institution_name text)
 returns void
 language plpgsql

@@ -13,7 +13,7 @@ import { parseTokenKey, sealToken } from "./token-box";
 const config: PlaidConfig = { clientId: "fake", secret: "fake", baseUrl: "https://sandbox.plaid.com", tokenKey: parseTokenKey(Buffer.alloc(32, 1).toString("base64"))! };
 const binding = { studentId: "deleted-student", itemId: "item-test" };
 const claim = { id: "queue-test", student_id: binding.studentId, item_id: binding.itemId, claim_id: "lease-test", token_ciphertext: sealToken("access-test", config.tokenKey, binding) };
-function service(rows: Array<typeof claim & { last_attempt?: boolean }> = [claim]) {
+function service(rows: Array<typeof claim & { gives_up_if_unreadable?: boolean }> = [claim]) {
   let claimed = false;
   const rpc = vi.fn(async (name: string) => ({ data: name === "claim_plaid_account_cleanup" ? (claimed ? [] : (claimed = true, rows)) : true, error: null }));
   return { client: { rpc } as unknown as ServiceClient, rpc };
@@ -91,36 +91,64 @@ describe("deleted account Plaid cleanup", () => {
   });
 
   // Security audit of a8fe7d4: a forged token saved before the account was
-  // deleted can never be decrypted. Its last failure gives it up (the
-  // database stops claiming it), is logged once, and does not fail the check.
-  it("gives up an unreadable row on its last attempt, logging once and staying green", async () => {
+  // deleted can never be decrypted. Only that failure counts toward giving
+  // up; the run that gives it up fails the cleanup check once and logs once.
+  const PLAID_ENV = { PLAID_CLIENT_ID: "fake", PLAID_SECRET: "fake", PLAID_ENV: "sandbox", PLAID_TOKEN_KEY: Buffer.alloc(32, 1).toString("base64") };
+  it("gives up an unreadable row on its fifth unreadable failure, logging once and failing the check once", async () => {
     vi.stubEnv("PLAID_CLEANUP_HEARTBEAT_URL", "https://hc-ping.com/cleanup-test");
-    for (const [name, value] of Object.entries({ PLAID_CLIENT_ID: "fake", PLAID_SECRET: "fake", PLAID_ENV: "sandbox", PLAID_TOKEN_KEY: Buffer.alloc(32, 1).toString("base64") })) vi.stubEnv(name, value);
+    for (const [name, value] of Object.entries(PLAID_ENV)) vi.stubEnv(name, value);
     const send = vi.fn<typeof fetch>().mockResolvedValue(new Response("OK"));
     vi.stubGlobal("fetch", send);
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const forged = { ...claim, token_ciphertext: "v1." + "A".repeat(40), last_attempt: true };
+    const forged = { ...claim, token_ciphertext: "v1." + "A".repeat(40), gives_up_if_unreadable: true };
     const { client, rpc } = service([forged]);
     expect(await runAccountCleanupWithHeartbeat(client)).toMatchObject({ claimed: 1, removed: 0, failed: 0, gaveUp: 1 });
-    expect(rpc).toHaveBeenCalledWith("finish_plaid_account_cleanup", expect.objectContaining({ p_removed: false }));
+    expect(rpc).toHaveBeenCalledWith("finish_plaid_account_cleanup", { p_id: claim.id, p_claim_id: claim.claim_id, p_removed: false, p_reason: "undecryptable" });
     expect(log.mock.calls).toEqual([[JSON.stringify({ event: "plaid_cleanup_gave_up" })]]);
-    expect(send.mock.calls.map(([url]) => url)).toEqual(["https://hc-ping.com/cleanup-test/start", "https://hc-ping.com/cleanup-test"]);
+    expect(send.mock.calls.map(([url]) => url)).toEqual(["https://hc-ping.com/cleanup-test/start", "https://hc-ping.com/cleanup-test/fail"]);
     for (const secret of [forged.student_id, forged.item_id, forged.token_ciphertext]) expect(JSON.stringify([log.mock.calls, send.mock.calls])).not.toContain(secret);
   });
 
-  it("still fails the check before the last attempt", async () => {
-    const { client } = service([{ ...claim, student_id: "wrong-binding", last_attempt: false }]);
+  it("stays green on the next run, once the given-up row is no longer claimed", async () => {
+    vi.stubEnv("PLAID_CLEANUP_HEARTBEAT_URL", "https://hc-ping.com/cleanup-test");
+    for (const [name, value] of Object.entries(PLAID_ENV)) vi.stubEnv(name, value);
+    const send = vi.fn<typeof fetch>().mockResolvedValue(new Response("OK"));
+    vi.stubGlobal("fetch", send);
+    expect(await runAccountCleanupWithHeartbeat(service([]).client)).toMatchObject({ claimed: 0, gaveUp: 0, failed: 0 });
+    expect(send.mock.calls.map(([url]) => url)).toEqual(["https://hc-ping.com/cleanup-test/start", "https://hc-ping.com/cleanup-test"]);
+  });
+
+  it("fails, without giving up, on an unreadable failure before the fifth", async () => {
+    const { client, rpc } = service([{ ...claim, student_id: "wrong-binding", gives_up_if_unreadable: false }]);
     expect(await runAccountCleanup(client, config)).toMatchObject({ failed: 1, gaveUp: 0 });
+    expect(rpc).toHaveBeenCalledWith("finish_plaid_account_cleanup", expect.objectContaining({ p_removed: false, p_reason: "undecryptable" }));
   });
 
-  it("counts a removal on the last attempt as removed, not given up", async () => {
-    const { client } = service([{ ...claim, last_attempt: true }]);
+  it("never gives up a Plaid error, however many times it has failed", async () => {
+    plaid.removeItem.mockResolvedValue({ ok: false, kind: "network" });
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { client, rpc } = service([{ ...claim, gives_up_if_unreadable: true }]);
+    expect(await runAccountCleanup(client, config)).toMatchObject({ failed: 1, gaveUp: 0 });
+    expect(rpc).toHaveBeenCalledWith("finish_plaid_account_cleanup", expect.objectContaining({ p_removed: false, p_reason: "plaid_error" }));
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it("never gives up because the Plaid settings or key are missing", async () => {
+    const { client, rpc } = service([{ ...claim, gives_up_if_unreadable: true }]);
+    expect(await runAccountCleanup(client, null)).toMatchObject({ failed: 1, gaveUp: 0, unavailable: true });
+    expect(rpc).toHaveBeenCalledWith("finish_plaid_account_cleanup", expect.objectContaining({ p_removed: false, p_reason: "not_configured" }));
+  });
+
+  it("acknowledges a removal with the three arguments the old function also takes", async () => {
+    const { client, rpc } = service([{ ...claim, gives_up_if_unreadable: true }]);
     expect(await runAccountCleanup(client, config)).toMatchObject({ removed: 1, failed: 0, gaveUp: 0 });
+    expect(rpc).toHaveBeenCalledWith("finish_plaid_account_cleanup", { p_id: claim.id, p_claim_id: claim.claim_id, p_removed: true });
   });
 
-  it("counts a given-up row as failed if the database did not take the acknowledgement", async () => {
-    const { client, rpc } = service([{ ...claim, student_id: "wrong-binding", last_attempt: true }]);
-    rpc.mockImplementation(async (name: string) => ({ data: name === "claim_plaid_account_cleanup" ? (rpc.mock.calls.length === 1 ? [{ ...claim, student_id: "wrong-binding", last_attempt: true }] : []) : false, error: null }));
+  it("counts a give-up as failed if the database did not take the acknowledgement", async () => {
+    const row = { ...claim, student_id: "wrong-binding", gives_up_if_unreadable: true };
+    const { client, rpc } = service([row]);
+    rpc.mockImplementation(async (name: string) => ({ data: name === "claim_plaid_account_cleanup" ? (rpc.mock.calls.length === 1 ? [row] : []) : false, error: null }));
     expect(await runAccountCleanup(client, config)).toMatchObject({ failed: 1, gaveUp: 0 });
   });
 

@@ -4,7 +4,7 @@
 import "server-only";
 
 import type { Student } from "@/lib/api/auth";
-import { createServiceClient } from "@/lib/supabase/service";
+import { createServiceClient, type ServiceClient } from "@/lib/supabase/service";
 
 export type QuotaClaim = "claim_penny_ask" | "claim_confirmation_email";
 
@@ -32,10 +32,11 @@ export async function claimQuota(
   const service = createServiceClient(serviceRoleKey);
   let { data, error } = await service.rpc(name, { p_student_id: student.studentId });
 
-  // Until 20261117110000_security_quotas.sql is applied, only the old claim
-  // (no arguments, called as the student) exists. This lets the code deploy
-  // before the migration; once the migration is on production the old claim
-  // is gone and this branch is never taken. Remove it then.
+  // TODO: remove this fallback after 20261117110000_security_quotas.sql is
+  // applied to production. Until then only the old claim (no arguments,
+  // called as the student) exists; this lets the code deploy before the
+  // migration. Once the migration is applied the old claim is gone and this
+  // branch is never taken.
   if (error?.code === NO_SUCH_FUNCTION) {
     console.error(JSON.stringify({ event: "quota_claim_legacy", claim: name }));
     ({ data, error } = await student.supabase.rpc(name));
@@ -43,4 +44,22 @@ export async function claimQuota(
 
   if (error) return { ok: false, reason: "database", code: error.code };
   return { ok: true, data };
+}
+
+// The daily purge (run by the reminders cron with the service role): deletes
+// quota rows older than two days, so a deleted student's id is gone within
+// two days even when nobody claims. Never throws; a failure logs only the
+// database's code and is tried again tomorrow.
+export async function purgeOldQuotaRows(service: ServiceClient): Promise<{ ok: true; deleted: number } | { ok: false; code: string | null }> {
+  try {
+    const { data, error } = await service.rpc("purge_old_quota_rows");
+    if (error) {
+      console.error(JSON.stringify({ event: "quota_purge_failed", code: error.code ?? null }));
+      return { ok: false, code: error.code ?? null };
+    }
+    return { ok: true, deleted: typeof data === "number" ? data : 0 };
+  } catch {
+    console.error(JSON.stringify({ event: "quota_purge_failed", code: null }));
+    return { ok: false, code: null };
+  }
 }

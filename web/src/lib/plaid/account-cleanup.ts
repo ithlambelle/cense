@@ -7,13 +7,20 @@ import { itemAlreadyGone, removeItem } from "./client";
 import { plaidConfig, type PlaidConfig } from "./config";
 import { openToken } from "./token-box";
 
-// last_attempt (20261117110000_security_quotas.sql): a failure now gives the
-// row up. Missing before that migration, and then read as false.
-type Claim = { id: string; student_id: string; item_id: string; token_ciphertext: string; claim_id: string; last_attempt?: boolean };
-// gaveUp: rows that failed their last attempt (5 in all, about five days of
-// daily retries; a forged token saved before the account was deleted can
-// never be decrypted). The database keeps them encrypted and stops claiming
-// them, so they no longer fail the cleanup check.
+// gives_up_if_unreadable (20261117110000_security_quotas.sql): one more
+// unreadable failure gives the row up. Missing before that migration, and
+// then read as false.
+type Claim = { id: string; student_id: string; item_id: string; token_ciphertext: string; claim_id: string; gives_up_if_unreadable?: boolean };
+// Why a removal failed, for finish_plaid_account_cleanup. Only
+// "undecryptable" (the token does not open with the configured key; a forged
+// token saved before the account was deleted never will) counts toward
+// giving up. Plaid errors and missing settings are retried every day for
+// ever, and keep failing the cleanup check.
+type FailureReason = "undecryptable" | "plaid_error" | "not_configured";
+// gaveUp: rows given up in this run, after their 5th unreadable failure in a
+// row. The database keeps them encrypted and stops claiming them. The run
+// that gives one up fails the cleanup check once, so a person sees it; later
+// runs no longer claim it and stay green.
 export type CleanupResult = { claimed: number; removed: number; failed: number; gaveUp: number; unavailable: boolean; deferred: boolean };
 
 // Stop starting batches after 30s from request start. Each batch has at most
@@ -42,11 +49,14 @@ export async function runAccountCleanup(service: ServiceClient, config: PlaidCon
           const token = config ? openToken(claim.token_ciphertext, config.tokenKey, { studentId: claim.student_id, itemId: claim.item_id }) : null;
           const answer = token === null || !config ? null : await removeItem(config, token);
           const removed = answer !== null && (answer.ok || itemAlreadyGone(answer));
+          const reason: FailureReason | null = removed ? null : !config ? "not_configured" : token === null ? "undecryptable" : "plaid_error";
+          // A removal is acknowledged with three arguments, which both the
+          // old and the new function take, so the code can deploy first.
           const finished = await service.rpc("finish_plaid_account_cleanup", {
-            p_id: claim.id, p_claim_id: claim.claim_id, p_removed: removed,
+            p_id: claim.id, p_claim_id: claim.claim_id, p_removed: removed, ...(reason ? { p_reason: reason } : {}),
           });
           if (removed && !finished.error && finished.data === true) result.removed++;
-          else if (!removed && claim.last_attempt === true && !finished.error && finished.data === true) {
+          else if (reason === "undecryptable" && claim.gives_up_if_unreadable === true && !finished.error && finished.data === true) {
             // Logged once: a given-up row is never claimed again. Counts
             // only, never the row's student, item or token.
             log("plaid_cleanup_gave_up", {});
@@ -70,6 +80,6 @@ export async function runAccountCleanupWithHeartbeat(service: ServiceClient, opt
   const started = pingHeartbeat("start", undefined, heartbeat);
   const result = await runAccountCleanup(service, plaidConfig(), options);
   await started;
-  await pingHeartbeat(result.failed || result.unavailable || result.deferred ? "fail" : "success", result, heartbeat);
+  await pingHeartbeat(result.failed || result.gaveUp || result.unavailable || result.deferred ? "fail" : "success", result, heartbeat);
   return result;
 }

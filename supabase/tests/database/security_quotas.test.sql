@@ -10,7 +10,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(30);
+select plan(42);
 
 insert into auth.users (id, email) values
   ('f4000000-0000-4000-8000-000000000001', 'quota-ana@example.com'),
@@ -33,6 +33,8 @@ select ok(has_function_privilege('service_role', 'public.claim_penny_ask(uuid)',
 select ok(not has_function_privilege('authenticated', 'public.claim_confirmation_email(uuid)', 'execute'), 'a signed-in student cannot claim an email');
 select ok(has_function_privilege('service_role', 'public.claim_confirmation_email(uuid)', 'execute'), 'the service role can');
 select is(to_regprocedure('public.claim_penny_ask()'), null, 'the old claim with no student id is gone');
+select ok(not has_function_privilege('authenticated', 'public.purge_old_quota_rows()', 'execute'), 'a student cannot run the quota purge');
+select ok(has_function_privilege('service_role', 'public.purge_old_quota_rows()', 'execute'), 'the service role (the daily cron) can');
 select is(to_regprocedure('public.claim_confirmation_email()'), null, 'for emails too');
 
 set local role authenticated;
@@ -41,6 +43,9 @@ select throws_ok($$select public.claim_penny_ask('f4000000-0000-4000-8000-000000
   'calling it directly as a student is refused, so nobody can burn the shared 300');
 select throws_ok($$select public.claim_confirmation_email('f4000000-0000-4000-8000-000000000002')$$, '42501', null,
   'or the shared 100 emails');
+set local role service_role;
+select throws_ok($$select public.claim_penny_ask(null)$$, '22004', null, 'a Penny claim with no student id is refused');
+select throws_ok($$select public.claim_confirmation_email(null)$$, '22004', null, 'so is an email claim');
 reset role;
 
 -- A rolling 24 hours that the time zone does not move -----------------------
@@ -100,36 +105,94 @@ set local role service_role;
 select is(public.claim_penny_ask('f4000000-0000-4000-8000-000000000001'), 'ok', 'the next question clears out old rows');
 reset role;
 select is((select count(*)::int from public.penny_asks where student_id = 'f4000000-0000-4000-8000-000000000002'), 0,
-  'rows older than two days are still deleted');
+  'rows older than two days are still deleted by a claim');
+-- And by the daily purge, when nobody claims.
+update public.confirmation_email_sends set sent_at = now() - interval '3 days' where student_id = 'f4000000-0000-4000-8000-000000000002';
+insert into public.penny_asks (student_id, asked_at) values ('f4000000-0000-4000-8000-000000000002', now() - interval '47 hours');
+set local role service_role;
+select is(public.purge_old_quota_rows(), 5, 'the daily purge deletes the deleted student''s five email rows, older than two days');
+reset role;
+select is((select count(*)::int from public.confirmation_email_sends where student_id = 'f4000000-0000-4000-8000-000000000002'), 0,
+  'so nothing of his is left past two days');
+select is((select count(*)::int from public.penny_asks where student_id = 'f4000000-0000-4000-8000-000000000002'), 1,
+  'and a row younger than two days stays');
 
--- The Plaid cleanup gives up after 5 failures --------------------------------
+-- The Plaid cleanup gives up only on unreadable tokens -------------------------
 
--- A forged token: the right shape, but it can never be decrypted.
+-- Three queued rows from deleted accounts: a forged token (never opens), a
+-- real one that Plaid keeps refusing, and one whose worker keeps crashing.
 insert into plaid.items (student_id, item_id, token_ciphertext)
   values ('f4000000-0000-4000-8000-000000000003', 'quota-forged-item', 'v1.' || repeat('A', 40));
 delete from auth.users where id = 'f4000000-0000-4000-8000-000000000003';
+insert into plaid.account_cleanup (student_id, item_id, token_ciphertext) values
+  ('f4000000-0000-4000-8000-000000000005', 'quota-outage-item', 'v1.' || repeat('C', 40)),
+  ('f4000000-0000-4000-8000-000000000006', 'quota-crash-item', 'v1.' || repeat('D', 40));
 
-create temporary table cleanup_runs (attempt int, last_attempt boolean, finished boolean);
+create temporary table cleanup_runs (item text, n int, gives_up boolean, finished boolean);
 do $$
 declare
   job record;
 begin
-  for n in 1..5 loop
-    update plaid.account_cleanup set retry_at = now() - interval '1 second' where item_id = 'quota-forged-item';
-    select * into strict job from public.claim_plaid_account_cleanup() c where c.item_id = 'quota-forged-item';
-    insert into cleanup_runs values (n, job.last_attempt, public.finish_plaid_account_cleanup(job.id, job.claim_id, false));
+  for n in 1..7 loop
+    update plaid.account_cleanup set retry_at = now() - interval '1 second'
+      where item_id in ('quota-forged-item', 'quota-outage-item', 'quota-crash-item');
+    for job in select * from public.claim_plaid_account_cleanup() c
+      where c.item_id in ('quota-forged-item', 'quota-outage-item', 'quota-crash-item') loop
+      if job.item_id = 'quota-forged-item' then
+        insert into cleanup_runs values (job.item_id, n, job.gives_up_if_unreadable,
+          public.finish_plaid_account_cleanup(job.id, job.claim_id, false, 'undecryptable'));
+      elsif job.item_id = 'quota-outage-item' then
+        insert into cleanup_runs values (job.item_id, n, job.gives_up_if_unreadable,
+          public.finish_plaid_account_cleanup(job.id, job.claim_id, false, 'plaid_error'));
+      else
+        -- crashed: claimed, never finished
+        insert into cleanup_runs values (job.item_id, n, job.gives_up_if_unreadable, null);
+      end if;
+    end loop;
   end loop;
 end;
 $$;
-select is((select array_agg(last_attempt order by attempt) from cleanup_runs), array[false, false, false, false, true],
-  'the fifth claim says it is the last attempt');
+select is((select array_agg(gives_up order by n) from cleanup_runs where item = 'quota-forged-item'), array[false, false, false, false, true],
+  'the forged row is claimed five times, the fifth saying an unreadable failure gives it up');
 select isnt((select gave_up_at from plaid.account_cleanup where item_id = 'quota-forged-item'), null,
-  'after the fifth failure the row is given up');
-update plaid.account_cleanup set retry_at = now() - interval '1 second' where item_id = 'quota-forged-item';
-select is((select count(*)::int from public.claim_plaid_account_cleanup() c where c.item_id = 'quota-forged-item'), 0,
+  'after its fifth unreadable failure it is given up');
+select is((select count(*)::int from cleanup_runs where item = 'quota-forged-item' and n > 5), 0,
   'and is never claimed again, so the cleanup check stops failing');
 select is((select count(*)::int from plaid.account_cleanup where item_id = 'quota-forged-item'), 1,
   'the encrypted row is kept for an operator, not dropped');
+select is((select count(*)::int from cleanup_runs where item = 'quota-outage-item'), 7,
+  'a row Plaid keeps refusing is claimed on every run');
+select ok((select gave_up_at is null and unreadable_failures = 0 from plaid.account_cleanup where item_id = 'quota-outage-item'),
+  'and is never given up: Plaid errors are retried for ever');
+select ok((select gave_up_at is null and unreadable_failures = 0 and attempts = 7 from plaid.account_cleanup where item_id = 'quota-crash-item'),
+  'claims alone (a crashed worker) count nothing toward giving up');
+
+-- A token that opens proves the key is right: a Plaid error resets the count.
+update plaid.account_cleanup set unreadable_failures = 4, retry_at = now() - interval '1 second', claim_id = null
+  where item_id = 'quota-crash-item';
+do $$
+declare
+  job record;
+begin
+  select * into strict job from public.claim_plaid_account_cleanup() c where c.item_id = 'quota-crash-item';
+  perform public.finish_plaid_account_cleanup(job.id, job.claim_id, false, 'plaid_error');
+end;
+$$;
+select ok((select gave_up_at is null and unreadable_failures = 0 from plaid.account_cleanup where item_id = 'quota-crash-item'),
+  'a Plaid error after unreadable ones resets the count');
+-- The old three-argument call (code deployed before this migration) still
+-- works and never counts toward giving up.
+update plaid.account_cleanup set retry_at = now() - interval '1 second', claim_id = null where item_id = 'quota-crash-item';
+do $$
+declare
+  job record;
+begin
+  select * into strict job from public.claim_plaid_account_cleanup() c where c.item_id = 'quota-crash-item';
+  if not public.finish_plaid_account_cleanup(job.id, job.claim_id, false) then raise exception 'three-argument finish failed'; end if;
+end;
+$$;
+select ok((select gave_up_at is null and unreadable_failures = 0 from plaid.account_cleanup where item_id = 'quota-crash-item'),
+  'the three-argument finish still works and counts nothing');
 
 -- save_bank_link refuses what is not a sealed token -----------------------------
 

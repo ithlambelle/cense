@@ -17,6 +17,7 @@ begin;
 
 drop function if exists public.claim_penny_ask(uuid);
 drop function if exists public.claim_confirmation_email(uuid);
+drop function if exists public.purge_old_quota_rows();
 
 delete from public.penny_asks a where not exists (select 1 from auth.users u where u.id = a.student_id);
 delete from public.confirmation_email_sends s where not exists (select 1 from auth.users u where u.id = s.student_id);
@@ -124,6 +125,7 @@ language sql security definer set search_path = '' as $$
   returning q.id, q.student_id, q.item_id, q.token_ciphertext, q.claim_id;
 $$;
 
+drop function if exists public.finish_plaid_account_cleanup(uuid, uuid, boolean, text);
 create or replace function public.finish_plaid_account_cleanup(p_id uuid, p_claim_id uuid, p_removed boolean)
 returns boolean language plpgsql security definer set search_path = '' as $$
 begin
@@ -142,8 +144,9 @@ revoke all on function public.finish_plaid_account_cleanup(uuid, uuid, boolean) 
 grant execute on function public.claim_plaid_account_cleanup() to service_role;
 grant execute on function public.finish_plaid_account_cleanup(uuid, uuid, boolean) to service_role;
 
-drop function if exists plaid.account_cleanup_max_attempts();
+drop function if exists plaid.account_cleanup_max_unreadable();
 alter table plaid.account_cleanup drop column if exists gave_up_at;
+alter table plaid.account_cleanup drop column if exists unreadable_failures;
 
 create or replace function public.save_bank_link(p_item_id text, p_token_ciphertext text, p_institution_name text)
 returns void
