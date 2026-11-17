@@ -132,6 +132,25 @@ describe("recurring transaction suggestions", () => {
     ], "2026-11-11")).toEqual([]);
   });
 
+  it("suggests recurring payments to a named recipient but skips own transfers and unnamed cash activity", () => {
+    const dates = ["2026-09-03", "2026-10-03", "2026-11-03"];
+    const transfer = { category: "TRANSFER_OUT", category_detailed: "TRANSFER_OUT_TRANSFER_OUT_FROM_APPS", merchant_name: null };
+    const rent = series(dates, { ...transfer, amount_cents: 50000 }).map((row, index) => ({
+      ...row, description: `ZELLE PAYMENT TO RENT EXAMPLE CONF# RENT${index}`,
+    }));
+    expect(detectRecurringTransactions([
+      ...rent,
+      ...series(dates, { ...transfer, amount_cents: 30000, description: "ZELLE PAYMENT TO DANA EXAMPLE" }),
+      ...series(dates, { account_id: "savings", category: "TRANSFER_IN", amount_cents: -30000 }),
+      ...series(dates, { ...transfer, amount_cents: 20000, description: "TRANSFER TO SAVINGS 1234" }),
+      ...series(dates, { ...transfer, amount_cents: 6000, description: "VENMO INSTANT TRANSFER TO DANA EXAMPLE" }),
+      ...series(dates, { ...transfer, amount_cents: 7000, merchant_name: "Venmo" }),
+      ...series(dates, { ...transfer, amount_cents: 8000, merchant_name: "ATM", category_detailed: "TRANSFER_OUT_WITHDRAWAL" }),
+    ], "2026-11-11")).toMatchObject([
+      { name: "Recurring payment", kind: "bill", cadence: "monthly", amountCents: 50000, occurrences: 3 },
+    ]);
+  });
+
   it("keeps distinct unnamed income amounts apart and leaves deposits unlabeled as family support", () => {
     const dates = ["2026-09-03", "2026-10-03", "2026-11-03"];
     const wages = { merchant_name: null, category: "INCOME", category_detailed: "INCOME_WAGES" };

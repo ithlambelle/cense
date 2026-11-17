@@ -35,6 +35,13 @@ const GENERIC_APP_OR_TRANSFER = /^(?:venmo|cash ?app|pay ?pal)$|\b(?:venmo|cash 
 const CASH_OUT = /\b(?:cash[ -]?out|instant transfer|standard transfer|transfer to bank|bank transfer|add money|top ?up)\b/i;
 const OWN_ACCOUNT = /\b(?:from|to)\s+(?:my\s+)?(?:chk|checking|sav|savings|acct|account|brokerage|x+\d|\*+\d|#\d)/i;
 const SENDER = /\bfrom\s+([a-z].*)/i;
+const RECIPIENT = /\bto\s+([a-z].*)/i;
+const GENERIC_PAYEE = /^(?:zelle|venmo|cash ?app|pay ?pal|apple cash|transfer|payment)$/i;
+const NON_BILL_OUTFLOWS = new Set([
+  "TRANSFER_OUT_SAVINGS",
+  "TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS",
+  "TRANSFER_OUT_WITHDRAWAL",
+]);
 const REFERENCE_SUFFIX = /\s+(?:(?:conf(?:irmation)?|ref(?:erence)?|trace)(?:\b|#)|(?:ppd\s+)?id\b).*$/i;
 const STUDENT_LOAN = "LOAN_PAYMENTS_STUDENT_LOAN_PAYMENT";
 const NON_INCOME_TRANSFERS = new Set([
@@ -86,16 +93,17 @@ export function detectRecurringTransactions(rows: readonly RecurringTransaction[
   type Observation = { day: number; amount: number; name: string };
   type Group = { kind: RecurringCandidate["kind"]; familySupport: boolean; unnamed: boolean; observations: Observation[] };
   const groups = new Map<string, Group>();
-  const outgoing = new Map<number, Map<number, Set<string>>>();
+  const transfers = new Map<number, Map<number, Set<string>>>();
   for (const row of rows) {
-    if (row.pending || row.category !== "TRANSFER_OUT" || !row.account_id || !Number.isSafeInteger(row.amount_cents) || row.amount_cents <= 0) continue;
+    const isTransfer = row.amount_cents > 0 ? row.category === "TRANSFER_OUT" : row.category === "TRANSFER_IN";
+    if (row.pending || !isTransfer || !row.account_id || !Number.isSafeInteger(row.amount_cents) || row.amount_cents === 0) continue;
     const day = dayOf(row.posted_on);
     if (day === null || day > today || day < today - 183) continue;
-    const days = outgoing.get(row.amount_cents) ?? new Map<number, Set<string>>();
+    const days = transfers.get(row.amount_cents) ?? new Map<number, Set<string>>();
     const accounts = days.get(day) ?? new Set<string>();
     accounts.add(row.account_id);
     days.set(day, accounts);
-    outgoing.set(row.amount_cents, days);
+    transfers.set(row.amount_cents, days);
   }
 
   const seen = new Set<string>();
@@ -110,31 +118,41 @@ export function detectRecurringTransactions(rows: readonly RecurringTransaction[
     const amount = Math.abs(row.amount_cents);
     const studentLoan = row.category === "LOAN_PAYMENTS" && detail === STUDENT_LOAN;
     const deposit = row.category === "TRANSFER_IN" && detail === "TRANSFER_IN_DEPOSIT";
+    const description = row.description?.trim().replace(/\s+/g, " ") ?? "";
     let familySupport = false;
-    let sender: string | undefined;
-    if (kind === "income") {
-      if (row.category === "TRANSFER_IN" && !NON_INCOME_TRANSFERS.has(detail ?? "")) {
-        const matchingDays = outgoing.get(amount);
-        if (matchingDays && [-3, -2, -1, 0, 1, 2, 3].some((offset) =>
-          [...(matchingDays.get(day + offset) ?? [])].some((account) => account !== row.account_id))) continue;
-        const description = row.description?.trim().replace(/\s+/g, " ") ?? "";
-        if (CASH_OUT.test(`${merchant} ${description}`) || OWN_ACCOUNT.test(description)) continue;
+    let transferParty: string | undefined;
+    if (row.category === "TRANSFER_IN" || row.category === "TRANSFER_OUT") {
+      const matchingDays = transfers.get(-row.amount_cents);
+      if (matchingDays && [-3, -2, -1, 0, 1, 2, 3].some((offset) =>
+        [...(matchingDays.get(day + offset) ?? [])].some((account) => account !== row.account_id))) continue;
+      const transferText = `${merchant} ${description}`;
+      if (CASH_OUT.test(transferText) || OWN_ACCOUNT.test(description)) continue;
+      if (row.category === "TRANSFER_IN") {
+        if (kind !== "income" || NON_INCOME_TRANSFERS.has(detail ?? "")) continue;
         if (!deposit) {
-          sender = transferSender(description, merchant, detail);
-          if (!sender) continue;
+          transferParty = transferSender(description, merchant, detail);
+          if (!transferParty) continue;
           familySupport = true;
         }
-      } else if (row.category !== "INCOME") {
-        continue;
+      } else {
+        if (kind !== "bill" || NON_BILL_OUTFLOWS.has(detail ?? "")) continue;
+        // Budget totals include generic app payments. A recurring bill
+        // suggestion also needs a recipient to avoid combining unrelated payments.
+        transferParty = description.match(RECIPIENT)?.[1].replace(REFERENCE_SUFFIX, "").trim();
+        if (!transferParty && detail !== "TRANSFER_OUT_ACCOUNT_TRANSFER" && merchant &&
+          !GENERIC_PAYEE.test(merchant) && !GENERIC_APP_OR_TRANSFER.test(merchant)) transferParty = merchant;
+        if (!transferParty) continue;
       }
-    } else if (row.category === "INCOME" || row.category === "TRANSFER_IN" || row.category === "TRANSFER_OUT" ||
+    } else if ((kind === "income") !== (row.category === "INCOME") ||
       (row.category === "LOAN_PAYMENTS" && !studentLoan)) {
       continue;
     }
-    if (!merchant && kind === "bill" && !studentLoan) continue;
+    if (!merchant && !transferParty && kind === "bill" && !studentLoan) continue;
     seen.add(row.transaction_id);
-    const name = sender && sender !== merchant ? "Family support" : merchant || (studentLoan ? "Student loan payment" : deposit ? "Deposit" : "Income");
-    const knownSource = sender || merchant;
+    const transferName = kind === "income" ? "Family support" : "Recurring payment";
+    const name = transferParty && transferParty !== merchant ? transferName : merchant ||
+      (studentLoan ? "Student loan payment" : deposit ? "Deposit" : "Income");
+    const knownSource = transferParty || merchant;
     const source = knownSource ? knownSource.normalize("NFKC").toLowerCase() : detail ?? row.category;
     const unnamed = !knownSource;
     const identity = JSON.stringify([row.account_id, kind, source, ...(unnamed || familySupport ? [unnamed, familySupport] : [])]);
