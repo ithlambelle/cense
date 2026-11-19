@@ -14,6 +14,8 @@ import { supabaseConfig } from "./config";
 // /api/v1/me), which checks the cleanup trigger and deletes only the signed-in
 // student's own sign-in record. The daily job also calls the service-only
 // Plaid cleanup claim/finish functions; it never reads the private table.
+// The sign-in routes call claim_auth_attempt() and nothing else
+// (lib/auth/throttle.ts), before anyone is signed in.
 // Every other student route uses createStudentClient instead.
 // "server-only" stops this file, and the key, from reaching the browser.
 export function createServiceClient(serviceRoleKey: string) {

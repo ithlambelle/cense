@@ -67,6 +67,32 @@ review sites for estimates, on 2026-10-15; 13 are `recommend`.
   with one read-only exception: before sending a server analytics event they
   read the student's `profiles.analytics_opted_out_at` (the Analytics switch)
   and send nothing for a student who turned it off or when the read fails.
+- The sign-in routes (`/auth/email`, `/auth/email/verify`, `/auth/password/signup`,
+  `/auth/password/signup/confirm`, `/auth/password/signin`, `/auth/password/reset`
+  and `POST /auth/password/reset/verify`) also use the service client, before
+  anyone is signed in, for one call only: `claim_auth_attempt(action, email, ip)`
+  (`web/src/lib/auth/throttle.ts`). It counts tries in `auth_throttle_events`,
+  which nobody else can read or write. Per email and IP together, over 10
+  minutes: 5 emails sent, 10 code checks, 10 password tries (and 20 code checks
+  a day). Per email alone: 30 emails and 50 password tries per 10 minutes, 50
+  code checks a day. Per IP: 300 emails and 600 checks per 10 minutes. Emails
+  are counted lowercased, trimmed and without a +tag; IPv6 by its /64; the IP
+  is Vercel's `x-forwarded-for`, trusted only on Vercel. The tight limits are
+  per email and IP so nobody can use up another student's tries from their own
+  address. What is left: an attacker with many addresses can still reach the
+  per-email ceilings and block that email for up to 10 minutes (up to a day
+  for code checks, which takes at least 3 addresses); Google sign-in is never
+  blocked. Past a limit the route answers `429` `rate_limited`, "Too many
+  tries. Try again in N minutes." (or hours), with `Retry-After`, before
+  Supabase is called. A refused try is not counted. When the count cannot be
+  checked (the call fails or takes over 3 seconds, or production has no key),
+  code and password checks answer `503` `sign_in_busy`, "Sign-in is busy right
+  now. Try again in a minute.", and emails and reset links go ahead; both are
+  logged.
+- Opening a reset link cannot protect a student who is signed out: if they
+  tap Continue on a link someone else asked for, they are signed in to that
+  person's account. Set a new password names the account's email, so they can
+  see it is not theirs; that is the guard.
 - Money is integer cents. Timestamps in API responses are UTC ISO 8601 strings.
 - `DELETE /me` also uses the service client solely to check the cleanup trigger
   and delete the authenticated student's own auth record. The auth trigger
@@ -81,7 +107,8 @@ review sites for estimates, on 2026-10-15; 13 are `recommend`.
 | `POST /api/v1/auth/email`, `POST /api/v1/auth/email/verify` | Send and verify a six-digit email code. When the code is what confirms the account, any password set before it is replaced with a random one and other sessions end. |
 | `POST /api/v1/auth/password/signup`, `POST /api/v1/auth/password/signin` | Optional password account creation and sign-in. Sign-up gives the same answer whether or not the email has an account; an existing account is emailed a sign-in code instead. |
 | `POST /api/v1/auth/password/signup/confirm` | Confirm a password sign-up with the emailed code. When this code is what confirms the account, set the chosen password and end other sessions. An account confirmed earlier keeps its password and sessions and answers `passwordChanged: false`. |
-| `POST /api/v1/auth/password/reset`, `POST /api/v1/auth/password/reset/confirm` | Request a reset email and set a password with an authenticated session. |
+| `POST /api/v1/auth/password/reset`, `POST /api/v1/auth/password/reset/confirm` | Request a reset email (its link, built from `APP_BASE_URL`, opens `/reset-password/confirm`) and set a password with an authenticated session. |
+| `POST /api/v1/auth/password/reset/verify`, `GET /api/v1/auth/password/reset/verify` | POST, from the confirm screen's Continue button, verifies the reset link (`tokenHash` or `code`) and starts its session; `409` `signed_in_as_other` when a different account is signed in in that browser, whose session is left as it was. GET verifies nothing and only forwards an older link to the confirm screen, so opening a link never signs anyone in. |
 | `GET /api/v1/auth/google`, `GET /api/v1/auth/callback`, `POST /api/v1/auth/logout` | Google sign-in, PKCE callback, and logout. |
 | `GET /api/v1/me` | Verify the session and return the student ID and email. |
 | `GET /api/v1/cards`, `GET /api/v1/cards/{id}` | Public curated card catalog. Card facts and issuer links live in typed repository files. |

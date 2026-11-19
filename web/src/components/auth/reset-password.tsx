@@ -8,15 +8,19 @@ import { AuthLayout, BackLinkHome } from "@/components/auth/auth-layout";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { PasswordField } from "@/components/ui/password-field";
+import { SENSITIVE } from "@/lib/analytics";
 import { apiRequest, failureMessage } from "@/lib/api-client/client";
 import { PASSWORD_MIN, passwordProblem } from "@/lib/auth/password";
 import { ROUTES } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
+import { cn } from "@/lib/utils";
 
-// Set a new password (S4). Reached from the reset email through the auth
-// callback, which signs the student in with a recovery session (PR #24 docs).
-// No frame: built from the sign-up form's parts and proposed to design.
-export function ResetPassword() {
+// Set a new password (S4). Reached from the reset email's confirm screen
+// (/reset-password/confirm), whose Continue signs the student in with the
+// link's session. No frame: built from the sign-up form's parts and proposed
+// to design. `email` is the signed-in account's, shown so that a student sent
+// someone else's link notices it is not their account (null when signed out).
+export function ResetPassword({ email = null }: { email?: string | null }) {
   const router = useRouter();
   const isMounted = useIsMounted();
   const [password, setPassword] = useState("");
@@ -43,7 +47,7 @@ export function ResetPassword() {
     }
     setPending(false);
     // No reset session in this browser (401 sign_in_required), or one that is
-    // not from a reset link opened in the last hour (403 recovery_required).
+    // not from a reset link opened in the last 10 minutes (403 recovery_required).
     // Either way the way on is a new link.
     if (result.kind === "api" && (result.status === 401 || result.code === "recovery_required")) return setExpired(true);
     setErrors({ form: failureMessage(result) });
@@ -62,6 +66,10 @@ export function ResetPassword() {
 
   return (
     <AuthLayout title="Set a new password" back={<BackLinkHome />}>
+      {email ? (
+        // The email is the student's own: masked in session replay.
+        <p className={cn("text-body-m text-indigo-black", SENSITIVE)}>For the account {email}</p>
+      ) : null}
       <form method="post" onSubmit={submit} className="flex flex-col gap-3" noValidate>
         <PasswordField
           label="New password"

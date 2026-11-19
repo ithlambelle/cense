@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthApiError, AuthRetryableFetchError } from "@supabase/supabase-js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AuthApiError, AuthRetryableFetchError, AuthSessionMissingError } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 
 const auth = vi.hoisted(() => ({
@@ -17,17 +17,29 @@ const auth = vi.hoisted(() => ({
 // The sign-in code for an existing account goes through the cookieless client.
 const otpAuth = vi.hoisted(() => ({ signInWithOtp: vi.fn() }));
 
+// The reset link's session, held back until commit() (createDeferredStudentClient).
+const deferred = vi.hoisted(() => ({
+  auth: { verifyOtp: vi.fn(), exchangeCodeForSession: vi.fn(), signOut: vi.fn() },
+  commit: vi.fn(),
+}));
+
 vi.mock("@/lib/supabase/server", () => ({
   createStudentClient: async () => ({ auth }),
   createCookielessClient: () => ({ auth: otpAuth }),
+  createDeferredStudentClient: async () => ({ client: { auth: deferred.auth }, commit: deferred.commit }),
 }));
+
+// The app-level limits (src/lib/auth/throttle.ts, tested there): let through
+// unless a test says otherwise.
+const throttle = vi.hoisted(() => ({ authThrottle: vi.fn<(...args: unknown[]) => Promise<Response | null>>(async () => null) }));
+vi.mock("@/lib/auth/throttle", () => throttle);
 
 import { POST as signUp } from "./signup/route";
 import { POST as confirmSignUp } from "./signup/confirm/route";
 import { POST as signIn } from "./signin/route";
 import { POST as reset } from "./reset/route";
 import { POST as confirm } from "./reset/confirm/route";
-import { GET as verify } from "./reset/verify/route";
+import { GET as openLink, POST as verifyLink } from "./reset/verify/route";
 
 function request(path: string, payload: unknown): Request {
   return new Request(`https://cense.example${path}`, {
@@ -38,6 +50,9 @@ function request(path: string, payload: unknown): Request {
 }
 
 beforeEach(() => vi.clearAllMocks());
+afterEach(() => vi.unstubAllEnvs());
+
+const LIMITED = () => Response.json({ error: { code: "rate_limited", message: "Too many tries. Try again in 6 minutes." } }, { status: 429 });
 
 describe("optional password auth", () => {
   it("creates an account using the allowlisted callback and reports email confirmation", async () => {
@@ -235,12 +250,111 @@ describe("optional password auth", () => {
     expect(limited.status).toBe(429);
   });
 
-  it("sends a reset link to the recovery screen", async () => {
+  it("sends a reset link to the confirm screen, on this address when no APP_BASE_URL is set (local runs)", async () => {
     auth.resetPasswordForEmail.mockResolvedValue({ error: null });
     const response = await reset(request("/api/v1/auth/password/reset", { email: "student@example.com" }));
     expect(response.status).toBe(200);
     expect(auth.resetPasswordForEmail).toHaveBeenCalledWith("student@example.com", {
-      redirectTo: "https://cense.example/api/v1/auth/password/reset/verify",
+      redirectTo: "https://cense.example/reset-password/confirm",
+    });
+  });
+
+  // External audit of a8fe7d4: the link was built from the request's own
+  // address, which its Host header decides.
+  it("builds the reset link from APP_BASE_URL, never the request's address", async () => {
+    vi.stubEnv("APP_BASE_URL", "https://censefinance.com/");
+    vi.stubEnv("VERCEL_ENV", "production");
+    auth.resetPasswordForEmail.mockResolvedValue({ error: null });
+    await reset(request("/api/v1/auth/password/reset", { email: "student@example.com" }));
+    expect(auth.resetPasswordForEmail).toHaveBeenCalledWith("student@example.com", {
+      redirectTo: "https://censefinance.com/reset-password/confirm",
+    });
+  });
+
+  it("sends no reset email on production without APP_BASE_URL", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubEnv("APP_BASE_URL", "");
+    vi.stubEnv("VERCEL_ENV", "production");
+    const response = await reset(request("/api/v1/auth/password/reset", { email: "student@example.com" }));
+    expect(response.status).toBe(502);
+    expect(auth.resetPasswordForEmail).not.toHaveBeenCalled();
+    expect(JSON.stringify(log.mock.calls)).toContain("APP_BASE_URL");
+    expect(JSON.stringify(log.mock.calls)).not.toContain("student@example.com");
+    log.mockRestore();
+  });
+
+  it("builds the sign-up email's link from APP_BASE_URL too", async () => {
+    vi.stubEnv("APP_BASE_URL", "https://censefinance.com");
+    auth.signUp.mockResolvedValue({ data: { session: null }, error: null });
+    await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY));
+    expect(auth.signUp).toHaveBeenCalledWith(expect.objectContaining({
+      options: { emailRedirectTo: "https://censefinance.com/api/v1/auth/callback?next=%2Fsign-in%3Fconfirmed%3D1" },
+    }));
+  });
+
+  it("leaves the sign-up email's link to Supabase's Site URL on production without APP_BASE_URL", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubEnv("VERCEL_ENV", "production");
+    auth.signUp.mockResolvedValue({ data: { session: null }, error: null });
+    const response = await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY));
+    expect(response.status).toBe(200);
+    expect(auth.signUp).toHaveBeenCalledWith({ ...SIGN_UP_BODY, options: undefined });
+    log.mockRestore();
+  });
+
+  describe("app-level limits", () => {
+    it("counts each route under its own action, with the email the request names", async () => {
+      auth.signUp.mockResolvedValue({ data: { session: null }, error: null });
+      auth.signInWithPassword.mockResolvedValue({ error: null });
+      auth.resetPasswordForEmail.mockResolvedValue({ error: null });
+      auth.verifyOtp.mockResolvedValue({ data: { user: { email_confirmed_at: "2026-10-01T09:00:00Z", last_sign_in_at: "2026-11-17T09:00:00Z" } }, error: null });
+      await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY));
+      await signIn(request("/api/v1/auth/password/signin", SIGN_UP_BODY));
+      await reset(request("/api/v1/auth/password/reset", { email: "student@example.com" }));
+      await confirmSignUp(request("/api/v1/auth/password/signup/confirm", { ...SIGN_UP_BODY, code: "123456" }));
+      expect(throttle.authThrottle.mock.calls.map(([, action, email]) => [action, email])).toEqual([
+        ["send", "student@example.com"],
+        ["password", "student@example.com"],
+        ["send", "student@example.com"],
+        ["verify", "student@example.com"],
+      ]);
+    });
+
+    it("answers 429 with the plain message, before Supabase is called", async () => {
+      throttle.authThrottle.mockImplementation(async () => LIMITED());
+      const answers = [
+        await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY)),
+        await signIn(request("/api/v1/auth/password/signin", SIGN_UP_BODY)),
+        await reset(request("/api/v1/auth/password/reset", { email: "student@example.com" })),
+        await confirmSignUp(request("/api/v1/auth/password/signup/confirm", { ...SIGN_UP_BODY, code: "123456" })),
+        await verifyLink(request("/api/v1/auth/password/reset/verify", { tokenHash: "abc" })),
+      ];
+      for (const answer of answers) {
+        expect(answer.status).toBe(429);
+        expect((await answer.json()).error).toEqual({ code: "rate_limited", message: "Too many tries. Try again in 6 minutes." });
+      }
+      expect(auth.signUp).not.toHaveBeenCalled();
+      expect(auth.signInWithPassword).not.toHaveBeenCalled();
+      expect(auth.resetPasswordForEmail).not.toHaveBeenCalled();
+      expect(auth.verifyOtp).not.toHaveBeenCalled();
+      expect(deferred.auth.verifyOtp).not.toHaveBeenCalled();
+      throttle.authThrottle.mockImplementation(async () => null);
+    });
+
+    it("passes on a refusal when the count cannot be checked (sign_in_busy), before Supabase is called", async () => {
+      throttle.authThrottle.mockImplementation(async () =>
+        Response.json({ error: { code: "sign_in_busy", message: "Sign-in is busy right now. Try again in a minute." } }, { status: 503 }));
+      const answer = await signIn(request("/api/v1/auth/password/signin", SIGN_UP_BODY));
+      expect(answer.status).toBe(503);
+      expect((await answer.json()).error.code).toBe("sign_in_busy");
+      expect(auth.signInWithPassword).not.toHaveBeenCalled();
+      throttle.authThrottle.mockImplementation(async () => null);
+    });
+
+    it("does not count a request that fails validation", async () => {
+      await signUp(request("/api/v1/auth/password/signup", { email: "student@example.com", password: "short" }));
+      await verifyLink(request("/api/v1/auth/password/reset/verify", { tokenHash: "" }));
+      expect(throttle.authThrottle).not.toHaveBeenCalled();
     });
   });
 
@@ -251,11 +365,111 @@ describe("optional password auth", () => {
     expect(await response.json()).toEqual({ status: "check_email" });
   });
 
-  it("verifies a recovery token without a PKCE cookie", async () => {
-    auth.verifyOtp.mockResolvedValue({ error: null });
-    const response = await verify(new NextRequest("https://cense.example/api/v1/auth/password/reset/verify?token_hash=abc"));
-    expect(auth.verifyOtp).toHaveBeenCalledWith({ token_hash: "abc", type: "recovery" });
-    expect(response.headers.get("location")).toBe("https://cense.example/reset-password");
+  describe("opening a reset link (login CSRF, external audit of a8fe7d4)", () => {
+    const LINK_USER = { id: "link-owner", email: "owner@example.com" };
+
+    it("GET verifies nothing: an older link, or a mail scanner, only reaches the confirm screen", async () => {
+      const response = openLink(new NextRequest("https://cense.example/api/v1/auth/password/reset/verify?token_hash=abc&next=//evil.example"));
+      expect(response.status).toBe(303);
+      expect(response.headers.get("location")).toBe("https://cense.example/reset-password/confirm?token_hash=abc");
+      expect(auth.verifyOtp).not.toHaveBeenCalled();
+      expect(deferred.auth.verifyOtp).not.toHaveBeenCalled();
+      expect(openLink(new NextRequest("https://cense.example/api/v1/auth/password/reset/verify?code=c1")).headers.get("location"))
+        .toBe("https://cense.example/reset-password/confirm?code=c1");
+    });
+
+    it("POST verifies the link and starts its session when no one is signed in, without a PKCE cookie", async () => {
+      auth.getUser.mockResolvedValue({ data: { user: null }, error: null });
+      deferred.auth.verifyOtp.mockResolvedValue({ data: { user: LINK_USER, session: {} }, error: null });
+      const response = await verifyLink(request("/api/v1/auth/password/reset/verify", { tokenHash: "abc" }));
+      expect(response.status).toBe(200);
+      expect(response.headers.get("Cache-Control")).toBe("no-store");
+      expect(await response.json()).toEqual({ status: "verified" });
+      expect(deferred.auth.verifyOtp).toHaveBeenCalledWith({ token_hash: "abc", type: "recovery" });
+      expect(deferred.commit).toHaveBeenCalledOnce();
+      expect(throttle.authThrottle).toHaveBeenCalledWith(expect.any(Request), "link", null);
+    });
+
+    it("lets the same student, already signed in, reset their own password", async () => {
+      auth.getUser.mockResolvedValue({ data: { user: { id: "link-owner" } }, error: null });
+      deferred.auth.verifyOtp.mockResolvedValue({ data: { user: LINK_USER, session: {} }, error: null });
+      const response = await verifyLink(request("/api/v1/auth/password/reset/verify", { tokenHash: "abc" }));
+      expect(response.status).toBe(200);
+      expect(deferred.commit).toHaveBeenCalledOnce();
+    });
+
+    it("treats a browser with no session as signed out", async () => {
+      auth.getUser.mockResolvedValue({ data: { user: null }, error: new AuthSessionMissingError() });
+      deferred.auth.verifyOtp.mockResolvedValue({ data: { user: LINK_USER, session: {} }, error: null });
+      const response = await verifyLink(request("/api/v1/auth/password/reset/verify", { tokenHash: "abc" }));
+      expect(response.status).toBe(200);
+      expect(deferred.commit).toHaveBeenCalledOnce();
+    });
+
+    // Any other failure could hide a signed-in student, whose session must not be replaced.
+    for (const [what, failure] of [
+      ["Auth is down", new AuthRetryableFetchError("fetch failed", 0)],
+      ["Auth rejects the token", new AuthApiError("invalid JWT", 403, "bad_jwt")],
+    ] as const) {
+      it(`refuses, before the link is used, when it cannot tell who is signed in (${what})`, async () => {
+        const log = vi.spyOn(console, "error").mockImplementation(() => {});
+        auth.getUser.mockResolvedValue({ data: { user: null }, error: failure });
+        const response = await verifyLink(request("/api/v1/auth/password/reset/verify", { tokenHash: "abc" }));
+        expect(response.status).toBe(503);
+        expect((await response.json()).error).toEqual({
+          code: "session_check_failed",
+          message: "We couldn’t check who’s logged in here. Try again in a minute.",
+        });
+        expect(deferred.auth.verifyOtp).not.toHaveBeenCalled();
+        expect(deferred.commit).not.toHaveBeenCalled();
+        log.mockRestore();
+      });
+    }
+
+    it("refuses when a different student is signed in, and leaves their session as it was", async () => {
+      auth.getUser.mockResolvedValue({ data: { user: { id: "victim" } }, error: null });
+      deferred.auth.verifyOtp.mockResolvedValue({ data: { user: LINK_USER, session: {} }, error: null });
+      deferred.auth.signOut.mockResolvedValue({ error: null });
+      const response = await verifyLink(request("/api/v1/auth/password/reset/verify", { tokenHash: "attackers-link" }));
+      expect(response.status).toBe(409);
+      expect((await response.json()).error).toEqual({
+        code: "signed_in_as_other",
+        message: "You’re logged in to a different account. Log out, then ask for a new reset link.",
+      });
+      expect(deferred.commit).not.toHaveBeenCalled();
+      // The link's own session is ended, not handed over.
+      expect(deferred.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
+      expect(auth.signOut).not.toHaveBeenCalled();
+    });
+
+    it("says the link expired when it is used or too old", async () => {
+      auth.getUser.mockResolvedValue({ data: { user: null }, error: null });
+      deferred.auth.verifyOtp.mockResolvedValue({ data: { user: null, session: null }, error: new AuthApiError("Token has expired or is invalid", 403, "otp_expired") });
+      const response = await verifyLink(request("/api/v1/auth/password/reset/verify", { tokenHash: "used" }));
+      expect(response.status).toBe(401);
+      expect((await response.json()).error.code).toBe("invalid_link");
+      expect(deferred.commit).not.toHaveBeenCalled();
+    });
+
+    it("exchanges Supabase's own code in the browser that asked", async () => {
+      auth.getUser.mockResolvedValue({ data: { user: null }, error: null });
+      deferred.auth.exchangeCodeForSession.mockResolvedValue({ data: { user: LINK_USER, session: {} }, error: null });
+      const response = await verifyLink(request("/api/v1/auth/password/reset/verify", { code: "c1" }));
+      expect(response.status).toBe(200);
+      expect(deferred.auth.exchangeCodeForSession).toHaveBeenCalledWith("c1");
+      expect(deferred.commit).toHaveBeenCalledOnce();
+    });
+
+    it("takes a JSON body with exactly one of tokenHash or code", async () => {
+      for (const payload of [{}, { tokenHash: "a", code: "b" }, { token_hash: "a" }]) {
+        expect((await verifyLink(request("/api/v1/auth/password/reset/verify", payload))).status, JSON.stringify(payload)).toBe(400);
+      }
+      const form = new Request("https://cense.example/api/v1/auth/password/reset/verify", {
+        method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ tokenHash: "abc" }),
+      });
+      expect((await verifyLink(form)).status).toBe(400);
+      expect(deferred.auth.verifyOtp).not.toHaveBeenCalled();
+    });
   });
 
   it("rejects password updates without an authenticated session", async () => {
@@ -310,7 +524,7 @@ describe("optional password auth", () => {
     expect(auth.updateUser).toHaveBeenCalledWith({ password: "new-long-password" });
   });
 
-  it("rejects a reset session older than the hour the link lasts", async () => {
+  it("rejects a reset session older than the 10 minutes the link lasts", async () => {
     auth.getUser.mockResolvedValue({ data: { user: { id: "student-id", recovery_sent_at: new Date(Date.now() - 7_200_000).toISOString() } }, error: null });
     auth.getClaims.mockResolvedValue({ data: { claims: { amr: [{ method: "recovery", timestamp: now() - 3_700 }] } }, error: null });
     const response = await confirm(request("/api/v1/auth/password/reset/confirm", { password: "new-long-password" }));
