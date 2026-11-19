@@ -4,6 +4,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { CardArt } from "@/components/cards/card-art";
+import { SeeDetailsLink } from "@/components/results/see-details-link";
+import { TopMatchActions } from "@/components/results/top-match-actions";
 import { BackLink } from "@/components/ui/app-header";
 import { FitSignal } from "@/components/ui/fit-signal";
 import { BottomNav } from "@/components/ui/bottom-nav";
@@ -33,7 +35,16 @@ import { cn } from "@/lib/utils";
 // page), the options from the proposal "Result / Three options" (371:10704).
 // Everything shown comes from computeResult (rules v1.3); nothing here decides fit.
 // `answered`: how many questions are answered, for a quiz not finished yet.
-export function ResultsView({ view, answered = 0 }: { view: ResultView; answered?: number }) {
+// `topTracked`: the student already tracks the top match (any status).
+export function ResultsView({
+  view,
+  answered = 0,
+  topTracked = false,
+}: {
+  view: ResultView;
+  answered?: number;
+  topTracked?: boolean;
+}) {
   if (view.kind === "quiz_unfinished") {
     // The same count and words as Home's quiz card (quizProgress).
     const progress = quizProgress(answered);
@@ -99,7 +110,7 @@ export function ResultsView({ view, answered = 0 }: { view: ResultView; answered
         <h2 id="top-match" className="font-heading text-h6 font-medium text-indigo-black">
           Top match
         </h2>
-        <OptionCard option={top} top />
+        <OptionCard option={top} top tracked={topTracked} />
       </section>
 
       {others.length > 0 ? (
@@ -124,13 +135,17 @@ export function ResultsView({ view, answered = 0 }: { view: ResultView; answered
 // padding, name with the fit signal. Added to the frame on Ben's direction
 // (2026-11-07): the card art, "Why it's right for you" as up to three large
 // lines in place of the frame's 13px ones, and the fee chips. The whole card
-// opens the card page: in interviews a student waited instead of tapping View
-// card (2026-10-18), so View card's box is stretched over the card
-// (after:inset-0), the block-link pattern, one link rather than a link
-// wrapping all its text.
-function OptionCard({ option, top = false }: { option: ResultOption; top?: boolean }) {
+// opens the card page (SeeDetailsLink). M1 (821:9205, Ben's call on its change
+// card) puts "Check if you're preapproved" and "Apply at {issuer}" on the top
+// match (TopMatchActions); the other options end with "See details". The top
+// match draws no "See details", so its name is the stretched link instead.
+function OptionCard({ option, top = false, tracked = false }: { option: ResultOption; top?: boolean; tracked?: boolean }) {
   const { card, fit, rewards } = option;
   const lines = whyLines(option);
+  const name = cardDisplayName(card);
+  const href = cardPath(card.id, "results");
+  // The top match's name opens its page unless "See details" is shown (a tracked card).
+  const nameLinks = top && !tracked;
   return (
     <div
       className={cn(
@@ -142,7 +157,18 @@ function OptionCard({ option, top = false }: { option: ResultOption; top?: boole
         <CardArt src={rewards?.image ?? null} className="w-16" />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <p className="text-body-s text-indigo-black/65">{cardTypeLabel(card)}</p>
-          <h3 className="font-heading text-h6 font-medium text-navy">{cardDisplayName(card)}</h3>
+          <h3 className="font-heading text-h6 font-medium text-navy">
+            {nameLinks ? (
+              <Link
+                href={href}
+                className="rounded-[4px] after:absolute after:inset-0 after:rounded-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                {name}
+              </Link>
+            ) : (
+              name
+            )}
+          </h3>
         </div>
         {/* The fit tier as the designers' signal bars (G8). The approval line
             below says it in words: nobody noticed the label in interviews. */}
@@ -173,27 +199,23 @@ function OptionCard({ option, top = false }: { option: ResultOption; top?: boole
         {top ? fit.notes.map((note) => <NoteLine key={note.id}>{note.text}</NoteLine>) : null}
       </div>
 
-      <div className="flex items-end justify-between gap-3">
-        <dl className="flex flex-wrap items-start gap-3">
-          <FactChip label="Annual fee" value={moneyAmount(card.annualFeeCents)} />
-          {card.secured && card.depositMinCents > 0 ? (
-            <FactChip label="Deposit" value={`From ${moneyAmount(card.depositMinCents)}`} />
-          ) : null}
-        </dl>
-        {/* translate-none: a pressed nudge would make the link the box its
-            ::after is sized to, shrinking the card-wide tap area mid-tap. */}
-        <Link
-          href={cardPath(card.id, "results")}
-          aria-label={`View card: ${cardDisplayName(card)}`}
-          className={cn(
-            buttonVariants({ variant: "secondary", size: null }),
-            "-mr-2 gap-1 px-2 after:absolute after:inset-0 after:rounded-card motion-safe:active:translate-none",
-          )}
-        >
-          View card
-          <ButtonChevron />
-        </Link>
-      </div>
+      <dl className="flex flex-wrap items-start gap-3">
+        <FactChip label="Annual fee" value={moneyAmount(card.annualFeeCents)} />
+        {card.secured && card.depositMinCents > 0 ? (
+          <FactChip label="Deposit" value={`From ${moneyAmount(card.depositMinCents)}`} />
+        ) : null}
+      </dl>
+
+      {top ? (
+        <TopMatchActions
+          card={{ id: card.id, brand: card.brand, name: card.name, referralDisclosure: card.referralDisclosure }}
+          hasPreapproval={card.preapprovalUrl !== null}
+          tracked={tracked}
+          detailsHref={href}
+        />
+      ) : (
+        <SeeDetailsLink href={href} cardName={name} />
+      )}
     </div>
   );
 }

@@ -11,6 +11,11 @@ export function applyLabel(issuer: string): string {
   return `Apply on ${issuer}’s site`;
 }
 
+// The shorter label on the top match on Your match ("Apply at Discover", Figma 821:9231).
+export function applyAtLabel(issuer: string): string {
+  return `Apply at ${issuer}`;
+}
+
 // Only an https address returned by the API may be opened (never http,
 // javascript: or anything else). Returns null when it must not be opened.
 export function safeIssuerUrl(value: string): string | null {
