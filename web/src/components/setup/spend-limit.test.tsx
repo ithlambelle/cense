@@ -84,6 +84,47 @@ describe("S2, A limit to try this month", () => {
   });
 });
 
+describe("opened from the card's page", () => {
+  const CARD = "discover-it-student-cash-back";
+  const FROM_CARD = "?from=card&card_from=home";
+
+  it("S1 goes back to the card page and on to S2 keeping that origin", async () => {
+    server([]);
+    render(<SpendLimitCredit applicationId={ID} creditLimitCents={50000} from="card" cardId={CARD} cardFrom="home" />);
+    expect(screen.getByRole("link", { name: "Back to Card details" }).getAttribute("href")).toBe(`/cards/${CARD}?from=home`);
+    fireEvent.click(screen.getByRole("button", { name: "See my suggestion" }));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith(`${BASE}/suggestion${FROM_CARD}`));
+  });
+
+  it("S2's Back and Use return to the card page; Pick my own keeps the origin", async () => {
+    server([{ status: 200, body: {} }, { status: 201, body: STEP }]);
+    render(<SpendLimitSuggestion applicationId={ID} creditLimitCents={50000} suggestedCents={15000} from="card" cardId={CARD} cardFrom="home" />);
+    expect(screen.getByRole("link", { name: "Back to Card details" }).getAttribute("href")).toBe(`/cards/${CARD}?from=home`);
+    expect(screen.getByRole("link", { name: "Pick my own" }).getAttribute("href")).toBe(`${BASE}/pick${FROM_CARD}`);
+    fireEvent.click(screen.getByRole("button", { name: "Use $150" }));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith(`/cards/${CARD}?from=home`));
+  });
+
+  it("S3's Back keeps the origin and its save returns to the card page", async () => {
+    server([{ status: 200, body: {} }, { status: 201, body: STEP }]);
+    render(
+      <SpendLimitPick
+        applicationId={ID}
+        creditLimitCents={50000}
+        suggestedCents={15000}
+        tighterCents={10000}
+        savedCents={null}
+        from="card"
+        cardId={CARD}
+        cardFrom="home"
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Back to Your suggestion" }).getAttribute("href")).toBe(`${BASE}/suggestion${FROM_CARD}`);
+    fireEvent.click(screen.getByRole("button", { name: "Save my limit" }));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith(`/cards/${CARD}?from=home`));
+  });
+});
+
 describe("S3, Pick your limit", () => {
   const pick = (savedCents: number | null = null) =>
     render(

@@ -308,7 +308,7 @@ export function IssuerActions({ card, signedIn, tracked = false }: IssuerActions
         <div className="rounded-card bg-off-white p-4">
           <p className="font-heading text-h6 font-medium text-navy">You stay in control</p>
           <p className="mt-1 text-body-s text-indigo-black">
-            Cense doesn’t fill in or submit your application. Review the issuer’s terms before you submit.
+            Cense doesn’t fill in or submit your application, or see your credit report. Review the issuer’s terms before you submit.
           </p>
         </div>
         {card.referralDisclosure !== null ? <NoteLine>{card.referralDisclosure}</NoteLine> : null}

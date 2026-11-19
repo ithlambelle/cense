@@ -122,11 +122,14 @@ test("a signed-out visitor sees the sections without a fit, and an issuer button
   await expect(page).toHaveURL(/\/sign-in\?next=%2Fcards%2Fdiscover-it-student-cash-back$/);
 });
 
-test("the student's approved card opens on Your dates, and every section's link opens its screen and comes back", async ({ page }) => {
+test("the student's approved card opens on Your dates, and every section's link opens its screen and comes back", async ({ page, context }) => {
   const checkA11y = axeChecker(page);
   await signUp(page, uniqueEmail("card-details-yours"), async () => {});
   const id = await track(page, "approved", 50000);
   await page.goto(`/cards/${DISCOVER.id}?from=home`);
+  // This page as it was opened (from Home): every screen it opens comes back here.
+  const cardUrl = new RegExp(`/cards/${DISCOVER.id}\\?from=home$`);
+  const fromCard = "\\?from=card&card_from=home$";
 
   // Nothing saved yet: each section says so and offers the way to set it.
   await expect(page.getByRole("region", { name: "Your status" })).toHaveText("Approved");
@@ -138,6 +141,81 @@ test("the student's approved card opens on Your dates, and every section's link 
   await expect(title(page, "Autopay and reminders")).toContainText("Autopay not set yet · reminders not set yet");
   await expect(title(page, "Spend limit")).toContainText("Not set yet");
   await checkA11y("card page: your card, nothing set");
+
+  // Turn on autopay opens the issuer's steps with this page as their origin:
+  // their back arrow returns here, not to Card setup.
+  const openAutopay = async (link: string) => {
+    await title(page, "Autopay and reminders").click();
+    await page.getByRole("region", { name: "Autopay and reminders" }).getByRole("link", { name: link }).click();
+  };
+  await openAutopay("Turn on autopay");
+  await expect(page).toHaveURL(new RegExp(`/applications/${id}/setup/autopay${fromCard}`));
+  await expect(page.getByRole("heading", { level: 1, name: "Turn on autopay at Discover" })).toBeVisible();
+  await page.getByRole("link", { name: "Back to Card details" }).click();
+  await expect(page).toHaveURL(cardUrl);
+
+  // The issuer's site leaves "Did you turn on autopay?" waiting, still from
+  // this page: its back arrow goes to the steps, and "Not yet" comes back here.
+  const reachConfirm = async () => {
+    await openAutopay("Turn on autopay");
+    const issuerTab = context.waitForEvent("page");
+    await page.getByRole("link", { name: "Open discover.com" }).click();
+    await (await issuerTab).close();
+    await expect(page).toHaveURL(new RegExp(`/applications/${id}/setup/autopay/confirm${fromCard}`));
+  };
+  await reachConfirm();
+  await page.getByRole("link", { name: "Back to Autopay steps" }).click();
+  await expect(page).toHaveURL(new RegExp(`/applications/${id}/setup/autopay${fromCard}`));
+  await page.getByRole("link", { name: "Back to Card details" }).click();
+  await expect(page).toHaveURL(cardUrl);
+  await reachConfirm();
+  await page.getByRole("radio", { name: "Not yet" }).click();
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page).toHaveURL(cardUrl);
+  await expect(page.getByRole("region", { name: "Your status" })).toHaveText("Approved");
+
+  // A yes shows "Autopay is on", still from this page.
+  await reachConfirm();
+  await page.getByRole("radio", { name: "Yes, the full statement balance" }).click();
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page).toHaveURL(new RegExp(`/applications/${id}/setup/autopay/on${fromCard}`));
+  await expect(page.getByRole("heading", { level: 1, name: "Autopay is on" })).toBeVisible();
+  await page.goto(`/cards/${DISCOVER.id}?from=home`);
+  await expect(title(page, "Autopay and reminders")).toContainText("Autopay on");
+
+  // With no Cense screen behind them (a new tab, a reload as the first page),
+  // these screens' back arrows fall back to their parent: this page, as it
+  // was opened, never Card setup.
+  for (const path of ["setup/autopay", "setup/autopay/confirm", "setup/autopay/on", "setup/spend-limit", "setup/spend-limit/suggestion"]) {
+    const fresh = await context.newPage();
+    await fresh.goto(`/applications/${id}/${path}?from=card&card_from=home`);
+    const back = fresh.getByRole("link", { name: path.endsWith("confirm") ? "Back to Autopay steps" : "Back to Card details" });
+    await back.click();
+    await expect(fresh, path).toHaveURL(
+      path.endsWith("confirm") ? new RegExp(`/applications/${id}/setup/autopay${fromCard}`) : cardUrl,
+    );
+    await fresh.close();
+  }
+
+  // Set a spend limit opens the suggestion (a credit limit is saved) from
+  // this page: Back returns here, Pick my own keeps the origin, and saving
+  // lands back here with the limit set.
+  const openLimit = async () => {
+    await title(page, "Spend limit").click();
+    await page.getByRole("region", { name: "Spend limit" }).getByRole("link", { name: "Set a spend limit" }).click();
+    await expect(page).toHaveURL(new RegExp(`/applications/${id}/setup/spend-limit/suggestion${fromCard}`));
+  };
+  await openLimit();
+  await page.getByRole("link", { name: "Back to Card details" }).click();
+  await expect(page).toHaveURL(cardUrl);
+  await openLimit();
+  await page.getByRole("link", { name: "Pick my own" }).click();
+  await expect(page).toHaveURL(new RegExp(`/applications/${id}/setup/spend-limit/pick${fromCard}`));
+  await page.getByRole("link", { name: "Back to Your suggestion" }).click();
+  await expect(page).toHaveURL(new RegExp(`/applications/${id}/setup/spend-limit/suggestion${fromCard}`));
+  await page.getByRole("button", { name: "Use $150" }).click();
+  await expect(page).toHaveURL(cardUrl);
+  await expect(title(page, "Spend limit")).toContainText("$150 a month");
 
   // Set the days, autopay and a limit as the screens would.
   const saved = await page.request.patch(`/api/v1/applications/${id}`, {
@@ -160,14 +238,14 @@ test("the student's approved card opens on Your dates, and every section's link 
   await page.getByRole("link", { name: "Back to Card details" }).click();
   await expect(page).toHaveURL(new RegExp(`/cards/${DISCOVER.id}\\?from=home$`));
 
-  // Autopay is on: See autopay opens "Autopay is on"; Back returns.
+  // Autopay is on: See autopay opens "Autopay is on"; its back arrow returns.
   await title(page, "Autopay and reminders").click();
   const autopay = page.getByRole("region", { name: "Autopay and reminders" });
   await expect(autopay).toContainText("Autopay · On, statement balance");
   await autopay.getByRole("link", { name: "See autopay" }).click();
-  await expect(page).toHaveURL(new RegExp(`/applications/${id}/setup/autopay/on$`));
-  await page.goBack();
-  await expect(page).toHaveURL(new RegExp(`/cards/${DISCOVER.id}\\?from=home$`));
+  await expect(page).toHaveURL(new RegExp(`/applications/${id}/setup/autopay/on${fromCard}`));
+  await page.getByRole("link", { name: "Back to Card details" }).click();
+  await expect(page).toHaveURL(cardUrl);
 
   // Reminders from the same section.
   await title(page, "Autopay and reminders").click();
@@ -181,8 +259,9 @@ test("the student's approved card opens on Your dates, and every section's link 
   await expect(limit).toContainText("Spend limit · $150 a month");
   await expect(limit).toContainText("Credit limit · $500");
   await limit.getByRole("link", { name: "Change your limit" }).click();
-  await expect(page).toHaveURL(new RegExp(`/applications/${id}/setup/spend-limit/suggestion$`));
-  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`/applications/${id}/setup/spend-limit/suggestion${fromCard}`));
+  await page.getByRole("link", { name: "Back to Card details" }).click();
+  await expect(page).toHaveURL(cardUrl);
 
   // Update status opens Mark result; its Back returns here.
   await page.getByRole("link", { name: "Update status" }).click();

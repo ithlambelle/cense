@@ -402,8 +402,9 @@ function YourCardSections({
 
 // Your dates, Autopay and reminders, and Spend limit, from what the student
 // saved. Each opens the screen that changes it: the payment reminder screen
-// (statement and due day, and the emails; Back and Save return here), the
-// issuer's autopay steps (or "Autopay is on"), and the spend limit screens.
+// (statement and due day, and the emails), the issuer's autopay steps (or
+// "Autopay is on") and the spend limit screens. Each opens with this page as
+// its origin, so its Back and Save return here, as the page was opened.
 function approvedSections(detail: ApplicationDetail, reminders: ReminderStatus, from: CardOrigin | undefined): Section[] {
   const remindersHref = paymentRemindersPath(detail.id, "card", from);
   const datesSet = detail.statementClosingDay !== null && detail.paymentDueDay !== null;
@@ -437,7 +438,7 @@ function approvedSections(detail: ApplicationDetail, reminders: ReminderStatus, 
           <Body>
             <Lines lines={autopayLines(detail, reminders)} />
             <Actions>
-              <Link href={autopayOn ? autopayOnPath(detail.id) : autopayStepsPath(detail.id)} className={TEXT_ACTION}>
+              <Link href={autopayOn ? autopayOnPath(detail.id, "card", from) : autopayStepsPath(detail.id, "card", from)} className={TEXT_ACTION}>
                 {autopayOn ? "See autopay" : "Turn on autopay"}
               </Link>
               <Link href={remindersHref} className={TEXT_ACTION}>
@@ -461,7 +462,7 @@ function approvedSections(detail: ApplicationDetail, reminders: ReminderStatus, 
           <Body>
             <Lines lines={spendLimitLines(detail)} />
             <Actions>
-              <Link href={spendLimitPath(detail.id, detail.creditLimitCents)} className={TEXT_ACTION}>
+              <Link href={spendLimitPath(detail.id, detail.creditLimitCents, "card", from)} className={TEXT_ACTION}>
                 {detail.spendLimitCents === null ? "Set a spend limit" : "Change your limit"}
               </Link>
             </Actions>

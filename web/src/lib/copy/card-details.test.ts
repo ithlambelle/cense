@@ -1,7 +1,7 @@
 // Created with Claude Code (2026-11-19).
 import { describe, expect, it } from "vitest";
 
-import { findCard } from "../cards/catalog";
+import { findCard, listCards } from "../cards/catalog";
 import { CARD_REWARDS, cardRewards, type CardRewards } from "../cards/rewards";
 import { estimateYearOne } from "../results/value";
 import type { CardFit } from "../rules/fit-tier";
@@ -85,10 +85,27 @@ describe("feesSummary and feeLines", () => {
     expect(feeLines(card)).toEqual(["Annual fee · $0", "Foreign fee · 0%", "Credit check · Yes"]);
   });
 
-  it("adds the deposit for a secured card", () => {
+  it("adds the deposit for a secured card, closed and open", () => {
     const card = findCard("capital-one-platinum-secured")!;
     expect(card.secured).toBe(true);
+    expect(card.depositMinCents).toBe(4900);
+    expect(feesSummary(card)).toBe("$0 annual fee · 0% foreign fee · $49 deposit");
     expect(feeLines(card)).toContain(`Deposit · From $${card.depositMinCents / 100}`);
+  });
+
+  it("names the deposit in the closed line of every card that needs one, and only those", () => {
+    const cards = listCards();
+    const withDeposit = cards.filter((card) => card.secured && card.depositMinCents > 0);
+    expect(withDeposit.length).toBeGreaterThan(0);
+    for (const card of cards) {
+      const summary = feesSummary(card);
+      if (withDeposit.includes(card)) expect(summary, card.id).toMatch(/ · \$[\d,]+ deposit$/);
+      else expect(summary, card.id).not.toContain("deposit");
+    }
+    // A secured card with no deposit (money moved in is the limit) says none.
+    const chime = findCard("chime-card")!;
+    expect(chime.secured && chime.depositMinCents === 0).toBe(true);
+    expect(feesSummary(chime)).not.toContain("deposit");
   });
 });
 

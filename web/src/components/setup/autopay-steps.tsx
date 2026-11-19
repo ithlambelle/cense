@@ -6,7 +6,7 @@ import Link from "next/link";
 
 import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import type { Issuer } from "@/lib/cards/issuers";
-import { autopayConfirmPath, cardSetupPath } from "@/lib/routes";
+import { autopayBackLink, autopayConfirmPath, type AutopayOrigin, type CardOrigin } from "@/lib/routes";
 
 import { IssuerLinks } from "./issuer-links";
 import { HandoffStrip, InfoCallout, NumberRow, SetupHeading, SetupScreen, Spacer } from "./setup-parts";
@@ -18,11 +18,28 @@ const GENERAL_STEPS = [
   { title: "Pick the statement balance", detail: "This helps avoid interest. Just make sure you keep enough in your checking." },
 ];
 
-export function AutopaySteps({ applicationId, brand, issuer }: { applicationId: string; brand: string | null; issuer: Issuer | null }) {
+// `from` "card": opened from the card's page (its catalog id and own origin
+// given), so Back returns there and the next screens keep that origin.
+export function AutopaySteps({
+  applicationId,
+  brand,
+  issuer,
+  from = "setup",
+  cardId = null,
+  cardFrom,
+}: {
+  applicationId: string;
+  brand: string | null;
+  issuer: Issuer | null;
+  from?: AutopayOrigin;
+  cardId?: string | null;
+  cardFrom?: CardOrigin;
+}) {
   const name = issuer?.name ?? brand;
   const steps = issuer?.steps ?? GENERAL_STEPS;
+  const confirmHref = autopayConfirmPath(applicationId, from, cardFrom);
   return (
-    <SetupScreen back={{ href: cardSetupPath(applicationId), label: "Card setup" }}>
+    <SetupScreen back={autopayBackLink(applicationId, from, cardId, cardFrom)}>
       <HandoffStrip issuer={name ?? "Your card"} stage="issuer" />
       <SetupHeading>{name ? `Turn on autopay at ${name}` : "Turn on autopay"}</SetupHeading>
       <p className="text-body-m text-indigo-black">
@@ -38,10 +55,10 @@ export function AutopaySteps({ applicationId, brand, issuer }: { applicationId: 
         {name ? `You sign in on ${name}'s own app or site.` : "You sign in on your card's own app or site."}
       </InfoCallout>
       {issuer ? (
-        <IssuerLinks issuer={issuer} confirmHref={autopayConfirmPath(applicationId)} />
+        <IssuerLinks issuer={issuer} confirmHref={confirmHref} />
       ) : (
         // No issuer steps to link to: the student goes on when they are done.
-        <Link href={autopayConfirmPath(applicationId)} className={buttonVariants()}>
+        <Link href={confirmHref} className={buttonVariants()}>
           Next
           <ButtonChevron />
         </Link>

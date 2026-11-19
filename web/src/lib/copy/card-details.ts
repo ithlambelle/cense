@@ -78,9 +78,14 @@ export function rewardsSummary(rewards: CardRewards | null): string {
   return base ? `${lead}, ${rateAmount(base)} on the rest` : lead;
 }
 
-// "Fees and rates", closed: "$0 annual fee · 0% foreign fee".
-export function feesSummary(card: Pick<Card, "annualFeeCents" | "foreignTransactionFeePercent">): string {
-  return `${moneyAmount(card.annualFeeCents)} annual fee · ${card.foreignTransactionFeePercent}% foreign fee`;
+const hasDeposit = (card: Pick<Card, "secured" | "depositMinCents">) => card.secured && card.depositMinCents > 0;
+
+// "Fees and rates", closed: "$0 annual fee · 0% foreign fee", and the
+// smallest deposit when the card needs one ("· $49 deposit"), so a secured
+// card's deposit shows without opening the section.
+export function feesSummary(card: Pick<Card, "annualFeeCents" | "foreignTransactionFeePercent" | "secured" | "depositMinCents">): string {
+  const fees = `${moneyAmount(card.annualFeeCents)} annual fee · ${card.foreignTransactionFeePercent}% foreign fee`;
+  return hasDeposit(card) ? `${fees} · ${moneyAmount(card.depositMinCents)} deposit` : fees;
 }
 
 // "Fees and rates", open: the facts the card page always showed, one a line.
@@ -90,7 +95,7 @@ export function feeLines(
   return [
     `Annual fee · ${moneyAmount(card.annualFeeCents)}`,
     `Foreign fee · ${card.foreignTransactionFeePercent}%`,
-    ...(card.secured && card.depositMinCents > 0 ? [`Deposit · From ${moneyAmount(card.depositMinCents)}`] : []),
+    ...(hasDeposit(card) ? [`Deposit · From ${moneyAmount(card.depositMinCents)}`] : []),
     `Credit check · ${card.runsCreditCheck ? "Yes" : "No"}`,
   ];
 }

@@ -17,7 +17,14 @@ import { SENSITIVE } from "@/lib/analytics";
 import { saveSpendLimit } from "@/lib/api-client/applications";
 import { centsToInput, dollarsToCents, moneyAmount } from "@/lib/money";
 import { SPEND_LIMIT_PERCENT } from "@/lib/plan/spend-limit";
-import { signInPath, spendLimitBackLink, spendLimitPickPath, spendLimitSuggestionPath, type SpendLimitOrigin } from "@/lib/routes";
+import {
+  signInPath,
+  spendLimitBackLink,
+  spendLimitPickPath,
+  spendLimitSuggestionPath,
+  type CardOrigin,
+  type SpendLimitOrigin,
+} from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 import { FRAME_FIELD, InfoCallout, SetupHeading, SetupScreen, Spacer } from "./setup-parts";
@@ -29,6 +36,8 @@ export function SpendLimitPick({
   tighterCents,
   savedCents,
   from,
+  cardId = null,
+  cardFrom,
 }: {
   applicationId: string;
   creditLimitCents: number;
@@ -38,6 +47,10 @@ export function SpendLimitPick({
   // The limit saved before, shown as picked when the student comes back.
   savedCents: number | null;
   from: SpendLimitOrigin;
+  // Opened from the card's page ("card"): its catalog id and its own origin,
+  // so a save returns to that page as it was opened.
+  cardId?: string | null;
+  cardFrom?: CardOrigin;
 }) {
   const router = useRouter();
   const choices = [
@@ -69,7 +82,7 @@ export function SpendLimitPick({
     if (result.kind === "ok") {
       // In place of this screen, so Back does not reopen a saved form. Stays
       // pending while that screen loads, so Save cannot go twice.
-      router.replace(spendLimitBackLink(applicationId, from).href);
+      router.replace(spendLimitBackLink(applicationId, from, cardId, cardFrom).href);
       router.refresh();
       return;
     }
@@ -79,7 +92,7 @@ export function SpendLimitPick({
   }
 
   return (
-    <SetupScreen back={{ href: spendLimitSuggestionPath(applicationId, from), label: "Your suggestion" }}>
+    <SetupScreen back={{ href: spendLimitSuggestionPath(applicationId, from, cardFrom), label: "Your suggestion" }}>
       <form onSubmit={save} noValidate className="flex flex-1 flex-col gap-4">
         <SetupHeading size="h3">Pick your limit</SetupHeading>
         <div role="radiogroup" aria-label="Pick your limit" className={cn(SENSITIVE, "flex flex-col gap-4")}>

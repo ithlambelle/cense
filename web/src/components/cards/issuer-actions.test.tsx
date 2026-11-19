@@ -316,7 +316,12 @@ describe("IssuerActions", () => {
   it("opens no tab until the student confirms in the sheet, and closes the sheet on Not ready yet", async () => {
     render(<IssuerActions signedIn card={card} />);
     fireEvent.click(screen.getByRole("button", { name: APPLY }));
-    expect(await screen.findByRole("dialog", { name: "Apply on the issuer’s site" })).toBeTruthy();
+    const sheet = await screen.findByRole("dialog", { name: "Apply on the issuer’s site" });
+    // Says what Cense never does, including seeing the credit report (no other screen says it now).
+    expect(sheet.textContent).toContain(
+      "Cense doesn’t fill in or submit your application, or see your credit report. Review the issuer’s terms before you submit.",
+    );
+    expect(sheet.textContent).not.toMatch(/—|~/);
     expect(open).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Not ready yet" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());

@@ -284,12 +284,44 @@ describe("CardDetailView, the student's own card (K1)", () => {
     render(<CardDetailView card={catalogCard(DISCOVER)} signedIn tracked={TRACKED} detail={SET_UP} reminders="off" />);
     const autopay = open("Autopay and reminders");
     expect(autopay.getAllByRole("listitem").map((item) => item.textContent)).toEqual(["Autopay · On, statement balance", "Reminders · Off"]);
-    expect(autopay.getByRole("link", { name: "See autopay" }).getAttribute("href")).toBe(`/applications/${ID}/setup/autopay/on`);
+    // Each opens with this page as its origin, so Back and Save return here.
+    expect(autopay.getByRole("link", { name: "See autopay" }).getAttribute("href")).toBe(`/applications/${ID}/setup/autopay/on?from=card`);
     expect(autopay.getByRole("link", { name: "Change reminders" }).getAttribute("href")).toBe(`/applications/${ID}/reminders?from=card`);
     const limit = open("Spend limit");
     expect(limit.getAllByRole("listitem").map((item) => item.textContent)).toEqual(["Spend limit · $150 a month", "Credit limit · $500"]);
     // A credit limit is saved, so the limit opens at the suggestion (S2).
-    expect(limit.getByRole("link", { name: "Change your limit" }).getAttribute("href")).toBe(`/applications/${ID}/setup/spend-limit/suggestion`);
+    expect(limit.getByRole("link", { name: "Change your limit" }).getAttribute("href")).toBe(
+      `/applications/${ID}/setup/spend-limit/suggestion?from=card`,
+    );
+  });
+
+  it("keeps the page's own origin on autopay and spend limit links, so their Back and Save return to it as it was opened", () => {
+    const { unmount } = render(
+      <CardDetailView card={catalogCard(DISCOVER)} signedIn tracked={TRACKED} detail={SET_UP} reminders="on" from="home" />,
+    );
+    expect(open("Autopay and reminders").getByRole("link", { name: "See autopay" }).getAttribute("href")).toBe(
+      `/applications/${ID}/setup/autopay/on?from=card&card_from=home`,
+    );
+    expect(open("Spend limit").getByRole("link", { name: "Change your limit" }).getAttribute("href")).toBe(
+      `/applications/${ID}/setup/spend-limit/suggestion?from=card&card_from=home`,
+    );
+    unmount();
+    render(
+      <CardDetailView
+        card={catalogCard(DISCOVER)}
+        signedIn
+        tracked={{ ...TRACKED, creditLimitCents: null }}
+        detail={NOTHING_SET}
+        reminders="not_set"
+        from="results"
+      />,
+    );
+    expect(open("Autopay and reminders").getByRole("link", { name: "Turn on autopay" }).getAttribute("href")).toBe(
+      `/applications/${ID}/setup/autopay?from=card&card_from=results`,
+    );
+    expect(open("Spend limit").getByRole("link", { name: "Set a spend limit" }).getAttribute("href")).toBe(
+      `/applications/${ID}/setup/spend-limit?from=card&card_from=results`,
+    );
   });
 
   it("says what is not set yet on an approved card with nothing saved, with the way to set each", () => {
@@ -306,12 +338,12 @@ describe("CardDetailView, the student's own card (K1)", () => {
     expect(within(screen.getByRole("region", { name: "Your dates" })).getByRole("link", { name: "Add your dates" })).toBeTruthy();
     expect(section("Autopay and reminders").textContent).toBe("Autopay and remindersAutopay not set yet · reminders not set yet");
     const autopay = open("Autopay and reminders");
-    expect(autopay.getByRole("link", { name: "Turn on autopay" }).getAttribute("href")).toBe(`/applications/${ID}/setup/autopay`);
+    expect(autopay.getByRole("link", { name: "Turn on autopay" }).getAttribute("href")).toBe(`/applications/${ID}/setup/autopay?from=card`);
     expect(autopay.getByRole("link", { name: "Choose your reminders" })).toBeTruthy();
     expect(section("Spend limit").textContent).toBe("Spend limitNot set yet");
     // No credit limit yet: the spend limit asks for it first (S1).
     expect(open("Spend limit").getByRole("link", { name: "Set a spend limit" }).getAttribute("href")).toBe(
-      `/applications/${ID}/setup/spend-limit`,
+      `/applications/${ID}/setup/spend-limit?from=card`,
     );
   });
 
@@ -320,6 +352,11 @@ describe("CardDetailView, the student's own card (K1)", () => {
     for (const title of ["Your dates", "Autopay and reminders", "Spend limit"]) {
       expect(section(title).closest("section")?.className, title).toContain(SENSITIVE);
     }
+  });
+
+  it("shows a secured card's deposit on Fees and rates without opening it", () => {
+    render(<CardDetailView card={catalogCard("capital-one-platinum-secured")} signedIn={false} />);
+    expect(section("Fees and rates").textContent).toBe("Fees and rates$0 annual fee · 0% foreign fee · $49 deposit");
   });
 
   it("shows an applied card's status pill and the issuer's rules, rewards and fees, not dates", () => {
