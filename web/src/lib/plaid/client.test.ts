@@ -47,7 +47,7 @@ describe("Plaid calls", () => {
       country_codes: ["US"],
       user: { client_user_id: "student-uuid" },
       products: ["transactions"],
-      transactions: { days_requested: 180 },
+      transactions: { days_requested: 730 },
       optional_products: ["liabilities"],
       account_filters: { depository: { account_subtypes: ["all"] }, credit: { account_subtypes: ["credit card"] } },
     });
