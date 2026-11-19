@@ -11,12 +11,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ChoiceCard } from "@/components/ui/choice-card";
 import { ErrorMessage } from "@/components/ui/error-message";
-import { SelectionMark } from "@/components/ui/selection-mark";
 import { saveAutopayAnswer } from "@/lib/api-client/applications";
 import { autopayConfirmPath, autopayOnPath, autopayStepsPath, cardSetupPath, signInPath } from "@/lib/routes";
 import { AUTOPAY_ANSWERS } from "@/lib/setup/progress";
-import { cn } from "@/lib/utils";
 
 import { HandoffStrip, InfoCallout, SetupHeading, SetupScreen, Spacer } from "./setup-parts";
 
@@ -54,24 +53,19 @@ export function AutopayConfirm({ applicationId, issuerName }: { applicationId: s
       <SetupHeading size="h3">Did you turn on autopay?</SetupHeading>
       <div role="radiogroup" aria-label="Did you turn on autopay?" className="flex flex-col gap-4">
         {AUTOPAY_ANSWERS.map((option) => (
-          <button
+          <ChoiceCard
             key={option.value}
-            type="button"
             role="radio"
+            state={answer === option.value ? "selected" : "default"}
             aria-checked={answer === option.value}
             disabled={saving}
             onClick={() => {
               setAnswer(option.value);
               setError(null);
             }}
-            className={cn(
-              "flex h-14 w-full items-center justify-between rounded-button border border-violet bg-white pr-4 pl-[18px] text-left text-body-m leading-[normal] font-medium text-indigo-black",
-              "hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress",
-            )}
           >
             {option.label}
-            <SelectionMark selected={answer === option.value} />
-          </button>
+          </ChoiceCard>
         ))}
       </div>
       <Spacer />
