@@ -2,7 +2,7 @@
 -- rules for Plaid transactions in the database (US-14,
 -- 20261106210000_plaid_transactions.sql and
 -- 20261113000000_plaid_transactions_item_binding.sql): who can touch
--- plaid.transactions and its functions, the 180-day window, what counts as
+-- plaid.transactions and its functions, the 730-day window, what counts as
 -- spending, the cap of 10,000 rows per student, that a sync only lands on the
 -- Item and cursor it was read from, and what deletes the rows.
 -- Run with `npx supabase test db` on the local stack (CI does this in the e2e
@@ -15,7 +15,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(60);
+select plan(64);
 
 -- ana and ben have a linked bank, cap fills up to the limit, nobank has none,
 -- and relink disconnects and links a new bank while a sync is in flight.
@@ -58,11 +58,13 @@ select ok((select relrowsecurity from pg_class where oid = 'plaid.transactions':
 select is(
   (select array_agg(column_name::text order by column_name::text) from information_schema.columns
    where table_schema = 'plaid' and table_name = 'transactions'),
-  array['account_id', 'amount_cents', 'category', 'category_detailed', 'description', 'merchant_name', 'payment_app',
-    'pending', 'posted_on', 'student_id', 'transaction_id'],
+  array['account_id', 'amount_cents', 'category', 'category_detailed', 'counterparty_name', 'description',
+    'location_city', 'location_state', 'merchant_name', 'payment_app', 'pending', 'posted_on', 'student_id',
+    'transaction_id'],
   -- The bank's description and the payment app were added on purpose (Ben,
-  -- Nov 15, 20261116000000): they tell a parent's Zelle from a cash-out.
-  'only the kept fields exist: no location, counterparty list or payment details');
+  -- Nov 15, 20261116000000): they tell a parent's Zelle from a cash-out. The
+  -- other party's name and the city and state too (Nov 18, 20261119000000).
+  'only the kept fields exist: no street address, coordinates, counterparty list or payment details');
 
 select ok(not has_function_privilege('anon', 'public.plaid_transactions_cursor(text)', 'execute'), 'anon cannot read a cursor');
 select ok(not has_function_privilege('anon', 'public.apply_plaid_transactions_sync(text, text, jsonb, jsonb, jsonb, text)', 'execute'),
@@ -92,8 +94,8 @@ select is(public.apply_plaid_transactions_sync('item-ana', null,
     pg_temp.txn('ana-transfer', 4, 5000, 'TRANSFER_OUT'),
     pg_temp.txn('ana-loan', 6, 3000, 'LOAN_PAYMENTS'),
     pg_temp.txn('ana-pay', 2, -48000, 'INCOME'),
-    pg_temp.txn('ana-edge', 180, 777),
-    pg_temp.txn('ana-old', 181, 999)),
+    pg_temp.txn('ana-edge', 730, 777),
+    pg_temp.txn('ana-old', 731, 999)),
   '[]', '[]', 'c1'), true, 'a student saves their own sync');
 select is(public.plaid_transactions_cursor('item-ana'), 'c1', 'and the cursor moves with it');
 select is(public.plaid_transactions_cursor('item-other'), null, 'a cursor is read only for the caller''s own Item');
@@ -105,12 +107,22 @@ select throws_ok($$delete from plaid.transactions$$, '42501', null, 'a student c
 select is((select sum(spent_cents)::bigint from public.spending_by_category(3)), 1200::bigint,
   'spending leaves out pending items, transfers and loan payments');
 select is((select sum(income_cents)::bigint from public.income_by_month(3)), 48000::bigint, 'income counts money marked INCOME');
+select is(public.apply_plaid_transactions_sync('item-ana', 'c1',
+  jsonb_build_array(pg_temp.txn('ana-trip', 10, 2500)
+    || '{"counterparty_name": "Blue Bottle Coffee", "location_city": "Brooklyn", "location_state": "NY"}'),
+  '[]', '[]', 'c1-trip'), true, 'a sync saves the other party and the city and state');
+-- back to c1, which the cursor checks below expect
+select is(public.apply_plaid_transactions_sync('item-ana', 'c1-trip', '[]', jsonb_build_array(pg_temp.txn('ana-trip', 10, 2600)), '[]', 'c1'), true,
+  'a later sync without them still runs');
 reset role;
+select is((select counterparty_name || ' / ' || location_city || ', ' || location_state || ' / ' || amount_cents
+           from plaid.transactions where transaction_id = 'ana-trip'),
+  'Blue Bottle Coffee / Brooklyn, NY / 2600', 'and never wipes them, while updating the rest');
 
 select is((select count(*)::int from plaid.transactions where transaction_id = 'ana-old'), 0,
-  'a transaction 181 days old is never stored');
+  'a transaction 731 days old is never stored');
 select is((select count(*)::int from plaid.transactions where transaction_id = 'ana-edge'), 1,
-  'one exactly 180 days old is kept');
+  'one exactly 730 days old is kept');
 select is((select merchant_name || ' / ' || account_id from plaid.transactions where transaction_id = 'ana-food'),
   'Chipotle / acc-1', 'the merchant name and account id are kept for bill detection and card spending');
 
@@ -144,12 +156,15 @@ reset role;
 
 -- the daily purge
 insert into plaid.transactions (student_id, transaction_id, account_id, posted_on, amount_cents)
-values ('d0000000-0000-4000-8000-000000000001', 'ana-stale', 'acc-1', current_date - 200, 500);
+values ('d0000000-0000-4000-8000-000000000001', 'ana-stale', 'acc-1', current_date - 800, 500),
+  ('d0000000-0000-4000-8000-000000000001', 'ana-last-year', 'acc-1', current_date - 400, 500);
 set local role service_role;
-select is(public.purge_old_plaid_transactions(), 1, 'the purge deletes what is older than 180 days');
+select is(public.purge_old_plaid_transactions(), 1, 'the purge deletes what is older than 730 days');
 reset role;
 select is((select count(*)::int from plaid.transactions where transaction_id in ('ana-stale', 'ana-edge')), 1,
-  'and keeps what is 180 days old or newer');
+  'and keeps what is 730 days old or newer');
+select is((select count(*)::int from plaid.transactions where transaction_id = 'ana-last-year'), 1,
+  'a transaction from last year (400 days) is kept');
 
 -- the cap: 10,000 rows per student
 insert into plaid.transactions (student_id, transaction_id, account_id, posted_on, amount_cents)
