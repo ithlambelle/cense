@@ -182,6 +182,12 @@ registry.registerPath({
   responses: { 200: ok(privacySettingsSchema), 400: failure("Invalid setting"), 404: failure("Profile not found"), ...protectedResponses },
 });
 registry.registerPath({
+  method: "put", path: "/me/welcome", operationId: "markWelcomed", summary: "Mark the first sign-in welcome as seen",
+  description: "Saves when the student tapped Let's go on the welcome (profiles.welcomed_at), so sign-in never shows it again. Keeps the first time; a repeat changes nothing.",
+  security: [{ studentSession: [] }],
+  responses: { 204: { description: "Welcome marked as seen" }, 404: failure("Profile not found"), ...protectedResponses },
+});
+registry.registerPath({
   method: "get", path: "/cards", operationId: "listCards", summary: "List curated student cards",
   responses: { 200: ok(z.strictObject({ cards: z.array(cardContract) })), 503: failure("Catalog unavailable") },
 });

@@ -1,0 +1,102 @@
+/* Created with Claude Code (2026-11-19). Motion for the first sign-in welcome
+   (Flow 1, W1 821:8422 and W2 821:8466). CSS only, as the design system asks
+   (a script-driven entrance can leave a screen at opacity 0 in a background
+   tab). Transform and opacity only. With reduced motion nothing moves: the
+   words, Penny and the stars are simply there, and W1 still gives way to W2. */
+
+/* Each star: its place and turn change with the stage (W1 to W2). */
+.starSlot {
+  position: absolute;
+  display: block;
+  transition:
+    left 700ms var(--ease-out-soft),
+    top 700ms var(--ease-out-soft),
+    transform 700ms var(--ease-out-soft);
+}
+
+/* The star's images share one cell, so W1's state fades into W2's. */
+.starLight {
+  display: grid;
+  place-items: center;
+  animation: star-light 420ms var(--ease-out-soft) var(--star-delay, 0ms) backwards;
+}
+
+.starKind {
+  grid-area: 1 / 1;
+  display: block;
+  max-width: none;
+  transition: opacity 500ms ease-out;
+}
+
+/* W1: Penny floats in, then keeps floating gently. */
+.pennyFloats {
+  animation:
+    penny-floats-in 700ms var(--ease-out-soft) backwards,
+    penny-float 3.2s ease-in-out 700ms infinite;
+}
+
+/* W1's words follow Penny. */
+.wordsIn {
+  animation: words-in 480ms var(--ease-out-soft) 250ms backwards;
+}
+
+/* W2: the thumbs-up Penny, her words, then the button. */
+.pennyThumbsUp {
+  animation: penny-thumbs-up 480ms var(--ease-out-soft) backwards;
+}
+
+.goIn {
+  animation: words-in 480ms var(--ease-out-soft) var(--go-delay, 120ms) backwards;
+}
+
+@keyframes star-light {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+}
+
+@keyframes penny-floats-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 28px, 0);
+  }
+}
+
+@keyframes penny-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -6px, 0);
+  }
+}
+
+@keyframes words-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+}
+
+@keyframes penny-thumbs-up {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .starSlot,
+  .starKind {
+    transition: none;
+  }
+  .starLight,
+  .pennyFloats,
+  .wordsIn,
+  .pennyThumbsUp,
+  .goIn {
+    animation: none;
+  }
+}

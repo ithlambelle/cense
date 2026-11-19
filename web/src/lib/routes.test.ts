@@ -76,6 +76,10 @@ describe("allowedNext", () => {
     "/learn/penny?answer=credit-score",
     "/learn/Credit",
     "/learn/a/b",
+    // First sign-in's screens: only /start decides who sees them.
+    "/start/welcome",
+    "/start/link-bank",
+    "/start/next-step",
     "quiz",
     "",
   ])("drops %j", (path) => {
@@ -216,6 +220,9 @@ describe("the quiz and the waiting screen go back where they were opened from", 
     expect(quizBackHref("results")).toBe("/results");
     expect(quizPath("account")).toBe("/quiz?from=account");
     expect(quizBackHref("account")).toBe("/settings");
+    // First sign-in's Your next step (N3): "Not yet" opens it, Back returns.
+    expect(quizPath("start")).toBe("/quiz?from=start");
+    expect(quizBackHref("start")).toBe("/start/next-step");
     for (const other of [undefined, "home", "https://evil.example", ["cards", "cards"]]) expect(quizBackHref(other)).toBe("/home");
   });
 
