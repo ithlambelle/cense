@@ -1,9 +1,20 @@
 name: Penny eval
 
 # Asks the real model every question in Penny's test set (S34) when Penny's
-# prompt, answers, test set or model call change. Needs the repository secret
-# ANTHROPIC_API_KEY; without it the script says so and passes. Costs roughly
-# 50 cents a run. The parts that need no model run in CI's web job.
+# prompt, answers, test set or model call change. Costs roughly 50 cents a
+# run. The parts that need no model run in CI's web job.
+#
+# This job runs a pull request's own code (npm ci, the eval script, Penny's
+# files) with a real API key, so any code in the pull request could read the
+# key. The key is therefore an environment secret of the "penny-eval"
+# environment, not a repository secret, and that environment needs a required
+# reviewer: every run waits until the reviewer has read the pull request's
+# whole diff (package.json and any workflow file included) and approves it.
+# A new push makes a new run that needs a new approval. Without the secret
+# (fork pull requests get none) the script says so and passes. GitHub creates
+# a missing environment on first use with no reviewer, so the owner sets it up
+# (README, "Ask Penny") and deletes the old repository secret before this
+# change merges.
 on:
   pull_request:
     paths:
@@ -17,13 +28,17 @@ permissions:
 jobs:
   penny-eval:
     runs-on: ubuntu-latest
+    environment: penny-eval
     timeout-minutes: 15
     defaults:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # The pull request's code never gets the repository token either.
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
