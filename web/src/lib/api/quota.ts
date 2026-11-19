@@ -47,9 +47,13 @@ export async function claimQuota(
 }
 
 // The daily purge (run by the reminders cron with the service role): deletes
-// quota rows older than two days, so a deleted student's id is gone within
-// two days even when nobody claims. Never throws; a failure logs only the
-// database's code and is tried again tomorrow.
+// quota rows older than two days and sign-in attempt records older than one
+// day (20261119090000_purge_auth_attempts.sql), even when nobody claims. The
+// cron runs in the 13:00 UTC hour, so two runs can be up to 25 hours apart:
+// a deleted student's id is gone within 3 days and 1 hour, and the hashed
+// emails and IPs of sign-in tries within 2 days and 1 hour, on days the job
+// runs. Never throws; a failure logs only the database's code and is tried
+// again tomorrow.
 export async function purgeOldQuotaRows(service: ServiceClient): Promise<{ ok: true; deleted: number } | { ok: false; code: string | null }> {
   try {
     const { data, error } = await service.rpc("purge_old_quota_rows");

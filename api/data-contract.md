@@ -3,7 +3,8 @@
 This is the handoff between the API branch and the database branch. SQL migrations,
 row level security policies, and Supabase project setup belong to the database
 owner. The API uses the student's Supabase Auth UUID as `student_id` and always
-queries as that student, never with a service role key.
+queries as that student, never with a service role key, except in the
+server-only cases listed under "Authorization and response rules".
 
 ## Required tables
 
@@ -59,50 +60,65 @@ review sites for estimates, on 2026-10-15; 13 are `recommend`.
   owner column equals `auth.uid()` for the current signed-in student.
 - Every protected route verifies the Supabase user before querying. Return
   `401` for an absent or invalid session and `404` for another user's record.
-- The API never uses the service role key in student routes. The one exception
-  is the two reminder routes below, which are not student requests: the daily
-  cron job has no student session at all, and the unsubscribe link is opened
-  by a student who is not signed in, so a signed token stands in for the
-  session. Both create the service client in `web/src/lib/supabase/service.ts`
-  (server only) and call only the functions made for them, never a table,
-  with one read-only exception: before sending a server analytics event they
-  read the student's `profiles.analytics_opted_out_at` (the Analytics switch)
-  and send nothing for a student who turned it off or when the read fails.
-  A second exception: the daily limits on typed Penny questions and
-  confirmation emails (`web/src/lib/api/quota.ts`) use the service client only
-  to call `claim_penny_ask` and `claim_confirmation_email` with the id of the
-  student in the verified session, so a student cannot call the claims
-  directly and use up the shared allowance for everyone.
-- The sign-in routes (`/auth/email`, `/auth/email/verify`, `/auth/password/signup`,
-  `/auth/password/signup/confirm`, `/auth/password/signin`, `/auth/password/reset`
-  and `POST /auth/password/reset/verify`) also use the service client, before
-  anyone is signed in, for one call only: `claim_auth_attempt(action, email, ip)`
-  (`web/src/lib/auth/throttle.ts`). It counts tries in `auth_throttle_events`,
-  which nobody else can read or write. Per email and IP together, over 10
-  minutes: 5 emails sent, 10 code checks, 10 password tries (and 20 code checks
-  a day). Per email alone: 30 emails and 50 password tries per 10 minutes, 50
-  code checks a day. Per IP: 300 emails and 600 checks per 10 minutes. Emails
-  are counted lowercased, trimmed and without a +tag; IPv6 by its /64; the IP
-  is Vercel's `x-forwarded-for`, trusted only on Vercel. The tight limits are
-  per email and IP so nobody can use up another student's tries from their own
-  address. What is left: an attacker with many addresses can still reach the
-  per-email ceilings and block that email for up to 10 minutes (up to a day
-  for code checks, which takes at least 3 addresses); Google sign-in is never
-  blocked. Past a limit the route answers `429` `rate_limited`, "Too many
-  tries. Try again in N minutes." (or hours), with `Retry-After`, before
-  Supabase is called. A refused try is not counted. When the count cannot be
-  checked (the call fails or takes over 3 seconds, or production has no key),
-  code and password checks answer `503` `sign_in_busy`, "Sign-in is busy right
-  now. Try again in a minute.", and emails and reset links go ahead; both are
-  logged.
+- The API never uses the service role key in student routes. Exceptions, each
+  through the service client in `web/src/lib/supabase/service.ts` (server
+  only) and each doing only what is listed: the database functions made for
+  it, never a table, apart from the Analytics switch read and the account
+  deletion named below.
+  - The daily cron job (`GET /api/v1/cron/reminders`), which has no student
+    session at all: reminder emails (`refresh_all_reminders`,
+    `claim_due_reminders`, `mark_reminder_sent`, `release_reminder_claim`),
+    in-app follow-ups (`raise_reminder_follow_ups`), the bank transaction purge
+    (`purge_old_plaid_transactions`), the limit count and sign-in attempt
+    record purge (`purge_old_quota_rows`), and deleted-account Plaid cleanup
+    (`claim_plaid_account_cleanup`, `finish_plaid_account_cleanup`). Before
+    sending a server analytics event it reads the student's
+    `profiles.analytics_opted_out_at` (the Analytics switch), and sends nothing
+    for a student who turned it off or when the read fails.
+  - The unsubscribe link (`/api/v1/reminders/unsubscribe`), opened by a student
+    who is not signed in, so a signed token stands in for the session:
+    `unsubscribe_reminders`, then the same Analytics switch read.
+  - Account deletion (`DELETE /me`): `plaid_account_cleanup_ready` to check the
+    cleanup trigger, then the Auth admin call that deletes the authenticated
+    student's own auth record.
+    The auth trigger queues encrypted Plaid cleanup in the same transaction as
+    deletion.
+  - Sign-in limits (`web/src/lib/auth/throttle.ts`): the sign-in routes
+    (`/auth/email`, `/auth/email/verify`, `/auth/password/signup`,
+    `/auth/password/signup/confirm`, `/auth/password/signin`,
+    `/auth/password/reset` and `POST /auth/password/reset/verify`) call
+    `claim_auth_attempt(action, email, ip)` and nothing else, before anyone is
+    signed in. It counts tries in `auth_throttle_events`, which only that
+    function and the daily purge touch. Each row holds only a SHA-256 of the
+    key (email, email and IP, or IP), the bucket and the time; the daily cron's
+    `purge_old_quota_rows()` deletes rows older than a day
+    (`20261119090000_purge_auth_attempts.sql`), so none stays more than 2 days
+    and 1 hour on days the job runs. Per email and IP together, over 10
+    minutes: 5 emails sent, 10 code checks, 10 password tries (and 20 code
+    checks a day). Per email alone: 30 emails and 50 password tries per 10
+    minutes, 50 code checks a day. Per IP: 300 emails and 600 checks per 10
+    minutes. Emails are counted lowercased, trimmed and without a +tag; IPv6 by
+    its /64; the IP is Vercel's `x-forwarded-for`, trusted only on Vercel. The
+    tight limits are per email and IP so nobody can use up another student's
+    tries from their own address. What is left: an attacker with many
+    addresses can still reach the per-email ceilings and block that email for
+    up to 10 minutes (up to a day for code checks, which takes at least 3
+    addresses); Google sign-in is never blocked. Past a limit the route answers
+    `429` `rate_limited`, "Too many tries. Try again in N minutes." (or hours),
+    with `Retry-After`, before Supabase is called. A refused try is not
+    counted. When the count cannot be checked (the call fails or takes over 3
+    seconds, or production has no key), code and password checks answer `503`
+    `sign_in_busy`, "Sign-in is busy right now. Try again in a minute.", and
+    emails and reset links go ahead; both are logged.
+  - Ask Penny and confirmation email limits (`web/src/lib/api/quota.ts`):
+    `claim_penny_ask` and `claim_confirmation_email`, with the id of the
+    student in the verified session, so a student cannot call the claims
+    directly and use up the shared allowance for everyone.
 - Opening a reset link cannot protect a student who is signed out: if they
   tap Continue on a link someone else asked for, they are signed in to that
   person's account. Set a new password names the account's email, so they can
   see it is not theirs; that is the guard.
 - Money is integer cents. Timestamps in API responses are UTC ISO 8601 strings.
-- `DELETE /me` also uses the service client solely to check the cleanup trigger
-  and delete the authenticated student's own auth record. The auth trigger
-  queues encrypted Plaid cleanup in the same transaction as deletion.
 - Errors use `{ "error": { "code": string, "message": string, "details"?: unknown } }`.
 - Responses containing student data send `Cache-Control: no-store`.
 
@@ -160,7 +176,7 @@ empty catalog or on client-authored ranking.
 
 ## Account deletion and deferred Plaid cleanup
 
-`20261109160000_plaid_account_cleanup.sql` is applied to cense-preview, the hosted Supabase project the live site uses, by hand in the SQL editor (2026-11-09), before the code that calls it merges. It follows the bank-link schema and is independent of #94's transaction-storage migration; it neither modifies nor purges transactions. The route checks `plaid_account_cleanup_ready()` before deleting analytics or auth, and returns 503 on an unmigrated database rather than losing a token.
+`20261109160000_plaid_account_cleanup.sql` is applied by hand in the SQL editor: production has it, and cense-preview got it on 2026-11-18, when a check that day found it missing there. It follows the bank-link schema and is independent of #94's transaction-storage migration; it neither modifies nor purges transactions. The route checks `plaid_account_cleanup_ready()` before deleting analytics or auth, and returns 503 on an unmigrated database rather than losing a token.
 
 The existing authenticated daily reminders cron also runs `runAccountCleanup` concurrently, even if email settings are missing. It decrypts tokens only on the server and calls Plaid `/item/remove`. The response includes `plaidCleanup` counts only. Cleanup reuses the service client after the cron’s service-role check and keeps claiming five-row batches until no due work remains or 30 seconds from request start have elapsed. Each batch uses at most five parallel 10-second Plaid requests. A separate optional `PLAID_CLEANUP_HEARTBEAT_URL` check reports failures, unreadable tokens, unavailable cleanup, or a drain deferred by the budget, until a row has had 5 unreadable failures in a row and is given up (`gaveUp`, logged once, failing the check for that run only; Plaid errors are never given up); it never changes the reminder-delivery heartbeat. Encrypted rows remain for retry. Preserve `PLAID_TOKEN_KEY` until all tokens sealed under it have been cleaned up. A crashed worker's lease expires after 15 minutes; claim IDs prevent a stale worker acknowledging a newer attempt.
 

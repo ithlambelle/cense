@@ -118,6 +118,8 @@ describe("DeniedPlanView", () => {
     render(<DeniedPlanView applicationId={ID} />);
     await screen.findByText("0 of 5 done");
     const row = screen.getByRole("button", { name: /^Check your credit reports/ });
+    // Decision D6: the reports are free every week, not once a year.
+    expect(row.textContent).toContain("Free every week. Not urgent.");
     expect(row.getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(row);
     expect(row.getAttribute("aria-expanded")).toBe("true");

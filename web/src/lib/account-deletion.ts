@@ -41,8 +41,9 @@ export function accountDeletionConfig(env: Record<string, string | undefined> = 
 // Deletes the PostHog person known by the student's id (S36: the same id as
 // the database), queueing its events and recordings for deletion with it.
 // True when PostHog accepted it, including when it had no such person (the
-// student never had analytics on). PostHog deletes events in a weekly batch,
-// within the 30 days the privacy policy promises.
+// student never had analytics on). PostHog removes the person, usually
+// within minutes, and the events later, in a batch it runs at quiet times
+// (weekends on PostHog Cloud), not at once.
 // https://posthog.com/docs/privacy/data-deletion
 export async function deletePostHogPerson(studentId: string, posthog: PostHogAdmin, fetchFn: typeof fetch = fetch): Promise<boolean> {
   try {
