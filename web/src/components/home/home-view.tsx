@@ -10,6 +10,7 @@ import Link from "next/link";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 
 import { ApprovalHeading, ApprovedCard, StarConfetti } from "@/components/home/approved-card";
+import { ComingUp } from "@/components/home/coming-up";
 import { DeniedCard } from "@/components/home/denied-card";
 import { ReminderArrival } from "@/components/home/reminder-arrival";
 import { Greeting } from "@/components/home/greeting";
@@ -25,6 +26,7 @@ import { cardDisplayName, cardTypeLabel, NO_CARD_FALLBACK, RESULT_HEADLINES } fr
 import { SENSITIVE } from "@/lib/analytics";
 import type { Application } from "@/lib/api/application";
 import type { SafeToSpend } from "@/lib/api/safe-to-spend";
+import type { ComingUpRow } from "@/lib/home/coming-up";
 import { ALL_REMINDERS_ON, celebrating, paymentReminderOn, type CardDetail, type HomeState, type StarSettings } from "@/lib/home/state";
 import { moneyAmount } from "@/lib/money";
 import { quizProgress } from "@/lib/quiz/progress";
@@ -46,7 +48,8 @@ type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 // celebrated once. `sampleStars` is for the dev gallery only: the approved or
 // denied card shows these stars and never calls the API (its sample card does
 // not exist there). `safeToSpend` is the student's sandbox bank link (null:
-// none yet); left out when safe to spend is off.
+// none yet); left out when safe to spend is off. `comingUp` is Coming up's
+// rows (D1): the dates ahead, shown under the card module when there are any.
 export function HomeView({
   state,
   initial,
@@ -56,6 +59,7 @@ export function HomeView({
   fromReminder = null,
   sampleStars,
   safeToSpend,
+  comingUp = [],
 }: {
   state: HomeState;
   initial: string;
@@ -65,6 +69,7 @@ export function HomeView({
   fromReminder?: ReminderKind | null;
   sampleStars?: number;
   safeToSpend?: SafeToSpend | null;
+  comingUp?: ComingUpRow[];
 }) {
   const celebrate = celebrating(state, celebrateId);
   return (
@@ -101,6 +106,7 @@ export function HomeView({
             celebrate={celebrate}
             sampleStars={sampleStars}
             top={safeToSpend !== undefined ? <SafeToSpendHome safeToSpend={safeToSpend} preview={!celebrate} /> : null}
+            ahead={<ComingUp rows={comingUp} />}
           />
         </main>
         {celebrate ? <StarConfetti /> : null}
@@ -120,6 +126,7 @@ function HomeContent({
   celebrate,
   sampleStars,
   top,
+  ahead,
 }: {
   state: HomeState;
   detail: CardDetail | null;
@@ -128,6 +135,9 @@ function HomeContent({
   sampleStars?: number;
   // Safe to spend, shown right after the greeting.
   top: ReactNode;
+  // Coming up: right after the leading card's module (safe to spend stays
+  // first, above the card module: Ben, Nov 15), before any other cards.
+  ahead: ReactNode;
 }) {
   if (state.kind === "no_quiz") {
     return (
@@ -144,6 +154,7 @@ function HomeContent({
         >
           I already have a card
         </Link>
+        {ahead}
       </>
     );
   }
@@ -159,6 +170,7 @@ function HomeContent({
           body={state.reason ?? NO_CARD_FALLBACK}
           action={{ href: ROUTES.results, label: "See why" }}
         />
+        {ahead}
       </>
     );
   }
@@ -200,6 +212,7 @@ function HomeContent({
             action={{ href: ROUTES.results, label: "See why" }}
           />
         )}
+        {ahead}
       </>
     );
   }
@@ -219,6 +232,7 @@ function HomeContent({
           celebrate={celebrate}
           sampleStars={sampleStars}
         />
+        {ahead}
         {others.length > 0 ? <OtherCards applications={others} /> : null}
       </>
     );
@@ -233,6 +247,7 @@ function HomeContent({
           reason={detail?.denialReason ?? null}
           sampleStars={sampleStars}
         />
+        {ahead}
         {others.length > 0 ? <OtherCards applications={others} /> : null}
       </>
     );
@@ -243,6 +258,7 @@ function HomeContent({
       {top}
       <TrackedCard application={primary} />
       <TrackedNextStep application={primary} />
+      {ahead}
       {others.length > 0 ? <OtherCards applications={others} /> : null}
     </>
   );

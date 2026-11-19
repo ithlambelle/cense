@@ -36,8 +36,10 @@ const googleFont = Google_Sans({
 const numberFont = Unbounded({
   variable: "--font-unbounded",
   subsets: ["latin"],
-  // 600 for Home's credit limit figure (Figma 477:1528, Unbounded SemiBold).
-  weight: ["400", "500", "600"],
+  // 600 for Home's credit limit figure (Figma 477:1528, Unbounded SemiBold),
+  // 700 for the safe to spend number on Home and Your money (the designers'
+  // hero, 709:1473 and 709:1528, Unbounded Bold).
+  weight: ["400", "500", "600", "700"],
   // Used on Home, results, card pages and the denial steps, not on Welcome,
   // where preloading it competed with the mascot image.
   preload: false,
