@@ -10,28 +10,28 @@ import type { StoreResult } from "./store";
 // A student's transactions for budgeting (US-14, the US-09 spec in #87):
 // Plaid's Transactions Sync, saved through apply_plaid_transactions_sync()
 // (supabase/migrations/20261106210000_plaid_transactions.sql), which keeps the
-// last 180 days in the private plaid schema. Students only ever get monthly
+// last 730 days (2 years, 20261119000000) in the private plaid schema. Students only ever get monthly
 // totals back. Logs carry kinds and counts, never an amount, a merchant or a
 // transaction id. Merchant names are kept for our own recurring-bill
 // detector; account ids tell card spending from debit spending. The bank's
 // description and the payment app tell a person's payment from the student
 // moving their own money (Ben, Nov 15; 20261116000000).
 
-// Sync pages are up to 500 transactions; 20 pages is far more than 180 days
+// Sync pages are up to 500 transactions; 20 pages is far more than 2 years
 // of a student's spending. The database refuses a sync that would keep more
 // than 20 x 500 = 10,000 rows for one student (errcode 54000).
 export const MAX_SYNC_PAGES = 20;
 
 // Transactions posted before this many days ago are dropped here, before
 // they reach the database, which skips them too and purges them daily.
-export const KEEP_DAYS = 180;
+export const KEEP_DAYS = 730;
 
 const CATEGORY = /^[A-Z_]{1,64}$/;
 const CATEGORY_DETAILED = /^[A-Z_]{1,100}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 // The oldest posted date kept, as YYYY-MM-DD: KEEP_DAYS before today in UTC,
-// the database's current_date - 180.
+// the database's current_date - 730.
 export function oldestKeptDate(now: Date = new Date()): string {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - KEEP_DAYS)).toISOString().slice(0, 10);
 }
@@ -175,7 +175,7 @@ export async function syncStudentTransactions(
 }
 
 // The daily purge (US-14): deletes every student's transactions older than
-// 180 days, including students who stopped syncing. Run by the daily cron with the
+// 730 days, including students who stopped syncing. Run by the daily cron with the
 // service role. Never throws; a failure logs only the database's code.
 export async function purgeOldTransactions(service: ServiceClient): Promise<{ ok: true; deleted: number } | { ok: false; code: string | null }> {
   try {
