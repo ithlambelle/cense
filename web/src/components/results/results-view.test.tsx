@@ -139,8 +139,8 @@ describe("ResultsView", () => {
     const buttons = topMatch.getAllByRole("button");
     expect(buttons.map((button) => button.textContent)).toEqual([PREAPPROVAL_LABEL, `Apply at ${top.card.brand}`]);
     expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
-      `${PREAPPROVAL_LABEL}: ${name}`,
-      `Apply at ${top.card.brand}: ${name}`,
+      `${PREAPPROVAL_LABEL}: ${name}, opens in a new tab`,
+      `Apply at ${top.card.brand}: ${name}, opens in a new tab`,
     ]);
     expect(buttons[0].className).toContain("bg-violet");
     expect(buttons[1].className).toContain("border-violet");
@@ -154,7 +154,7 @@ describe("ResultsView", () => {
     expect(chime.preapprovalUrl).toBeNull();
     render(<ResultsView view={{ ...view, options: [{ ...top, card: chime }, ...rest] }} />);
     const buttons = within(screen.getByRole("region", { name: "Top match" })).getAllByRole("button");
-    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual(["Apply at Chime: Chime Card"]);
+    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual(["Apply at Chime: Chime Card, opens in a new tab"]);
     expect(buttons[0].className).toContain("bg-violet");
     expect(screen.queryByRole("button", { name: new RegExp(PREAPPROVAL_LABEL) })).toBeNull();
   });

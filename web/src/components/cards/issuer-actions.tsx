@@ -44,7 +44,7 @@ type IssuerActionsProps = {
 // shared with the top match on Your match.
 export function IssuerActions({ card, notes, signedIn, tracked = false }: IssuerActionsProps) {
   const router = useRouter();
-  const handOff = useIssuerHandOff(card, cardPath(card.id));
+  const handOff = useIssuerHandOff(card, cardPath(card.id), "card_page");
   const { stage, setStage, error, setError, openIssuer } = handOff;
 
   function start(kind: IssuerKind) {

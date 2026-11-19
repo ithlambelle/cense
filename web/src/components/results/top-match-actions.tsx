@@ -10,13 +10,16 @@
 // frame's flow: "Taps either button", then the issuer's page opens and Cense
 // logs the click); the card page's explaining sheet is not on this screen.
 // The click is saved and copied to analytics exactly as on the card page
-// (issuer-hand-off.tsx).
+// (issuer-hand-off.tsx), with source "results". The card page's lines under
+// its buttons, and a referral disclosure, are kept here too: the frame does not
+// draw them (left for Ben and design to confirm).
 
 import { BlockedTabLink, DidYouApply, HandOffDone, useIssuerHandOff } from "@/components/cards/issuer-hand-off";
 import { SeeDetailsLink } from "@/components/results/see-details-link";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
-import { applyAtLabel, PREAPPROVAL_LABEL } from "@/lib/copy/issuer";
+import { NoteLine } from "@/components/ui/note";
+import { applyAtLabel, HAND_OFF_LINE, PREAPPROVAL_LABEL, PREAPPROVAL_LINE } from "@/lib/copy/issuer";
 import { cardDisplayName } from "@/lib/copy/results";
 import { ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -31,9 +34,12 @@ const PRIMARY = cn(WRAPS, "text-left");
 // centered, 20/18 insets; pressed is the 15% Amethyst tint (371:2843).
 const SECONDARY = cn(WRAPS, "pr-4.5 pl-5 text-center text-button text-violet active:bg-violet/15");
 
+// Either button opens the issuer in a new tab straight away, so its name says so.
+const NEW_TAB = "opens in a new tab";
+
 type TopMatchActionsProps = {
   // Only the fields this client component reads.
-  card: { id: string; brand: string; name: string };
+  card: { id: string; brand: string; name: string; referralDisclosure: string | null };
   // The catalog has a preapproval check for this card.
   hasPreapproval: boolean;
   // The student already tracks this card (any status), so it shows "See
@@ -45,7 +51,7 @@ type TopMatchActionsProps = {
 };
 
 export function TopMatchActions({ card, hasPreapproval, tracked, detailsHref }: TopMatchActionsProps) {
-  const handOff = useIssuerHandOff(card, ROUTES.results);
+  const handOff = useIssuerHandOff(card, ROUTES.results, "results");
   const { stage, error, openIssuer } = handOff;
   const name = cardDisplayName(card);
 
@@ -62,21 +68,28 @@ export function TopMatchActions({ card, hasPreapproval, tracked, detailsHref }: 
   if (tracked) return <SeeDetailsLink href={detailsHref} cardName={name} />;
 
   const opening = stage.name === "opening" ? stage.kind : null;
+  // -mt-1.5: the frame puts the buttons 10px under the row above, where the
+  // card's own gap is 16px.
   return (
-    <div className="relative z-1 flex flex-col gap-2.5">
+    <div className="relative z-1 -mt-1.5 flex flex-col gap-2.5">
       {hasPreapproval ? (
-        <Button
-          aria-label={`${PREAPPROVAL_LABEL}: ${name}`}
-          className={PRIMARY}
-          pending={opening === "preapproval"}
-          disabled={opening === "apply"}
-          onClick={() => openIssuer("preapproval")}
-        >
-          {PREAPPROVAL_LABEL}
-        </Button>
+        <>
+          <Button
+            aria-label={`${PREAPPROVAL_LABEL}: ${name}, ${NEW_TAB}`}
+            className={PRIMARY}
+            pending={opening === "preapproval"}
+            disabled={opening === "apply"}
+            onClick={() => openIssuer("preapproval")}
+          >
+            {PREAPPROVAL_LABEL}
+          </Button>
+          <NoteLine className="text-center">{PREAPPROVAL_LINE}</NoteLine>
+        </>
       ) : null}
+      {/* Shown before Apply, as the card page's apply sheet does. */}
+      {card.referralDisclosure !== null ? <NoteLine>{card.referralDisclosure}</NoteLine> : null}
       <Button
-        aria-label={`${applyAtLabel(card.brand)}: ${name}`}
+        aria-label={`${applyAtLabel(card.brand)}: ${name}, ${NEW_TAB}`}
         variant={hasPreapproval ? "outline" : "default"}
         className={hasPreapproval ? SECONDARY : PRIMARY}
         pending={opening === "apply"}
@@ -87,6 +100,7 @@ export function TopMatchActions({ card, hasPreapproval, tracked, detailsHref }: 
       </Button>
       <BlockedTabLink handOff={handOff} />
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
+      <NoteLine>{HAND_OFF_LINE}</NoteLine>
     </div>
   );
 }

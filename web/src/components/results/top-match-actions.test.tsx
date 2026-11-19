@@ -5,6 +5,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { HAND_OFF_LINE, PREAPPROVAL_LINE } from "@/lib/copy/issuer";
+
 import { TopMatchActions } from "./top-match-actions";
 
 const push = vi.fn();
@@ -27,9 +29,10 @@ vi.mock("@/lib/analytics", async (importOriginal) => {
 
 const CLICK_ID = "00000000-0000-4000-8000-0000000000c1";
 // A made-up card. Not a real product and not from the catalog.
-const card = { id: "sample-card", brand: "Sample Bank", name: "Sample Bank Card" };
-const PREAPPROVAL = "Check if you’re preapproved: Sample Bank Card";
-const APPLY = "Apply at Sample Bank: Sample Bank Card";
+const card = { id: "sample-card", brand: "Sample Bank", name: "Sample Bank Card", referralDisclosure: null };
+// Both buttons go straight to the issuer in a new tab, and their names say so.
+const PREAPPROVAL = "Check if you’re preapproved: Sample Bank Card, opens in a new tab";
+const APPLY = "Apply at Sample Bank: Sample Bank Card, opens in a new tab";
 const DETAILS = "/cards/sample-card?from=results";
 
 type FakeTab = { opener: unknown; closed: boolean; close: ReturnType<typeof vi.fn>; location: { replace: ReturnType<typeof vi.fn> } };
@@ -85,6 +88,44 @@ describe("TopMatchActions", () => {
     expect(screen.queryByRole("link", { name: /See details/ })).toBeNull();
   });
 
+  it("says the check won't affect a credit score under it, and the hand-off line under Apply, as the card page does", () => {
+    renderActions();
+    const preapprovalLine = screen.getByText(PREAPPROVAL_LINE);
+    const handOffLine = screen.getByText(HAND_OFF_LINE);
+    const [preapproval, apply] = screen.getAllByRole("button");
+    // DOM order: preapproval, its line, Apply, the hand-off line.
+    expect(preapproval.compareDocumentPosition(preapprovalLine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(preapprovalLine.compareDocumentPosition(apply) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(apply.compareDocumentPosition(handOffLine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(preapprovalLine.className).toContain("text-center");
+  });
+
+  it("keeps the hand-off line but not the credit score line when there is no preapproval check", () => {
+    renderActions({ hasPreapproval: false });
+    expect(screen.queryByText(PREAPPROVAL_LINE)).toBeNull();
+    expect(screen.getByText(HAND_OFF_LINE)).toBeTruthy();
+  });
+
+  it("shows the card's referral disclosure above Apply, and nothing when it has none", () => {
+    const disclosure = "Cense may be paid if you are approved for this card.";
+    const { unmount } = renderActions({ card: { ...card, referralDisclosure: disclosure } });
+    const line = screen.getByText(disclosure);
+    const apply = screen.getByRole("button", { name: APPLY });
+    expect(line.compareDocumentPosition(apply) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText(PREAPPROVAL_LINE).compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    unmount();
+    renderActions();
+    expect(screen.queryByText(disclosure)).toBeNull();
+    expect(screen.getAllByText(/./, { selector: "p" }).map((p) => p.textContent)).toEqual([PREAPPROVAL_LINE, HAND_OFF_LINE]);
+  });
+
+  it("sits 10px under the fee chips, as drawn, where the card's gap is 16px", () => {
+    const { container } = renderActions();
+    expect((container.firstElementChild as HTMLElement).className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["-mt-1.5", "gap-2.5"]),
+    );
+  });
+
   it("shows Apply alone, as the primary, for a card with no preapproval check", () => {
     renderActions({ hasPreapproval: false });
     const buttons = screen.getAllByRole("button");
@@ -107,7 +148,7 @@ describe("TopMatchActions", () => {
     expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toEqual({ cardId: "sample-card", kind: "preapproval" });
     expect(track).toHaveBeenCalledExactlyOnceWith(
       "issuer_link_clicked",
-      { click_id: CLICK_ID, card_id: "sample-card", link_type: "preapproval" },
+      { click_id: CLICK_ID, card_id: "sample-card", link_type: "preapproval", source: "results" },
       { uuid: CLICK_ID, timestamp: new Date("2026-11-18T00:00:00Z") },
     );
     expect(screen.queryByText("Did you finish applying?")).toBeNull();
@@ -127,7 +168,7 @@ describe("TopMatchActions", () => {
     expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toEqual({ cardId: "sample-card", kind: "apply" });
     expect(track).toHaveBeenCalledExactlyOnceWith(
       "issuer_link_clicked",
-      { click_id: CLICK_ID, card_id: "sample-card", link_type: "apply" },
+      { click_id: CLICK_ID, card_id: "sample-card", link_type: "apply", source: "results" },
       { uuid: CLICK_ID, timestamp: new Date("2026-11-18T00:00:00Z") },
     );
     expect(await screen.findByRole("heading", { name: "Did you finish applying?" })).toBeTruthy();
@@ -239,6 +280,37 @@ describe("TopMatchActions", () => {
     expect(open).toHaveBeenCalledOnce();
     finish(Response.json(click("preapproval", "https://issuer.example/preapproval"), { status: 201 }));
     await waitFor(() => expect(tab.location.replace).toHaveBeenCalled());
+  });
+
+  it("opens one tab and saves one click when the same button is tapped twice", async () => {
+    let finish: (response: Response) => void = () => undefined;
+    const fetchFn = vi.fn<typeof fetch>(() => new Promise<Response>((resolve) => (finish = resolve)));
+    vi.stubGlobal("fetch", fetchFn);
+    renderActions();
+    const preapproval = screen.getByRole("button", { name: PREAPPROVAL });
+    fireEvent.click(preapproval);
+    fireEvent.click(preapproval);
+    expect(open).toHaveBeenCalledOnce();
+    expect(fetchFn).toHaveBeenCalledOnce();
+    finish(Response.json(click("preapproval", "https://issuer.example/preapproval"), { status: 201 }));
+    await waitFor(() => expect(tab.location.replace).toHaveBeenCalledOnce());
+    expect(track).toHaveBeenCalledOnce();
+  });
+
+  it("does the same for a double tap on Apply", async () => {
+    let finish: (response: Response) => void = () => undefined;
+    const fetchFn = vi.fn<typeof fetch>(() => new Promise<Response>((resolve) => (finish = resolve)));
+    vi.stubGlobal("fetch", fetchFn);
+    renderActions();
+    const apply = screen.getByRole("button", { name: APPLY });
+    fireEvent.click(apply);
+    fireEvent.click(apply);
+    expect(open).toHaveBeenCalledOnce();
+    expect(fetchFn).toHaveBeenCalledOnce();
+    finish(Response.json(click("apply", "https://issuer.example/apply"), { status: 201 }));
+    expect(await screen.findByRole("heading", { name: "Did you finish applying?" })).toBeTruthy();
+    expect(tab.location.replace).toHaveBeenCalledOnce();
+    expect(track).toHaveBeenCalledOnce();
   });
 
   it("shows See details instead of the buttons for a card the student already tracks", () => {

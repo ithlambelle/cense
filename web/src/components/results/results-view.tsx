@@ -208,7 +208,7 @@ function OptionCard({ option, top = false, tracked = false }: { option: ResultOp
 
       {top ? (
         <TopMatchActions
-          card={{ id: card.id, brand: card.brand, name: card.name }}
+          card={{ id: card.id, brand: card.brand, name: card.name, referralDisclosure: card.referralDisclosure }}
           hasPreapproval={card.preapprovalUrl !== null}
           tracked={tracked}
           detailsHref={href}

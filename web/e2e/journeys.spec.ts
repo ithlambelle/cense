@@ -176,6 +176,9 @@ test("student checks preapproval and applies straight from Your match", async ({
   const name = ((await top.getByRole("heading", { level: 3 }).textContent()) ?? "").trim();
   await expect(top.getByRole("button")).toHaveText([/^Check if you’re preapproved$/, /^Apply at .+$/]);
   await expect(page.getByRole("region", { name: "Other options" }).getByRole("button")).toHaveCount(0);
+  // The card page's lines under its buttons, kept here for accuracy.
+  await expect(top.getByText("This check won’t affect your credit score.")).toBeVisible();
+  await expect(top.getByText(/Preapproval is not a guarantee of approval\.$/)).toBeVisible();
   await checkA11y("results: top match actions");
 
   // Preapproval: the issuer opens in a new tab, the click is saved, Your match stays put.
@@ -194,7 +197,7 @@ test("student checks preapproval and applies straight from Your match", async ({
   const [applyTab, apply] = await Promise.all([
     page.waitForEvent("popup"),
     issuerClick(page, "apply"),
-    top.getByRole("button", { name: new RegExp(`^Apply at .+: ${escapeRegExp(name)}$`) }).click(),
+    top.getByRole("button", { name: new RegExp(`^Apply at .+: ${escapeRegExp(name)}, opens in a new tab$`) }).click(),
   ]);
   const applyHost = await expectSavedClick(apply);
   await expect(top.getByRole("heading", { name: "Did you finish applying?" })).toBeVisible();
@@ -227,6 +230,8 @@ test("a top match with no preapproval check offers Apply alone", async ({ page }
   const top = page.getByRole("region", { name: "Top match" });
   await expect(top.getByRole("heading", { level: 3, name: "Chime Card" })).toBeVisible();
   await expect(top.getByRole("button")).toHaveText([/^Apply at Chime$/]);
+  await expect(top.getByText("This check won’t affect your credit score.")).toHaveCount(0);
+  await expect(top.getByText(/Preapproval is not a guarantee of approval\.$/)).toBeVisible();
   await checkA11y("results: apply only");
   const [applyTab, apply] = await Promise.all([
     page.waitForEvent("popup"),

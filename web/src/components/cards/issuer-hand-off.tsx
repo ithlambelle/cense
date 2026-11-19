@@ -22,6 +22,10 @@ import { cn } from "@/lib/utils";
 
 export type IssuerKind = "preapproval" | "apply";
 
+// Where the click came from, sent with issuer_link_clicked so Your match and
+// the card page can be told apart (plan 6). Not stored in issuer_clicks.
+export type HandOffSource = "results" | "card_page";
+
 export type HandOffStage =
   | { name: "idle" }
   // The card page's sheet, which says what happens next before the student leaves.
@@ -68,8 +72,9 @@ type HandOffCard = { id: string; brand: string; name: string };
 export type IssuerHandOff = ReturnType<typeof useIssuerHandOff>;
 
 // `signInReturn`: where a student whose session ran out comes back to after
-// signing in (the card page, or Your match).
-export function useIssuerHandOff(card: HandOffCard, signInReturn: string) {
+// signing in (the card page, or Your match). `source`: which of the two it is,
+// for analytics.
+export function useIssuerHandOff(card: HandOffCard, signInReturn: string, source: HandOffSource) {
   const router = useRouter();
   const isMounted = useIsMounted();
   const [chosenStage, setChosenStage] = useState<HandOffStage | null>(null);
@@ -106,7 +111,7 @@ export function useIssuerHandOff(card: HandOffCard, signInReturn: string) {
     if (result.data.id && result.data.clickedAt) {
       track(
         "issuer_link_clicked",
-        { click_id: result.data.id, card_id: card.id, link_type: kind },
+        { click_id: result.data.id, card_id: card.id, link_type: kind, source },
         { uuid: result.data.id, timestamp: new Date(result.data.clickedAt) },
       );
     }
