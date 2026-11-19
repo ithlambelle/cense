@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 
 import { HomeView } from "@/components/home/home-view";
+import { comingUpRows } from "@/lib/home/coming-up";
 import { ALL_REMINDERS_ON, homeState, needsDetail, profileInitial } from "@/lib/home/state";
 import { plaidConfig } from "@/lib/plaid/config";
 import { loadSafeToSpend } from "@/lib/plaid/store";
 import { CELEBRATE_PARAM, REMINDER_PARAM, reminderKindParam, ROUTES } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
-import { loadApplicationDetail, loadReminderSettings, loadStudentSnapshot } from "@/lib/student-data";
+import { loadApplicationDetail, loadComingUpCards, loadReminderSettings, loadStudentSnapshot } from "@/lib/student-data";
 
 export const metadata: Metadata = { title: "Home | CENSE" };
 
@@ -23,8 +24,9 @@ export default async function HomePage({ searchParams }: PageProps<"/home">) {
   // GET /applications/{id}. Only those fields reach the page. An approved
   // card's reminder star also needs the student's reminder settings.
   // Safe to spend (US-12) is read alongside, only when Plaid is set up. A
-  // failed read leaves its card out rather than failing Home.
-  const [detailAndSettings, safeToSpend] = await Promise.all([
+  // failed read leaves its card out rather than failing Home. So does Coming
+  // up's (D1): the approved cards' dates, with the bills from safe to spend.
+  const [detailAndSettings, safeToSpend, comingUpCards] = await Promise.all([
     needsDetail(state)
       ? Promise.all([
           loadApplicationDetail(student, state.primary.id),
@@ -32,9 +34,14 @@ export default async function HomePage({ searchParams }: PageProps<"/home">) {
         ])
       : null,
     plaidConfig() ? loadSafeToSpend(student) : null,
+    loadComingUpCards(student),
   ]);
   const [detail, settings] = detailAndSettings ?? [null, ALL_REMINDERS_ON];
   const celebrateId = params[CELEBRATE_PARAM];
+  // Paychecks join once detected income is wired to the student's data (US-16).
+  const comingUp = comingUpCards
+    ? comingUpRows({ ...comingUpCards, bills: safeToSpend?.ok && safeToSpend.value ? safeToSpend.value.bills : [] })
+    : [];
   return (
     <HomeView
       state={state}
@@ -54,6 +61,7 @@ export default async function HomePage({ searchParams }: PageProps<"/home">) {
       celebrateId={typeof celebrateId === "string" ? celebrateId : null}
       fromReminder={fromReminder}
       safeToSpend={safeToSpend?.ok ? safeToSpend.value : undefined}
+      comingUp={comingUp}
     />
   );
 }

@@ -5,7 +5,10 @@ import { HomeView } from "@/components/home/home-view";
 import { listCards } from "@/lib/cards/catalog";
 import { devPagesEnabled } from "@/lib/dev-only";
 import type { Application } from "@/lib/api/application";
+import { calendarDate } from "@/lib/api/reminders";
+import { comingUpRows } from "@/lib/home/coming-up";
 import { homeState, type CardDetail } from "@/lib/home/state";
+import { addDays } from "@/lib/reminders/schedule";
 import { computeResult } from "@/lib/results/compute";
 
 export const metadata: Metadata = { title: "Home preview", robots: { index: false } };
@@ -33,6 +36,18 @@ const DETAILS: Record<string, CardDetail> = {
   denied: { denialReason: "no_credit_history", denialReasonNote: null, autopayStatus: "unknown", autopayPaymentType: null, statementClosingDay: null, paymentDueDay: null, spendLimitCents: null },
   waiting: { denialReason: "no_letter_yet", denialReasonNote: null, autopayStatus: "unknown", autopayPaymentType: null, statementClosingDay: null, paymentDueDay: null, spendLimitCents: null },
 };
+
+// Coming up for the approved sample (D1): its statement closes in 4 days and
+// its payment is due in 20, autopay not on; no bank, so no bills.
+function sampleComingUp() {
+  const today = calendarDate(new Date().toISOString(), "America/New_York");
+  const day = (days: number) => Number(addDays(today, days).slice(8));
+  return comingUpRows({
+    today,
+    cards: [{ applicationId: SAMPLE_ID, name: "Discover", creditLimitCents: 50000, statementClosingDay: day(4), paymentDueDay: day(20), autopayStatus: "off" }],
+    bills: [],
+  });
+}
 
 // Every Home state on sample data, without signing in.
 // ?state=no_quiz (default), started, matched, stretch, no_card, applied,
@@ -75,6 +90,7 @@ export default async function HomePreviewPage({ searchParams }: { searchParams: 
       detail={Object.hasOwn(DETAILS, state) ? DETAILS[state] : null}
       celebrateId={celebrate ? SAMPLE_ID : null}
       sampleStars={sampleStars}
+      comingUp={state === "approved" ? sampleComingUp() : []}
     />
   );
 }

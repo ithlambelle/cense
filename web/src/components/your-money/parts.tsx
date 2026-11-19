@@ -4,6 +4,7 @@
 // built from (Figma 709:1520 Today, 709:1769 This month, 709:1865 Short):
 // the designers' navy hero (371:13007), the two tabs, read-only rows, rows
 // with an amount the student edits in place, and the total row.
+import Image from "next/image";
 import Link from "next/link";
 import { createContext, useContext, type ReactNode } from "react";
 
@@ -16,13 +17,18 @@ import { cn } from "@/lib/utils";
 
 // The navy hero: a label, the big number in Unbounded Bold 44 Light Blue, and
 // one line under it (left and right). The number is the student's money, so it
-// is masked in session replay.
+// is masked in session replay. Home uses it too (D1, 709:1470): there `link`
+// is the chevron at the top right (709:1480), whose tap area covers the card,
+// `ariaLabel` keeps Home's region name, and `children` go under the line.
 export function MoneyHero({
   label,
   amount,
   unit,
   left,
   right,
+  link,
+  ariaLabel,
+  children,
 }: {
   label: string;
   amount: ReactNode;
@@ -30,21 +36,41 @@ export function MoneyHero({
   unit?: string;
   left: ReactNode;
   right?: ReactNode;
+  link?: { href: string; label: string };
+  ariaLabel?: string;
+  children?: ReactNode;
 }) {
   return (
-    <section aria-label={label.replace(/:$/, "")} className="flex min-h-[150px] flex-col rounded-[28px] bg-navy px-[23px] pt-[22px] pb-[18px] text-white">
+    <section
+      aria-label={ariaLabel ?? label.replace(/:$/, "")}
+      className={cn("flex min-h-[150px] flex-col rounded-[28px] bg-navy px-[23px] pt-[22px] pb-[18px] text-white", link && "relative")}
+    >
       {/* 36px tall with the number pulled up 7px in the frame (709:1526):
           29px here, so a label that wraps at 320 wide pushes the number down
           instead of running into it. */}
       {/* No Preview label on the number (Ben, 2026-11-14). */}
-      <div className="flex min-h-[29px] items-start">
+      <div className="flex min-h-[29px] items-start justify-between gap-3">
         <p className="text-body-m leading-[18px] font-semibold">{label}</p>
+        {link ? (
+          <Link
+            href={link.href}
+            aria-label={link.label}
+            className="mr-px flex shrink-0 items-center rounded-sm after:absolute after:inset-0 after:rounded-[28px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-off-white"
+          >
+            {/* The frame's own chevron, 12 by 20 (709:1480). */}
+            <Image src="/icons/open-detail-chevron.svg" alt="" width={12} height={20} />
+          </Link>
+        ) : null}
       </div>
-      <p className={cn(SENSITIVE, "font-number text-[44px] leading-[44px] font-bold text-light-blue")}>
+      {/* 44px tall and pulled up 7px, as drawn (709:1473), so the line under
+          it starts 13px below: "a day" is set solid so its smaller type does
+          not make the line taller. A number too wide for the card wraps
+          rather than running out of it. */}
+      <p className={cn(SENSITIVE, "-mb-[7px] font-number text-[44px] leading-[44px] font-bold text-light-blue [overflow-wrap:anywhere]")}>
         {amount}
         {/* "a day" never splits over two lines at 320; it moves down whole. */}
         {unit ? (
-          <span className="text-[20px]">
+          <span className="text-[20px] leading-none">
             {" "}
             <span className="whitespace-nowrap">{unit.trim()}</span>
           </span>
@@ -54,6 +80,7 @@ export function MoneyHero({
         <p className="text-balance">{left}</p>
         {right ? <p className="shrink-0 text-right">{right}</p> : null}
       </div>
+      {children}
     </section>
   );
 }
