@@ -79,11 +79,32 @@ export function pennyConfigured(): boolean {
 
 let client: Anthropic | null = null;
 
-// Reads ANTHROPIC_API_KEY (and, for the journey tests only, ANTHROPIC_BASE_URL)
-// from the environment. One retry covers a dropped connection or an
-// overloaded API; with the 15 second timeout a student waits at most about 30.
+// Claude's API. ANTHROPIC_BASE_URL (the name the SDK itself reads) points
+// Penny at the journey tests' stand-in on this machine
+// (web/e2e/support/fake-claude.ts). The API key is sent to whatever address
+// this returns, so, as for Plaid and Resend, only a loopback http address is
+// accepted; anything else is ignored and the real API is used, so a stray
+// value on Vercel can never send the key or a student's question elsewhere.
+export const ANTHROPIC_API_URL = "https://api.anthropic.com";
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+export function anthropicBaseUrl(base = process.env.ANTHROPIC_BASE_URL): string {
+  if (!base?.trim()) return ANTHROPIC_API_URL;
+  try {
+    const url = new URL(base.trim());
+    if (url.protocol === "http:" && LOCAL_HOSTS.has(url.hostname)) return url.origin;
+  } catch {
+    // not an address: ignored
+  }
+  return ANTHROPIC_API_URL;
+}
+
+// Reads ANTHROPIC_API_KEY from the environment. The base URL is always passed
+// in, so the SDK never reads ANTHROPIC_BASE_URL unchecked. One retry covers a
+// dropped connection or an overloaded API; with the 15 second timeout a
+// student waits at most about 30.
 function anthropic(): Anthropic {
-  client ??= new Anthropic({ timeout: 15_000, maxRetries: 1 });
+  client ??= new Anthropic({ baseURL: anthropicBaseUrl(), timeout: 15_000, maxRetries: 1 });
   return client;
 }
 

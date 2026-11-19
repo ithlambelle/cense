@@ -14,7 +14,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
 }));
 
 import { findAnswer } from "./answers";
-import { askPenny, PENNY_MODEL, PENNY_SYSTEM_PROMPT, pennySystemPrompt, replyFrom, TYPED_ANSWERS } from "./ask";
+import { ANTHROPIC_API_URL, anthropicBaseUrl, askPenny, PENNY_MODEL, PENNY_SYSTEM_PROMPT, pennySystemPrompt, replyFrom, TYPED_ANSWERS } from "./ask";
 import { PENNY_COPY } from "./copy";
 
 afterEach(() => {
@@ -112,6 +112,8 @@ describe("askPenny", () => {
     expect(request.system).toEqual([{ type: "text", text: PENNY_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }]);
     expect(request.messages).toEqual([{ role: "user", content: "Student question: What is a credit score?" }]);
     expect(sdk.options[0]).toMatchObject({ timeout: 15_000, maxRetries: 1 });
+    // Always passed in, so the SDK never reads ANTHROPIC_BASE_URL unchecked.
+    expect(sdk.options[0]).toHaveProperty("baseURL", anthropicBaseUrl());
   });
 
   it("keeps the system prompt the same on every call, so the cache holds", () => {
@@ -127,5 +129,28 @@ describe("askPenny", () => {
   it("throws when the reply cannot be read, so the route says Penny is unavailable", async () => {
     sdk.parse.mockResolvedValue({ stop_reason: "max_tokens", parsed_output: null });
     await expect(askPenny("something")).rejects.toThrow(/did not parse/);
+  });
+});
+
+describe("anthropicBaseUrl", () => {
+  it("is Claude's API when no stand-in is set", () => {
+    expect(anthropicBaseUrl(undefined)).toBe(ANTHROPIC_API_URL);
+    expect(anthropicBaseUrl("")).toBe("https://api.anthropic.com");
+  });
+
+  it("takes a stand-in address only on this machine, since the API key is sent to it", () => {
+    expect(anthropicBaseUrl("http://127.0.0.1:3599")).toBe("http://127.0.0.1:3599");
+    expect(anthropicBaseUrl("http://localhost:3599/")).toBe("http://localhost:3599");
+    expect(anthropicBaseUrl("http://[::1]:3599")).toBe("http://[::1]:3599");
+    for (const url of [
+      "https://evil.example",
+      "http://10.0.0.5:3599",
+      "https://127.0.0.1:3599",
+      "http://127.0.0.1.evil.example",
+      "http://localhost@evil.example",
+      "not a url",
+    ]) {
+      expect(anthropicBaseUrl(url)).toBe(ANTHROPIC_API_URL);
+    }
   });
 });
