@@ -7,7 +7,7 @@ import { loadSafeToSpend } from "@/lib/plaid/store";
 import { ROUTES, safeToSpendSetupPath } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
 
-export const metadata: Metadata = { title: "See what’s safe to spend | CENSE" };
+export const metadata: Metadata = { title: "Link your bank | CENSE" };
 
 // Before Plaid Link (US-12). A student who already linked a bank goes on to
 // the questions, or to Your money once they are answered.

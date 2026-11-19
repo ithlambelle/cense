@@ -1,29 +1,30 @@
 "use client";
 
-import Lock from "@gravity-ui/icons/Lock";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { PreviewLabel } from "@/components/safe-to-spend/parts";
-import { AppHeader } from "@/components/ui/app-header";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
+import { ListRowText } from "@/components/ui/list-row";
 import { createLinkToken, linkBank } from "@/lib/api-client/safe-to-spend";
 import { openLink } from "@/lib/plaid/link";
 import { ROUTES, safeToSpendSetupPath, signInPath } from "@/lib/routes";
 import { SAFE_TO_SPEND_COPY } from "@/lib/safe-to-spend/copy";
 import { useIsMounted } from "@/lib/use-is-mounted";
+import { cn } from "@/lib/utils";
 
 const FAILED = "The bank connection didn’t finish. Please try again.";
 const UNAVAILABLE = "We couldn’t open Plaid. Check your connection, then try again.";
 
 type Note = { kind: "info" | "error"; text: string } | null;
 
-// "Link a bank" (Figma 222:2041): what Cense reads and keeps, then Plaid Link
-// in the sandbox. Link hands back a one-time public token; the server
-// exchanges it and keeps the access token, so the browser never holds it.
+// "Link your bank" (Flow 5 C1, Figma 821:9643; the same screen as Flow 1 E1,
+// 821:8502): what Cense reads and keeps, then Plaid Link in the sandbox. Link
+// hands back a one-time public token; the server exchanges it and keeps the
+// access token, so the browser never holds it.
 export function ConnectView() {
   const router = useRouter();
   const isMounted = useIsMounted();
@@ -66,25 +67,26 @@ export function ConnectView() {
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
-        <AppHeader backHref={ROUTES.home} backLabel="Home" />
-        <main className="flex flex-1 flex-col gap-4 px-6 pt-4 pb-6">
-          <p className="flex items-center gap-2">
-            <PreviewLabel />
-            <span className="text-[13px] leading-[18px] text-indigo-black/75">{SAFE_TO_SPEND_COPY.sandboxNote}</span>
-          </p>
-          <Image src="/mascot/astro-pig/avatar.png" alt="" width={64} height={64} priority />
-          <h1 className="font-heading text-h3 font-medium text-navy">{SAFE_TO_SPEND_COPY.connectTitle}</h1>
-          <ul aria-label="What Cense reads and keeps" className="flex flex-col gap-2.5 rounded-card border-[1.5px] border-off-white bg-white px-5 py-4">
-            {SAFE_TO_SPEND_COPY.consent.map((line, index) => (
-              <li key={line} className="flex items-start gap-2.5 text-body-s text-navy">
-                <span aria-hidden="true" className="flex size-[18px] shrink-0 items-center justify-center pt-0.5">
-                  {index === 0 ? (
-                    <Lock width={18} height={18} className="text-navy" />
-                  ) : (
-                    <Image src="/icons/fit-check.svg" alt="" width={14} height={11} />
-                  )}
-                </span>
-                <span>{line}</span>
+        {/* App header (821:9651): Penny's small avatar (371:3344) on the light
+            blue tint, as drawn, with no back arrow: Skip for now leaves. */}
+        <header className="box-content flex h-12 items-center px-6 pt-8">
+          <Image
+            src="/mascot/astro-pig/avatar.png"
+            alt=""
+            width={32}
+            height={32}
+            priority
+            className="size-8 shrink-0 rounded-pill bg-light-blue/50"
+          />
+        </header>
+        <main className="flex flex-1 flex-col gap-4 px-6 pt-3 pb-6">
+          <h1 className="font-heading text-h1 font-medium text-navy">{SAFE_TO_SPEND_COPY.connectTitle}</h1>
+          <p className="text-body-m text-indigo-black">{SAFE_TO_SPEND_COPY.connectBody}</p>
+          {/* Three List rows, Divider, no chevron (371:3199). */}
+          <ul aria-label="What Cense reads and keeps" className="flex flex-col gap-4">
+            {SAFE_TO_SPEND_COPY.consent.map((row) => (
+              <li key={row.title} className="flex items-center gap-3 border-b border-off-white py-3.5">
+                <ListRowText title={row.title} subtitle={row.body} />
               </li>
             ))}
           </ul>
@@ -96,14 +98,31 @@ export function ConnectView() {
             </p>
           ) : null}
           <Button type="button" pending={pending} onClick={connect}>
-            Connect (Preview)
+            {SAFE_TO_SPEND_COPY.connectAction}
           </Button>
+          {/* Button, Text (821:9661): 36 tall, 12px insets, at the left edge.
+              The tap area reaches 4px above and below it (after:-inset-y-1),
+              so it is 44px tall while it looks as drawn. */}
           <Link
             href={ROUTES.home}
-            className="min-h-11 content-center self-center text-body-s text-violet hover:text-violet-hover focus-visible:outline-2 focus-visible:outline-ring"
+            className={cn(
+              buttonVariants({ variant: "secondary", size: null }),
+              "relative h-9 self-start px-3 after:absolute after:inset-x-0 after:-inset-y-1"
+            )}
           >
-            Not now
+            {SAFE_TO_SPEND_COPY.connectSkip}
           </Link>
+          {/* The frame's footer (821:9662), without its Privacy Policy line
+              until a public policy page exists. Preview and the sandbox note
+              stay until real bank data is live; they sit here, in the
+              footer's own type, so the rest of the frame is as drawn. */}
+          <div className="flex flex-col text-[13px] leading-[18px] text-indigo-black/70">
+            <p>{SAFE_TO_SPEND_COPY.securedBy}</p>
+            <p className="flex items-center gap-2">
+              <PreviewLabel className="leading-[18px]" />
+              <span>{SAFE_TO_SPEND_COPY.sandboxNote}</span>
+            </p>
+          </div>
         </main>
       </div>
     </div>

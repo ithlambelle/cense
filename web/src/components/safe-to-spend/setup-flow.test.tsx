@@ -33,3 +33,12 @@ describe("SetupFlow amounts", () => {
     expect(replace).toHaveBeenCalledWith("/safe-to-spend/setup?step=2");
   });
 });
+
+describe("SetupFlow keep aside", () => {
+  // D4 (Flow D, Figma 709:1427): the amount stays out of Safe to spend.
+  it("says what the set-aside amount does, as the frame words it", () => {
+    render(<SetupFlow step={6} savedBills={[]} savedSetAsideCents={0} answered={false} />);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Anything to keep aside each month?");
+    expect(screen.getByText("Savings or a cushion. We leave this out of your Safe to spend.")).toBeTruthy();
+  });
+});

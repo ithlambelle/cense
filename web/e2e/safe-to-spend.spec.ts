@@ -87,7 +87,11 @@ async function answerWhoCovers(page: Page, checkA11y?: (screen: string) => Promi
     await page.getByRole("button", { name: "Continue" }).click();
   }
   await expect(page.getByRole("heading", { level: 1, name: "Anything to keep aside each month?" })).toBeVisible();
-  if (checkA11y) await checkA11y("safe to spend: set aside");
+  if (checkA11y) {
+    // D4 (709:1427): the amount is left out of the number.
+    await expect(page.getByText("Savings or a cushion. We leave this out of your Safe to spend.")).toBeVisible();
+    await checkA11y("safe to spend: set aside");
+  }
   await page.getByLabel("Set aside each month").fill("50");
   await page.getByRole("button", { name: "See safe to spend" }).click();
   await expect(page).toHaveURL(/\/home$/);
@@ -98,7 +102,7 @@ async function linkedStudent(page: Page, journey: string) {
   const checkA11y = axeChecker(page);
   await signUp(page, uniqueEmail(journey), checkA11y);
   await page.goto("/safe-to-spend/connect");
-  await page.getByRole("button", { name: "Connect (Preview)" }).click();
+  await page.getByRole("button", { name: "Link your bank" }).click();
   await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
   await answerWhoCovers(page);
   await expect(safeToSpendCard(page)).toContainText(DAILY);
@@ -147,13 +151,13 @@ test("a student links the sandbox bank, says who covers what, and sees safe to s
   expect(await apiStatus(page)).toBe(404);
   await invite.getByRole("link", { name: "Try it" }).click();
 
-  // Consent (222:2041), then the stand-in Link connects.
+  // Link your bank (Flow 5 C1, 821:9643), then the stand-in Link connects.
   await expect(page).toHaveURL(/\/safe-to-spend\/connect$/);
-  await expect(page.getByRole("heading", { level: 1, name: "See what’s safe to spend" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Link your bank" })).toBeVisible();
   await expect(page.getByText("Sandbox only, no live data")).toBeVisible();
-  await expect(page.getByText("We never see your password")).toBeVisible();
+  await expect(page.getByText("We never see your bank login.")).toBeVisible();
   await checkA11y("safe to spend: connect");
-  await page.getByRole("button", { name: "Connect (Preview)" }).click();
+  await page.getByRole("button", { name: "Link your bank" }).click();
   await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
 
   // Who covers what (222:2090), then the set-aside, then Home.
@@ -241,6 +245,68 @@ test("a student links the sandbox bank, says who covers what, and sees safe to s
   expect(bodies.some((body) => body.includes(token))).toBe(false);
   expect(received.every((call) => call.clientId && call.secret)).toBe(true);
   expect(received.some((call) => JSON.stringify(call.body).includes(String(call.secret)))).toBe(false);
+});
+
+test("Link your bank: the three rows survive a reload, and Skip for now goes Home with nothing linked", async ({ page }) => {
+  const checkA11y = axeChecker(page);
+  await signUp(page, uniqueEmail("sts-connect"), checkA11y);
+  await page.goto("/home");
+  await page.getByRole("region", { name: "See what’s safe to spend" }).getByRole("link", { name: "Try it" }).click();
+  await expect(page).toHaveURL(/\/safe-to-spend\/connect$/);
+
+  // The frame's words (821:9643). No Privacy Policy line until the policy
+  // page is public; Preview and the sandbox note stay until real banks do.
+  const rows = page.getByRole("list", { name: "What Cense reads and keeps" }).getByRole("listitem");
+  const screenAsDrawn = async () => {
+    await expect(page.getByRole("heading", { level: 1, name: "Link your bank" })).toBeVisible();
+    await expect(page.getByText("So Cense can find your next step and what’s safe to spend.")).toBeVisible();
+    await expect(rows).toHaveCount(3);
+    const drawn = [
+      ["Read only", "We read balances and keep up to 2 years of transactions to find your bills and income. We can’t move money."],
+      ["Private", "We never see your bank login."],
+      ["Yours to delete", "Disconnect anytime and we delete it all."],
+    ];
+    for (const [index, [title, body]] of drawn.entries()) {
+      await expect(rows.nth(index)).toContainText(title);
+      await expect(rows.nth(index)).toContainText(body);
+    }
+    await expect(page.getByRole("button", { name: "Link your bank" })).toBeVisible();
+    await expect(page.getByText("Secured by Plaid.")).toBeVisible();
+    await expect(page.getByText("Sandbox only, no live data")).toBeVisible();
+    await expect(page.getByText(/Privacy Policy/)).toHaveCount(0);
+  };
+  await screenAsDrawn();
+  await checkA11y("safe to spend: link your bank");
+  await page.reload();
+  await screenAsDrawn();
+
+  // Skip for now looks 36px tall, as drawn, and its tap area is 44px: a tap
+  // 3px above or below the drawn link still lands on it.
+  const skip = page.getByRole("link", { name: "Skip for now" });
+  const tapArea = await skip.evaluate((link) => {
+    const box = link.getBoundingClientRect();
+    const hits = (y: number) => {
+      const hit = document.elementFromPoint(box.left + box.width / 2, y);
+      return hit !== null && link.contains(hit);
+    };
+    const after = getComputedStyle(link, "::after");
+    return {
+      drawn: box.height,
+      tapHeight: box.height - parseFloat(after.top) - parseFloat(after.bottom),
+      above: hits(box.top - 3),
+      below: hits(box.bottom + 3),
+    };
+  });
+  expect(tapArea).toEqual({ drawn: 36, tapHeight: 44, above: true, below: true });
+
+  // Skip for now: Home, still inviting, nothing linked. Back returns here.
+  await page.getByRole("link", { name: "Skip for now" }).click();
+  await expect(page).toHaveURL(/\/home$/);
+  await expect(page.getByRole("region", { name: "See what’s safe to spend" })).toBeVisible();
+  expect(await apiStatus(page)).toBe(404);
+  expect(received).toEqual([]);
+  await page.goBack();
+  await expect(page.getByRole("heading", { level: 1, name: "Link your bank" })).toBeVisible();
 });
 
 test("Your money: a student edits a bill on Today, reads This month from their own transactions, edits a line, reloads, and sees Short", async ({ page, context }) => {
@@ -366,7 +432,7 @@ test("Link cancelled, a bank error and an expired connection leave nothing linke
   const checkA11y = axeChecker(page);
   await signUp(page, uniqueEmail("sts-edges"), checkA11y);
   await page.goto("/safe-to-spend/connect");
-  const connect = page.getByRole("button", { name: "Connect (Preview)" });
+  const connect = page.getByRole("button", { name: "Link your bank" });
 
   await setLinkOutcome(page, "cancel");
   await connect.click();
@@ -446,7 +512,7 @@ test("when the bank link is gone at Plaid, Home stops showing the number and the
   await page.getByRole("button", { name: "Connect again" }).click();
   await expect(page).toHaveURL(/\/safe-to-spend\/connect$/);
   behavior.accounts = "ok";
-  await page.getByRole("button", { name: "Connect (Preview)" }).click();
+  await page.getByRole("button", { name: "Link your bank" }).click();
   await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
   await answerWhoCovers(page);
   await expect(safeToSpendCard(page)).toContainText(DAILY);
@@ -478,8 +544,8 @@ test("the safe-to-spend links show a focus ring from the keyboard", async ({ pag
   await signUp(page, uniqueEmail("sts-focus"), axeChecker(page));
   await page.goto("/safe-to-spend/connect");
   const rings: Record<string, Awaited<ReturnType<typeof tabTo>>> = {};
-  rings["Not now"] = await tabTo(page, "Not now");
-  await page.getByRole("button", { name: "Connect (Preview)" }).click();
+  rings["Skip for now"] = await tabTo(page, "Skip for now");
+  await page.getByRole("button", { name: "Link your bank" }).click();
   await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
   await answerWhoCovers(page);
   rings["Your money"] = await tabTo(page, "Your money");
@@ -621,7 +687,7 @@ for (const size of [
     await fits("home invite");
     await page.goto("/safe-to-spend/connect");
     await fits("connect");
-    const connect = page.getByRole("button", { name: "Connect (Preview)" });
+    const connect = page.getByRole("button", { name: "Link your bank" });
     await expect(connect).toBeInViewport();
     await connect.click();
     await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
