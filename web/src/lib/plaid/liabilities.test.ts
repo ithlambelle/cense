@@ -96,10 +96,21 @@ describe("sameBank", () => {
     expect(sameBank("", { card_id: "discover-it-student-cash-back", card_name: null })).toBe(false);
   });
 
+  it("matches the brand as whole words, so a Citi card never gets a Citizens Bank's dates", () => {
+    expect(sameBank("Citizens Bank", { card_id: "citi-double-cash", card_name: null })).toBe(false);
+    expect(sameBank("Citizens", { card_id: "citi-double-cash", card_name: null })).toBe(false);
+    expect(sameBank("Citi", { card_id: "citi-double-cash", card_name: null })).toBe(true);
+    expect(sameBank("Citibank", { card_id: "citi-double-cash", card_name: null })).toBe(true);
+    expect(sameBank("US Bank", { card_id: "us-bank-cash-plus", card_name: null })).toBe(true);
+    expect(sameBank("Fifth Third US Bancorp", { card_id: "us-bank-cash-plus", card_name: null })).toBe(false);
+  });
+
   it("matches a card added by name when the name has the bank's own words", () => {
     expect(sameBank("First Platypus Bank", { card_id: null, card_name: "First Platypus Visa" })).toBe(true);
     expect(sameBank("Chase", { card_id: null, card_name: "my chase card" })).toBe(true);
     expect(sameBank("Chase", { card_id: null, card_name: "Discover it" })).toBe(false);
+    // whole words here too: a Citi link is not a "Citizens" card
+    expect(sameBank("Citi", { card_id: null, card_name: "Citizens Cash Back" })).toBe(false);
     // only generic words left: never a match
     expect(sameBank("Credit Card Bank", { card_id: null, card_name: "Credit card" })).toBe(false);
     expect(sameBank("Chase", { card_id: null, card_name: null })).toBe(false);

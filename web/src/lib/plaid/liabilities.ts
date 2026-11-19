@@ -55,23 +55,36 @@ const letters = (text: string) => text.toLowerCase().replace(/[^a-z0-9]/g, "");
 // Words in bank names that say nothing about which bank it is.
 const GENERIC = new Set(["bank", "banking", "card", "cards", "credit", "online", "financial", "na", "the", "of", "usa"]);
 
-// Whether the linked bank is this card's bank: the bank's name contains the
-// catalog card's brand ("Citibank Online" and Citi, "U.S. Bank" and U.S.
-// Bank), or, for a card added by name, the name contains the bank's own words
-// ("First Platypus Bank" and "First Platypus Visa").
+// A name as whole words, each reduced to letters and digits ("U.S. Bank" is
+// us, bank).
+const wordsOf = (text: string) => text.split(/\s+/).map(letters).filter((word) => word !== "");
+
+// Whether these words appear in the name as whole words, one after another
+// ("Bank of America"), or run together as one word, alone or with "bank"
+// ("USBank", Citi as "Citibank"). Whole words only, so Citi is not in
+// "Citizens Bank".
+function hasWords(name: string[], words: string[]): boolean {
+  if (words.length === 0) return false;
+  for (let start = 0; start + words.length <= name.length; start++) {
+    if (words.every((word, i) => name[start + i] === word)) return true;
+  }
+  const joined = words.join("");
+  return name.some((word) => word === joined || word === `${joined}bank`);
+}
+
+// Whether the linked bank is this card's bank: the bank's name has the
+// catalog card's brand as whole words ("Citibank Online" and Citi, "U.S. Bank"
+// and U.S. Bank, but not "Citizens Bank" and Citi), or, for a card added by
+// name, the name has the bank's own words ("First Platypus Bank" and "First
+// Platypus Visa").
 export function sameBank(institutionName: string, card: { card_id: string | null; card_name: string | null }): boolean {
-  const bank = letters(institutionName);
-  if (bank === "") return false;
+  const bank = wordsOf(institutionName);
+  if (bank.length === 0) return false;
   const brand = card.card_id ? findCard(card.card_id)?.brand : undefined;
-  if (brand) return bank.includes(letters(brand));
+  if (brand) return hasWords(bank, wordsOf(brand));
   if (!card.card_name) return false;
-  const core = letters(
-    institutionName
-      .split(/\s+/)
-      .filter((word) => !GENERIC.has(letters(word)))
-      .join(""),
-  );
-  return core.length >= 3 && letters(card.card_name).includes(core);
+  const core = bank.filter((word) => !GENERIC.has(word));
+  return core.join("").length >= 3 && hasWords(wordsOf(card.card_name), core);
 }
 
 type CardRow = {
