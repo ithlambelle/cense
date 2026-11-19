@@ -1,0 +1,35 @@
+/* Created with Claude Code (2026-11-19). E1 arriving from the first sign-in
+   welcome (Flow 1, the arrow after W2: "Penny shrinks into the corner as this
+   slides up"). Penny starts where W2 drew her, at the middle of the phone
+   column (390 wide at most) a third of the way down, three times her size,
+   and lands as the header avatar; the screen below slides up into place.
+   Transform and opacity only, CSS only, and `backwards` so nothing is left
+   transformed once it has arrived. */
+.pennyLands {
+  transform-origin: center;
+  animation: penny-lands 640ms var(--ease-out-soft) backwards;
+}
+
+.slidesUp {
+  animation: slides-up 520ms var(--ease-out-soft) 80ms backwards;
+}
+
+@keyframes penny-lands {
+  from {
+    transform: translate3d(calc(min(50vw, 195px) - 40px), 240px, 0) scale(3);
+  }
+}
+
+@keyframes slides-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 48px, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pennyLands,
+  .slidesUp {
+    animation: none;
+  }
+}

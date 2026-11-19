@@ -14,6 +14,12 @@ export const ROUTES = {
   reminderSettings: "/settings/reminders",
   // Decides where a student lands after signing in.
   start: "/start",
+  // First sign-in (Flow 1, Figma 821:8408), for a student who has not seen
+  // the welcome (profiles.welcomed_at): the welcome (W1 then W2), Link your
+  // bank (E1), and after Skip for now, Your next step without a bank (N3).
+  startWelcome: "/start/welcome",
+  startLinkBank: "/start/link-bank",
+  startNextStep: "/start/next-step",
   // The rejection guide (Figma Denial Overview frames).
   denied: "/denied",
   // The first-month plan for an approved card.
@@ -146,8 +152,9 @@ export function waitingPath(applicationId: string, from?: ApplicationOrigin): st
 
 // Where the quiz was opened from. Its back arrow on the first question
 // returns there instead of always Home. Anything else, including a
-// hand-typed value, means Home.
-export type QuizOrigin = "cards" | "results" | "account";
+// hand-typed value, means Home. "start" is first sign-in's Your next step
+// (N3), whose "Not yet" opens the quiz.
+export type QuizOrigin = "cards" | "results" | "account" | "start";
 
 export function quizPath(from?: QuizOrigin): string {
   return from ? `${ROUTES.quiz}?from=${from}` : ROUTES.quiz;
@@ -157,6 +164,7 @@ export function quizBackHref(from: string | string[] | undefined): string {
   if (from === "cards") return ROUTES.cards;
   if (from === "results") return ROUTES.results;
   if (from === "account") return ROUTES.settings;
+  if (from === "start") return ROUTES.startNextStep;
   return ROUTES.home;
 }
 

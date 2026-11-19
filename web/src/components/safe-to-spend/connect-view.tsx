@@ -16,6 +16,8 @@ import { SAFE_TO_SPEND_COPY } from "@/lib/safe-to-spend/copy";
 import { useIsMounted } from "@/lib/use-is-mounted";
 import { cn } from "@/lib/utils";
 
+import styles from "./connect-view.module.css";
+
 const FAILED = "The bank connection didn’t finish. Please try again.";
 const UNAVAILABLE = "We couldn’t open Plaid. Check your connection, then try again.";
 
@@ -25,7 +27,13 @@ type Note = { kind: "info" | "error"; text: string } | null;
 // 821:8502): what Cense reads and keeps, then Plaid Link in the sandbox. Link
 // hands back a one-time public token; the server exchanges it and keeps the
 // access token, so the browser never holds it.
-export function ConnectView() {
+//
+// `firstLogin` is E1, the third beat of first sign-in (Flow 1, 821:8502):
+// the same screen, but Skip for now goes to Your next step without a bank
+// (N3, 821:8701) instead of Home, and it arrives from the welcome as drawn:
+// Penny shrinks into the corner as the screen slides up (CSS only; still
+// with reduced motion). Linking goes where it always does, the questions.
+export function ConnectView({ firstLogin = false }: { firstLogin?: boolean }) {
   const router = useRouter();
   const isMounted = useIsMounted();
   const [pending, setPending] = useState(false);
@@ -76,10 +84,10 @@ export function ConnectView() {
             width={32}
             height={32}
             priority
-            className="size-8 shrink-0 rounded-pill bg-light-blue/50"
+            className={cn("size-8 shrink-0 rounded-pill bg-light-blue/50", firstLogin && styles.pennyLands)}
           />
         </header>
-        <main className="flex flex-1 flex-col gap-4 px-6 pt-3 pb-6">
+        <main className={cn("flex flex-1 flex-col gap-4 px-6 pt-3 pb-6", firstLogin && styles.slidesUp)}>
           <h1 className="font-heading text-h1 font-medium text-navy">{SAFE_TO_SPEND_COPY.connectTitle}</h1>
           <p className="text-body-m text-indigo-black">{SAFE_TO_SPEND_COPY.connectBody}</p>
           {/* Three List rows, Divider, no chevron (371:3199). */}
@@ -100,8 +108,9 @@ export function ConnectView() {
           <Button type="button" pending={pending} onClick={connect}>
             {SAFE_TO_SPEND_COPY.connectAction}
           </Button>
-          {/* Button, Text (821:9661): 36 tall, 12px insets, at the left edge. */}
-          <Link href={ROUTES.home} className={cn(buttonVariants({ variant: "secondary", size: null }), "h-9 self-start px-3")}>
+          {/* Button, Text (821:9661): 36 tall, 12px insets, at the left edge.
+              On first sign-in it opens N3, so skipping still gets a next step. */}
+          <Link href={firstLogin ? ROUTES.startNextStep : ROUTES.home} className={cn(buttonVariants({ variant: "secondary", size: null }), "h-9 self-start px-3")}>
             {SAFE_TO_SPEND_COPY.connectSkip}
           </Link>
           {/* The frame's footer (821:9662), without its Privacy Policy line
