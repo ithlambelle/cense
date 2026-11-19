@@ -219,7 +219,7 @@ The daily job runs once a day in the 13:00 UTC hour, at any point in that hour, 
 If a setting is missing, the cleanup migration is not applied (the route answers 503), or a step fails, nothing of the account is deleted and the student can try again. On Vercel Production it needs `SUPABASE_SERVICE_ROLE_KEY`, `POSTHOG_PERSONAL_API_KEY` (only the `person:write` scope) and `POSTHOG_PROJECT_ID` (see `web/.env.example`); the cleanup uses the Plaid settings and `PLAID_TOKEN_KEY` already set for safe to spend.
 
 - To roll back, first revert the app to synchronous unlink, then run `supabase/rollbacks/20261109160000_plaid_account_cleanup.down.sql`. It locks account deletion and refuses to remove anything while the cleanup queue contains a token. Drain it first; never discard queued tokens.
-- `supabase/migrations/20261109160000_plaid_account_cleanup.sql` was applied by hand in the Supabase SQL editor on 2026-11-09, before the code that calls it. Merged without it, Delete my account answers 503.
+- `supabase/migrations/20261109160000_plaid_account_cleanup.sql` was applied by hand in the Supabase SQL editor: production got it on 2026-11-09, before the code that calls it, and cense-preview on 2026-11-18. Merged without it, Delete my account answers 503.
 
 ## Reminder emails
 
