@@ -1,0 +1,12 @@
+-- Created with Claude Code (2026-11-18). Undoes
+-- 20261118200000_disconnect_never_blocked.sql: Disconnect goes back to
+-- removing the Item at Plaid first and deleting our copy only after
+-- (delete_bank_link, unchanged). The queue cap goes with the function.
+--
+-- The app code from the same change keeps working after this rollback: it
+-- falls back to the old disconnect when disconnect_bank_link(p_done_item_ids)
+-- is missing (web/src/lib/plaid/unlink.ts). Items already queued stay in
+-- plaid.account_cleanup and the daily cron still removes them at Plaid;
+-- never delete queued tokens. Safe to run again. Run this before
+-- 20261109160000_plaid_account_cleanup.down.sql if that is ever rolled back.
+drop function if exists public.disconnect_bank_link(text[]);

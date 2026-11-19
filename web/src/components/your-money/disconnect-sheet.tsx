@@ -1,10 +1,12 @@
 "use client";
 
 // Created with Claude Code (2026-11-13), moved from the old How we got this
-// page. Disconnect (Figma E3, 709:1664): Plaid removes the Item first, then
+// page. Disconnect (Figma E3, 709:1664) never waits on Plaid (Ben, Nov 18):
 // Cense deletes the token, balances, transactions, answers and budget
-// amounts. If Plaid cannot be reached nothing changes (unchanged behavior;
-// the frame's "after, we retry" line waits on Ben's E3 decision).
+// amounts at once, and an Item Plaid could not remove is queued and removed
+// at Plaid later by the daily job (web/src/lib/plaid/unlink.ts). The first
+// line keeps "transactions", which the frame's 709:1666 leaves out, because
+// they are deleted too.
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -57,11 +59,11 @@ export function DisconnectSheet({ open, onOpenChange }: { open: boolean; onOpenC
       <ul className="-mt-1 flex flex-col gap-3 text-body-s text-indigo-black">
         <li className="flex gap-2">
           <span aria-hidden="true">•</span>
-          <span>We delete your balances, transactions and answers.</span>
+          <span>We delete your balances, transactions and answers now.</span>
         </li>
         <li className="flex gap-2">
           <span aria-hidden="true">•</span>
-          <span>We remove the link at Plaid first. If Plaid is down, nothing changes.</span>
+          <span>We remove the link at Plaid after. If Plaid is down, we retry.</span>
         </li>
         <li className="flex gap-2">
           <span aria-hidden="true">•</span>

@@ -624,7 +624,7 @@ export interface paths {
         put?: never;
         /** Link a bank: exchange Link's public token on the server and read the balances once */
         post: operations["createBankLink"];
-        /** Disconnect: remove the Item at Plaid, then delete the token, balances and answers */
+        /** Disconnect: delete the token, balances, transactions and answers now; an Item Plaid did not remove is queued and removed at Plaid later */
         delete: operations["deleteBankLink"];
         options?: never;
         head?: never;
@@ -3429,7 +3429,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Disconnected */
+            /** @description Disconnected, even while Plaid is down */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -3454,7 +3454,16 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
-            /** @description Plaid unreachable; nothing changed */
+            /** @description An Item would be queued and 3 already wait for removal at Plaid; nothing changed */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Plaid unreachable on a database without disconnect_bank_link; nothing changed */
             502: {
                 headers: {
                     [name: string]: unknown;

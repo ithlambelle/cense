@@ -504,6 +504,23 @@ test("the safe-to-spend links show a focus ring from the keyboard", async ({ pag
   }
 });
 
+// What a disconnect must leave behind: no bank, no balances, answers, budget
+// amounts or token, through the app and through the Data API.
+async function expectNothingLeft(page: Page, context: BrowserContext) {
+  expect(await apiStatus(page)).toBe(404);
+  for (const table of ["bank_links", "bank_balances", "bill_coverage", "budget_amounts"]) {
+    const rows = await asStudent(context, { table });
+    expect(rows, table).toEqual({ status: 200, body: [] });
+  }
+  expect(await asStudent(context, { rpc: "bank_link_secret" })).toEqual({ status: 200, body: [] });
+  // No transactions left: last month's totals, read as the student, are empty.
+  expect(await lastMonthTotals(context)).toEqual({ status: 200, body: [] });
+}
+
+function lastMonthTotals(context: BrowserContext) {
+  return asStudent(context, { rpc: "spending_by_detailed_category", args: { p_month: lastMonth() } });
+}
+
 test("disconnecting removes the bank at Plaid and deletes every balance and answer", async ({ page, context }) => {
   const checkA11y = await linkedStudent(page, "sts-unlink");
   const token = issuedAccessTokens.at(-1)!;
@@ -512,33 +529,94 @@ test("disconnecting removes the bank at Plaid and deletes every balance and answ
   expect((await asStudent(context, { table: "budget_amounts" })).body).toHaveLength(1);
   await page.goto("/settings/accounts");
 
-  // Plaid down: nothing changes, and the student is told.
-  behavior.remove = "down";
   await page.getByRole("button", { name: "Disconnect bank" }).click();
   const sheet = page.getByRole("dialog", { name: "Disconnect your bank?" });
+  // The three lines of Figma E3 (709:1666 to 709:1668).
+  await expect(sheet).toContainText("We delete your balances, transactions and answers now.");
+  await expect(sheet).toContainText("We remove the link at Plaid after. If Plaid is down, we retry.");
   await expect(sheet).toContainText("my.plaid.com");
   await checkA11y("accounts: disconnect sheet");
-  await sheet.getByRole("button", { name: "Disconnect" }).click();
-  await expect(sheet.getByRole("alert")).toContainText("Nothing changed");
-  expect(await apiStatus(page)).toBe(200);
-  expect(removedAccessTokens).not.toContain(token);
-
-  behavior.remove = "ok";
   await sheet.getByRole("button", { name: "Disconnect" }).click();
   await expect(page).toHaveURL(/\/home$/);
   await expect(page.getByRole("region", { name: "See what’s safe to spend" })).toBeVisible();
   await expect(safeToSpendCard(page)).toHaveCount(0);
   expect(removedAccessTokens).toContain(token);
-  expect(await apiStatus(page)).toBe(404);
-  for (const table of ["bank_links", "bank_balances", "bill_coverage", "budget_amounts"]) {
-    const rows = await asStudent(context, { table });
-    expect(rows, table).toEqual({ status: 200, body: [] });
-  }
-  expect(await asStudent(context, { rpc: "bank_link_secret" })).toEqual({ status: 200, body: [] });
+  await expectNothingLeft(page, context);
 
   // A reload does not bring anything back, and the student can link again.
   await page.reload();
   await expect(page.getByRole("region", { name: "See what’s safe to spend" })).toBeVisible();
+});
+
+// Figma E3 (Ben, Nov 18): deletion is never blocked by Plaid.
+test("disconnecting while Plaid is down deletes everything now, and the daily job removes the bank at Plaid after", async ({ page, context }) => {
+  await linkedStudent(page, "sts-unlink-down");
+  const token = issuedAccessTokens.at(-1)!;
+  expect((await page.request.put("/api/v1/budget/lines/groceries", { data: { amountCents: 25_000 } })).status()).toBe(200);
+  // The stand-in bank's transactions are stored, so their removal below means something.
+  expect(((await lastMonthTotals(context)).body as unknown[]).length).toBeGreaterThan(0);
+  await page.goto("/settings/accounts");
+
+  behavior.remove = "down";
+  await page.getByRole("button", { name: "Disconnect bank" }).click();
+  const sheet = page.getByRole("dialog", { name: "Disconnect your bank?" });
+  await sheet.getByRole("button", { name: "Disconnect" }).click();
+  await expect(page).toHaveURL(/\/home$/);
+  await expect(page.getByRole("region", { name: "See what’s safe to spend" })).toBeVisible();
+  await expect(safeToSpendCard(page)).toHaveCount(0);
+  expect(received.filter((request) => request.path === "/item/remove").map((request) => request.body.access_token)).toContain(token);
+  expect(removedAccessTokens).not.toContain(token);
+  await expectNothingLeft(page, context);
+  await page.reload();
+  await expect(page.getByRole("region", { name: "See what’s safe to spend" })).toBeVisible();
+  await expect(safeToSpendCard(page)).toHaveCount(0);
+
+  // Plaid is back: the daily job removes the queued Item.
+  behavior.remove = "ok";
+  const secret = process.env.E2E_CRON_SECRET;
+  if (!secret) throw new Error("E2E_CRON_SECRET is required for the queued disconnect journey");
+  const cleaned = await page.request.get("/api/v1/cron/reminders", { headers: { Authorization: `Bearer ${secret}` } });
+  expect(cleaned.status(), await cleaned.text()).toBe(200);
+  expect((await cleaned.json()).plaidCleanup.removed).toBeGreaterThanOrEqual(1);
+  expect(removedAccessTokens).toContain(token);
+});
+
+// Plaid that never answers: the app gives up after its own Plaid timeout (10
+// seconds, lib/plaid/client.ts), still deletes everything, and queues the
+// Item. The route's maxDuration (30) leaves room for that wait on Vercel.
+test("disconnecting while Plaid hangs still lands on Home with nothing left, and the daily job removes the bank at Plaid after", async ({ page, context }) => {
+  test.setTimeout(150_000);
+  await linkedStudent(page, "sts-unlink-hang");
+  const token = issuedAccessTokens.at(-1)!;
+  expect((await page.request.put("/api/v1/budget/lines/groceries", { data: { amountCents: 25_000 } })).status()).toBe(200);
+  expect(((await lastMonthTotals(context)).body as unknown[]).length).toBeGreaterThan(0);
+  await page.goto("/settings/accounts");
+
+  behavior.remove = "hang";
+  await page.getByRole("button", { name: "Disconnect bank" }).click();
+  const sheet = page.getByRole("dialog", { name: "Disconnect your bank?" });
+  const started = Date.now();
+  await sheet.getByRole("button", { name: "Disconnect" }).click();
+  await expect(page).toHaveURL(/\/home$/, { timeout: 40_000 });
+  // It really waited on Plaid: the app's timeout, not a quick failure.
+  expect(Date.now() - started).toBeGreaterThanOrEqual(9_000);
+  await expect(page.getByRole("region", { name: "See what’s safe to spend" })).toBeVisible();
+  await expect(safeToSpendCard(page)).toHaveCount(0);
+  expect(received.filter((request) => request.path === "/item/remove").map((request) => request.body.access_token)).toContain(token);
+  expect(removedAccessTokens).not.toContain(token);
+  await expectNothingLeft(page, context);
+  await page.reload();
+  await expect(page.getByRole("region", { name: "See what’s safe to spend" })).toBeVisible();
+  await expect(safeToSpendCard(page)).toHaveCount(0);
+
+  // Plaid answers again: the daily job removes the queued Item.
+  behavior.remove = "ok";
+  const secret = process.env.E2E_CRON_SECRET;
+  if (!secret) throw new Error("E2E_CRON_SECRET is required for the queued disconnect journey");
+  const cleaned = await page.request.get("/api/v1/cron/reminders", { headers: { Authorization: `Bearer ${secret}` } });
+  expect(cleaned.status(), await cleaned.text()).toBe(200);
+  expect((await cleaned.json()).plaidCleanup.removed).toBeGreaterThanOrEqual(1);
+  expect(removedAccessTokens).toContain(token);
 });
 
 test("signed out: the screens send to sign-in and the API refuses", async ({ page }) => {
