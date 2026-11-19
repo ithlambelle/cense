@@ -4,9 +4,9 @@ import Image from "next/image";
 import { useEffect, useId, useRef } from "react";
 
 import { BottomNav } from "@/components/ui/bottom-nav";
+import { ChoiceCard } from "@/components/ui/choice-card";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { ProgressBar } from "@/components/ui/progress-bar";
-import { SelectionMark } from "@/components/ui/selection-mark";
 import { SENSITIVE } from "@/lib/analytics";
 import type { Question } from "@/lib/quiz/questions";
 import { cn } from "@/lib/utils";
@@ -35,11 +35,6 @@ export const ADVANCE_HINT = "Tap an answer to go to the next question.";
 
 const control =
   "flex size-12 items-center justify-center rounded-pill hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress";
-
-// The designers' answer card (G7): white, Amethyst outline, never shaded.
-// Callers add the height and corners.
-export const answerCardClass =
-  "flex w-full items-center gap-4 border-[1.5px] border-violet bg-white px-[18px] py-3 text-left text-body-m text-navy transition-[background-color,scale] duration-200 ease-out-soft hover:bg-off-white motion-safe:active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress";
 
 type QuizHeaderProps = { step: number; total: number; onBack: () => void; onClose: () => void; pending: boolean };
 
@@ -89,8 +84,6 @@ export function QuizScreen({
     titleRef.current?.focus();
   }, [question.field]);
 
-  const compact = question.choices.length > 2;
-
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
@@ -118,37 +111,26 @@ export function QuizScreen({
             ) : null}
           </div>
 
-          {/* Answer labels are the student's answers (income, recent denial). */}
+          {/* Answer labels are the student's answers (income, recent denial).
+              Choice cards 12px apart, as the G1 frame lays them out (821:8383). */}
           <div
             key={`choices-${question.field}`}
             role="group"
             aria-labelledby={titleId}
             aria-describedby={step === 1 ? hintId : undefined}
-            className={cn(
-              SENSITIVE,
-              "stagger flex flex-col pt-2 [--stagger-offset:120ms]",
-              question.choices.length >= 6 ? "gap-5" : "gap-6",
-            )}
+            className={cn(SENSITIVE, "stagger flex flex-col gap-3 pt-2 [--stagger-offset:120ms]")}
           >
-            {question.choices.map((choice) => {
-              const selected = choice.id === selectedChoiceId;
-              return (
-                <button
-                  key={choice.id}
-                  type="button"
-                  aria-pressed={selected}
-                  disabled={pending}
-                  onClick={() => onChoose(choice.id)}
-                  className={cn(
-                    answerCardClass,
-                    compact ? "min-h-14 rounded-[18px]" : "min-h-20 rounded-card",
-                  )}
-                >
-                  <span className="flex-1">{choice.label}</span>
-                  <SelectionMark selected={selected} />
-                </button>
-              );
-            })}
+            {question.choices.map((choice) => (
+              <ChoiceCard
+                key={choice.id}
+                state={choice.id === selectedChoiceId ? "selected" : "default"}
+                aria-pressed={choice.id === selectedChoiceId}
+                disabled={pending}
+                onClick={() => onChoose(choice.id)}
+              >
+                {choice.label}
+              </ChoiceCard>
+            ))}
           </div>
 
           {error ? (
