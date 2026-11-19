@@ -7,9 +7,8 @@ import { TrackedLink } from "@/components/analytics/tracked-link";
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { Mascot } from "@/components/mascot/mascot";
 import { Button } from "@/components/ui/button";
-import { choiceRowClass } from "@/components/ui/choice-row";
+import { ChoiceCard, choiceCardClass } from "@/components/ui/choice-card";
 import { ErrorMessage } from "@/components/ui/error-message";
-import { SelectionMark } from "@/components/ui/selection-mark";
 import { SENSITIVE, track } from "@/lib/analytics";
 import { DENIAL_NOTE_MAX, saveDenialReason, type DenialReason } from "@/lib/api-client/denial-reason";
 import { useIsMounted } from "@/lib/use-is-mounted";
@@ -123,34 +122,31 @@ export function DeniedOptionsView({ applicationId, preview }: { applicationId: s
         </h2>
         <ul className="flex flex-col gap-4">
           <li>
-            <button
-              type="button"
+            <ChoiceCard
+              state={knowsReason ? "selected" : "default"}
               aria-pressed={knowsReason}
               onClick={chooseKnowsReason}
-              className={cn(choiceRowClass, "justify-between gap-4 text-left")}
             >
               Yes, I know the reason
-              <SelectionMark selected={knowsReason} />
-            </button>
+            </ChoiceCard>
           </li>
           {knowsReason ? null : (
             <>
               <li>
-                <button
-                  type="button"
+                <ChoiceCard
                   aria-busy={saving === "no-letter"}
                   disabled={saving !== null}
                   onClick={() => void saveThenOpen("no-letter", "no_letter_yet", "noLetter")}
-                  className={cn(choiceRowClass, "justify-between gap-4 text-left disabled:cursor-progress disabled:opacity-60")}
+                  className="disabled:opacity-60"
+                  end={saving === "no-letter" ? <Saving /> : null}
                 >
                   Not yet, I’m waiting on the letter
-                  {saving === "no-letter" ? <Saving /> : null}
-                </button>
+                </ChoiceCard>
               </li>
               <li>
                 <TrackedLink
                   href={deniedPath("fixable", applicationId)}
-                  className={choiceRowClass}
+                  className={choiceCardClass()}
                   track={{ event: "denial_letter_answered", props: { answer: "thinks_mistake" } }}
                 >
                   I think it was a mistake
@@ -176,19 +172,18 @@ export function DeniedOptionsView({ applicationId, preview }: { applicationId: s
           <ul className="flex flex-col gap-4">
             {REASONS.map((option) => (
               <li key={option.value}>
-                <button
-                  type="button"
+                <ChoiceCard
+                  state={reason === option.value ? "selected" : "default"}
                   aria-pressed={reason === option.value}
                   disabled={saving !== null}
                   onClick={() => {
                     setReason(option.value);
                     setError(null);
                   }}
-                  className={cn(choiceRowClass, "justify-between gap-4 text-left", SENSITIVE)}
+                  className={SENSITIVE}
                 >
                   {option.label}
-                  <SelectionMark selected={reason === option.value} />
-                </button>
+                </ChoiceCard>
               </li>
             ))}
           </ul>

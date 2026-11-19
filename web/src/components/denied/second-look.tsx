@@ -9,13 +9,12 @@ import { useState } from "react";
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { OutcomeMark } from "@/components/denied/parts";
 import { ButtonChevron, buttonVariants } from "@/components/ui/button";
-import { choiceRowClass } from "@/components/ui/choice-row";
+import { ChoiceCard, choiceCardClass } from "@/components/ui/choice-card";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { StatusPill } from "@/components/ui/status-pill";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import { deniedPath, ROUTES, signInPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
-import { cn } from "@/lib/utils";
 
 type View = "ask" | "approved" | "not-approved";
 
@@ -129,7 +128,7 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
         <ChoiceButton disabled={pending} onClick={() => setView("not-approved")}>
           The decision didn’t change
         </ChoiceButton>
-        <Link href={ROUTES.home} className={choiceRowClass}>
+        <Link href={ROUTES.home} className={choiceCardClass()}>
           I’m still waiting to hear
         </Link>
       </div>
@@ -143,13 +142,8 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
 
 function ChoiceButton({ children, onClick, disabled }: { children: string; onClick: () => void; disabled: boolean }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(choiceRowClass, "text-left disabled:cursor-not-allowed disabled:opacity-50")}
-    >
+    <ChoiceCard onClick={onClick} disabled={disabled} className="disabled:cursor-not-allowed disabled:opacity-50">
       {children}
-    </button>
+    </ChoiceCard>
   );
 }

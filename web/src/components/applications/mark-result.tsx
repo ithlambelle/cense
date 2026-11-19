@@ -6,9 +6,8 @@ import { useState, type FormEvent } from "react";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { Button } from "@/components/ui/button";
-import { choiceRowClass } from "@/components/ui/choice-row";
+import { ChoiceCard } from "@/components/ui/choice-card";
 import { ErrorMessage } from "@/components/ui/error-message";
-import { SelectionMark } from "@/components/ui/selection-mark";
 import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE, track } from "@/lib/analytics";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
@@ -126,20 +125,15 @@ export function MarkResult({
 
           <div role="group" aria-label="What the issuer decided" className="flex flex-col gap-4">
             {CHOICES.map((option) => (
-              <button
+              <ChoiceCard
                 key={option.id}
-                type="button"
+                state={choice === option.id ? "selected" : "default"}
                 aria-pressed={choice === option.id}
                 disabled={pending}
                 onClick={() => choose(option.id)}
-                className={cn(
-                  choiceRowClass,
-                  "gap-4 text-left disabled:cursor-progress",
-                )}
               >
-                <span className="flex-1">{option.label}</span>
-                <SelectionMark selected={choice === option.id} />
-              </button>
+                {option.label}
+              </ChoiceCard>
             ))}
           </div>
 

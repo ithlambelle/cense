@@ -4,14 +4,12 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { choiceRowClass } from "@/components/ui/choice-row";
+import { ChoiceCard } from "@/components/ui/choice-card";
 import { ErrorMessage } from "@/components/ui/error-message";
-import { SelectionMark } from "@/components/ui/selection-mark";
 import { Sheet } from "@/components/ui/sheet";
 import { track } from "@/lib/analytics";
 import { dismiss, snooze, type SnoozeChoice } from "@/lib/api-client/updates";
 import { ROUTES, signInPath, updateSnoozedPath, type ReminderKind } from "@/lib/routes";
-import { cn } from "@/lib/utils";
 
 export type SnoozeTarget = {
   id: string;
@@ -91,17 +89,15 @@ export function SnoozeSheet({
         {target?.choices.map((option) => {
           const selected = option.choice === choice;
           return (
-            <button
+            <ChoiceCard
               key={option.choice}
-              type="button"
               role="radio"
+              state={selected ? "selected" : "default"}
               aria-checked={selected}
               onClick={() => setPicked(option.choice)}
-              className={cn(choiceRowClass, "justify-between text-left font-medium text-indigo-black", selected && "border-2")}
             >
               {option.label}
-              <SelectionMark selected={selected} />
-            </button>
+            </ChoiceCard>
           );
         })}
       </div>
