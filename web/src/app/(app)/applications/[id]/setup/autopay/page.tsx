@@ -4,18 +4,30 @@ import { notFound } from "next/navigation";
 
 import { AutopaySteps } from "@/components/setup/autopay-steps";
 import { applicationIdSchema } from "@/lib/api/schemas";
-import { autopayStepsPath } from "@/lib/routes";
+import { autopayOrigin, autopayStepsPath, cardOrigin } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
 import { loadCardSetup } from "@/lib/setup/card-setup";
 
 export const metadata: Metadata = { title: "Turn on autopay | CENSE" };
 
 // I2, the issuer's autopay steps (US-10), for one of the student's approved cards.
-export default async function AutopayStepsPage({ params }: PageProps<"/applications/[id]/setup/autopay">) {
+// Opened from the card's page (?from=card, with that page's own origin in
+// card_from), Back returns there; otherwise the setup list.
+export default async function AutopayStepsPage({ params, searchParams }: PageProps<"/applications/[id]/setup/autopay">) {
   const { id } = await params;
+  const { from, card_from: cardFrom } = await searchParams;
   if (!applicationIdSchema.safeParse(id).success) notFound();
   const student = await requireStudent(autopayStepsPath(id));
   const setup = await loadCardSetup(student, id);
   if (!setup) notFound();
-  return <AutopaySteps applicationId={id} brand={setup.brand} issuer={setup.issuer} />;
+  return (
+    <AutopaySteps
+      applicationId={id}
+      brand={setup.brand}
+      issuer={setup.issuer}
+      from={autopayOrigin(from)}
+      cardId={setup.application.cardId}
+      cardFrom={cardOrigin(cardFrom)}
+    />
+  );
 }

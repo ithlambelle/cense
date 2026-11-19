@@ -15,7 +15,14 @@ import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE } from "@/lib/analytics";
 import { saveCreditLimit } from "@/lib/api-client/applications";
 import { centsToInput } from "@/lib/money";
-import { signInPath, spendLimitBackLink, spendLimitCreditPath, spendLimitSuggestionPath, type SpendLimitOrigin } from "@/lib/routes";
+import {
+  signInPath,
+  spendLimitBackLink,
+  spendLimitCreditPath,
+  spendLimitSuggestionPath,
+  type CardOrigin,
+  type SpendLimitOrigin,
+} from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 import { FRAME_FIELD, InfoCallout, SetupHeading, SetupScreen, Spacer } from "./setup-parts";
@@ -24,10 +31,16 @@ export function SpendLimitCredit({
   applicationId,
   creditLimitCents,
   from,
+  cardId = null,
+  cardFrom,
 }: {
   applicationId: string;
   creditLimitCents: number | null;
   from: SpendLimitOrigin;
+  // Opened from the card's page ("card"): its catalog id and its own origin,
+  // so Back returns to that page as it was opened.
+  cardId?: string | null;
+  cardFrom?: CardOrigin;
 }) {
   const router = useRouter();
   const known = creditLimitCents !== null && creditLimitCents > 0;
@@ -57,11 +70,11 @@ export function SpendLimitCredit({
     }
     // S2 replaces this screen, so Back never reopens a saved form. Stays
     // pending while S2 loads, so the button cannot go twice.
-    router.replace(spendLimitSuggestionPath(applicationId, from));
+    router.replace(spendLimitSuggestionPath(applicationId, from, cardFrom));
   }
 
   return (
-    <SetupScreen back={spendLimitBackLink(applicationId, from)}>
+    <SetupScreen back={spendLimitBackLink(applicationId, from, cardId, cardFrom)}>
       <form onSubmit={submit} noValidate className="flex flex-1 flex-col gap-4">
         <SetupHeading size="h3">What is your credit limit?</SetupHeading>
         <p className="text-body-m text-indigo-black">We use it to suggest a monthly spend limit for this card.</p>

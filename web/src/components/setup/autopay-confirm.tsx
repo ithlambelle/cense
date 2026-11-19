@@ -4,7 +4,7 @@
 // (Figma Design Edits 477:1668, US-10). The student says which autopay they
 // chose at the issuer, or Not yet. Nothing is picked for them (edited Nov 7).
 // Save stores autopay and the payment type, then shows "Autopay is on" (I5),
-// or the setup list again for Not yet. Minimum only gets a plain fact, not a
+// or the setup list again for Not yet (the card's page when opened from it). Minimum only gets a plain fact, not a
 // warning.
 
 import { useRouter } from "next/navigation";
@@ -14,7 +14,15 @@ import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { SelectionMark } from "@/components/ui/selection-mark";
 import { saveAutopayAnswer } from "@/lib/api-client/applications";
-import { autopayConfirmPath, autopayOnPath, autopayStepsPath, cardSetupPath, signInPath } from "@/lib/routes";
+import {
+  autopayBackLink,
+  autopayConfirmPath,
+  autopayOnPath,
+  autopayStepsPath,
+  signInPath,
+  type AutopayOrigin,
+  type CardOrigin,
+} from "@/lib/routes";
 import { AUTOPAY_ANSWERS } from "@/lib/setup/progress";
 import { cn } from "@/lib/utils";
 
@@ -22,7 +30,20 @@ import { HandoffStrip, InfoCallout, SetupHeading, SetupScreen, Spacer } from "./
 
 type Answer = (typeof AUTOPAY_ANSWERS)[number]["value"];
 
-export function AutopayConfirm({ applicationId, issuerName }: { applicationId: string; issuerName: string | null }) {
+export function AutopayConfirm({
+  applicationId,
+  issuerName,
+  from = "setup",
+  cardId = null,
+  cardFrom,
+}: {
+  applicationId: string;
+  issuerName: string | null;
+  // "card": opened from the card's page (its catalog id and own origin given).
+  from?: AutopayOrigin;
+  cardId?: string | null;
+  cardFrom?: CardOrigin;
+}) {
   const router = useRouter();
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +59,9 @@ export function AutopayConfirm({ applicationId, issuerName }: { applicationId: s
     const result = await saveAutopayAnswer(applicationId, answer);
     if (result.kind === "ok") {
       // Stays pending while the next screen loads, so Save cannot go twice.
-      router.push(answer === "not_yet" ? cardSetupPath(applicationId) : autopayOnPath(applicationId));
+      router.push(
+        answer === "not_yet" ? autopayBackLink(applicationId, from, cardId, cardFrom).href : autopayOnPath(applicationId, from, cardFrom),
+      );
       router.refresh();
       return;
     }
@@ -49,7 +72,7 @@ export function AutopayConfirm({ applicationId, issuerName }: { applicationId: s
   }
 
   return (
-    <SetupScreen back={{ href: autopayStepsPath(applicationId), label: "Autopay steps" }}>
+    <SetupScreen back={{ href: autopayStepsPath(applicationId, from, cardFrom), label: "Autopay steps" }}>
       <HandoffStrip issuer={issuerName ?? "Your card"} stage="confirm" />
       <SetupHeading size="h3">Did you turn on autopay?</SetupHeading>
       <div role="radiogroup" aria-label="Did you turn on autopay?" className="flex flex-col gap-4">

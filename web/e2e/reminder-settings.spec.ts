@@ -176,10 +176,13 @@ test("a second approved card reaches its reminders from its own page, and Back a
   await page.getByRole("link", { name: new RegExp(`^${DISCOVER.name}`) }).click();
   await expect(page).toHaveURL(new RegExp(`/cards/${DISCOVER.id}\\?from=home$`));
 
-  const row = page.getByRole("link", { name: /^Payment reminders/ });
-  await expect(row).toContainText("Not set yet");
+  // K1 (Figma 821:8748): the reminders are in Autopay and reminders, the days in Your dates.
+  const section = page.getByRole("button", { name: /^Autopay and reminders/ });
+  await expect(section).toContainText("reminders not set yet");
+  await expect(page.getByRole("button", { name: /^Your dates/ })).toContainText("Not set yet");
   await checkA11y("card page: reminders not set");
-  await row.click();
+  await section.click();
+  await page.getByRole("link", { name: "Choose your reminders" }).click();
   await expect(page).toHaveURL(new RegExp(`/applications/${discover}/reminders\\?from=card&card_from=home$`));
 
   // Back returns to the card's page as it was opened from Home, so its own
@@ -190,21 +193,23 @@ test("a second approved card reaches its reminders from its own page, and Back a
   await expect(page).toHaveURL(/\/home$/);
   await page.getByRole("link", { name: new RegExp(`^${DISCOVER.name}`) }).click();
 
-  // Saving returns there too, now on, and it survives a reload.
-  await page.getByRole("link", { name: /^Payment reminders/ }).click();
+  // Saving from Your dates returns there too, now on, and it survives a reload.
+  await page.getByRole("region", { name: "Your dates" }).getByRole("link", { name: "Add your dates" }).click();
   await saveDays(page, "20", "15");
   await expect(page).toHaveURL(new RegExp(`/cards/${DISCOVER.id}\\?from=home$`));
   await page.getByRole("link", { name: "Back to Home" }).waitFor();
-  await expect(page.getByRole("link", { name: /^Payment reminders/ })).toContainText("On");
-  await page.reload();
-  await expect(page.getByRole("link", { name: /^Payment reminders/ })).toContainText("On");
+  for (const pass of ["after saving", "after a reload"]) {
+    await expect(page.getByRole("button", { name: /^Your dates/ }), pass).toContainText("Statement closes day 20 · due day 15");
+    await expect(section, pass).toContainText("reminders on");
+    await page.reload();
+  }
   const saved = await (await page.request.get(`/api/v1/applications/${discover}`)).json();
   expect(saved).toMatchObject({ statementClosingDay: 20, paymentDueDay: 15 });
 
   // Every email off: the card says so.
   await page.request.patch("/api/v1/me/reminder-settings", { data: { emailsOn: false } });
   await page.reload();
-  await expect(page.getByRole("link", { name: /^Payment reminders/ })).toContainText("Off");
+  await expect(section).toContainText("reminders off");
 });
 
 test("the setup screen names the first-statement email only for a card the student just got", async ({ page }) => {
