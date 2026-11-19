@@ -100,8 +100,16 @@ export function ConnectView() {
           <Button type="button" pending={pending} onClick={connect}>
             {SAFE_TO_SPEND_COPY.connectAction}
           </Button>
-          {/* Button, Text (821:9661): 36 tall, 12px insets, at the left edge. */}
-          <Link href={ROUTES.home} className={cn(buttonVariants({ variant: "secondary", size: null }), "h-9 self-start px-3")}>
+          {/* Button, Text (821:9661): 36 tall, 12px insets, at the left edge.
+              The tap area reaches 4px above and below it (after:-inset-y-1),
+              so it is 44px tall while it looks as drawn. */}
+          <Link
+            href={ROUTES.home}
+            className={cn(
+              buttonVariants({ variant: "secondary", size: null }),
+              "relative h-9 self-start px-3 after:absolute after:inset-x-0 after:-inset-y-1"
+            )}
+          >
             {SAFE_TO_SPEND_COPY.connectSkip}
           </Link>
           {/* The frame's footer (821:9662), without its Privacy Policy line
