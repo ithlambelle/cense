@@ -74,10 +74,14 @@ export async function POST(request: Request): Promise<Response> {
   return Response.json(loaded.value, { status: 201, headers: NO_STORE });
 }
 
-// Disconnect (US-12): every Item is removed at Plaid first, then the token,
-// balances and answers are deleted (removeBankLinksForStudent, the same step
-// account deletion must take). If Plaid cannot be reached nothing changes, so the
-// token is never lost while the Item still exists there.
+// Disconnect (US-12, Figma E3): never waits on Plaid (Ben, Nov 18). Each Item
+// is removed at Plaid first; then the token, balances, transactions and
+// answers are always deleted, and any Item Plaid did not confirm removed is
+// queued, with its encrypted token, for the daily cleanup job to remove at
+// Plaid (removeBankLinksForStudent). So a Plaid outage still answers 204.
+// The 502 is left only for the database before
+// 20261118200000_disconnect_never_blocked.sql, where Plaid down still means
+// nothing changes.
 export async function DELETE(): Promise<Response> {
   const student = await authenticatedStudent();
   if (!student) return apiError(401, "unauthorized", "Sign in to continue.");

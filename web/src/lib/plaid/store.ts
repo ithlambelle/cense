@@ -126,9 +126,21 @@ export async function markLinkStatus(student: Student, status: "reconnect_needed
 }
 
 // Deletes the token, the link, its balances and the answers. False when there
-// was nothing to delete.
+// was nothing to delete. The old disconnect, kept for the fallback in
+// unlink.ts until disconnect_bank_link is applied everywhere.
 export async function deleteBankLink(student: Student): Promise<StoreResult<boolean>> {
   const { data, error } = await student.supabase.rpc("delete_bank_link");
+  if (error) return { ok: false, error };
+  return { ok: true, value: data === true };
+}
+
+// Disconnect (Figma E3): deletes everything deleteBankLink deletes, in one
+// step, after copying the encrypted token of each of the student's own Items
+// in queueItemIds into the cleanup queue, where the daily cron removes them
+// at Plaid (20261118200000_disconnect_never_blocked.sql). Ids that are not
+// the student's are ignored. False when there was nothing to delete.
+export async function disconnectBankLink(student: Student, queueItemIds: string[]): Promise<StoreResult<boolean>> {
+  const { data, error } = await student.supabase.rpc("disconnect_bank_link", { p_queue_item_ids: queueItemIds });
   if (error) return { ok: false, error };
   return { ok: true, value: data === true };
 }
