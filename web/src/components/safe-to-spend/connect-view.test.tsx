@@ -41,6 +41,14 @@ describe("ConnectView", () => {
     expect(screen.getAllByRole("link")).toHaveLength(1);
   });
 
+  it("draws Skip for now 36px tall with a tap area 4px beyond it above and below (44px)", () => {
+    render(<ConnectView />);
+    const skip = screen.getByRole("link", { name: "Skip for now" });
+    const classes = skip.className.split(/\s+/);
+    expect(classes).toEqual(expect.arrayContaining(["h-9", "relative", "after:absolute", "after:inset-x-0", "after:-inset-y-1"]));
+    expect(classes).not.toContain("h-11");
+  });
+
   it("says Secured by Plaid and keeps the Preview and sandbox note, with no Privacy Policy line yet", () => {
     const { container } = render(<ConnectView />);
     expect(screen.getByText("Secured by Plaid.")).toBeTruthy();

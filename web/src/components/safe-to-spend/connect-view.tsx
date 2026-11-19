@@ -109,8 +109,16 @@ export function ConnectView({ firstLogin = false }: { firstLogin?: boolean }) {
             {SAFE_TO_SPEND_COPY.connectAction}
           </Button>
           {/* Button, Text (821:9661): 36 tall, 12px insets, at the left edge.
-              On first sign-in it opens N3, so skipping still gets a next step. */}
-          <Link href={firstLogin ? ROUTES.startNextStep : ROUTES.home} className={cn(buttonVariants({ variant: "secondary", size: null }), "h-9 self-start px-3")}>
+              On first sign-in it opens N3, so skipping still gets a next step.
+              The tap area reaches 4px above and below it (after:-inset-y-1),
+              so it is 44px tall while it looks as drawn. */}
+          <Link
+            href={firstLogin ? ROUTES.startNextStep : ROUTES.home}
+            className={cn(
+              buttonVariants({ variant: "secondary", size: null }),
+              "relative h-9 self-start px-3 after:absolute after:inset-x-0 after:-inset-y-1"
+            )}
+          >
             {SAFE_TO_SPEND_COPY.connectSkip}
           </Link>
           {/* The frame's footer (821:9662), without its Privacy Policy line

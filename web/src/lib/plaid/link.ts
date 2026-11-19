@@ -32,6 +32,11 @@ function loadLink(): Promise<PlaidLinkFactory> {
     const script = document.createElement("script");
     script.src = PLAID_LINK_SCRIPT;
     script.async = true;
+    // The page's CSP nonce (lib/security/csp.ts), as Plaid's CSP guide asks.
+    // 'strict-dynamic' already lets this script load; the nonce also covers
+    // browsers without it.
+    const nonce = document.querySelector<HTMLScriptElement>("script[nonce]")?.nonce;
+    if (nonce) script.nonce = nonce;
     script.onload = () => (window.Plaid ? resolve(window.Plaid) : reject(new Error("Plaid Link did not start")));
     script.onerror = () => {
       // A later tap tries again (offline, or a blocker stopped it).

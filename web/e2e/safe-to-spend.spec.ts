@@ -280,6 +280,25 @@ test("Link your bank: the three rows survive a reload, and Skip for now goes Hom
   await page.reload();
   await screenAsDrawn();
 
+  // Skip for now looks 36px tall, as drawn, and its tap area is 44px: a tap
+  // 3px above or below the drawn link still lands on it.
+  const skip = page.getByRole("link", { name: "Skip for now" });
+  const tapArea = await skip.evaluate((link) => {
+    const box = link.getBoundingClientRect();
+    const hits = (y: number) => {
+      const hit = document.elementFromPoint(box.left + box.width / 2, y);
+      return hit !== null && link.contains(hit);
+    };
+    const after = getComputedStyle(link, "::after");
+    return {
+      drawn: box.height,
+      tapHeight: box.height - parseFloat(after.top) - parseFloat(after.bottom),
+      above: hits(box.top - 3),
+      below: hits(box.bottom + 3),
+    };
+  });
+  expect(tapArea).toEqual({ drawn: 36, tapHeight: 44, above: true, below: true });
+
   // Skip for now: Home, still inviting, nothing linked. Back returns here.
   await page.getByRole("link", { name: "Skip for now" }).click();
   await expect(page).toHaveURL(/\/home$/);
