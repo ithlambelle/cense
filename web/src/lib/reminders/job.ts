@@ -37,6 +37,10 @@ export type ReminderJobResult = {
   deferred: number;
   // released for the last time (its third attempt): never tried again
   abandoned: number;
+  // every student's next reminders were planned this run. False when the
+  // refresh failed or ran out of time; the next run carries on where it
+  // stopped (refresh_all_reminders remembers), and the heartbeat says fail.
+  refreshed: boolean;
 };
 
 export type ReminderJobOptions = {
@@ -59,6 +63,12 @@ const SEND_INTERVAL_MS = 550;
 // 10-second timeout on the last email, then the analytics copy (2 s,
 // analytics-server.ts) and the heartbeat (2 s).
 const TIME_BUDGET_MS = 45_000;
+// No new refresh call starts after this, counted from the refresh's own
+// start. Each call stops itself after about 3 seconds (refresh_all_reminders'
+// p_budget), so the refresh takes at most about 8 seconds: the most the one
+// statement it replaced could take (the 8-second statement limit), so
+// sending keeps the time it had.
+const REFRESH_BUDGET_MS = 5_000;
 const RESEND_TIMEOUT_MS = 10_000;
 
 export type ClaimedReminderRow = {
@@ -145,16 +155,29 @@ export async function runReminderJob(
 ): Promise<ReminderJobResult> {
   const started = startedAt ?? now();
 
-  // schedule every card's next cycle first. A failure here is logged, not
-  // fatal: reminders already due can still go out.
-  const refresh = await supabase.rpc("refresh_all_reminders");
-  if (refresh.error) log("reminder_refresh_failed", { code: refresh.error.code }, "error");
+  // schedule every card's next cycle first, a few seconds of students per
+  // call (each its own statement, inside the database's time limit), until
+  // the database answers null. A failure here is logged, not fatal:
+  // reminders already due can still go out.
+  const refreshStarted = now();
+  let after: string | null = null;
+  let refreshed = false;
+  do {
+    const refresh: { data: unknown; error: { code?: string } | null } = await supabase.rpc("refresh_all_reminders", { p_after: after });
+    if (refresh.error) {
+      log("reminder_refresh_failed", { code: refresh.error.code }, "error");
+      break;
+    }
+    after = (refresh.data as string | null) ?? null;
+    refreshed = after === null;
+  } while (after !== null && now() - refreshStarted < REFRESH_BUDGET_MS);
+  if (!refreshed && after !== null) log("reminder_refresh_incomplete", {}, "error");
 
   const claim = await supabase.rpc("claim_due_reminders", { p_limit: CLAIM_LIMIT });
   if (claim.error) throw new ReminderJobError("reminder_claim", claim.error.code);
   const rows = (claim.data ?? []) as ClaimedReminderRow[];
 
-  const result: ReminderJobResult = { claimed: rows.length, sent: 0, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0 };
+  const result: ReminderJobResult = { claimed: rows.length, sent: 0, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, refreshed };
   const sent: ServerEvent<"reminder_sent">[] = [];
 
   // Claimable again on the student's next day. True from the database means

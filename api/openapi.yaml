@@ -695,6 +695,36 @@ components:
       required:
         - marked
       additionalProperties: false
+    IssuerClick:
+      type: object
+      properties:
+        id:
+          type:
+            - string
+            - "null"
+          format: uuid
+        cardId:
+          type: string
+        kind:
+          type: string
+          enum:
+            - preapproval
+            - apply
+        url:
+          type: string
+          format: uri
+        clickedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+      required:
+        - id
+        - cardId
+        - kind
+        - url
+        - clickedAt
+      additionalProperties: false
     PennyReply:
       oneOf:
         - type: object
@@ -1878,6 +1908,9 @@ paths:
       summary: Record a self-reported application or owned card
       security:
         - studentSession: []
+      description: 409 already_exists when the card is already tracked as applied or
+        approved; 409 limit_reached at the card limit (25 records per student,
+        kept for good).
       requestBody:
         content:
           application/json:
@@ -1931,7 +1964,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "409":
-          description: Already exists
+          description: Already exists, or the card limit is reached
           content:
             application/json:
               schema:
@@ -2733,6 +2766,10 @@ paths:
     post:
       operationId: recordIssuerClick
       summary: Record an issuer link click
+      description: "201 with the saved click. When the click cannot be recorded (at
+        most 50 per student a day, or the database is unavailable), 200 with the
+        same address and a null id and clickedAt: the student still goes to the
+        issuer."
       security:
         - studentSession: []
       requestBody:
@@ -2755,36 +2792,18 @@ paths:
                 - kind
               additionalProperties: false
       responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IssuerClick"
         "201":
           description: Success
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    format: uuid
-                  cardId:
-                    type: string
-                  kind:
-                    type: string
-                    enum:
-                      - preapproval
-                      - apply
-                  url:
-                    type: string
-                    format: uri
-                  clickedAt:
-                    type: string
-                    format: date-time
-                required:
-                  - id
-                  - cardId
-                  - kind
-                  - url
-                  - clickedAt
-                additionalProperties: false
+                $ref: "#/components/schemas/IssuerClick"
         "400":
           description: Invalid request
           content:

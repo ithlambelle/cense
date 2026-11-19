@@ -69,8 +69,9 @@ export async function GET(request: Request): Promise<Response> {
     // not marked (it may go again tomorrow), or a reminder was given up on
     // (its third try, which can also be a run that ran out of time). Deferred
     // ones alone simply go on the next run.
-    // So is a follow-up call that failed as a whole.
-    const problem = sent.failed > 0 || sent.unconfirmed > 0 || sent.abandoned > 0 || followUps.failed;
+    // So is a follow-up call that failed as a whole, and a refresh that
+    // failed or ran out of time (some students' next reminders not planned).
+    const problem = sent.failed > 0 || sent.unconfirmed > 0 || sent.abandoned > 0 || followUps.failed || !sent.refreshed;
     await finish(problem ? "fail" : "success", result);
     return Response.json({ ...result, plaidCleanup: await cleanup }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
