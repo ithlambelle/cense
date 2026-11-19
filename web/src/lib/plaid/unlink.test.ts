@@ -38,12 +38,12 @@ const logged = () => vi.mocked(console.error).mock.calls.map((call) => call[0]);
 // What Disconnect uses (Figma E3): Plaid is asked to remove every Item, then
 // our copy is always deleted, and whatever Plaid did not remove is queued.
 describe("removeBankLinksForStudent", () => {
-  it("removes every Item at Plaid, then deletes the token, balances and answers, queueing nothing", async () => {
+  it("removes every Item at Plaid, then deletes the token, balances and answers, listing both as done so nothing is queued", async () => {
     store.readAccessTokens.mockResolvedValue({ ok: true, value: [token(1), token(2)] });
     expect(await removeBankLinksForStudent(STUDENT, CONFIG)).toEqual({ kind: "removed" });
     expect(plaid.removeItem.mock.calls.map((call) => call[1])).toEqual(["access-1", "access-2"]);
     expect(plaid.removeItem.mock.invocationCallOrder.at(-1)).toBeLessThan(store.disconnectBankLink.mock.invocationCallOrder[0]);
-    expect(store.disconnectBankLink).toHaveBeenCalledWith(STUDENT, []);
+    expect(store.disconnectBankLink).toHaveBeenCalledWith(STUDENT, ["item-1", "item-2"]);
     expect(store.deleteBankLink).not.toHaveBeenCalled();
     expect(logged()).not.toContainEqual(expect.stringContaining("plaid_item_queued"));
   });
@@ -55,11 +55,11 @@ describe("removeBankLinksForStudent", () => {
     expect(store.disconnectBankLink).not.toHaveBeenCalled();
   });
 
-  it("Plaid down: still deletes our copy and queues the Item, logging a count and no id", async () => {
+  it("Plaid down: still deletes our copy and lists nothing as done, so the Item is queued, logging a count and no id", async () => {
     store.readAccessTokens.mockResolvedValue({ ok: true, value: [token(1)] });
     plaid.removeItem.mockResolvedValue(PLAID_DOWN);
     expect(await removeBankLinksForStudent(STUDENT, CONFIG)).toEqual({ kind: "removed" });
-    expect(store.disconnectBankLink).toHaveBeenCalledWith(STUDENT, ["item-1"]);
+    expect(store.disconnectBankLink).toHaveBeenCalledWith(STUDENT, []);
     expect(logged()).toContain(JSON.stringify({ event: "plaid_item_queued", count: 1 }));
     expect(logged().join("\n")).not.toContain("item-1");
   });
@@ -68,17 +68,17 @@ describe("removeBankLinksForStudent", () => {
     store.readAccessTokens.mockResolvedValue({ ok: true, value: [token(1)] });
     plaid.removeItem.mockResolvedValue({ ok: false, kind: "plaid", code: "INTERNAL_SERVER_ERROR" });
     expect(await removeBankLinksForStudent(STUDENT, CONFIG)).toEqual({ kind: "removed" });
-    expect(store.disconnectBankLink).toHaveBeenCalledWith(STUDENT, ["item-1"]);
-  });
-
-  it("does not queue an Item Plaid says is already gone", async () => {
-    store.readAccessTokens.mockResolvedValue({ ok: true, value: [token(1)] });
-    plaid.removeItem.mockResolvedValue(ALREADY_GONE);
-    expect(await removeBankLinksForStudent(STUDENT, CONFIG)).toEqual({ kind: "removed" });
     expect(store.disconnectBankLink).toHaveBeenCalledWith(STUDENT, []);
   });
 
-  it("mixed: queues only the Item Plaid did not remove, never one whose token cannot be opened", async () => {
+  it("lists an Item Plaid says is already gone as done, so it is not queued", async () => {
+    store.readAccessTokens.mockResolvedValue({ ok: true, value: [token(1)] });
+    plaid.removeItem.mockResolvedValue(ALREADY_GONE);
+    expect(await removeBankLinksForStudent(STUDENT, CONFIG)).toEqual({ kind: "removed" });
+    expect(store.disconnectBankLink).toHaveBeenCalledWith(STUDENT, ["item-1"]);
+  });
+
+  it("mixed: lists as done every Item but the one Plaid did not remove, including one whose token cannot be opened", async () => {
     store.readAccessTokens.mockResolvedValue({
       ok: true,
       value: [token(1), token(2), token(3), { kind: "unreadable", itemId: "item-4" }],
@@ -88,7 +88,7 @@ describe("removeBankLinksForStudent", () => {
     );
     expect(await removeBankLinksForStudent(STUDENT, CONFIG)).toEqual({ kind: "removed" });
     expect(plaid.removeItem).toHaveBeenCalledTimes(3);
-    expect(store.disconnectBankLink).toHaveBeenCalledWith(STUDENT, ["item-2"]);
+    expect(store.disconnectBankLink).toHaveBeenCalledWith(STUDENT, ["item-1", "item-3", "item-4"]);
     expect(logged()).toContain(JSON.stringify({ event: "plaid_item_orphaned", reason: "token_unreadable" }));
     expect(logged()).toContain(JSON.stringify({ event: "plaid_item_queued", count: 1 }));
   });
@@ -110,6 +110,16 @@ describe("removeBankLinksForStudent", () => {
     store.readAccessTokens.mockResolvedValue({ ok: false, error: { code: "08006", message: "down" } });
     expect((await removeBankLinksForStudent(STUDENT, CONFIG)).kind).toBe("database_error");
     expect(plaid.removeItem).not.toHaveBeenCalled();
+  });
+
+  it("says queue_full, with nothing deleted, when 3 Items already wait for removal (54000)", async () => {
+    store.readAccessTokens.mockResolvedValue({ ok: true, value: [token(1)] });
+    plaid.removeItem.mockResolvedValue(PLAID_DOWN);
+    store.disconnectBankLink.mockResolvedValue({ ok: false, error: { code: "54000", message: "too many bank removals waiting" } });
+    expect(await removeBankLinksForStudent(STUDENT, CONFIG)).toEqual({ kind: "queue_full" });
+    expect(store.deleteBankLink).not.toHaveBeenCalled();
+    expect(logged()).toContain(JSON.stringify({ event: "bank_disconnect_queue_full" }));
+    expect(logged()).not.toContainEqual(expect.stringContaining("plaid_item_queued"));
   });
 
   it("reports a failed disconnect as a database error, without the old fallback", async () => {

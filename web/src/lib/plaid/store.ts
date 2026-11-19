@@ -136,11 +136,14 @@ export async function deleteBankLink(student: Student): Promise<StoreResult<bool
 
 // Disconnect (Figma E3): deletes everything deleteBankLink deletes, in one
 // step, after copying the encrypted token of each of the student's own Items
-// in queueItemIds into the cleanup queue, where the daily cron removes them
-// at Plaid (20261118200000_disconnect_never_blocked.sql). Ids that are not
-// the student's are ignored. False when there was nothing to delete.
-export async function disconnectBankLink(student: Student, queueItemIds: string[]): Promise<StoreResult<boolean>> {
-  const { data, error } = await student.supabase.rpc("disconnect_bank_link", { p_queue_item_ids: queueItemIds });
+// NOT in doneItemIds into the cleanup queue, where the daily cron removes
+// them at Plaid (20261118200000_disconnect_never_blocked.sql). doneItemIds
+// are the Items Plaid confirmed removed (or already gone) and those whose
+// token cannot be opened. Ids that are not the student's change nothing.
+// False when there was nothing to delete. Error 54000 when an Item would be
+// queued and the student already has 3 or more waiting; nothing changed.
+export async function disconnectBankLink(student: Student, doneItemIds: string[]): Promise<StoreResult<boolean>> {
+  const { data, error } = await student.supabase.rpc("disconnect_bank_link", { p_done_item_ids: doneItemIds });
   if (error) return { ok: false, error };
   return { ok: true, value: data === true };
 }

@@ -3155,6 +3155,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "429":
+          description: An Item would be queued and 3 already wait for removal at Plaid;
+            nothing changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
         "502":
           description: Plaid unreachable on a database without disconnect_bank_link;
             nothing changed

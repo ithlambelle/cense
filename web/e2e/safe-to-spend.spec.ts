@@ -581,6 +581,44 @@ test("disconnecting while Plaid is down deletes everything now, and the daily jo
   expect(removedAccessTokens).toContain(token);
 });
 
+// Plaid that never answers: the app gives up after its own Plaid timeout (10
+// seconds, lib/plaid/client.ts), still deletes everything, and queues the
+// Item. The route's maxDuration (30) leaves room for that wait on Vercel.
+test("disconnecting while Plaid hangs still lands on Home with nothing left, and the daily job removes the bank at Plaid after", async ({ page, context }) => {
+  test.setTimeout(150_000);
+  await linkedStudent(page, "sts-unlink-hang");
+  const token = issuedAccessTokens.at(-1)!;
+  expect((await page.request.put("/api/v1/budget/lines/groceries", { data: { amountCents: 25_000 } })).status()).toBe(200);
+  expect(((await lastMonthTotals(context)).body as unknown[]).length).toBeGreaterThan(0);
+  await page.goto("/settings/accounts");
+
+  behavior.remove = "hang";
+  await page.getByRole("button", { name: "Disconnect bank" }).click();
+  const sheet = page.getByRole("dialog", { name: "Disconnect your bank?" });
+  const started = Date.now();
+  await sheet.getByRole("button", { name: "Disconnect" }).click();
+  await expect(page).toHaveURL(/\/home$/, { timeout: 40_000 });
+  // It really waited on Plaid: the app's timeout, not a quick failure.
+  expect(Date.now() - started).toBeGreaterThanOrEqual(9_000);
+  await expect(page.getByRole("region", { name: "See what’s safe to spend" })).toBeVisible();
+  await expect(safeToSpendCard(page)).toHaveCount(0);
+  expect(received.filter((request) => request.path === "/item/remove").map((request) => request.body.access_token)).toContain(token);
+  expect(removedAccessTokens).not.toContain(token);
+  await expectNothingLeft(page, context);
+  await page.reload();
+  await expect(page.getByRole("region", { name: "See what’s safe to spend" })).toBeVisible();
+  await expect(safeToSpendCard(page)).toHaveCount(0);
+
+  // Plaid answers again: the daily job removes the queued Item.
+  behavior.remove = "ok";
+  const secret = process.env.E2E_CRON_SECRET;
+  if (!secret) throw new Error("E2E_CRON_SECRET is required for the queued disconnect journey");
+  const cleaned = await page.request.get("/api/v1/cron/reminders", { headers: { Authorization: `Bearer ${secret}` } });
+  expect(cleaned.status(), await cleaned.text()).toBe(200);
+  expect((await cleaned.json()).plaidCleanup.removed).toBeGreaterThanOrEqual(1);
+  expect(removedAccessTokens).toContain(token);
+});
+
 test("signed out: the screens send to sign-in and the API refuses", async ({ page }) => {
   for (const path of ["/safe-to-spend", "/safe-to-spend/connect", "/safe-to-spend/setup", "/settings/accounts"]) {
     await page.goto(path);

@@ -3454,6 +3454,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description An Item would be queued and 3 already wait for removal at Plaid; nothing changed */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
             /** @description Plaid unreachable on a database without disconnect_bank_link; nothing changed */
             502: {
                 headers: {

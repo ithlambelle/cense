@@ -9,7 +9,7 @@
 //    installFakeLink() answers that address with a small Plaid.create() that
 //    ends the way the test asks: connected, cancelled, a bank error, or a
 //    public token that has expired.
-import { createServer, type IncomingMessage, type Server } from "node:http";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
 import type { BrowserContext } from "@playwright/test";
 
@@ -75,9 +75,11 @@ const FAKE_TRANSACTIONS = [
 // every call with its token answers INVALID_ACCESS_TOKEN.
 // transactions "none": the bank has no transactions yet (Plaid still
 // gathering a new Item's history).
+// remove "hang": /item/remove is received and never answered, so the app
+// waits for its own Plaid timeout (10 seconds, lib/plaid/client.ts).
 export const behavior = {
   accounts: "ok" as "ok" | "login_required" | "down" | "gone",
-  remove: "ok" as "ok" | "down",
+  remove: "ok" as "ok" | "down" | "hang",
   transactions: "ok" as "ok" | "none",
 };
 
@@ -87,7 +89,13 @@ export const received: { path: string; clientId: string | null; secret: string |
 export const issuedAccessTokens: string[] = [];
 export const removedAccessTokens: string[] = [];
 
+// Requests held open by remove "hang", ended by resetFakePlaid() and when the
+// app gives up on them, so the server can always close.
+const hanging = new Set<ServerResponse>();
+
 export function resetFakePlaid() {
+  for (const response of hanging) response.destroy();
+  hanging.clear();
   behavior.accounts = "ok";
   behavior.remove = "ok";
   behavior.transactions = "ok";
@@ -220,6 +228,11 @@ export async function startFakePlaid(): Promise<Server> {
       secret: request.headers["plaid-secret"]?.toString() ?? null,
       body,
     });
+    if (request.method === "POST" && path === "/item/remove" && behavior.remove === "hang") {
+      hanging.add(response);
+      response.on("close", () => hanging.delete(response));
+      return;
+    }
     const result = request.method === "POST" ? answer(path, body) : plaidError(405, "INVALID_REQUEST", "METHOD_NOT_ALLOWED");
     response.writeHead(result.status, { "content-type": "application/json" });
     response.end(JSON.stringify(result.body));
