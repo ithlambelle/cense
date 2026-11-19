@@ -61,6 +61,9 @@ test("student answers the spending question and sees three cards, each with why 
   const href = await second.getAttribute("href");
   await second.click();
   await expect(page).toHaveURL(new RegExp(`${href!.replace("?", "\\?")}$`));
+  // K2's fit row says it short; Rewards, one tap away, says it in full.
+  await expect(page.getByText(/^\$\d[\d,]* year one, est\.$/)).toBeVisible();
+  await page.getByRole("button", { name: /^Rewards/ }).click();
   // Anchored: a Discover card's Cashback Match bonus also says "in your first year".
   await expect(page.getByRole("region", { name: "Rewards" }).getByText(/^About \$\d[\d,]* in your first year$/)).toBeVisible();
   await checkA11y("cards: detail with an estimate");
@@ -114,7 +117,7 @@ test("student browses cards, checks preapproval, applies and sees APPLIED on Hom
   await preapprovalTab.close();
 
   // Apply hand-off, then "Did you finish applying?" on return.
-  await page.getByRole("button", { name: `Apply on Discover’s site: ${DISCOVER.name}` }).click();
+  await page.getByRole("button", { name: `Apply at Discover: ${DISCOVER.name}` }).click();
   const applySheet = page.getByRole("dialog", { name: "Apply on the issuer’s site" });
   await expect(applySheet).toBeVisible();
   await checkA11y("cards: apply sheet");

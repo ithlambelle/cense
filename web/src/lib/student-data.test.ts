@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { loadApplicationDetail, loadStudentSnapshot } from "./student-data";
+import { findCard, listCards } from "./cards/catalog";
+import { computeResult } from "./results/compute";
+import { loadApplicationDetail, loadCardQuiz, loadStudentSnapshot } from "./student-data";
 
 // "server-only" refuses to load outside a server build; this test is the server.
 vi.mock("server-only", () => ({}));
@@ -61,6 +63,32 @@ describe("loadStudentSnapshot", () => {
   it("is not started when nothing is saved", async () => {
     const snapshot = await loadStudentSnapshot(studentWithDraft(undefined));
     expect(snapshot).toEqual({ applications: [], quiz: { kind: "quiz_unfinished" }, quizAnswered: 0 });
+  });
+});
+
+describe("loadCardQuiz", () => {
+  const discover = () => findCard("discover-it-student-cash-back")!;
+
+  it("gives a card the same tier and reasons Your match gives it, and the spending answer", async () => {
+    const answers = { ...ALL_SIX, spendingBand: "200_to_500", spendingCategories: ["groceries"] };
+    const { fit, profile } = await loadCardQuiz(studentWithDraft(answers), discover());
+    const result = computeResult(answers, listCards());
+    if (result.kind !== "match") throw new Error("expected a match");
+    const onResult = result.options.find((option) => option.card.id === "discover-it-student-cash-back");
+    expect(onResult).toBeDefined();
+    expect(fit).toEqual(onResult!.fit);
+    expect(profile).toEqual({ categories: ["groceries"], band: "200_to_500" });
+  });
+
+  it("has no fit before the quiz is finished", async () => {
+    const { fit, profile } = await loadCardQuiz(studentWithDraft({ under21: true }), discover());
+    expect(fit).toBeNull();
+    expect(profile).toBeNull();
+  });
+
+  it("has no fit for a card the rules do not tier (an explore card)", async () => {
+    const explore = listCards().find((card) => card.catalogRole === "explore")!;
+    expect((await loadCardQuiz(studentWithDraft(ALL_SIX), explore)).fit).toBeNull();
   });
 });
 

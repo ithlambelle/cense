@@ -11,6 +11,7 @@ import {
   type ApplicationRow,
 } from "@/lib/api/application";
 import { validAnswers } from "@/lib/api/quiz-answers";
+import { quizAnswersSchema } from "@/lib/api/schemas";
 import {
   calendarDate,
   REMINDER_SETTINGS_FIELDS,
@@ -20,11 +21,12 @@ import {
   type ReminderSettingsRow,
 } from "@/lib/api/reminders";
 import type { Student } from "@/lib/api/auth";
-import { listCards } from "@/lib/cards/catalog";
+import { listCards, type Card } from "@/lib/cards/catalog";
 import { firstStatementEmailUpcoming } from "@/lib/home/state";
 import { answeredCount } from "@/lib/quiz/progress";
 import { computeResult, type ResultView } from "@/lib/results/compute";
 import { spendingProfile, type SpendingProfile } from "@/lib/results/value";
+import { evaluateFit, type CardFit } from "@/lib/rules/fit-tier";
 
 export type StudentSnapshot = {
   applications: Application[];
@@ -64,10 +66,17 @@ export async function loadQuizResult(student: Student): Promise<ResultView> {
   return computeResult(await readQuizAnswers(student, "result_read"), listCards());
 }
 
-// The student's saved spending answer, for a card page's year-one estimate.
-// Null when they skipped it or gave no monthly band.
-export async function loadSpendingProfile(student: Student): Promise<SpendingProfile | null> {
-  return spendingProfile(await readQuizAnswers(student, "spending_read"));
+// What a card's page needs from the student's quiz, from one read: how that
+// card fits their answers (the tier and reasons Your match shows; null before
+// the quiz is finished, or for a card the rules do not tier) and their
+// spending answer, for the card's year-one estimate (null when they skipped it
+// or gave no monthly band).
+export async function loadCardQuiz(student: Student, card: Card): Promise<{ fit: CardFit | null; profile: SpendingProfile | null }> {
+  const answers = await readQuizAnswers(student, "card_read");
+  const parsed = quizAnswersSchema.safeParse(answers);
+  const result = parsed.success ? evaluateFit(parsed.data, [card]) : null;
+  const fit = result?.status === "complete" ? (result.cards.find((entry) => entry.cardId === card.id) ?? null) : null;
+  return { fit, profile: spendingProfile(answers) };
 }
 
 // Read the same way as GET /quiz: a draft the schema now rejects (an old
