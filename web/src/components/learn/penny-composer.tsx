@@ -3,7 +3,7 @@
 import ArrowRight from "@gravity-ui/icons/ArrowRight";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, useTransition, type FormEvent } from "react";
 
 import { MAX_QUESTION_LENGTH } from "@/lib/api/penny";
 import { PENNY_COPY } from "@/lib/penny/copy";
@@ -26,25 +26,35 @@ type Props = {
 export function PennyComposer({ variant, onAsk, busy = false }: Props) {
   const router = useRouter();
   const [question, setQuestion] = useState("");
+  // Learn: true while Ask Penny opens with the question. On a slow network
+  // that takes seconds, and the field showed nothing meanwhile (QA, Nov 16).
+  const [opening, startOpening] = useTransition();
+  const learn = variant === "learn";
+  const working = busy || opening;
   const trimmed = question.trim();
-  const canSend = trimmed.length > 0 && !busy;
+  const canSend = trimmed.length > 0 && !working;
+
+  // Learn loads Ask Penny ahead, so sending opens it at once.
+  useEffect(() => {
+    if (learn) router.prefetch(ROUTES.penny);
+  }, [learn, router]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canSend) return;
-    if (variant === "learn") {
+    if (learn) {
       handOffQuestion(trimmed);
-      router.push(ROUTES.penny);
+      startOpening(() => router.push(ROUTES.penny));
       return;
     }
     onAsk?.(trimmed);
     setQuestion("");
   }
 
-  const learn = variant === "learn";
   return (
     <form
       aria-label="Ask Penny"
+      aria-busy={opening || undefined}
       onSubmit={submit}
       className={cn(
         "flex items-center",
@@ -60,6 +70,7 @@ export function PennyComposer({ variant, onAsk, busy = false }: Props) {
         placeholder={PENNY_COPY.placeholder}
         value={question}
         onChange={(event) => setQuestion(event.target.value)}
+        readOnly={opening}
         maxLength={MAX_QUESTION_LENGTH}
         autoComplete="off"
         enterKeyHint="send"
@@ -77,7 +88,7 @@ export function PennyComposer({ variant, onAsk, busy = false }: Props) {
       />
       <button
         type="submit"
-        aria-label="Send"
+        aria-label={opening ? "Opening Penny" : "Send"}
         disabled={!canSend}
         className={cn(
           "flex size-11 shrink-0 items-center justify-center rounded-pill focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-40",

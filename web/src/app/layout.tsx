@@ -35,8 +35,10 @@ const googleFont = Google_Sans({
 const numberFont = Unbounded({
   variable: "--font-unbounded",
   subsets: ["latin"],
-  // 600 for Home's credit limit figure (Figma 477:1528, Unbounded SemiBold).
-  weight: ["400", "500", "600"],
+  // 600 for Home's credit limit figure (Figma 477:1528, Unbounded SemiBold);
+  // 700 for Your money's big number (709:1526, Unbounded Bold). A weight not
+  // listed here is faked by the browser (synthetic bold).
+  weight: ["400", "500", "600", "700"],
   // Used on Home, results, card pages and the denial steps, not on Welcome,
   // where preloading it competed with the mascot image.
   preload: false,

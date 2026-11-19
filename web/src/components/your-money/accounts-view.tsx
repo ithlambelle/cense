@@ -123,7 +123,7 @@ export function AccountsView({ data }: { data: SafeToSpendData }) {
       <div className="flex w-full max-w-phone flex-col">
         <AppHeader backHref={ROUTES.settings} backLabel="Your account" />
         <main className="flex flex-1 flex-col gap-3 px-6 pt-3 pb-6">
-          <h1 className="font-heading text-h1 font-semibold text-navy">Accounts</h1>
+          <h1 className="font-heading text-h1 font-medium text-navy">Accounts</h1>
           <ul aria-label="Your bank" className="flex flex-col">
             <li className={cn(ROW, SENSITIVE)}>
               <span suppressHydrationWarning className="contents">
