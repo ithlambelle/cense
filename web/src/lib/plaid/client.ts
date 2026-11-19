@@ -94,8 +94,8 @@ async function call<T>(config: PlaidConfig, path: string, body: Record<string, u
 // Transactions is the product requested: budgeting reads it through
 // Transactions Sync (syncTransactionsPage below, US-14), and Link needs one
 // product anyway because Balance alone is not allowed. Its history is set
-// once, when the Item is created, and Plaid cannot change it later: 180 days,
-// the least Plaid recommends for recurring bills (US-09). Liabilities (US-15:
+// once, when the Item is created. Request up to two years (730 days), as
+// agreed for the bank-history window. Liabilities (US-15:
 // a card's statement and due dates) is optional, so a bank without it still
 // links. Only everyday accounts and credit cards can be picked: no loans or
 // investments.
@@ -112,7 +112,7 @@ export async function createLinkToken(config: PlaidConfig, studentId: string, ac
     : {
         ...base,
         products: ["transactions"],
-        transactions: { days_requested: 180 },
+        transactions: { days_requested: 730 },
         optional_products: ["liabilities"],
         account_filters: {
           depository: { account_subtypes: ["all"] },
