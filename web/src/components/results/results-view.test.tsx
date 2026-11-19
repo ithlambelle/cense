@@ -11,9 +11,11 @@ import {
   NOT_YET_NEXT_STEPS,
   RESULT_DISCLAIMER,
   RESULT_HEADLINES,
+  SEE_DETAILS,
   TIER_LABELS,
   WHY_TITLE,
 } from "@/lib/copy/results";
+import { PREAPPROVAL_LABEL } from "@/lib/copy/issuer";
 import { QUIZ_STEP_COUNT } from "@/lib/quiz/spending";
 import { computeResult, type RewardsLookup } from "@/lib/results/compute";
 import { GROCERY_CHROME } from "@/lib/results/rewards.fixtures";
@@ -21,7 +23,7 @@ import { cardPath, ROUTES } from "@/lib/routes";
 
 import { ResultsView } from "./results-view";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/results" }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/results", useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 const track = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/analytics", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/analytics")>()),
@@ -106,13 +108,67 @@ describe("ResultsView", () => {
     expect(other.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(
       others.map((option) => cardDisplayName(option.card)),
     );
-    for (const option of view.options) {
-      expect(screen.getByRole("link", { name: `View card: ${cardDisplayName(option.card)}` }).getAttribute("href")).toBe(
-        cardPath(option.card.id, "results"),
-      );
+    // The top match draws no "See details" (M1): its name opens its page, stretched over the card.
+    const topLink = topMatch.getByRole("link", { name: cardDisplayName(top.card) });
+    expect(topLink.getAttribute("href")).toBe(cardPath(top.card.id, "results"));
+    expect(topLink.className).toContain("after:inset-0");
+    expect(topMatch.queryByRole("link", { name: /See details/ })).toBeNull();
+    // Each other option ends with "See details" (821:9240), full width and stretched over its card.
+    for (const option of others) {
+      const details = other.getByRole("link", { name: `${SEE_DETAILS}: ${cardDisplayName(option.card)}` });
+      expect(details.getAttribute("href")).toBe(cardPath(option.card.id, "results"));
+      expect(details.textContent).toBe(SEE_DETAILS);
+      expect(details.className).toContain("after:inset-0");
+      expect(details.className).toContain("w-full");
     }
+    expect(screen.queryByRole("link", { name: /View card/ })).toBeNull();
     expect(screen.getByRole("link", { name: "Retake quiz" }).getAttribute("href")).toBe("/quiz?from=results");
     expect(screen.getByText(RESULT_DISCLAIMER)).toBeTruthy();
+  });
+
+  // M1 (Figma 821:9205) and Ben's call on its change card: the top match leads
+  // with the preapproval check, then Apply; a card without a check shows Apply
+  // alone, as the primary. The other options carry no issuer buttons.
+  it("puts Check if you're preapproved, then Apply at the issuer, on the top match only", () => {
+    const view = match(ALL_SIX);
+    const [top] = view.options;
+    expect(top.card.preapprovalUrl).not.toBeNull();
+    render(<ResultsView view={view} />);
+    const topMatch = within(screen.getByRole("region", { name: "Top match" }));
+    const name = cardDisplayName(top.card);
+    const buttons = topMatch.getAllByRole("button");
+    expect(buttons.map((button) => button.textContent)).toEqual([PREAPPROVAL_LABEL, `Apply at ${top.card.brand}`]);
+    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
+      `${PREAPPROVAL_LABEL}: ${name}, opens in a new tab`,
+      `Apply at ${top.card.brand}: ${name}, opens in a new tab`,
+    ]);
+    expect(buttons[0].className).toContain("bg-violet");
+    expect(buttons[1].className).toContain("border-violet");
+    expect(within(screen.getByRole("region", { name: "Other options" })).queryAllByRole("button")).toHaveLength(0);
+  });
+
+  it("shows Apply alone, as the primary, when the top match has no preapproval check", () => {
+    const view = match(ALL_SIX);
+    const [top, ...rest] = view.options;
+    const chime = listCards().find((card) => card.id === "chime-card")!;
+    expect(chime.preapprovalUrl).toBeNull();
+    render(<ResultsView view={{ ...view, options: [{ ...top, card: chime }, ...rest] }} />);
+    const buttons = within(screen.getByRole("region", { name: "Top match" })).getAllByRole("button");
+    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual(["Apply at Chime: Chime Card, opens in a new tab"]);
+    expect(buttons[0].className).toContain("bg-violet");
+    expect(screen.queryByRole("button", { name: new RegExp(PREAPPROVAL_LABEL) })).toBeNull();
+  });
+
+  it("shows See details instead of the buttons when the student already tracks the top match", () => {
+    const view = match(ALL_SIX);
+    const [top] = view.options;
+    render(<ResultsView view={view} topTracked />);
+    const topMatch = within(screen.getByRole("region", { name: "Top match" }));
+    expect(topMatch.queryAllByRole("button")).toHaveLength(0);
+    // One link to the card page, not two.
+    expect(topMatch.getAllByRole("link").map((link) => link.getAttribute("aria-label"))).toEqual([
+      `${SEE_DETAILS}: ${cardDisplayName(top.card)}`,
+    ]);
   });
 
   it("says why each card is right for the student in large lines: approval, value from their spending, bonus", () => {

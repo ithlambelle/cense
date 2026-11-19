@@ -171,8 +171,9 @@ test("the result says why each of three cards is right for the student, in words
   await takeQuiz(page, LIKELY_FIT_PICKS, async () => {}, GROCERIES_AND_DINING);
   for (const size of SIZES) {
     await page.setViewportSize(size);
-    const cards = page.getByRole("main").getByRole("link", { name: /^View card: / });
-    await expect(cards).toHaveCount(3);
+    // The top match carries the issuer buttons (M1); the other two end with "See details".
+    await expect(page.getByRole("region", { name: "Top match" }).getByRole("button", { name: /^Check if you’re preapproved: / })).toBeVisible();
+    await expect(page.getByRole("main").getByRole("link", { name: /^See details: / })).toHaveCount(2);
     await expect(page.getByRole("heading", { name: "Why it’s right for you" })).toHaveCount(3);
     await expect(page.getByText("You’re likely to be approved")).toHaveCount(3);
     const value = page.getByText(/^About \$\d[\d,]* in your first year$/).first();

@@ -153,7 +153,7 @@ describe("IssuerActions", () => {
     // A copy of the saved issuer_clicks row: its id and database time.
     expect(track).toHaveBeenCalledExactlyOnceWith(
       "issuer_link_clicked",
-      { click_id: CLICK_ID, card_id: "sample-card", link_type: "apply" },
+      { click_id: CLICK_ID, card_id: "sample-card", link_type: "apply", source: "card_page" },
       { uuid: CLICK_ID, timestamp: new Date("2026-10-11T00:00:00Z") },
     );
   });

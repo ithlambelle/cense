@@ -21,7 +21,7 @@ import { PENNY_ANSWER_IDS } from "./penny/answers";
 // reminder job, an email's unsubscribe link).
 
 // Bump when an event or property is added, changed or removed.
-export const TRACKING_PLAN_VERSION = 5;
+export const TRACKING_PLAN_VERSION = 6;
 
 const cardId = z.string().regex(/^[a-z0-9-]{1,100}$/);
 const fitTier = z.enum(["likely_fit", "stretch", "not_yet"]);
@@ -86,14 +86,16 @@ export const EVENTS = {
     properties: z.strictObject({ card_id: cardId, signed_in: z.boolean() }),
   },
   issuer_link_clicked: {
-    question: "D24 number one and falsifier F1: did the student trust Cense enough to go to the issuer?",
+    question:
+      "D24 number one and falsifier F1: did the student trust Cense enough to go to the issuer? Plan 6 added source: results is the top match on Your match, card_page the card's own page.",
     owner: "Ben",
     addedIn: 1,
-    ledger: "issuer_clicks (the event uuid and click_id are the row id)",
+    ledger: "issuer_clicks (the event uuid and click_id are the row id; source is not stored)",
     properties: z.strictObject({
       click_id: z.uuid(),
       card_id: cardId,
       link_type: z.enum(["preapproval", "apply"]),
+      source: z.enum(["results", "card_page"]),
     }),
   },
   outcome_reported: {

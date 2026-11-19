@@ -1,7 +1,7 @@
 // Student journeys through the real UI against the
 // local stack (dev server on :3300, local Supabase, Mailpit). Each test signs
 // up its own fresh student. Run with: npm run e2e
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type Response } from "@playwright/test";
 
 import { QUIZ_STEP_COUNT } from "../src/lib/quiz/spending";
 import {
@@ -42,12 +42,14 @@ test("student answers the spending question and sees three cards, each with why 
   await page.getByRole("link", { name: "Start the quiz" }).click();
   await takeQuiz(page, LIKELY_FIT_PICKS, checkA11y, GROCERIES_AND_DINING);
 
-  const options = () => page.getByRole("main").getByRole("link", { name: /^View card: / });
+  // The top match carries the issuer buttons (M1); each other option ends with "See details".
+  const options = () => page.getByRole("region", { name: "Other options" }).getByRole("link", { name: /^See details: / });
   for (const pass of ["first visit", "after a reload"]) {
     await expect(page.getByRole("heading", { level: 1, name: "Here’s your match" }), pass).toBeVisible();
     await expect(page.getByRole("region", { name: "Top match" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Top match" }).getByRole("button", { name: /^Check if you’re preapproved: / })).toBeVisible();
     await expect(page.getByRole("region", { name: "Other options" }).getByRole("heading", { level: 3 })).toHaveCount(2);
-    await expect(options()).toHaveCount(3);
+    await expect(options()).toHaveCount(2);
     // In words, not only the signal bars, and the value from the spending answer.
     await expect(page.getByText("You’re likely to be approved").first()).toBeVisible();
     await expect(page.getByText(/^About \$\d[\d,]* in your first year$/).first()).toBeVisible();
@@ -57,7 +59,7 @@ test("student answers the spending question and sees three cards, each with why 
   }
 
   // The whole card opens its page, which shows the same estimate, and Back returns.
-  const second = options().nth(1);
+  const second = options().first();
   const href = await second.getAttribute("href");
   await second.click();
   await expect(page).toHaveURL(new RegExp(`${href!.replace("?", "\\?")}$`));
@@ -74,7 +76,7 @@ test("student answers the spending question and sees three cards, each with why 
   await page.getByRole("link", { name: "Retake quiz" }).click();
   await takeQuiz(page, LIKELY_FIT_PICKS, async () => {}, GROCERIES_AND_DINING);
   await expect(page.getByText(/in your first year/)).toHaveCount(0);
-  await expect(options()).toHaveCount(3);
+  await expect(options()).toHaveCount(2);
 });
 
 test("student with no income gets the not-yet result", async ({ page }) => {
@@ -139,6 +141,112 @@ test("student browses cards, checks preapproval, applies and sees APPLIED on Hom
   await expect(tracked).toBeVisible();
   await expect(tracked.getByText("APPLIED", { exact: true })).toBeVisible();
   await checkA11y("home: applied");
+});
+
+// The POST /issuer-clicks answer for one kind of click: 201 with the saved
+// row's id means the click is in issuer_clicks, as from the card page.
+function issuerClick(page: Page, kind: "preapproval" | "apply") {
+  return page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/v1/issuer-clicks") &&
+      response.request().method() === "POST" &&
+      (JSON.parse(response.request().postData() ?? "{}") as { kind?: string }).kind === kind,
+  );
+}
+
+// Returns the issuer's host, to check the new tab went there.
+async function expectSavedClick(response: Response): Promise<string> {
+  expect(response.status()).toBe(201);
+  const body = (await response.json()) as { id: string | null; url: string };
+  expect(body.id).toMatch(/^[0-9a-f-]{36}$/);
+  expect(body.url).toMatch(/^https:\/\//);
+  return new URL(body.url).host;
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// M1 (Figma 821:9205): the top match on Your match leads with the issuer's
+// preapproval check, then Apply, each one tap to the issuer in a new tab.
+test("student checks preapproval and applies straight from Your match", async ({ page }) => {
+  const checkA11y = axeChecker(page);
+  await signUp(page, uniqueEmail("match-actions"), checkA11y);
+  await page.getByRole("link", { name: "Start the quiz" }).click();
+  await takeQuiz(page, LIKELY_FIT_PICKS, checkA11y);
+
+  const top = page.getByRole("region", { name: "Top match" });
+  const name = ((await top.getByRole("heading", { level: 3 }).textContent()) ?? "").trim();
+  await expect(top.getByRole("button")).toHaveText([/^Check if you’re preapproved$/, /^Apply at .+$/]);
+  await expect(page.getByRole("region", { name: "Other options" }).getByRole("button")).toHaveCount(0);
+  // The card page's lines under its buttons, kept here for accuracy.
+  await expect(top.getByText("This check won’t affect your credit score.")).toBeVisible();
+  await expect(top.getByText(/Preapproval is not a guarantee of approval\.$/)).toBeVisible();
+  await checkA11y("results: top match actions");
+
+  // Preapproval: the issuer opens in a new tab, the click is saved, Your match stays put.
+  const [preapprovalTab, preapproval] = await Promise.all([
+    page.waitForEvent("popup"),
+    issuerClick(page, "preapproval"),
+    top.getByRole("button", { name: `Check if you’re preapproved: ${name}` }).click(),
+  ]);
+  const preapprovalHost = await expectSavedClick(preapproval);
+  await expect.poll(() => new URL(preapprovalTab.url()).host).toBe(preapprovalHost);
+  await preapprovalTab.close();
+  await expect(page).toHaveURL(/\/results$/);
+  await expect(page.getByRole("heading", { name: "Did you finish applying?" })).toHaveCount(0);
+
+  // Apply, then "Did you finish applying?" here, still asked after a reload.
+  const [applyTab, apply] = await Promise.all([
+    page.waitForEvent("popup"),
+    issuerClick(page, "apply"),
+    top.getByRole("button", { name: new RegExp(`^Apply at .+: ${escapeRegExp(name)}, opens in a new tab$`) }).click(),
+  ]);
+  const applyHost = await expectSavedClick(apply);
+  await expect(top.getByRole("heading", { name: "Did you finish applying?" })).toBeVisible();
+  await expect.poll(() => new URL(applyTab.url()).host).toBe(applyHost);
+  await applyTab.close();
+  await checkA11y("results: did you apply");
+  await page.reload();
+  await expect(top.getByRole("heading", { name: "Did you finish applying?" })).toBeVisible();
+  await top.getByRole("button", { name: "Yes, I finished" }).click();
+  await expect(top.getByRole("status")).toContainText("Saved as applied.");
+
+  // Tracked now: no hand-off again. See details opens the card with its status, and Back returns.
+  await page.reload();
+  await expect(top.getByRole("button")).toHaveCount(0);
+  await top.getByRole("link", { name: `See details: ${name}` }).click();
+  await expect(page).toHaveURL(/\/cards\/[^/?]+\?from=results$/);
+  await expect(page.getByRole("region", { name: "Your status" }).getByText("APPLIED", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Back to Your match" }).click();
+  await expect(page).toHaveURL(/\/results$/);
+});
+
+// Ben on the M1 change card: a card with no preapproval check, like Chime,
+// shows Apply alone, as the primary button.
+test("a top match with no preapproval check offers Apply alone", async ({ page }) => {
+  const checkA11y = axeChecker(page);
+  await signUp(page, uniqueEmail("match-apply-only"), async () => {});
+  await page.getByRole("link", { name: "Start the quiz" }).click();
+  await takeQuiz(page, { ...LIKELY_FIT_PICKS, recentDenial: "Yes", canDeposit: "No" }, async () => {});
+
+  const top = page.getByRole("region", { name: "Top match" });
+  await expect(top.getByRole("heading", { level: 3, name: "Chime Card" })).toBeVisible();
+  await expect(top.getByRole("button")).toHaveText([/^Apply at Chime$/]);
+  await expect(top.getByText("This check won’t affect your credit score.")).toHaveCount(0);
+  await expect(top.getByText(/Preapproval is not a guarantee of approval\.$/)).toBeVisible();
+  await checkA11y("results: apply only");
+  const [applyTab, apply] = await Promise.all([
+    page.waitForEvent("popup"),
+    issuerClick(page, "apply"),
+    top.getByRole("button", { name: "Apply at Chime: Chime Card" }).click(),
+  ]);
+  const chimeHost = await expectSavedClick(apply);
+  await expect.poll(() => new URL(applyTab.url()).host).toBe(chimeHost);
+  await applyTab.close();
+  // Not yet brings the button back.
+  await top.getByRole("button", { name: "Not yet" }).click();
+  await expect(top.getByRole("button", { name: "Apply at Chime: Chime Card" })).toBeVisible();
 });
 
 test("student marks an applied card as denied and reaches the five-step plan", async ({ page }) => {
