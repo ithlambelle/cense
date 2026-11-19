@@ -8,7 +8,8 @@
 //   on a shorter month's last day, as issuers do.
 // - Each bill the student pays some of, on the due day they typed when they
 //   said who covers it (bill_coverage). Tuition has no due day, so it is never
-//   listed.
+//   listed. Groceries are never listed either: they are a day-to-day need,
+//   not a dated bill, and sit outside safe to spend (Ben, 2026-11-14).
 // - Paychecks, once detected income is wired to the student's data (US-16):
 //   until then none are passed and none are shown.
 //
@@ -18,12 +19,16 @@
 import { moneyAmount } from "@/lib/money";
 import { monthDay } from "@/lib/reminders/in-app";
 import { addDays, nextOnDay, payDownTargetCents } from "@/lib/reminders/schedule";
-import { cardSetupPath, paymentRemindersPath, ROUTES } from "@/lib/routes";
+import { autopayStepsPath, paymentRemindersPath, ROUTES } from "@/lib/routes";
 import { BILL_COPY } from "@/lib/safe-to-spend/copy";
 import { SPREAD_DAYS, type Bill, type BillAnswer } from "@/lib/safe-to-spend/compute";
 
-// The same 30 days as the number above it ("For the next 30 days").
+// How many days ahead Coming up looks when no bank is linked. With a bank,
+// Home passes the safe to spend response's own `days`, so the list and the
+// number above it ("For the next 30 days") always cover the same days.
 export const COMING_UP_DAYS = SPREAD_DAYS;
+// Bills that are never a dated row: groceries are bought all month long.
+const NOT_DATED: ReadonlySet<Bill> = new Set<Bill>(["groceries"]);
 // The frame draws four rows; more would push the rest of Home away.
 export const COMING_UP_MAX_ROWS = 4;
 
@@ -72,6 +77,7 @@ export function comingUp({
   cards,
   bills,
   paychecks = [],
+  days = COMING_UP_DAYS,
 }: {
   today: string;
   // The student's approved cards.
@@ -79,8 +85,10 @@ export function comingUp({
   // Who covers each bill, as saved (empty with no bank linked).
   bills: BillAnswer[];
   paychecks?: Paycheck[];
+  // How many days to look ahead, today included: safe to spend's `days`.
+  days?: number;
 }): ComingUpEvent[] {
-  const last = addDays(today, COMING_UP_DAYS - 1);
+  const last = addDays(today, days - 1);
   const events: ComingUpEvent[] = [];
 
   for (const card of cards) {
@@ -97,6 +105,7 @@ export function comingUp({
 
   for (const answer of bills) {
     if (answer.coveredBy !== "me" && answer.coveredBy !== "split") continue;
+    if (NOT_DATED.has(answer.bill)) continue;
     // A bill with no amount to pay has nothing to remind about.
     if (!isDay(answer.dueDay) || !answer.monthlyCents || answer.monthlyCents <= 0) continue;
     for (const date of datesOnDay(answer.dueDay, today, last)) {
@@ -165,8 +174,9 @@ export function comingUpRow(event: ComingUpEvent, { nameCards }: { nameCards: bo
         key: `due-${event.card.applicationId}-${event.date}`,
         title: `${day}  Payment due`,
         subtitle: nameCards ? `${event.card.name} · ${lowerFirst(autopay)}` : autopay,
-        // Autopay not on: its setup, as "Set it up" says. On: the card's dates.
-        href: event.card.autopayStatus === "on" ? paymentRemindersPath(event.card.applicationId) : cardSetupPath(event.card.applicationId),
+        // Autopay not on: the issuer's autopay steps, as "Set it up" says. On:
+        // the card's dates.
+        href: event.card.autopayStatus === "on" ? paymentRemindersPath(event.card.applicationId) : autopayStepsPath(event.card.applicationId),
         sensitive: false,
       };
     }

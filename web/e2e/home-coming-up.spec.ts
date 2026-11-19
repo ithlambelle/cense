@@ -2,8 +2,8 @@
 // was last read (Figma D1, 709:1459), as a real signed-up student on the local
 // stack: no card and no bank shows no Coming up at all; an approved card's
 // saved days list its statement and payment dates; a linked bank with who
-// covers answers adds the bills the student pays, four rows at most, soonest
-// first; every row opens where its date is set, Back returns Home, and a
+// covers answers adds the bills the student pays (never groceries), four rows
+// at most, soonest first; every row opens where its date is set, Back returns Home, and a
 // reload keeps it all. On main there was no Coming up and no Updated time.
 //
 // Dates are worked out on the student's calendar (New York: no time zone is
@@ -134,16 +134,22 @@ test("Coming up lists an approved card's dates and the bills the student pays, a
   await page.getByRole("link", { name: "Back to Home" }).click();
   await expect(page).toHaveURL(/\/home$/);
 
-  // The payment, with autopay not on, opens autopay's setup; Back returns Home.
+  // The payment, with autopay not on, opens the issuer's autopay steps
+  // directly ("Turn on autopay"), not the Card setup list; the browser's Back
+  // returns Home.
   await rows(page).nth(1).click();
-  await expect(page).toHaveURL(new RegExp(`/applications/${id}/setup$`));
+  await expect(page).toHaveURL(new RegExp(`/applications/${id}/setup/autopay$`));
+  await expect(page.getByRole("heading", { level: 1, name: /^Turn on autopay/ })).toBeVisible();
   await page.goBack();
   await expect(page).toHaveURL(/\/home$/);
 
   // Link the stand-in bank and say who covers what.
   const rent = ahead(5);
   const phone = ahead(8);
-  const groceries = ahead(20);
+  // Groceries are due before the card's payment, so they would push it out
+  // of the four rows if they were listed. They sit outside safe to spend and
+  // are never a Coming up row.
+  const groceries = ahead(6);
   await page.goto("/safe-to-spend/connect");
   await page.getByRole("button", { name: "Connect (Preview)" }).click();
   await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
@@ -155,7 +161,7 @@ test("Coming up lists an approved card's dates and the bills the student pays, a
   await expect(hero).toContainText("For the next 30 days");
   await expect(hero).toContainText(/Updated \d{1,2}:\d{2}\s[AP]M/);
 
-  // Four rows at most, soonest first: groceries, 20 days out, waits.
+  // Four rows at most, soonest first, and no groceries.
   const expected = [
     [`${monthDay(closes)}  Statement closes`, "Discover · pay down to $150"],
     [`${monthDay(rent)}  Rent, $650`, "You cover it · you typed this"],

@@ -113,6 +113,18 @@ describe("comingUp", () => {
     expect(dates(comingUp({ today, cards: [], bills: [], paychecks: [{ date: "2026-12-09", amountCents: 100 }, { date: "2026-11-08", amountCents: 100 }] }))).toEqual([]);
   });
 
+  it("looks as many days ahead as it is told: safe to spend's own days when a bank is linked", () => {
+    const today = "2026-11-09";
+    // 14 days: Nov 22 is the last day in, Nov 23 is past it.
+    expect(dates(comingUp({ today, cards: [], bills: [rent(22)], days: 14 }))).toEqual(["bill 2026-11-22"]);
+    expect(dates(comingUp({ today, cards: [], bills: [rent(23)], days: 14 }))).toEqual([]);
+    // 45 days reaches Dec 23; the default 30 stops at Dec 8.
+    expect(dates(comingUp({ today, cards: [], bills: [rent(20)], days: 45 }))).toEqual(["bill 2026-11-20", "bill 2026-12-20"]);
+    expect(dates(comingUp({ today, cards: [], bills: [rent(20)] }))).toEqual(["bill 2026-11-20"]);
+    // No bank linked: Home passes no days and the default 30 holds.
+    expect(dates(comingUp({ today, cards: [], bills: [rent(20)], days: undefined }))).toEqual(["bill 2026-11-20"]);
+  });
+
   it("orders several cards' dates together, shows four rows at most and names each card's payment", () => {
     const discover = card({ statementClosingDay: 20, paymentDueDay: 12, autopayStatus: "on" });
     const chime = card({ applicationId: CHIME_ID, name: "Chime", creditLimitCents: null, statementClosingDay: 12, paymentDueDay: 25, autopayStatus: "unknown" });
@@ -158,6 +170,15 @@ describe("comingUp", () => {
     ]);
   });
 
+  it("never lists groceries, even ones the student pays with a due day: they sit outside safe to spend", () => {
+    const groceries = (coveredBy: "me" | "split"): BillAnswer => ({ bill: "groceries", coveredBy, monthlyCents: 20_000, dueDay: 10 });
+    for (const coveredBy of ["me", "split"] as const) {
+      expect(comingUp({ today: "2026-11-09", cards: [], bills: [groceries(coveredBy)] })).toEqual([]);
+      const rows = comingUpRows({ today: "2026-11-09", cards: [], bills: [groceries(coveredBy), rent(15)] });
+      expect(rows.map((row) => row.title)).toEqual(["Nov 15  Rent, $650"]);
+    }
+  });
+
   it("leaves out a bill of $0", () => {
     expect(comingUp({ today: "2026-11-09", cards: [], bills: [rent(15, { monthlyCents: 0 })] })).toEqual([]);
   });
@@ -198,8 +219,11 @@ describe("comingUpRow links", () => {
       ["Nov 13  Statement closes", `/applications/${DISCOVER_ID}/reminders`, true],
       ["Nov 15  Rent, $650", "/safe-to-spend", true],
       ["Nov 20  Paycheck, $480", "/safe-to-spend", true],
-      ["Dec 6  Payment due", `/applications/${DISCOVER_ID}/setup`, false],
+      // Autopay not on: straight to the issuer's autopay steps ("Set it up").
+      ["Dec 6  Payment due", `/applications/${DISCOVER_ID}/setup/autopay`, false],
     ]);
+    const [unknown] = comingUpRows({ today: "2026-11-09", cards: [card({ statementClosingDay: null, autopayStatus: "unknown" })], bills: [] });
+    expect(unknown).toMatchObject({ subtitle: "Turn on autopay", href: `/applications/${DISCOVER_ID}/setup/autopay` });
     const [on] = comingUpRows({ today: "2026-11-09", cards: [card({ statementClosingDay: null, autopayStatus: "on" })], bills: [] });
     expect(on.href).toBe(`/applications/${DISCOVER_ID}/reminders`);
   });

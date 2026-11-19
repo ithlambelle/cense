@@ -39,9 +39,11 @@ export default async function HomePage({ searchParams }: PageProps<"/home">) {
   const [detail, settings] = detailAndSettings ?? [null, ALL_REMINDERS_ON];
   const celebrateId = params[CELEBRATE_PARAM];
   // Paychecks join once detected income is wired to the student's data (US-16).
-  const comingUp = comingUpCards
-    ? comingUpRows({ ...comingUpCards, bills: safeToSpend?.ok && safeToSpend.value ? safeToSpend.value.bills : [] })
-    : [];
+  // With a bank linked, Coming up looks as many days ahead as the number says
+  // it covers (safe to spend's own `days`), so the two cannot drift apart;
+  // with none, its default (COMING_UP_DAYS).
+  const linked = safeToSpend?.ok && safeToSpend.value ? safeToSpend.value : null;
+  const comingUp = comingUpCards ? comingUpRows({ ...comingUpCards, bills: linked?.bills ?? [], days: linked?.days }) : [];
   return (
     <HomeView
       state={state}

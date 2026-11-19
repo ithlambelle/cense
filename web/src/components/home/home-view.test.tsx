@@ -221,7 +221,7 @@ describe("HomeView", () => {
     expect(within(list).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
       ["Nov 13  Statement closesDiscover · pay down to $150", `/applications/${ID}/reminders`],
       ["Nov 15  Rent, $650You cover it · you typed this", "/safe-to-spend"],
-      ["Dec 6  Payment dueAutopay is off. Set it up", `/applications/${ID}/setup`],
+      ["Dec 6  Payment dueAutopay is off. Set it up", `/applications/${ID}/setup/autopay`],
     ]);
     // After the approved card's module.
     const headings = [...container.querySelectorAll("h1, h2")].map((h) => h.textContent);
