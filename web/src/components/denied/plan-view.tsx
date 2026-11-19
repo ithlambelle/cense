@@ -33,6 +33,9 @@ type Step = { id: PlanStepName; title: string; subtitle: string; body: string; l
 // AnnualCreditReport.com is the official free source and checking your own
 // report does not hurt your score (CFPB,
 // https://www.consumerfinance.gov/ask-cfpb/does-requesting-my-credit-report-hurt-my-credit-score-en-1229/).
+// Free every week from each of the three bureaus, permanently since 2023
+// (decision D6; FTC,
+// https://consumer.ftc.gov/consumer-alerts/2023/10/you-now-have-permanent-access-free-weekly-credit-reports).
 const STEPS: Step[] = [
   {
     id: "read_letter",
@@ -44,7 +47,7 @@ const STEPS: Step[] = [
   {
     id: "check_reports",
     title: "Check your credit reports",
-    subtitle: "Free once a year. Not urgent.",
+    subtitle: "Free every week. Not urgent.",
     body: "Use the official free source. Checking your own reports does not hurt your score.",
     link: { href: "https://www.annualcreditreport.com", label: "AnnualCreditReport.com" },
   },
