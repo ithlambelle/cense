@@ -87,7 +87,7 @@ test("a new student is welcomed once: W1, W2, Let's go, Link your bank, Skip for
   await page.getByRole("link", { name: "Skip for now" }).click();
   await expect(page).toHaveURL(/\/start\/next-step$/);
   await expect(heading(page, N3)).toBeVisible();
-  await expect(page.getByText("So we know where to start. You can link your bank later from Profile.")).toBeVisible();
+  await expect(page.getByText("So we know where to start. You can link your bank later from Home.")).toBeVisible();
   await checkA11y("first login: N3");
   await page.getByRole("link", { name: "Back to Link your bank" }).click();
   await expect(heading(page, "Link your bank")).toBeVisible();
@@ -108,6 +108,8 @@ test("a new student is welcomed once: W1, W2, Let's go, Link your bank, Skip for
   // usual screen, never the welcome again.
   await page.goto("/start");
   await expect(page).toHaveURL(/\/home$/);
+  // N3's promise holds: Home offers linking a bank (Try it opens Link your bank).
+  await expect(page.getByRole("region", { name: "See what’s safe to spend" }).getByRole("link", { name: "Try it" })).toHaveAttribute("href", "/safe-to-spend/connect");
   await page.goto("/start/welcome");
   await expect(page).toHaveURL(/\/home$/);
 

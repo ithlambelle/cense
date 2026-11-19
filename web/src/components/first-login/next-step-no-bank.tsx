@@ -15,12 +15,17 @@ import { quizPath, ROUTES } from "@/lib/routes";
 export const NEXT_STEP_COPY = {
   eyebrow: "Your next step",
   title: "Do you have a credit card yet?",
-  body: "So we know where to start. You can link your bank later from Profile.",
+  body: "So we know where to start.",
+  // The frame says "later from Profile", but Profile shows Accounts only once
+  // a bank is linked. A student with no bank links from Home's "See what's
+  // safe to spend" card (Try it), so the line names Home. Left out where safe
+  // to spend is off, since there is nothing to link then.
+  linkLater: "You can link your bank later from Home.",
   notYet: "Not yet",
   yes: "Yes, I have one",
 } as const;
 
-export function NextStepNoBank({ backHref, backLabel }: { backHref: string; backLabel: string }) {
+export function NextStepNoBank({ backHref, backLabel, canLinkLater = true }: { backHref: string; backLabel: string; canLinkLater?: boolean }) {
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
@@ -31,7 +36,9 @@ export function NextStepNoBank({ backHref, backLabel }: { backHref: string; back
           <h1 id="next-step-title" className="font-heading text-h1 font-medium text-navy">
             {NEXT_STEP_COPY.title}
           </h1>
-          <p className="text-body-m text-indigo-black">{NEXT_STEP_COPY.body}</p>
+          <p className="text-body-m text-indigo-black">
+            {canLinkLater ? `${NEXT_STEP_COPY.body} ${NEXT_STEP_COPY.linkLater}` : NEXT_STEP_COPY.body}
+          </p>
           {/* The answer says whether the student has a card: masked in
               session replay and kept out of autocapture, as the quiz's are. */}
           <ul aria-labelledby="next-step-title" className={`${SENSITIVE} flex flex-col gap-4`}>

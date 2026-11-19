@@ -13,6 +13,7 @@ export const metadata: Metadata = { title: "Your next step | CENSE" };
 // tab), to Link your bank, or Home where safe to spend is off.
 export default async function StartNextStepPage() {
   await requireStudent(ROUTES.start);
-  const back = plaidConfig() ? { href: ROUTES.startLinkBank, label: "Link your bank" } : { href: ROUTES.home, label: "Home" };
-  return <NextStepNoBank backHref={back.href} backLabel={back.label} />;
+  const canLink = plaidConfig() !== null;
+  const back = canLink ? { href: ROUTES.startLinkBank, label: "Link your bank" } : { href: ROUTES.home, label: "Home" };
+  return <NextStepNoBank backHref={back.href} backLabel={back.label} canLinkLater={canLink} />;
 }

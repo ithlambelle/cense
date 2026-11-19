@@ -185,9 +185,9 @@ describe("/start/link-bank (E1)", () => {
 });
 
 describe("/start/next-step (N3)", () => {
-  it("has a back arrow to Link your bank, or Home where safe to spend is off", async () => {
-    expect((await visit("/start/next-step")).screen?.props).toEqual({ backHref: "/start/link-bank", backLabel: "Link your bank" });
+  it("has a back arrow to Link your bank, or Home and no link-later line where safe to spend is off", async () => {
+    expect((await visit("/start/next-step")).screen?.props).toEqual({ backHref: "/start/link-bank", backLabel: "Link your bank", canLinkLater: true });
     plaidOn = false;
-    expect((await visit("/start/next-step")).screen?.props).toEqual({ backHref: "/home", backLabel: "Home" });
+    expect((await visit("/start/next-step")).screen?.props).toEqual({ backHref: "/home", backLabel: "Home", canLinkLater: false });
   });
 });

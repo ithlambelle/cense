@@ -15,8 +15,17 @@ describe("NextStepNoBank", () => {
     const { container } = render(<NextStepNoBank backHref="/start/link-bank" backLabel="Link your bank" />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Do you have a credit card yet?");
     expect(screen.getByText("Your next step").className).toContain("uppercase");
-    expect(screen.getByText("So we know where to start. You can link your bank later from Profile.")).toBeTruthy();
+    // Home's "See what's safe to spend" card is where a student with no bank
+    // links one; Profile shows Accounts only once a bank is linked.
+    expect(screen.getByText("So we know where to start. You can link your bank later from Home.")).toBeTruthy();
+    expect(container.textContent).not.toContain("Profile");
     expect(container.textContent).not.toMatch(/—|~/);
+  });
+
+  it("leaves out the link-later line where safe to spend is off", () => {
+    render(<NextStepNoBank backHref="/home" backLabel="Home" canLinkLater={false} />);
+    expect(screen.getByText("So we know where to start.")).toBeTruthy();
+    expect(screen.queryByText(/link your bank later/)).toBeNull();
   });
 
   it("opens the card quiz for Not yet and Add a card for Yes, as the shared answer card", () => {
