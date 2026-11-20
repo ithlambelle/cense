@@ -179,8 +179,8 @@ export function needsReconnect(failure: PlaidFailure): boolean {
 
 // One page of Transactions Sync (US-14): what was added, changed or removed
 // since the cursor (none: from the start of the Item's history). Only the
-// fields Cense keeps are read; descriptions, locations, counterparties and
-// payment details are dropped here. https://plaid.com/docs/api/products/transactions/#transactionssync
+// fields Cense keeps are read; location is limited to city and region.
+// Extra response fields are stripped by the schema. https://plaid.com/docs/api/products/transactions/#transactionssync
 const syncTransactionSchema = z.object({
   transaction_id: z.string().min(1).max(200),
   account_id: z.string().min(1).max(200),
@@ -197,6 +197,10 @@ const syncTransactionSchema = z.object({
     .array(z.object({ name: z.string().nullable().optional(), type: z.string().nullable().optional() }))
     .nullable()
     .optional(),
+  location: z.object({
+    city: z.string().nullable().optional(),
+    region: z.string().nullable().optional(),
+  }).nullable().optional(),
   personal_finance_category: z.object({ primary: z.string(), detailed: z.string() }).nullable().optional(),
 });
 
