@@ -17,6 +17,9 @@ vi.mock("@/lib/plaid/store", () => store);
 const transactions = vi.hoisted(() => ({ syncStudentTransactions: vi.fn() }));
 vi.mock("@/lib/plaid/transactions", () => transactions);
 
+const liabilities = vi.hoisted(() => ({ fillCardDueDays: vi.fn() }));
+vi.mock("@/lib/plaid/liabilities", () => liabilities);
+
 import { POST } from "./route";
 
 const TOKEN = { ok: true, value: { kind: "token", itemId: "item-1", accessToken: "access-sandbox-1" } };
@@ -28,12 +31,13 @@ beforeEach(() => {
   store.saveBalances.mockResolvedValue({ ok: true, value: true });
   store.markLinkStatus.mockResolvedValue({ ok: true, value: null });
   store.loadSafeToSpend.mockResolvedValue({ ok: true, value: { dailyCents: 633 } });
-  plaid.getAccounts.mockResolvedValue({ ok: true, data: { accounts: [], item: {} } });
+  plaid.getAccounts.mockResolvedValue({ ok: true, data: { accounts: [], item: { institution_name: "Chase" } } });
   transactions.syncStudentTransactions.mockResolvedValue({ kind: "synced", saved: 0, removed: 0 });
+  liabilities.fillCardDueDays.mockResolvedValue({ kind: "skipped", reason: "not_one_card" });
 });
 
 afterEach(() => {
-  for (const group of [auth, config, plaid, store, transactions]) for (const fn of Object.values(group)) fn.mockReset();
+  for (const group of [auth, config, plaid, store, transactions, liabilities]) for (const fn of Object.values(group)) fn.mockReset();
 });
 
 describe("POST /bank-link/refresh", () => {
@@ -44,6 +48,20 @@ describe("POST /bank-link/refresh", () => {
     expect(response.status).toBe(200);
     expect(transactions.syncStudentTransactions).toHaveBeenCalledWith(expect.anything(), expect.anything(), { itemId: "item-1", accessToken: "access-sandbox-1" });
     expect(logged).toHaveBeenCalledWith(JSON.stringify({ event: "plaid_transactions_sync_failed", kind: "plaid" }));
+  });
+
+  it("fills in the card's dates from the bank, and still answers when that fails, logging only the kind and code", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect((await POST()).status).toBe(200);
+    expect(liabilities.fillCardDueDays).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
+      accessToken: "access-sandbox-1",
+      institutionName: "Chase",
+    });
+    expect(logged).not.toHaveBeenCalled();
+
+    liabilities.fillCardDueDays.mockResolvedValue({ kind: "plaid", code: "INTERNAL_SERVER_ERROR" });
+    expect((await POST()).status).toBe(200);
+    expect(logged).toHaveBeenCalledWith(JSON.stringify({ event: "plaid_card_dates_failed", kind: "plaid", code: "INTERNAL_SERVER_ERROR" }));
   });
 
   it("saves the balances read again and answers safe to spend", async () => {

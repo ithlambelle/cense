@@ -120,6 +120,25 @@ describe("password sign-up and log-in", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
+  it("shows the limit's message on log-in, not the wrong-password line", async () => {
+    server(429, { error: { code: "rate_limited", message: "Too many tries. Try again in 6 minutes." } });
+    openPassword(SIGN_IN);
+    fill("Email", "alex@email.com");
+    fill("Password", "nope-nope");
+    fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Too many tries. Try again in 6 minutes.");
+    expect(screen.queryByText("Not quite. Give your password another try.")).toBeNull();
+  });
+
+  it("shows the calm busy message on log-in when the password try could not be counted", async () => {
+    server(503, { error: { code: "sign_in_busy", message: "Sign-in is busy right now. Try again in a minute." } });
+    openPassword(SIGN_IN);
+    fill("Email", "alex@email.com");
+    fill("Password", "nope-nope");
+    fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Sign-in is busy right now. Try again in a minute.");
+  });
+
   it("sends a confirmation code when an unconfirmed account logs in with its password", async () => {
     const fetchFn = server(403, { error: { code: "email_not_confirmed", message: "Confirm your email before signing in." } });
     openPassword(SIGN_IN);
@@ -190,6 +209,15 @@ describe("ForgotPassword", () => {
     render(<ForgotPassword linkExpired />);
     expect(screen.getByRole("alert").textContent).toBe("That link has expired or was already used. Ask for a new one below.");
     expect(screen.getByRole("button", { name: "Send link" })).toBeTruthy();
+  });
+
+  it("shows the limit's message when too many reset emails were asked for", async () => {
+    server(429, { error: { code: "rate_limited", message: "Too many tries. Try again in 6 minutes." } });
+    render(<ForgotPassword />);
+    fill("Email", "alex@email.com");
+    fireEvent.click(screen.getByRole("button", { name: "Send link" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Too many tries. Try again in 6 minutes.");
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("gives the same answer whether or not an account uses the email", async () => {

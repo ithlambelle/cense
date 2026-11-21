@@ -1,3 +1,6 @@
+// First, before any module that builds a Zod schema (lib/zod-jitless.ts).
+import "@/lib/zod-jitless";
+
 import posthog from "posthog-js";
 
 import { baseProperties, posthogConfig } from "@/lib/analytics-config";

@@ -3,6 +3,7 @@ import { databaseError } from "@/lib/api/database";
 import { apiError } from "@/lib/api/errors";
 import { getAccounts, itemAlreadyGone, needsReconnect } from "@/lib/plaid/client";
 import { plaidConfig } from "@/lib/plaid/config";
+import { fillCardDueDays } from "@/lib/plaid/liabilities";
 import { bankUnreachable, NO_STORE, notLinked, reconnectNeeded, relinkNeeded, safeToSpendOff } from "@/lib/plaid/responses";
 import { loadSafeToSpend, markLinkStatus, readAccessToken, saveBalances } from "@/lib/plaid/store";
 import { syncStudentTransactions } from "@/lib/plaid/transactions";
@@ -12,7 +13,8 @@ import { balanceRows } from "@/lib/safe-to-spend/compute";
 // Home calls it when the numbers are over an hour old, Your money and Accounts when
 // the student taps Refresh, and both after the student signs in to their
 // bank again. It also brings the student's transactions up to date for
-// budgeting (US-14), best effort: a failed sync never stops safe to spend.
+// budgeting (US-14) and fills in the student's card dates from the bank
+// (US-15), both best effort: neither ever stops safe to spend.
 export async function POST(): Promise<Response> {
   const student = await authenticatedStudent();
   if (!student) return apiError(401, "unauthorized", "Sign in to continue.");
@@ -49,6 +51,14 @@ export async function POST(): Promise<Response> {
   if (synced.kind !== "synced") {
     // The kind only: never an amount, a merchant or an id.
     console.error(JSON.stringify({ event: "plaid_transactions_sync_failed", kind: synced.kind }));
+  }
+  const filled = await fillCardDueDays(student, config, {
+    accessToken: stored.value.accessToken,
+    institutionName: accounts.data.item.institution_name ?? null,
+  });
+  if (filled.kind === "plaid" || filled.kind === "database") {
+    // The kind and code only: never a date or an account.
+    console.error(JSON.stringify({ event: "plaid_card_dates_failed", kind: filled.kind, code: filled.code }));
   }
 
   const loaded = await loadSafeToSpend(student);

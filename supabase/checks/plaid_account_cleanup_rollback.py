@@ -41,5 +41,9 @@ if sql(text="select to_regclass('plaid.account_cleanup') is null and to_regproce
     raise AssertionError("Empty rollback left the cleanup schema behind")
 sql("-f", str(down))  # idempotent when already rolled back
 sql("-f", str(up))
+# Later migrations that change the queue, reapplied so the journey tests that
+# run after this check see the current schema.
+for later in ["20261117110000_security_quotas.sql"]:
+    sql("-f", str(root / "supabase/migrations" / later))
 sql("-f", str(root / "supabase/checks/plaid_account_cleanup.sql"))
 print("Rollback refusal, token preservation, empty rollback, and reapply passed")

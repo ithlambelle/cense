@@ -148,7 +148,6 @@ test("a student cannot read or change another student's data, through the API or
   };
   await none("B reads A's card by id", b.db.from("card_applications").select("id").eq("id", approved));
   await none("B updates A's card", b.db.from("card_applications").update({ status: "rejected" }).eq("id", approved).select("id"));
-  await none("B deletes A's card", b.db.from("card_applications").delete().eq("id", approved).select("id"));
   await none("B deletes A's plan step", b.db.from("plan_steps").delete().eq("card_application_id", approved).select("step"));
   await none("B marks A's reminder acted", b.db.from("reminders").update({ acted_at: new Date().toISOString() }).eq("id", reminder).select("id"));
   await none("B unsubscribes A", b.db.from("profiles").update({ reminders_unsubscribed_at: new Date().toISOString() }).eq("student_id", a.id).select("student_id"));
@@ -158,6 +157,8 @@ test("a student cannot read or change another student's data, through the API or
     expect({ label, code: error?.code }).toEqual({ label, code });
   };
   await refused("B adds a card as A", b.db.from("card_applications").insert({ student_id: a.id, card_id: "x", card_name: "x", source: "added", status: "applied" }), "42501");
+  // no student may delete a card record, their own or anyone's (20261117100000)
+  await refused("B deletes A's card", b.db.from("card_applications").delete().eq("id", approved).select("id"), "42501");
   await refused("B writes A's quiz", b.db.from("quiz_drafts").insert({ student_id: a.id, answers: {} }), "42501");
   await refused("B adds a step to A's card", b.db.from("plan_steps").insert({ student_id: b.id, card_application_id: approved, plan: "first_month", step: "payment_reminder" }), "23514");
   await refused("B sets a reapply reminder on A's card", b.db.rpc("create_reapply_reminder", { p_application_id: rejected, p_remind_on: remindOn }), "P0002");

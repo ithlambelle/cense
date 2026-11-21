@@ -15,6 +15,7 @@
     "seed:local": "node scripts/seed-local.mjs",
     "openapi:generate": "tsx scripts/generate-openapi.ts",
     "openapi:check": "npm run openapi:generate && git diff --exit-code -- ../api/openapi.yaml",
+    "openapi:lint": "redocly lint ../api/openapi.yaml",
     "openapi:types": "openapi-typescript ../api/openapi.yaml -o ../api/openapi.d.ts",
     "openapi:types:check": "npm run openapi:types && git diff --exit-code -- ../api/openapi.d.ts",
     "analytics:docs": "tsx scripts/generate-analytics-docs.ts",
@@ -44,6 +45,7 @@
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
     "@playwright/test": "1.63.0",
+    "@redocly/cli": "2.72.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "10.4.2",
     "@testing-library/react": "16.3.3",

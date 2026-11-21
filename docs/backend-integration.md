@@ -46,12 +46,25 @@ did not change. A log-in on an account that was never confirmed returns `403`
 the password just typed, so that password is kept. Sign-in returns `401`
 `invalid_credentials` for an incorrect email or password. To reset a password,
 send `{ "email": "..." }` to `POST /api/v1/auth/password/reset`. The emailed
-link returns through `/api/v1/auth/password/reset/verify` and then opens
-`/reset-password`. That screen sends `{ "password": "..." }` to
+link opens `/reset-password/confirm`, built from `APP_BASE_URL` (never the
+request's own address; on Production without it no email is sent). Opening it
+verifies nothing, so a mail scanner, or a link someone else asked for and
+sent, signs no one in. Its Continue button sends `{ "tokenHash": "..." }` (or
+`{ "code": "..." }` from Supabase's own link) to
+`POST /api/v1/auth/password/reset/verify`, which starts the reset session, or
+answers `409` `signed_in_as_other` and leaves the session alone when a
+different account is signed in in that browser. Then `/reset-password` shows
+the account's email and sends `{ "password": "..." }` to
 `POST /api/v1/auth/password/reset/confirm` with the recovery session cookie.
+`GET /api/v1/auth/password/reset/verify` only forwards older links to the
+confirm screen. When it cannot tell who is signed in (anything but "no
+session"), the POST refuses with `503` `session_check_failed` before the link
+is used. What it cannot stop: a signed-out student who taps Continue on a
+link someone else asked for is signed in to that person's account; Set a new
+password names the account's email, which is the guard.
 The password fields require at least 8 characters and at most 72 UTF-8 bytes
 for sign-up and reset. Only a session from a reset link opened in the last
-hour can confirm a reset (`openedResetLink` in `web/src/lib/api/password.ts`).
+10 minutes can confirm a reset (`openedResetLink` in `web/src/lib/api/password.ts`).
 Supabase marks a session from its own reset link `recovery`, and one from the
 `token_hash` link below `otp`, the same as an email code, so an `otp` session
 counts only when it began at or after the account's latest reset email
@@ -70,11 +83,12 @@ could send sign-in links to another project's site. Set
 `NEXT_PUBLIC_SUPABASE_URL` and either `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 or the existing `NEXT_PUBLIC_SUPABASE_ANON_KEY` in local and Vercel settings.
 Only the dev project should be used by local and preview environments.
-Password confirmation and reset email delivery also require the reset verify URL
-in Supabase Auth redirect settings and a working SMTP configuration. For links
+Password confirmation and reset email delivery also require the confirm
+screen's URL (`https://censefinance.com/reset-password/confirm`) in Supabase
+Auth redirect settings and a working SMTP configuration. For links
 that open in another browser, set the hosted Supabase **Reset password** email
 template link to `{{ .RedirectTo }}?token_hash={{ .TokenHash }}`. This lets the
-verify route establish the recovery session without a PKCE cookie. The default
+confirm screen establish the recovery session without a PKCE cookie. The default
 Supabase link still works in the requesting browser via its `code` parameter.
 
 ## Current API readiness

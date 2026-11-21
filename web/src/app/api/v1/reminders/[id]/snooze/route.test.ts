@@ -37,7 +37,7 @@ function student(found: Reminder | null = reminder(), rpcResult: Result = { data
 }
 
 const snooze = (body: unknown, id = REM) =>
-  POST(new Request("http://test", { method: "POST", body: JSON.stringify(body) }), { params: Promise.resolve({ id }) });
+  POST(new Request("http://test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }), { params: Promise.resolve({ id }) });
 const code = async (response: Response) => ((await response.json()) as { error: { code: string } }).error.code;
 
 beforeEach(() => {

@@ -136,10 +136,17 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Verify a password reset link */
-        get: operations["verifyPasswordReset"];
+        /**
+         * Forward an older reset link to the confirm screen
+         * @description Verifies nothing: opening a link never signs anyone in. Redirects to /reset-password/confirm with the same token_hash or code.
+         */
+        get: operations["openPasswordResetLink"];
         put?: never;
-        post?: never;
+        /**
+         * Verify a password reset link from the confirm screen's button
+         * @description Starts the reset session. Refused with 409 `signed_in_as_other` when a different account is signed in in this browser, whose session is left as it was.
+         */
+        post: operations["verifyPasswordReset"];
         delete?: never;
         options?: never;
         head?: never;
@@ -332,7 +339,10 @@ export interface paths {
         /** List application status records */
         get: operations["listApplications"];
         put?: never;
-        /** Record a self-reported application or owned card */
+        /**
+         * Record a self-reported application or owned card
+         * @description 409 already_exists when the card is already tracked as applied or approved; 409 limit_reached at the card limit (25 records per student, kept for good).
+         */
         post: operations["createApplication"];
         delete?: never;
         options?: never;
@@ -538,7 +548,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Record an issuer link click */
+        /**
+         * Record an issuer link click
+         * @description 201 with the saved click. When the click cannot be recorded (at most 50 per student a day, or the database is unavailable), 200 with the same address and a null id and clickedAt: the student still goes to the issuer.
+         */
         post: operations["recordIssuerClick"];
         delete?: never;
         options?: never;
@@ -793,7 +806,7 @@ export interface components {
                 goal?: "build_credit" | "learn" | "other";
             };
             /** Format: date-time */
-            updatedAt: string;
+            updatedAt: string | null;
         };
         Application: {
             /** Format: uuid */
@@ -924,6 +937,17 @@ export interface components {
         };
         MarkRemindersRead: {
             marked: number;
+        };
+        IssuerClick: {
+            /** Format: uuid */
+            id: string | null;
+            cardId: string;
+            /** @enum {string} */
+            kind: "preapproval" | "apply";
+            /** Format: uri */
+            url: string;
+            /** Format: date-time */
+            clickedAt: string | null;
         };
         PennyReply: {
             /** @enum {string} */
@@ -1095,6 +1119,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Too many codes sent to this email or from this address (rate_limited) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
             /** @description Email service unavailable */
             502: {
                 headers: {
@@ -1153,8 +1186,26 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Too many code checks (rate_limited) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
             /** @description Account could not be secured */
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The limits could not be checked (sign_in_busy) */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1202,7 +1253,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
-            /** @description Rate limited */
+            /** @description Too many emails to this address or from this address (rate_limited) */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -1271,8 +1322,26 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Too many code checks (rate_limited) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
             /** @description Password could not be set */
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The limits could not be checked (sign_in_busy) */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1338,8 +1407,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
-            /** @description Rate limited */
+            /** @description Too many tries for this email or from this address (rate_limited) */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The limits could not be checked (sign_in_busy) */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1386,6 +1464,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Too many emails to this address or from this address (rate_limited) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
             /** @description Email service unavailable */
             502: {
                 headers: {
@@ -1397,7 +1484,7 @@ export interface operations {
             };
         };
     };
-    verifyPasswordReset: {
+    openPasswordResetLink: {
         parameters: {
             query?: {
                 token_hash?: string;
@@ -1409,12 +1496,88 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Redirect to reset form or request a new link */
+            /** @description Redirect to /reset-password/confirm */
             303: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    verifyPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    tokenHash: string;
+                } | {
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "verified";
+                    };
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Link expired or already used (invalid_link) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Another account is signed in here (signed_in_as_other) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Too many tries from this address (rate_limited) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Could not tell who is signed in here (session_check_failed) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
             };
         };
     };
@@ -1877,15 +2040,6 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
-            /** @description No saved quiz */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
             /** @description Data unavailable */
             503: {
                 headers: {
@@ -2051,7 +2205,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
-            /** @description Already exists */
+            /** @description Already exists, or the card limit is reached */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2966,22 +3120,21 @@ export interface operations {
         };
         responses: {
             /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssuerClick"];
+                };
+            };
+            /** @description Success */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** Format: uuid */
-                        id: string;
-                        cardId: string;
-                        /** @enum {string} */
-                        kind: "preapproval" | "apply";
-                        /** Format: uri */
-                        url: string;
-                        /** Format: date-time */
-                        clickedAt: string;
-                    };
+                    "application/json": components["schemas"]["IssuerClick"];
                 };
             };
             /** @description Invalid request */

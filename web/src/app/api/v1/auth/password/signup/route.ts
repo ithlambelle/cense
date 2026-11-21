@@ -1,5 +1,7 @@
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { authCallbackUrl, passwordCredentialsSchema } from "@/lib/api/password";
+import { emailLinkOrigin, logMissingAppBaseUrl } from "@/lib/auth/email-links";
+import { authThrottle } from "@/lib/auth/throttle";
 import { createCookielessClient, createStudentClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request): Promise<Response> {
@@ -13,10 +15,17 @@ export async function POST(request: Request): Promise<Response> {
     return validationError(parsed.error);
   }
 
+  // Every sign-up sends an email (a confirmation code, or a sign-in code for
+  // an existing account), so it counts as a send.
+  const limited = await authThrottle(request, "send", parsed.data.email);
+  if (limited) return limited;
+
+  const origin = emailLinkOrigin(request.url);
+  if (!origin) logMissingAppBaseUrl("auth/password/signup");
   const supabase = await createStudentClient();
   const { data, error } = await supabase.auth.signUp({
     ...parsed.data,
-    options: { emailRedirectTo: authCallbackUrl(new URL(request.url).origin, "/sign-in?confirmed=1") },
+    options: origin ? { emailRedirectTo: authCallbackUrl(origin, "/sign-in?confirmed=1") } : undefined,
   });
 
   // The email already has a confirmed account. Supabase sends no email then, so
