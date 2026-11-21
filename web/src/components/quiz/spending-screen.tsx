@@ -66,6 +66,7 @@ export function SpendingScreen({
       <ChoiceCard
         key={option.id}
         state={selected ? "selected" : "default"}
+        multiple
         aria-pressed={selected}
         disabled={pending}
         onClick={onPick}

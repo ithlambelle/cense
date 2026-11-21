@@ -6,6 +6,7 @@ import { useState, type ReactNode } from "react";
 import { Notice } from "@/components/denied/parts";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { Button } from "@/components/ui/button";
+import { ChoiceCard } from "@/components/ui/choice-card";
 import { CodeInput } from "@/components/ui/code-input";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { FactChip } from "@/components/ui/fact-chip";
@@ -79,6 +80,23 @@ export function Gallery() {
             >
               Press to see pending
             </Button>
+          </Section>
+
+          <Section title="Choice card">
+            {/* Main: Choice card · borderless (765:2498), every state. */}
+            <ChoiceCard>Default</ChoiceCard>
+            <ChoiceCard state="selected" aria-pressed>
+              Selected
+            </ChoiceCard>
+            <ChoiceCard state="correct">Correct</ChoiceCard>
+            <ChoiceCard state="incorrect">Incorrect</ChoiceCard>
+            <ChoiceCard state="reveal">Answer reveal</ChoiceCard>
+            {/* Archived (components/legacy/), drawn when UI_VERSION.choiceCard is "legacy". */}
+            <p className="text-body-s text-indigo-black">Archived, for rollback</p>
+            <ChoiceCard look="legacy">Default</ChoiceCard>
+            <ChoiceCard look="legacy" state="selected" aria-pressed>
+              Selected
+            </ChoiceCard>
           </Section>
 
           <Section title="Fields">

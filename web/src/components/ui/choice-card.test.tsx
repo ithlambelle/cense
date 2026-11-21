@@ -5,96 +5,81 @@ import { join } from "node:path";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { UI_VERSION } from "@/lib/ui-version";
+
 import { ChoiceCard, choiceCardClass, type ChoiceCardState } from "./choice-card";
 
-const STATES: ChoiceCardState[] = ["default", "selected", "correct", "incorrect"];
+const STATES: ChoiceCardState[] = ["default", "selected", "correct", "incorrect", "reveal"];
 
-function classes(element: HTMLElement): string[] {
+function classes(element: Element): string[] {
   return element.className.split(/\s+/);
 }
 
-// The border width and padding, in px, read from the card's classes.
-function geometry(element: HTMLElement) {
-  const list = classes(element);
-  const border = list.includes("border-2") ? 2 : list.includes("border") ? 1 : 0;
-  const pad = (side: "l" | "r" | "y") => {
-    const found = list.find((name) => name.startsWith(`p${side}-`));
-    if (!found) return 0;
-    const value = found.slice(3);
-    return value.startsWith("[") ? Number.parseFloat(value.slice(1)) : Number.parseFloat(value) * 4;
-  };
-  return { border, left: pad("l"), right: pad("r"), vertical: pad("y") };
-}
+describe("ChoiceCard (Design System, Choice card · borderless 765:2498)", () => {
+  it("is the main version of the app", () => {
+    expect(UI_VERSION.choiceCard).toBe("borderless");
+  });
 
-describe("ChoiceCard (Design System 371:3428)", () => {
-  // State=Default, 371:3429: 1px border/brand outline, white, 56 tall, radius 16, nothing at the end.
-  it("draws Default as a white card with a 1px Amethyst outline and no mark", () => {
+  // State=Default, 765:2476: Off-white fill, no border, Inter Regular 16 text/primary.
+  it("draws Default as an Off-white card with no border and no indicator", () => {
     render(<ChoiceCard>Yes</ChoiceCard>);
     const card = screen.getByRole("button", { name: "Yes" });
     const list = classes(card);
-    for (const name of ["border", "border-violet", "bg-white", "rounded-button", "min-h-14", "justify-between"]) {
+    for (const name of ["bg-off-white", "font-normal", "text-indigo-black", "rounded-button", "min-h-14", "text-body-m", "text-left"]) {
       expect(list).toContain(name);
     }
-    expect(list).not.toContain("border-2");
+    expect(list.some((name) => /^border(-|$)/.test(name))).toBe(false);
     expect(card.querySelector("img")).toBeNull();
     expect(card.textContent).toBe("Yes");
   });
 
-  // The label, 371:3430: Inter Medium 16, line height normal, text/primary (#0f0b2e).
-  it("sets the label in the body font, Medium 16, Indigo-black", () => {
-    render(<ChoiceCard>Yes</ChoiceCard>);
-    const list = classes(screen.getByRole("button", { name: "Yes" }));
-    for (const name of ["text-body-m", "leading-[normal]", "font-medium", "text-indigo-black", "text-left"]) {
-      expect(list).toContain(name);
-    }
-  });
-
-  // State=Selected, 371:3431: 2px border/brand and the 20px Indicator with the plain green check.
-  it("draws Selected with a 2px Amethyst outline and the check, no circle", () => {
-    render(<ChoiceCard state="selected">Yes</ChoiceCard>);
-    const card = screen.getByRole("button", { name: "Yes" });
-    expect(classes(card)).toEqual(expect.arrayContaining(["border-2", "border-violet"]));
-    const check = card.querySelector("img");
-    expect(check?.getAttribute("src")).toContain("choice-check.svg");
-    expect(check?.getAttribute("width")).toBe("20");
-    expect(check?.getAttribute("height")).toBe("20");
-    // Decorative: the state is in the caller's aria-pressed or aria-checked.
-    expect(check?.getAttribute("alt")).toBe("");
-    expect(card.querySelector("circle")).toBeNull();
-  });
-
-  // State=Correct, 371:3435: 2px status/doing-well (#61e294) and the same check.
-  it("draws Correct with a 2px green outline and the check", () => {
-    render(<ChoiceCard state="correct">True</ChoiceCard>);
-    const card = screen.getByRole("button", { name: "True" });
-    expect(classes(card)).toEqual(expect.arrayContaining(["border-2", "border-green"]));
-    expect(card.querySelector("img")?.getAttribute("src")).toContain("choice-check.svg");
-  });
-
-  // State=Incorrect, 371:3439: 2px status/needs-attention (#ff6370) and "Not quite" in Regular 12, 70%.
-  it("draws Incorrect with a 2px Coral outline and Not quite, no check", () => {
-    render(<ChoiceCard state="incorrect">False</ChoiceCard>);
-    const card = screen.getByRole("button", { name: "False Not quite" });
-    expect(classes(card)).toEqual(expect.arrayContaining(["border-2", "border-coral"]));
+  // State=Selected, 765:2478: brand violet with a white Inter Medium label, and no check.
+  it("draws Selected as solid Violet with a white Medium label and no check", () => {
+    render(
+      <ChoiceCard state="selected" aria-pressed>
+        Yes
+      </ChoiceCard>,
+    );
+    const card = screen.getByRole("button", { name: "Yes", pressed: true });
+    expect(classes(card)).toEqual(expect.arrayContaining(["bg-violet", "font-medium", "text-white"]));
     expect(card.querySelector("img")).toBeNull();
-    const note = screen.getByText("Not quite");
-    expect(classes(note)).toEqual(expect.arrayContaining(["text-caption", "font-normal", "text-indigo-black/70"]));
   });
 
-  // Figma's strokes take no layout space, so the label sits 18px in and the
-  // mark 16px in whatever the outline. A CSS border does take space: each
-  // state's padding is 18 and 16 less its border, so picking never moves it.
-  it("keeps the label 18px and the mark 16px from the edge in every state", () => {
+  // Correct 765:2480, Incorrect 765:2486, Answer reveal 765:2492: a fill, words and the frame's icon.
+  it.each([
+    ["correct", "bg-green", "Correct", "choice-correct.svg"],
+    ["incorrect", "bg-coral", "Not quite", "choice-incorrect.svg"],
+    ["reveal", "bg-off-white", "Right answer", "choice-reveal.svg"],
+  ] as const)("draws %s with its fill, its words and its icon", (state, fill, words, icon) => {
+    render(<ChoiceCard state={state}>True</ChoiceCard>);
+    // The words are part of the answer's name, so the state never rests on color alone.
+    const card = screen.getByRole("button", { name: `True ${words}` });
+    expect(classes(card)).toEqual(expect.arrayContaining([fill, "font-medium", "text-indigo-black"]));
+    const indicator = screen.getByText(words);
+    expect(classes(indicator)).toEqual(expect.arrayContaining(["text-[13px]", "font-medium", "gap-1.5"]));
+    const image = card.querySelector("img");
+    expect(image?.getAttribute("src")).toContain(icon);
+    expect(image?.getAttribute("width")).toBe("20");
+    expect(image?.getAttribute("alt")).toBe("");
+  });
+
+  // No border in any state, so the padding never changes and picking never moves the label.
+  it("keeps the label 18px and the indicator 16px from the edge in every state", () => {
     for (const state of STATES) {
-      render(<ChoiceCard state={state}>{state}</ChoiceCard>);
-      const { border, left, right, vertical } = geometry(screen.getByRole("button", { name: new RegExp(`^${state}`) }));
-      expect({ state, left: border + left, right: border + right, vertical: border + vertical }).toEqual({
-        state,
-        left: 18,
-        right: 16,
-        vertical: 12,
-      });
+      const { unmount } = render(<ChoiceCard state={state}>{state}</ChoiceCard>);
+      const list = classes(screen.getByRole("button", { name: new RegExp(`^${state}`) }));
+      expect(list).toEqual(expect.arrayContaining(["pl-[18px]", "pr-4", "py-3"]));
+      unmount();
     }
+  });
+
+  it("looks the same on a multi-select question", () => {
+    render(
+      <ChoiceCard multiple aria-pressed={false}>
+        Groceries
+      </ChoiceCard>,
+    );
+    expect(screen.getByRole("button", { name: "Groceries" }).querySelector("img, svg")).toBeNull();
   });
 
   it("passes the caller's radio semantics through", () => {
@@ -110,15 +95,6 @@ describe("ChoiceCard (Design System 371:3428)", () => {
     );
     expect(screen.getByRole("radio", { name: "One" }).getAttribute("aria-checked")).toBe("true");
     expect(screen.getByRole("radio", { name: "Two" }).getAttribute("aria-checked")).toBe("false");
-  });
-
-  it("passes aria-pressed through for questions that toggle", () => {
-    render(
-      <ChoiceCard state="selected" aria-pressed>
-        Groceries
-      </ChoiceCard>,
-    );
-    expect(screen.getByRole("button", { name: "Groceries", pressed: true })).toBeTruthy();
   });
 
   // Spend limit's cards sit inside its form: a tap picks, it must not submit.
@@ -153,10 +129,8 @@ describe("ChoiceCard (Design System 371:3428)", () => {
     );
   });
 
-  it("puts extra end content after the mark", () => {
-    render(
-      <ChoiceCard end={<span role="status">Saving</span>}>Not yet</ChoiceCard>,
-    );
+  it("puts extra end content after the indicator", () => {
+    render(<ChoiceCard end={<span role="status">Saving</span>}>Not yet</ChoiceCard>);
     expect(screen.getByRole("status").textContent).toBe("Saving");
   });
 });
@@ -164,19 +138,55 @@ describe("ChoiceCard (Design System 371:3428)", () => {
 describe("choiceCardClass", () => {
   it("styles a link as a Default card, and a caller's class wins", () => {
     const list = choiceCardClass("default", "disabled:cursor-not-allowed").split(" ");
-    expect(list).toEqual(expect.arrayContaining(["border", "border-violet", "rounded-button", "min-h-14"]));
+    expect(list).toEqual(expect.arrayContaining(["bg-off-white", "rounded-button", "min-h-14"]));
     expect(list).toContain("disabled:cursor-not-allowed");
     expect(list).not.toContain("disabled:cursor-progress");
   });
 });
 
-// The check is the component's own asset (Indicator, 371:3433), unchanged.
-describe("the check asset", () => {
-  it("is the 20px Indicator with the Light Green check", () => {
-    const svg = readFileSync(join(__dirname, "../../../public/icons/choice-check.svg"), "utf8");
+// The archived card (components/legacy/) stays drawable, so a rollback is one word in ui-version.ts.
+describe("the archived card (UI_VERSION.choiceCard = legacy)", () => {
+  it("draws the white outlined card with the green-circle check when chosen", () => {
+    render(
+      <ChoiceCard look="legacy" state="selected" aria-pressed>
+        Yes
+      </ChoiceCard>,
+    );
+    const card = screen.getByRole("button", { name: "Yes", pressed: true });
+    expect(classes(card)).toEqual(expect.arrayContaining(["border-[1.5px]", "border-violet", "bg-white", "rounded-[18px]"]));
+    expect(card.querySelector("svg circle")).not.toBeNull();
+  });
+
+  it("draws the empty ring on an unpicked multi-select answer, and nothing on pick-one", () => {
+    render(
+      <>
+        <ChoiceCard look="legacy" multiple>
+          Groceries
+        </ChoiceCard>
+        <ChoiceCard look="legacy">No</ChoiceCard>
+      </>,
+    );
+    expect(screen.getByRole("button", { name: "Groceries" }).querySelector("img")?.getAttribute("src")).toContain("selection-ring.svg");
+    expect(screen.getByRole("button", { name: "No" }).querySelector("img, svg")).toBeNull();
+  });
+
+  it("styles a link as the archived outlined row", () => {
+    expect(choiceCardClass("default", undefined, "legacy").split(" ")).toEqual(
+      expect.arrayContaining(["border-[1.5px]", "border-violet", "rounded-[18px]"]),
+    );
+  });
+});
+
+// The icons are the component's own assets (Indicator 765:2482, 765:2488, 765:2494), unchanged.
+describe("the indicator icons", () => {
+  it.each([
+    ["choice-correct.svg", "#0F0B2E", "#61E294"],
+    ["choice-incorrect.svg", "#0F0B2E", "#FF6370"],
+    ["choice-reveal.svg", "#61E294", "#0F0B2E"],
+  ])("%s is the 20px circle and mark from the frame", (file, circle, mark) => {
+    const svg = readFileSync(join(__dirname, "../../../public/icons", file), "utf8");
     expect(svg).toContain('width="20" height="20" viewBox="0 0 20 20"');
-    // --color-green in globals.css (status/doing-well in Figma).
-    expect(svg).toContain('fill="#61E294"');
-    expect(svg).not.toContain("<circle");
+    expect(svg).toContain(`rx="10" fill="${circle}"`);
+    expect(svg).toContain(`fill="${mark}"`);
   });
 });

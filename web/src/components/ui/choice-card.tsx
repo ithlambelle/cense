@@ -1,78 +1,131 @@
 import Image from "next/image"
 import type { ComponentProps, ReactNode } from "react"
 
+import { legacyAnswerCardClass } from "@/components/legacy/answer-card"
+import { choiceRowClass } from "@/components/legacy/choice-row"
+import { SelectionMark } from "@/components/legacy/selection-mark"
+import { type ChoiceCardLook, UI_VERSION } from "@/lib/ui-version"
 import { cn } from "@/lib/utils"
 
-// Choice card, the Design System component (Figma 371:3428, values from
-// get_design_context on the set and each variant; change G1, 821:8361). Every
-// answer a student picks in the app is one of these, so the look is set here
-// and nowhere else: the quiz, the spending question, Learn and Ask Penny's
-// tapped questions, safe to spend's who-covers step, the denial flow, card
-// setup and the snooze sheet.
+// Choice card · borderless, the Design System component (Figma 765:2498,
+// values from get_design_context on the set; Niki proposed it and Ben approved
+// it on Nov 16). Every answer a student picks in the app is one of these, so
+// the look is set here and nowhere else: the quiz, the spending question,
+// Learn and Ask Penny's tapped questions, safe to spend's who-covers step, the
+// denial flow, card setup and the snooze sheet.
 //
-// Default: white, 1px Amethyst outline, nothing else. The component draws no
-// mark for an unchosen card, on pick-one and multi-select questions alike.
-// Selected: 2px Amethyst outline and the plain Light Green check, no circle.
-// Correct: the check with a 2px green outline. Incorrect: a 2px Coral
-// outline and "Not quite". 56 tall, 16px corners, label Inter Medium 16
-// Indigo-black (text/primary). Hover, press, focus and disabled are not drawn
-// in Figma; they are the app's usual states.
-export type ChoiceCardState = "default" | "selected" | "correct" | "incorrect"
+// No border in any state. The fill carries the state, and a state that judges
+// an answer also says so in words with an icon, so it never rests on color
+// alone (the component's own note; WCAG 1.4.1):
+// - Default (765:2476): Off-white, label Inter Regular 16 Indigo-black.
+// - Selected (765:2478): Violet, label Inter Medium 16 white (5.45:1). No
+//   check: on pick-one and multi-select questions alike, the fill is the mark,
+//   and screen readers hear aria-pressed or aria-checked from the caller.
+// - Correct (765:2480): Green, "Correct" and a navy check.
+// - Incorrect (765:2486): Coral, "Not quite" and a navy x.
+// - Reveal (765:2492, "Answer reveal"): Off-white, "Right answer" and a green
+//   check, for the right answer after a wrong pick.
+// 56 tall, 16px corners, the label 18px in and the indicator 16px in. Hover,
+// press, focus and disabled are not drawn; they are the app's usual states.
+//
+// The archived card (components/legacy/) is drawn instead when
+// UI_VERSION.choiceCard is "legacy" (lib/ui-version.ts).
+export type ChoiceCardState = "default" | "selected" | "correct" | "incorrect" | "reveal"
 
-// Figma lays the label 18px from the left edge and the mark 16px from the
-// right whatever the stroke, because its strokes sit inside the card and take
-// no layout space. A CSS border does, so each state's padding is 18 and 16
-// less its border width: the label never moves when a card is picked. The
-// 12px above and below (also less the border) only shows when a long label
-// wraps past the frame's one line; the card is then taller than 56.
 const STATE_CLASS: Record<ChoiceCardState, string> = {
-  default: "border border-violet py-[11px] pr-[15px] pl-[17px]",
-  selected: "border-2 border-violet py-2.5 pr-3.5 pl-4",
-  correct: "border-2 border-green py-2.5 pr-3.5 pl-4",
-  incorrect: "border-2 border-coral py-2.5 pr-3.5 pl-4",
+  default: "bg-off-white font-normal text-indigo-black hover:bg-off-white-hover",
+  selected: "bg-violet font-medium text-white hover:bg-violet-hover",
+  correct: "bg-green font-medium text-indigo-black",
+  incorrect: "bg-coral font-medium text-indigo-black",
+  reveal: "bg-off-white font-medium text-indigo-black",
 }
 
+// The fill and label color change together, and only fade where motion is
+// welcome: with reduced motion the switch is instant, so white text is never
+// drawn over a half-faded Off-white (found by the e2e axe check, Nov 21).
+// 12px above and below only shows when a long label wraps past the frame's one
+// line (Learn's questions, the income answers at 320px); the card then grows
+// past 56 instead of cutting the label off.
 const BASE_CLASS =
-  "flex min-h-14 w-full items-center justify-between gap-4 rounded-button bg-white text-left text-body-m leading-[normal] font-medium text-indigo-black transition-[background-color,scale] duration-200 ease-out-soft hover:bg-off-white motion-safe:active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress"
+  "flex min-h-14 w-full items-center justify-between gap-4 rounded-button py-3 pr-4 pl-[18px] text-left text-body-m leading-[normal] motion-safe:transition-[background-color,color,scale] motion-safe:duration-200 motion-safe:ease-out-soft motion-safe:active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress"
+
+// The archive drew only chosen and not chosen; it shows any other state as
+// chosen or not, since no live screen judges an answer yet.
+const LEGACY_SELECTED: ReadonlySet<ChoiceCardState> = new Set(["selected", "correct", "reveal"])
 
 // The card's classes, for a link styled as a card (Learn's questions, "I
-// think it was a mistake"). Buttons use <ChoiceCard>, which adds the mark.
-function choiceCardClass(state: ChoiceCardState = "default", className?: string): string {
+// think it was a mistake"). Buttons use <ChoiceCard>, which adds the indicator.
+function choiceCardClass(
+  state: ChoiceCardState = "default",
+  className?: string,
+  look: ChoiceCardLook = UI_VERSION.choiceCard
+): string {
+  if (look === "legacy") return cn(choiceRowClass, className)
   return cn(BASE_CLASS, STATE_CLASS[state], className)
 }
 
-// The end of the card: the check (Indicator, 371:3433, the frame's own 20px
-// asset with its 17.5 by 13.75 check), "Not quite" (371:3441), or nothing.
-function ChoiceCardMark({ state }: { state: ChoiceCardState }) {
-  if (state === "selected" || state === "correct") {
-    return <Image src="/icons/choice-check.svg" alt="" width={20} height={20} className="shrink-0 animate-pop" />
-  }
-  if (state === "incorrect") {
-    // The space keeps "False Not quite" two words for a screen reader; a flex
-    // card does not draw a text node that is only a space.
-    return (
-      <>
-        {" "}
-        <span className="shrink-0 text-caption leading-[normal] font-normal text-indigo-black/70">Not quite</span>
-      </>
-    )
-  }
-  return null
+// The Indicator (765:2482, 765:2488, 765:2494): words, Inter Medium 13, then
+// the frame's own 20px icon, 6px apart. The icon is decoration; the words are
+// read as part of the answer ("Yes Correct").
+const INDICATOR: Partial<Record<ChoiceCardState, { text: string; icon: string }>> = {
+  correct: { text: "Correct", icon: "/icons/choice-correct.svg" },
+  incorrect: { text: "Not quite", icon: "/icons/choice-incorrect.svg" },
+  reveal: { text: "Right answer", icon: "/icons/choice-reveal.svg" },
+}
+
+function ChoiceCardIndicator({ state }: { state: ChoiceCardState }) {
+  const indicator = INDICATOR[state]
+  if (!indicator) return null
+  // The space keeps "Yes Correct" two words for a screen reader; a flex card
+  // does not draw a text node that is only a space.
+  return (
+    <>
+      {" "}
+      <span className="flex shrink-0 items-center gap-1.5 text-[13px] leading-[normal] font-medium">
+        {indicator.text}
+        <Image src={indicator.icon} alt="" width={20} height={20} className="shrink-0 animate-pop" />
+      </span>
+    </>
+  )
 }
 
 type ChoiceCardProps = ComponentProps<"button"> & {
   state?: ChoiceCardState
-  // Shown after the mark, such as a spinner while the answer saves.
+  // A question where more than one answer can be picked (the spending
+  // question). The borderless card looks the same either way; the archived
+  // card drew an empty ring on these.
+  multiple?: boolean
+  // Shown after the indicator, such as a spinner while the answer saves.
   end?: ReactNode
+  // For the component gallery and tests; screens leave it to UI_VERSION.
+  look?: ChoiceCardLook
 }
 
 // An answer as a button. The caller gives it its semantics (aria-pressed, or
 // role="radio" with aria-checked) and what a tap does; this sets the look.
-function ChoiceCard({ state = "default", end, className, children, type = "button", ...props }: ChoiceCardProps) {
+function ChoiceCard({
+  state = "default",
+  multiple = false,
+  end,
+  look = UI_VERSION.choiceCard,
+  className,
+  children,
+  type = "button",
+  ...props
+}: ChoiceCardProps) {
+  if (look === "legacy") {
+    return (
+      <button type={type} className={cn(legacyAnswerCardClass, className)} {...props}>
+        <span className="min-w-0 flex-1">{children}</span>
+        <SelectionMark selected={LEGACY_SELECTED.has(state)} ring={multiple} />
+        {end}
+      </button>
+    )
+  }
   return (
-    <button type={type} className={choiceCardClass(state, className)} {...props}>
+    <button type={type} className={choiceCardClass(state, className, look)} {...props}>
       <span className="min-w-0 flex-1">{children}</span>
-      <ChoiceCardMark state={state} />
+      <ChoiceCardIndicator state={state} />
       {end}
     </button>
   )

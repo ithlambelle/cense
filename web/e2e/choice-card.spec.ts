@@ -1,9 +1,9 @@
-// Every answer a student picks is the Design System's Choice card (Figma
-// 371:3428, change G1 on 821:8361): 56 tall, 16px corners, Inter Medium 16
-// Indigo-black, 18px in from the left. Not chosen: a 1px Amethyst outline and
-// nothing else, on pick-one and multi-select questions alike. Chosen: a 2px
-// outline and the plain 20px Light Green check, 16px in from the right, and
-// the label does not move. Measured in the browser as a student uses them.
+// Every answer a student picks is the Design System's Choice card ·
+// borderless (Figma 765:2498, approved Nov 16): 56 tall, 16px corners, no
+// border, the label 18px in from the left. Not chosen: Off-white with an Inter
+// Regular 16 Indigo-black label, on pick-one and multi-select questions alike.
+// Chosen: solid Violet with a white Inter Medium label, no check, and the
+// label does not move. Measured in the browser as a student uses them.
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { QUESTIONS } from "../src/lib/quiz/questions";
@@ -12,6 +12,8 @@ import { blockExternalRequests, LIKELY_FIT_PICKS, signUp, uniqueEmail } from "./
 
 const VIOLET = "rgb(151, 64, 197)";
 const INDIGO_BLACK = "rgb(15, 11, 46)";
+const OFF_WHITE = "rgb(236, 234, 246)";
+const WHITE = "rgb(255, 255, 255)";
 
 test.beforeEach(async ({ context }) => {
   await blockExternalRequests(context);
@@ -36,19 +38,13 @@ async function look(card: Locator) {
       // the card instead of being cut off; it is never shorter.
       height: lines > 1 && box.height >= 56 ? 56 : Math.round(box.height),
       radius: style.borderTopLeftRadius,
-      border: `${style.borderTopWidth} ${style.borderTopStyle} ${style.borderTopColor}`,
+      border: style.borderTopWidth,
       background: style.backgroundColor,
       font: `${style.fontWeight} ${style.fontSize} ${style.color}`,
       inter: style.fontFamily.includes("Inter"),
       labelLeft: Math.round(label.left - box.left),
-      check: check
-        ? {
-            src: image!.getAttribute("src")!.includes("choice-check.svg"),
-            size: `${Math.round(check.width)}x${Math.round(check.height)}`,
-            right: Math.round(box.right - check.right),
-          }
-        : null,
-      ring: element.querySelector("circle, [src*='selection-ring']") !== null,
+      // Default and Selected draw nothing at the end: no check, no ring.
+      mark: check !== undefined || element.querySelector("svg") !== null,
     };
   });
 }
@@ -60,13 +56,12 @@ async function expectDefault(card: Locator, where: string) {
   await expect.poll(() => look(card), { message: where }).toEqual({
     height: 56,
     radius: "16px",
-    border: `1px solid ${VIOLET}`,
-    background: "rgb(255, 255, 255)",
-    font: `500 16px ${INDIGO_BLACK}`,
+    border: "0px",
+    background: OFF_WHITE,
+    font: `400 16px ${INDIGO_BLACK}`,
     inter: true,
     labelLeft: 18,
-    check: null,
-    ring: false,
+    mark: false,
   });
 }
 
@@ -75,13 +70,12 @@ async function expectSelected(card: Locator, where: string) {
   await expect.poll(() => look(card), { message: where }).toEqual({
     height: 56,
     radius: "16px",
-    border: `2px solid ${VIOLET}`,
-    background: "rgb(255, 255, 255)",
-    font: `500 16px ${INDIGO_BLACK}`,
+    border: "0px",
+    background: VIOLET,
+    font: `500 16px ${WHITE}`,
     inter: true,
     labelLeft: 18,
-    check: { src: true, size: "20x20", right: 16 },
-    ring: false,
+    mark: false,
   });
 }
 
@@ -97,7 +91,7 @@ async function track(page: Page, status: string) {
   return ((await res.json()) as { id: string }).id;
 }
 
-test("the quiz's answers are Choice cards: a 1px outline, then a 2px outline and check once chosen", async ({ page }) => {
+test("the quiz's answers are borderless Choice cards: Off-white, then solid Violet once chosen", async ({ page }) => {
   await signUp(page, uniqueEmail("choice-card-quiz"), async () => {});
   await page.getByRole("link", { name: "Start the quiz" }).click();
 
@@ -123,9 +117,9 @@ test("the quiz's answers are Choice cards: a 1px outline, then a 2px outline and
     await answer(page, question.title, LIKELY_FIT_PICKS[question.field]!).click();
   }
 
-  // The spending question picks without moving on: an unpicked card shows
-  // only its outline (no empty ring), a pick its 2px outline and check, and
-  // a second tap, here from the keyboard, clears it.
+  // The spending question picks without moving on: an unpicked card is
+  // Off-white (no empty ring), a pick solid Violet, and a second tap, here
+  // from the keyboard, clears it.
   await expect(page.getByRole("heading", { level: 1, name: SPENDING_COPY.title })).toBeVisible();
   const groceries = answer(page, SPENDING_COPY.title, "Groceries");
   await expectDefault(groceries, "Groceries, not picked");
