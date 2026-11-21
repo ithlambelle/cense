@@ -91,7 +91,7 @@ export function CalendarView({ today, entries }: { today: string; entries: Calen
                       >
                         <span
                           className={cn(
-                            "flex size-8 items-center justify-center rounded-pill text-[15px] leading-[normal] transition-colors duration-200",
+                            "flex size-8 items-center justify-center rounded-pill text-[15px] leading-[normal] motion-safe:transition-colors motion-safe:duration-200",
                             isPicked
                               ? "bg-violet font-semibold text-white"
                               : isToday
