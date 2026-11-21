@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { addDays, followingReminder, nextReminders } from "@/lib/reminders/schedule";
 import type { BillAnswer } from "@/lib/safe-to-spend/compute";
 
-import { comingUp, comingUpCardNames, comingUpRows, COMING_UP_DAYS, COMING_UP_MAX_ROWS, type ComingUpCard } from "./coming-up";
+import { comingUp, comingUpCardNames, datedEvents, comingUpRows, COMING_UP_DAYS, COMING_UP_MAX_ROWS, type ComingUpCard } from "./coming-up";
 
 const DISCOVER_ID = "00000000-0000-4000-8000-000000000001";
 const CHIME_ID = "00000000-0000-4000-8000-000000000002";
@@ -243,5 +243,40 @@ describe("comingUpCardNames", () => {
       { applicationId: "d", cardName: "My credit union card", brand: null },
     ]);
     expect([...names.values()]).toEqual(["Discover", "Savor Rewards for Students", "Quicksilver Rewards for Students", "My credit union card"]);
+  });
+});
+
+// The Calendar (C1) reads the same events over a whole month: past days
+// included, and no four-row cap, so Home and the Calendar never disagree.
+describe("datedEvents", () => {
+  it("covers a whole month from the 1st, with no cap, in Coming up's order", () => {
+    const events = datedEvents({
+      from: "2026-11-01",
+      last: "2026-11-30",
+      cards: [card(), card({ applicationId: CHIME_ID, name: "Chime", statementClosingDay: 20, paymentDueDay: 6 })],
+      bills: [rent(15), rent(1, { bill: "phone", monthlyCents: 4_500 })],
+      paychecks: [
+        { date: "2026-11-06", amountCents: 48_000 },
+        { date: "2026-11-20", amountCents: 48_000 },
+      ],
+    });
+    expect(dates(events)).toEqual([
+      "bill 2026-11-01",
+      "paycheck 2026-11-06",
+      "payment_due 2026-11-06",
+      "payment_due 2026-11-06",
+      "statement_closes 2026-11-13",
+      "bill 2026-11-15",
+      "paycheck 2026-11-20",
+      "statement_closes 2026-11-20",
+    ]);
+    expect(events.length).toBeGreaterThan(COMING_UP_MAX_ROWS);
+  });
+
+  it("is what Coming up takes its first four rows from", () => {
+    const input = { cards: [card()], bills: [rent(15)], paychecks: [{ date: "2026-11-20", amountCents: 48_000 }] };
+    expect(comingUp({ ...input, today: "2026-11-09" })).toEqual(
+      datedEvents({ ...input, from: "2026-11-09", last: addDays("2026-11-09", COMING_UP_DAYS - 1) }).slice(0, COMING_UP_MAX_ROWS),
+    );
   });
 });
