@@ -43,6 +43,17 @@ describe("CardListView", () => {
     expect(screen.getByRole("link", { name: /Your match/ }).getAttribute("href")).toBe(ROUTES.results);
   });
 
+  it("shows each card's own art, and a plain card where the issuer has none", () => {
+    const withArt = all.find((card) => card.id === "capital-one-quicksilver")!;
+    const without = all.find((card) => card.id === "bofa-unlimited-cash")!;
+    render(<CardListView cards={[withArt, without]} signedIn />);
+    const artRow = screen.getByRole("link", { name: linkName(withArt) });
+    expect(decodeURIComponent(artRow.querySelector("img")?.getAttribute("src") ?? "")).toContain("/cards/capital-one-quicksilver.png");
+    expect(artRow.querySelector('[data-testid="card-art-fallback"]')).toBeNull();
+    const plainRow = screen.getByRole("link", { name: linkName(without) });
+    expect(plainRow.querySelector('[data-testid="card-art-fallback"]')).not.toBeNull();
+  });
+
   it("offers the quiz when it is not finished", () => {
     render(<CardListView cards={cards} signedIn yourMatch={null} />);
     expect(screen.getByRole("link", { name: "Take the quiz" }).getAttribute("href")).toBe("/quiz?from=cards");

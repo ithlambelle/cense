@@ -30,7 +30,7 @@ const location = (response: Response) => response.headers.get("location");
 beforeEach(() => {
   vi.stubEnv("GOOGLE_OAUTH_CLIENT_ID", "client-123");
   vi.stubEnv("GOOGLE_OAUTH_CLIENT_SECRET", "secret-xyz");
-  jar.value = encodeGoogleFlow(flow);
+  jar.value = encodeGoogleFlow(flow, "secret-xyz");
   jar.deleted = [];
   exchangeGoogleCode.mockResolvedValue({ idToken: "id.token.value", accessToken: "access-1" });
   signInWithIdToken.mockResolvedValue({ data: {}, error: null });
@@ -65,6 +65,17 @@ describe("GET /auth/google/callback", () => {
     expect(exchangeGoogleCode).not.toHaveBeenCalled();
   });
 
+  // Login CSRF through a planted cookie: an attacker who can set cookies on
+  // the domain (a sibling subdomain) plants a flow with a state they know.
+  it("refuses a flow cookie this server did not sign", async () => {
+    jar.value = Buffer.from(JSON.stringify(flow)).toString("base64url");
+    expect(location(await callback("code=c1&state=state-abc"))).toBe(`${ORIGIN}/sign-in?error=callback`);
+    jar.value = encodeGoogleFlow(flow, "attacker-key");
+    expect(location(await callback("code=c1&state=state-abc"))).toBe(`${ORIGIN}/sign-in?error=callback`);
+    expect(exchangeGoogleCode).not.toHaveBeenCalled();
+    expect(signInWithIdToken).not.toHaveBeenCalled();
+  });
+
   it("says canceled when the student backs out at Google", async () => {
     const response = await callback("error=access_denied&state=state-abc");
     expect(location(response)).toBe(`${ORIGIN}/sign-in?error=cancelled`);
@@ -94,7 +105,7 @@ describe("GET /auth/google/callback", () => {
   });
 
   it("never sends the student off-site, even if the cookie's next was tampered with", async () => {
-    jar.value = encodeGoogleFlow({ ...flow, next: "//evil.example" });
+    jar.value = encodeGoogleFlow({ ...flow, next: "//evil.example" }, "secret-xyz");
     expect(location(await callback("code=c1&state=state-abc"))).toBe(`${ORIGIN}/start`);
   });
 });

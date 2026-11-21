@@ -40,7 +40,7 @@ export default async function AccountPage() {
       quizAnswered={quizAnswered}
       quizResult={quiz.kind}
       updates={updates}
-      // Accounts opens the linked bank (How we got this), so it shows only once one is linked.
+      // Accounts opens the linked bank (Figma E4), so it shows only once one is linked.
       bankLinked={plaidConfig() !== null && bank.ok && bank.value !== null}
     />
   );

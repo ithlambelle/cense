@@ -8,6 +8,8 @@ const auth = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ createStudentClient: async () => ({ auth }) }));
+const throttle = vi.hoisted(() => ({ authThrottle: vi.fn<(...args: unknown[]) => Promise<Response | null>>(async () => null) }));
+vi.mock("@/lib/auth/throttle", () => throttle);
 
 import { POST as verify } from "./verify/route";
 
@@ -84,6 +86,18 @@ describe("verifying an email code", () => {
   it("checks the request before calling the provider", async () => {
     const response = await verify(request({ email: "student@example.com", code: "12345" }));
     expect(response.status).toBe(400);
+    expect(auth.verifyOtp).not.toHaveBeenCalled();
+  });
+
+  it("counts each check against the email, and answers 429 without checking past the limit", async () => {
+    auth.verifyOtp.mockResolvedValue({ data: { user: CONFIRMED_EARLIER }, error: null });
+    await verify(request(BODY));
+    expect(throttle.authThrottle).toHaveBeenCalledWith(expect.any(Request), "verify", "student@example.com");
+
+    throttle.authThrottle.mockResolvedValueOnce(Response.json({ error: { code: "rate_limited", message: "Too many tries. Try again in 9 minutes." } }, { status: 429 }));
+    auth.verifyOtp.mockClear();
+    const limited = await verify(request(BODY));
+    expect(limited.status).toBe(429);
     expect(auth.verifyOtp).not.toHaveBeenCalled();
   });
 });

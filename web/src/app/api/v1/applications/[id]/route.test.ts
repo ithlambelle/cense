@@ -56,7 +56,7 @@ function student(current: Result, updated?: Result, stepDelete: Result = { data:
 
 const params = (id = ID) => ({ params: Promise.resolve({ id }) });
 const patch = (body: unknown, id = ID) =>
-  PATCH(new Request("http://test", { method: "PATCH", body: JSON.stringify(body) }), params(id));
+  PATCH(new Request("http://test", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }), params(id));
 
 afterEach(() => {
   vi.restoreAllMocks();

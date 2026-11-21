@@ -130,6 +130,19 @@ describe("saveRecommendation", () => {
   });
 });
 
+describe("saveRecommendation at the daily limit", () => {
+  it("is a quiet failure: a warning with the code only, nothing thrown, nothing for the student", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { student } = fakeStudent({ data: null, error: null }, { code: "54000", message: "save_recommendation: too many saves today" });
+    expect(await saveRecommendation(student, ALL_SIX, cards)).toBe("failed");
+    expect(warn).toHaveBeenCalledExactlyOnceWith(JSON.stringify({ event: "recommendation_save_failed", step: "insert", code: "54000" }));
+    expect(error).not.toHaveBeenCalled();
+    warn.mockRestore();
+    error.mockRestore();
+  });
+});
+
 describe("saveRecommendation when the client throws", () => {
   it("still returns failed instead of throwing", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});

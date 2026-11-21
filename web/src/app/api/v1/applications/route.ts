@@ -47,6 +47,9 @@ export async function POST(request: Request): Promise<Response> {
   if (error?.code === "23505") {
     return apiError(409, "already_exists", "An active record for this card already exists.");
   }
+  // The database keeps at most 25 card records per student, and records are
+  // never deleted, so this does not pass with time.
+  if (error?.code === "54000") return apiError(409, "limit_reached", "You’ve reached the card limit.");
   if (error) return databaseError("application_create", error);
 
   return Response.json(applicationFromRow(data as ApplicationRow), {

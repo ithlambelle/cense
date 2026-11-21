@@ -78,18 +78,39 @@ describe("googleAuthorizeUrl", () => {
 });
 
 describe("the flow cookie", () => {
-  it("round-trips", () => {
+  const SECRET = "client-secret";
+  it("round-trips with the same secret", () => {
     const flow = newGoogleFlow("/quiz?step=2");
-    expect(decodeGoogleFlow(encodeGoogleFlow(flow))).toEqual(flow);
+    expect(decodeGoogleFlow(encodeGoogleFlow(flow, SECRET), SECRET)).toEqual(flow);
+  });
+
+  it("is signed: a cookie this server did not set is refused", () => {
+    const flow = newGoogleFlow("/home");
+    const value = encodeGoogleFlow(flow, SECRET);
+    const [payload, signature] = value.split(".");
+    // Unsigned, as the cookie was before (external audit of a8fe7d4).
+    expect(decodeGoogleFlow(payload, SECRET)).toBeNull();
+    // Signed with another key.
+    expect(decodeGoogleFlow(encodeGoogleFlow(flow, "another-secret"), SECRET)).toBeNull();
+    // A payload changed after signing (an attacker's own state and nonce).
+    const forged = Buffer.from(JSON.stringify({ ...flow, state: "attacker-state" })).toString("base64url");
+    expect(decodeGoogleFlow(`${forged}.${signature}`, SECRET)).toBeNull();
+    // A cut or empty signature, and no secret at all.
+    expect(decodeGoogleFlow(`${payload}.${signature.slice(0, 10)}`, SECRET)).toBeNull();
+    expect(decodeGoogleFlow(`${payload}.`, SECRET)).toBeNull();
+    expect(decodeGoogleFlow(value, "")).toBeNull();
   });
 
   it("refuses anything that is not a whole flow", () => {
-    expect(decodeGoogleFlow(undefined)).toBeNull();
-    expect(decodeGoogleFlow("")).toBeNull();
-    expect(decodeGoogleFlow("not base64 json")).toBeNull();
-    expect(decodeGoogleFlow(Buffer.from("[]").toString("base64url"))).toBeNull();
-    expect(decodeGoogleFlow(Buffer.from(JSON.stringify({ state: "s", nonce: "n", verifier: "v" })).toString("base64url"))).toBeNull();
-    expect(decodeGoogleFlow(Buffer.from(JSON.stringify({ state: "s", nonce: 1, verifier: "v", next: "/" })).toString("base64url"))).toBeNull();
+    expect(decodeGoogleFlow(undefined, SECRET)).toBeNull();
+    expect(decodeGoogleFlow("", SECRET)).toBeNull();
+    expect(decodeGoogleFlow("not base64 json", SECRET)).toBeNull();
+    for (const payload of [[], { state: "s", nonce: "n", verifier: "v" }, { state: "s", nonce: 1, verifier: "v", next: "/" }]) {
+      const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
+      const signed = encodeGoogleFlow(payload as never, SECRET);
+      expect(signed.startsWith(`${encoded}.`)).toBe(true);
+      expect(decodeGoogleFlow(signed, SECRET)).toBeNull();
+    }
   });
 });
 

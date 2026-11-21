@@ -41,8 +41,6 @@ export const SAFE_TO_SPEND_COPY = {
   setAsideTitle: "Anything to keep aside each month?",
   setAsideBody: "Savings or a cushion. We leave it out.",
   setAsideLabel: "Set aside each month",
-  howTitle: "How we got this",
-  howIntro: "Your checking, minus card balances, the bills still to come this month and what you keep aside, spread over 30 days.",
   reconnect: "Your bank needs you to sign in again.",
   relink: "Your bank connection ended.",
   lastNumbers: "Until then, these are the last numbers we read.",

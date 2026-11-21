@@ -6,7 +6,7 @@ vi.mock("@/lib/supabase/service", () => service);
 
 const cleanup = vi.hoisted(() => ({ runAccountCleanupWithHeartbeat: vi.fn() }));
 vi.mock("@/lib/plaid/account-cleanup", () => cleanup);
-const CLEANUP = { claimed: 0, removed: 0, failed: 0, unavailable: false, deferred: false };
+const CLEANUP = { claimed: 0, removed: 0, failed: 0, gaveUp: 0, unavailable: false, deferred: false };
 
 import { verifyUnsubscribeToken } from "@/lib/reminders/unsubscribe-token";
 
@@ -94,7 +94,7 @@ describe("GET /cron/reminders", () => {
     const response = await cron();
     expect(response.status).toBe(500);
     expect(JSON.stringify(vi.mocked(console.error).mock.calls)).toContain("RESEND_API_KEY");
-    expect(calls.map((call) => call.name)).toEqual(["purge_old_plaid_transactions", "raise_reminder_follow_ups"]);
+    expect(calls.map((call) => call.name)).toEqual(["purge_old_plaid_transactions", "purge_old_quota_rows", "raise_reminder_follow_ups"]);
     expect(cleanup.runAccountCleanupWithHeartbeat).toHaveBeenCalledWith(service.createServiceClient.mock.results[0].value, expect.objectContaining({ startedAt: expect.any(Number) }));
     expect(service.createServiceClient).toHaveBeenCalledTimes(1);
   });
@@ -137,15 +137,16 @@ describe("GET /cron/reminders", () => {
     const response = await cron();
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, followUps: { raised: 0, skipped: 0, failed: false }, plaidCleanup: CLEANUP });
+    expect(body).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, refreshed: true, followUps: { raised: 0, skipped: 0, failed: false }, plaidCleanup: CLEANUP });
     expect(calls.map((call) => call.name)).toEqual([
       "purge_old_plaid_transactions",
+      "purge_old_quota_rows",
       "raise_reminder_follow_ups",
       "refresh_all_reminders",
       "claim_due_reminders",
       "mark_reminder_sent",
     ]);
-    expect(calls[4].args).toEqual({ p_reminder_id: claimed().reminder_id });
+    expect(calls[5].args).toEqual({ p_reminder_id: claimed().reminder_id });
     expect(service.createServiceClient).toHaveBeenCalledWith(ENV.SUPABASE_SERVICE_ROLE_KEY);
 
     const [url, init] = fetchMock.emails()[0] as unknown as [string, RequestInit];
@@ -178,6 +179,7 @@ describe("GET /cron/reminders", () => {
     expect(body).toMatchObject({ claimed: 1, sent: 0, failed: 1 });
     expect(calls.map((call) => call.name)).toEqual([
       "purge_old_plaid_transactions",
+      "purge_old_quota_rows",
       "raise_reminder_follow_ups",
       "refresh_all_reminders",
       "claim_due_reminders",
@@ -209,7 +211,7 @@ describe("GET /cron/reminders", () => {
   it("sends nothing when nothing is due", async () => {
     database({ claim_due_reminders: [{ data: [], error: null }] });
     const fetchMock = resend();
-    expect(await (await cron()).json()).toEqual({ claimed: 0, sent: 0, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, followUps: { raised: 0, skipped: 0, failed: false }, plaidCleanup: CLEANUP });
+    expect(await (await cron()).json()).toEqual({ claimed: 0, sent: 0, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, refreshed: true, followUps: { raised: 0, skipped: 0, failed: false }, plaidCleanup: CLEANUP });
     expect(fetchMock.emails()).toHaveLength(0);
   });
 
@@ -257,7 +259,7 @@ describe("GET /cron/reminders", () => {
     const response = await cron();
     expect(response.status).toBe(200);
     expect((await response.json()).followUps).toEqual({ raised: 2, skipped: 1, failed: false });
-    expect(calls[1]).toEqual({ name: "raise_reminder_follow_ups", args: undefined });
+    expect(calls[2]).toEqual({ name: "raise_reminder_follow_ups", args: undefined });
     expect(JSON.parse(others[1].body).followUps).toEqual({ raised: 2, skipped: 1, failed: false });
     expect(others[1].url).not.toContain("/fail");
   });
@@ -283,6 +285,28 @@ describe("GET /cron/reminders", () => {
     expect(response.status).toBe(200);
     expect(calls[0]).toEqual({ name: "purge_old_plaid_transactions", args: undefined });
     expect(vi.mocked(console.error)).not.toHaveBeenCalled();
+  });
+
+  // Security audit of a8fe7d4: quota rows of deleted students must go within
+  // two days even when nobody claims, so the cron purges them every run.
+  it("purges Penny and email limit counts older than two days on every run", async () => {
+    const calls = database({ purge_old_quota_rows: [{ data: 4, error: null }] });
+    resend();
+    expect((await cron()).status).toBe(200);
+    expect(calls[1]).toEqual({ name: "purge_old_quota_rows", args: undefined });
+    expect(vi.mocked(console.error)).not.toHaveBeenCalled();
+  });
+
+  it("logs a failed quota purge with its code only, and still sends reminders", async () => {
+    const calls = database({
+      purge_old_quota_rows: [{ data: null, error: { code: "PGRST202", message: "function not found" } }],
+      claim_due_reminders: [{ data: [claimed()], error: null }],
+    });
+    resend();
+    const response = await cron();
+    expect(await response.json()).toMatchObject({ claimed: 1, sent: 1, failed: 0 });
+    expect(calls.map((call) => call.name)).toContain("mark_reminder_sent");
+    expect(vi.mocked(console.error)).toHaveBeenCalledWith(JSON.stringify({ event: "quota_purge_failed", code: "PGRST202" }));
   });
 
   it("logs a failed purge with its code only, and still sends reminders", async () => {
@@ -318,7 +342,7 @@ describe("GET /cron/reminders", () => {
       resend();
       await cron();
       expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, HEARTBEAT]);
-      expect(JSON.parse(others[1].body)).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, followUps: { raised: 0, skipped: 0, failed: false } });
+      expect(JSON.parse(others[1].body)).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, refreshed: true, followUps: { raised: 0, skipped: 0, failed: false } });
     });
 
     it("still pings success when only the purge failed: retention is not a reminder problem", async () => {
@@ -329,7 +353,29 @@ describe("GET /cron/reminders", () => {
       resend();
       await cron();
       expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, HEARTBEAT]);
-      expect(JSON.parse(others[1].body)).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, followUps: { raised: 0, skipped: 0, failed: false } });
+      expect(JSON.parse(others[1].body)).toEqual({ claimed: 1, sent: 1, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, refreshed: true, followUps: { raised: 0, skipped: 0, failed: false } });
+    });
+
+    it("pings fail when the refresh did not reach every student, and still sends", async () => {
+      // The refresh keeps answering where to carry on until its time is up.
+      let clock = 0;
+      const now = vi.spyOn(Date, "now").mockImplementation(() => clock);
+      service.createServiceClient.mockReturnValue({
+        rpc: async (name: string) => {
+          if (name === "refresh_all_reminders") {
+            clock += 3_000;
+            return { data: "00000000-0000-4000-8000-0000000000c1", error: null };
+          }
+          if (name === "claim_due_reminders") return { data: [claimed()], error: null };
+          return { data: name === "mark_reminder_sent" ? true : null, error: null };
+        },
+      });
+      resend();
+      const body = await (await cron()).json();
+      now.mockRestore();
+      expect(body).toMatchObject({ sent: 1, refreshed: false });
+      expect(others.map((call) => call.url)).toEqual([`${HEARTBEAT}/start`, `${HEARTBEAT}/fail`]);
+      expect(JSON.stringify(vi.mocked(console.error).mock.calls)).toContain("reminder_refresh_incomplete");
     });
 
     it("pings fail when a send failed, and the body has counts only", async () => {

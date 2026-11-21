@@ -69,4 +69,15 @@ describe("ResetPassword", () => {
     expect((await screen.findByRole("alert")).textContent).toBe("Use a password of 72 bytes or fewer.");
     expect(replace).not.toHaveBeenCalled();
   });
+
+  // A student sent someone else's reset link (login CSRF) sees whose account this is.
+  it("names the account the new password is for", () => {
+    render(<ResetPassword email="ana@example.com" />);
+    expect(screen.getByText("For the account ana@example.com")).toBeTruthy();
+  });
+
+  it("names no account when no one is signed in", () => {
+    render(<ResetPassword />);
+    expect(screen.queryByText(/For the account/)).toBeNull();
+  });
 });

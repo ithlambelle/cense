@@ -24,12 +24,61 @@ export const FAKE_BANK = {
   cardCents: 31_000,
 };
 
+// The transactions every linked bank has, all in the last full calendar month
+// (Your money, This month). Plaid's sign: positive is money out. Totals:
+// income $1,800; needs rent $650, groceries $275, rides $24; wants eating out
+// $70, Spotify $12, shopping $50 after a $30 refund. Not spending: a card
+// payment and a move to savings.
+export const FAKE_MONTH = { incomeCents: 180_000, rentCents: 65_000, groceriesCents: 27_500, ridesCents: 2_400, eatingOutCents: 7_000, entertainmentCents: 1_200, shoppingCents: 5_000 };
+
+// Last month on the app's calendar (Eastern, as lastFullMonth in
+// src/lib/budget/lines.ts), so the hours after midnight UTC on the 1st do not
+// put the transactions in a month This month does not show.
+function lastMonthDay(day: number): string {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "numeric" }).formatToParts(new Date());
+  const year = Number(parts.find((part) => part.type === "year")!.value);
+  const month = Number(parts.find((part) => part.type === "month")!.value);
+  return new Date(Date.UTC(year, month - 2, day)).toISOString().slice(0, 10);
+}
+
+function transaction(id: string, day: number, dollars: number, primary: string, detailed: string, merchant: string | null) {
+  return {
+    transaction_id: `txn-fake-${id}`,
+    account_id: "acc-checking",
+    amount: dollars,
+    iso_currency_code: "USD",
+    date: lastMonthDay(day),
+    pending: false,
+    merchant_name: merchant,
+    personal_finance_category: { primary, detailed },
+  };
+}
+
+const FAKE_TRANSACTIONS = [
+  transaction("pay-1", 5, -900, "INCOME", "INCOME_WAGES", "Campus Dining"),
+  transaction("pay-2", 19, -900, "INCOME", "INCOME_WAGES", "Campus Dining"),
+  transaction("rent", 6, 650, "RENT_AND_UTILITIES", "RENT_AND_UTILITIES_RENT", null),
+  transaction("groc-1", 7, 180, "FOOD_AND_DRINK", "FOOD_AND_DRINK_GROCERIES", "Trader Joe's"),
+  transaction("groc-2", 21, 95, "FOOD_AND_DRINK", "FOOD_AND_DRINK_GROCERIES", "Star Market"),
+  transaction("ride", 9, 24, "TRANSPORTATION", "TRANSPORTATION_TAXIS_AND_RIDE_SHARES", "Uber"),
+  transaction("food", 11, 62, "FOOD_AND_DRINK", "FOOD_AND_DRINK_RESTAURANT", "Chipotle"),
+  transaction("coffee", 12, 8, "FOOD_AND_DRINK", "FOOD_AND_DRINK_COFFEE", "Pavement"),
+  transaction("music", 14, 12, "ENTERTAINMENT", "ENTERTAINMENT_MUSIC_AND_AUDIO", "Spotify"),
+  transaction("shoes", 15, 80, "GENERAL_MERCHANDISE", "GENERAL_MERCHANDISE_CLOTHING_AND_ACCESSORIES", "Nike"),
+  transaction("refund", 22, -30, "GENERAL_MERCHANDISE", "GENERAL_MERCHANDISE_CLOTHING_AND_ACCESSORIES", "Nike"),
+  transaction("card", 20, 310, "LOAN_PAYMENTS", "LOAN_PAYMENTS_CREDIT_CARD_PAYMENT", null),
+  transaction("save", 23, 100, "TRANSFER_OUT", "TRANSFER_OUT_SAVINGS", null),
+];
+
 // What the next calls answer. Reset before each test.
 // "gone": the Item was removed at Plaid (for example from my.plaid.com), so
 // every call with its token answers INVALID_ACCESS_TOKEN.
+// transactions "none": the bank has no transactions yet (Plaid still
+// gathering a new Item's history).
 export const behavior = {
   accounts: "ok" as "ok" | "login_required" | "down" | "gone",
   remove: "ok" as "ok" | "down",
+  transactions: "ok" as "ok" | "none",
 };
 
 // Every request the app sent: the path, the client id and secret headers, and
@@ -41,6 +90,7 @@ export const removedAccessTokens: string[] = [];
 export function resetFakePlaid() {
   behavior.accounts = "ok";
   behavior.remove = "ok";
+  behavior.transactions = "ok";
   received.length = 0;
 }
 
@@ -121,6 +171,17 @@ function answer(path: string, body: Record<string, unknown>): { status: number; 
           item: { item_id: "item-fake", institution_id: "ins_109508", institution_name: FAKE_BANK.institution },
           request_id: requestId(),
         },
+      };
+    }
+    case "/transactions/sync": {
+      if (!issuedAccessTokens.includes(String(body.access_token)) || removedAccessTokens.includes(String(body.access_token))) {
+        return plaidError(400, "INVALID_INPUT", "INVALID_ACCESS_TOKEN");
+      }
+      // The first sync gets the month; a sync from a cursor gets no changes.
+      const first = (typeof body.cursor !== "string" || body.cursor === "") && behavior.transactions === "ok";
+      return {
+        status: 200,
+        body: { added: first ? FAKE_TRANSACTIONS : [], modified: [], removed: [], next_cursor: first ? "fake-cursor-1" : String(body.cursor ?? ""), has_more: false, request_id: requestId() },
       };
     }
     case "/item/remove": {

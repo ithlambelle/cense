@@ -14,6 +14,7 @@ const NEVER_BACK_TO: readonly string[] = [
   ROUTES.signIn,
   ROUTES.signUp,
   ROUTES.forgotPassword,
+  ROUTES.resetPasswordConfirm,
   ROUTES.resetPassword,
   ROUTES.start,
   ROUTES.accountDeleted,
@@ -61,7 +62,8 @@ const SCREEN_NAMES: Record<string, string> = {
   [ROUTES.denied]: "Denial options",
   [`${ROUTES.denied}/plan`]: "Plan",
   [ROUTES.addCard]: "Add a card",
-  [ROUTES.safeToSpend]: "Safe to spend",
+  [ROUTES.safeToSpend]: "Your money",
+  [ROUTES.accounts]: "Accounts",
   [ROUTES.updates]: "Updates",
 };
 

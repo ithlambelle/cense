@@ -25,7 +25,7 @@ describe("openedResetLink", () => {
     expect(openedResetLink([{ method: "recovery", timestamp: NOW - 10 }], null, NOW)).toBe(true);
   });
 
-  it("refuses any session older than the hour a link lasts", () => {
+  it("refuses any session older than the 10 minutes a link lasts", () => {
     const old = NOW - RESET_SESSION_SECONDS - 1;
     expect(openedResetLink([{ method: "recovery", timestamp: old }], SENT, NOW)).toBe(false);
     expect(openedResetLink([{ method: "otp", timestamp: old }], new Date((old - 5) * 1000).toISOString(), NOW)).toBe(false);

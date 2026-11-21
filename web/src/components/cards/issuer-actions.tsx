@@ -126,12 +126,15 @@ export function IssuerActions({ card, notes, signedIn, tracked = false }: Issuer
       return;
     }
     // A copy of the issuer_clicks row the API just saved (S46): its id is the
-    // event id, so PostHog can be checked against Postgres.
-    track(
-      "issuer_link_clicked",
-      { click_id: result.data.id, card_id: card.id, link_type: kind },
-      { uuid: result.data.id, timestamp: new Date(result.data.clickedAt) },
-    );
+    // event id, so PostHog can be checked against Postgres. No id: the click
+    // was not recorded, so there is nothing to copy, and the issuer opens anyway.
+    if (result.data.id && result.data.clickedAt) {
+      track(
+        "issuer_link_clicked",
+        { click_id: result.data.id, card_id: card.id, link_type: kind },
+        { uuid: result.data.id, timestamp: new Date(result.data.clickedAt) },
+      );
+    }
     const url = safeIssuerUrl(result.data.url);
     if (!url) {
       tab?.close();
@@ -164,8 +167,9 @@ export function IssuerActions({ card, notes, signedIn, tracked = false }: Issuer
       router.refresh();
       return;
     }
-    // 409: this card is already tracked (applied or approved). Nothing new is saved.
-    if (result.kind === "api" && result.status === 409) {
+    // 409: this card is already tracked (applied or approved). Nothing new is
+    // saved. The card limit is also a 409; its message is shown below.
+    if (result.kind === "api" && result.status === 409 && result.code !== "limit_reached") {
       rememberWaiting(card.id, false);
       setStage({ name: "already" });
       return;

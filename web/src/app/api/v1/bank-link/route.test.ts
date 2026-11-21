@@ -21,6 +21,9 @@ const store = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/plaid/store", () => store);
 
+const transactions = vi.hoisted(() => ({ syncStudentTransactions: vi.fn() }));
+vi.mock("@/lib/plaid/transactions", () => transactions);
+
 import { DELETE, POST } from "./route";
 
 const CONFIG = { clientId: "c", secret: "s", baseUrl: "https://sandbox.plaid.com", tokenKey: Buffer.alloc(32) };
@@ -33,7 +36,7 @@ const ACCOUNTS = {
   },
 };
 
-const post = (body: unknown) => POST(new Request("http://test", { method: "POST", body: JSON.stringify(body) }));
+const post = (body: unknown) => POST(new Request("http://test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }));
 
 beforeEach(() => {
   auth.authenticatedStudent.mockResolvedValue({ supabase: {}, studentId: "student-1", email: null });
@@ -45,12 +48,13 @@ beforeEach(() => {
   store.saveBankLink.mockResolvedValue({ ok: true, value: "saved" });
   store.saveBalances.mockResolvedValue({ ok: true, value: true });
   store.loadSafeToSpend.mockResolvedValue({ ok: true, value: SAFE_TO_SPEND });
+  transactions.syncStudentTransactions.mockResolvedValue({ kind: "synced", saved: 0, removed: 0 });
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
-  for (const group of [auth, config, plaid, store]) for (const fn of Object.values(group)) fn.mockReset();
+  for (const group of [auth, config, plaid, store, transactions]) for (const fn of Object.values(group)) fn.mockReset();
 });
 
 describe("POST /bank-link", () => {
@@ -68,6 +72,15 @@ describe("POST /bank-link", () => {
     expect(store.saveBalances).toHaveBeenCalledWith(expect.anything(), [
       { name: "Plaid Checking", mask: "0000", kind: "cash", balanceCents: 10_000 },
     ]);
+    // Transactions are pulled right after linking, for Your money's This month.
+    expect(transactions.syncStudentTransactions).toHaveBeenCalledWith(expect.anything(), CONFIG, { itemId: "item-new", accessToken: "access-sandbox-new" });
+  });
+
+  it("keeps the link when the first transactions sync fails", async () => {
+    transactions.syncStudentTransactions.mockResolvedValue({ kind: "plaid", failure: { ok: false, kind: "plaid", code: "PRODUCT_NOT_READY" } });
+    const response = await post({ publicToken: "public-sandbox-good" });
+    expect(response.status).toBe(201);
+    expect(console.error).toHaveBeenCalledWith(JSON.stringify({ event: "plaid_transactions_sync_failed", kind: "plaid" }));
   });
 
   it("needs a session, then Plaid settings, then a public token", async () => {

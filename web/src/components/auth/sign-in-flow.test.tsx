@@ -20,6 +20,8 @@ function server(replies: { status: number; body: unknown }[]) {
 
 const CODE_SENT = { status: 200, body: { status: "code_sent" } };
 const SIGNED_IN = { status: 200, body: { status: "signed_in" } };
+// The app-level limit's answer (src/lib/auth/throttle.ts).
+const LIMITED = { status: 429, body: { error: { code: "rate_limited", message: "Too many tries. Try again in 6 minutes." } } };
 const WRONG_CODE = { status: 401, body: { error: { code: "invalid_code", message: "The code is wrong or expired. Request a new one." } } };
 
 async function reachCodeStep() {
@@ -85,6 +87,35 @@ describe("SignInFlow", () => {
     fireEvent.change(screen.getByLabelText("Verification code"), { target: { value: "000000" } });
     fireEvent.click(screen.getByRole("button", { name: "Verify" }));
     expect((await screen.findByRole("alert")).textContent).toBe("The code is wrong or expired. Request a new one.");
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("shows the limit's message when too many codes were sent, and stays on the email step", async () => {
+    server([LIMITED]);
+    render(<SignInFlow mode="sign-in" next={null} initialError={null} />);
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "student@example.edu" } });
+    fireEvent.click(screen.getByRole("button", { name: "Email me a code" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Too many tries. Try again in 6 minutes.");
+    expect(screen.getByRole("heading", { name: "Welcome back" })).toBeTruthy();
+  });
+
+  it("shows the limit's message when too many codes were checked", async () => {
+    server([CODE_SENT, LIMITED]);
+    render(<SignInFlow mode="sign-in" next={null} initialError={null} />);
+    await reachCodeStep();
+    fireEvent.change(screen.getByLabelText("Verification code"), { target: { value: "000000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Too many tries. Try again in 6 minutes.");
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("shows the calm busy message when the code could not be checked against the limits", async () => {
+    server([CODE_SENT, { status: 503, body: { error: { code: "sign_in_busy", message: "Sign-in is busy right now. Try again in a minute." } } }]);
+    render(<SignInFlow mode="sign-in" next={null} initialError={null} />);
+    await reachCodeStep();
+    fireEvent.change(screen.getByLabelText("Verification code"), { target: { value: "482916" } });
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Sign-in is busy right now. Try again in a minute.");
     expect(replace).not.toHaveBeenCalled();
   });
 

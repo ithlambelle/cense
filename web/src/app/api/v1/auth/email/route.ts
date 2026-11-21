@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { authCallbackUrl } from "@/lib/api/password";
+import { emailLinkOrigin, logMissingAppBaseUrl } from "@/lib/auth/email-links";
+import { authThrottle } from "@/lib/auth/throttle";
 import { ROUTES } from "@/lib/routes";
 import { createStudentClient } from "@/lib/supabase/server";
 
@@ -11,10 +13,17 @@ export async function POST(request: Request): Promise<Response> {
   const parsed = requestSchema.safeParse(await parseJson(request));
   if (!parsed.success) return validationError(parsed.error);
 
+  const limited = await authThrottle(request, "send", parsed.data.email);
+  if (limited) return limited;
+
+  // The email carries a code, not a link, but any link Supabase adds must
+  // point at the app's own address. Without one, Supabase's Site URL.
+  const origin = emailLinkOrigin(request.url);
+  if (!origin) logMissingAppBaseUrl("auth/email");
   const supabase = await createStudentClient();
   const { error } = await supabase.auth.signInWithOtp({
     email: parsed.data.email,
-    options: { emailRedirectTo: authCallbackUrl(new URL(request.url).origin, ROUTES.start) },
+    options: origin ? { emailRedirectTo: authCallbackUrl(origin, ROUTES.start) } : undefined,
   });
   if (error) {
     return apiError(502, "email_code_failed", "We could not send a code. Please try again.");

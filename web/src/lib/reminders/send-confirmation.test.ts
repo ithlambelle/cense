@@ -1,6 +1,8 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+const service = vi.hoisted(() => ({ createServiceClient: vi.fn(), calls: [] as string[], answer: { data: true as unknown, error: null as { code: string } | null } }));
+vi.mock("@/lib/supabase/service", () => ({ createServiceClient: service.createServiceClient }));
 
 import type { Student } from "@/lib/api/auth";
 
@@ -12,13 +14,32 @@ const ENV = {
   APP_BASE_URL: "http://localhost:3300",
   REMINDER_UNSUBSCRIBE_SECRET: "test-secret",
   RESEND_BASE_URL: "http://127.0.0.1:3598",
+  SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key", // gitleaks:allow
 };
 const REMINDER = { id: "00000000-0000-4000-8000-0000000000a1", applicationId: "00000000-0000-4000-8000-000000000001", remindOn: "2027-04-05" };
 
-function student(unsubscribedAt: string | null = null, email: string | null = "student@example.edu"): Student {
+// `claimed`: what claim_confirmation_email(p_student_id) answers (false past
+// the daily limit). It is called with the service role, never the student's
+// client (20261117110000_security_quotas.sql); service.calls records each call.
+function student(unsubscribedAt: string | null = null, email: string | null = "student@example.edu", claimed = true): Student {
   const query = { select: () => query, eq: () => query, maybeSingle: async () => ({ data: { reminders_unsubscribed_at: unsubscribedAt }, error: null }) };
-  return { supabase: { from: () => query }, studentId: "student-1", email } as unknown as Student;
+  service.answer = { data: claimed, error: null };
+  return {
+    supabase: { from: () => query, rpc: async (name: string) => { service.calls.push(`student ${name}`); return { data: null, error: { message: "not expected" } }; } },
+    studentId: "student-1",
+    email,
+  } as unknown as Student;
 }
+
+beforeEach(() => {
+  service.calls = [];
+  service.createServiceClient.mockImplementation(() => ({
+    rpc: async (name: string, args: unknown) => {
+      service.calls.push(`service ${name} ${JSON.stringify(args)}`);
+      return service.answer;
+    },
+  }));
+});
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -101,5 +122,59 @@ describe("sendPaymentRemindersConfirmation", () => {
     const fetchFn = vi.fn<typeof fetch>();
     expect(await sendPaymentRemindersConfirmation(student("2026-11-01T00:00:00Z"), INPUT, SAVED_AT, fetchFn)).toBe("skipped");
     expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  // Testathon security audit (Nov 16): a save-and-confirm loop must not spend
+  // the Resend quota sign-in codes share.
+  it("is skipped past the daily limit, and the save still stands", async () => {
+    stubEnv();
+    const fetchFn = vi.fn<typeof fetch>();
+    expect(await sendPaymentRemindersConfirmation(student(null, "student@example.edu", false), INPUT, SAVED_AT, fetchFn)).toBe("skipped");
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  // Security audit of a8fe7d4: a student must not be able to call the claim
+  // and use up the shared 100 a day, so the server claims with the service
+  // role for the student in the session.
+  it("claims the limit with the service role for the signed-in student", async () => {
+    stubEnv();
+    const fetchFn = vi.fn<typeof fetch>(async () => Response.json({ id: "1" }));
+    expect(await sendPaymentRemindersConfirmation(student(), INPUT, SAVED_AT, fetchFn)).toBe("sent");
+    expect(service.createServiceClient).toHaveBeenCalledWith("test-service-role-key");
+    expect(service.calls).toEqual([`service claim_confirmation_email ${JSON.stringify({ p_student_id: "student-1" })}`]);
+  });
+
+  it("is skipped, with nothing counted, without the service role key", async () => {
+    stubEnv();
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
+    const fetchFn = vi.fn<typeof fetch>();
+    expect(await sendPaymentRemindersConfirmation(student(), INPUT, SAVED_AT, fetchFn)).toBe("skipped");
+    expect(service.calls).toEqual([]);
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the old claim until the migration is applied", async () => {
+    stubEnv();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const fetchFn = vi.fn<typeof fetch>();
+    const signedIn = student();
+    service.answer = { data: null, error: { code: "PGRST202" } };
+    (signedIn.supabase as unknown as { rpc: (name: string) => Promise<unknown> }).rpc = async (name) => {
+      service.calls.push(`student ${name}`);
+      return { data: false, error: null };
+    };
+    expect(await sendPaymentRemindersConfirmation(signedIn, INPUT, SAVED_AT, fetchFn)).toBe("skipped");
+    expect(service.calls).toEqual([`service claim_confirmation_email ${JSON.stringify({ p_student_id: "student-1" })}`, "student claim_confirmation_email"]);
+  });
+
+  it("fails, without sending, when the claim fails", async () => {
+    stubEnv();
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const fetchFn = vi.fn<typeof fetch>();
+    const signedIn = student();
+    service.answer = { data: null, error: { code: "PGRST000" } };
+    expect(await sendPaymentRemindersConfirmation(signedIn, INPUT, SAVED_AT, fetchFn)).toBe("failed");
+    expect(fetchFn).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(JSON.stringify({ event: "reminder_confirmation_failed", code: "PGRST000" }));
   });
 });

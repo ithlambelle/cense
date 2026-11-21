@@ -10,7 +10,7 @@ import { syncStudentTransactions } from "@/lib/plaid/transactions";
 import { balanceRows } from "@/lib/safe-to-spend/compute";
 
 // Reads the balances from Plaid again and answers safe to spend (US-12).
-// Home calls it when the numbers are over an hour old, How we got this when
+// Home calls it when the numbers are over an hour old, Your money and Accounts when
 // the student taps Refresh, and both after the student signs in to their
 // bank again. It also brings the student's transactions up to date for
 // budgeting (US-14) and fills in the student's card dates from the bank

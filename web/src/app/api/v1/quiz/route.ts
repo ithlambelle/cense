@@ -14,7 +14,9 @@ export async function GET(): Promise<Response> {
     .eq("student_id", student.studentId)
     .maybeSingle();
   if (error) return databaseError("quiz_read", error);
-  if (!data) return apiError(404, "not_found", "No saved quiz yet.");
+  // No saved quiz yet: an empty draft, not a 404, so a new student's first
+  // visit logs no error in the browser console (Testathon, Nov 16).
+  if (!data) return Response.json({ answers: {}, updatedAt: null }, { headers: { "Cache-Control": "no-store" } });
 
   // A stored draft the schema now rejects (an old field, a retired choice)
   // keeps only its valid answers, so the student answers just the rest and the

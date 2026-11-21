@@ -46,7 +46,7 @@ describe("GET /auth/google", () => {
     const [name, value, options] = cookieSet.mock.calls[0];
     expect(name).toBe("cense_google_flow");
     expect(options).toMatchObject({ httpOnly: true, sameSite: "lax", secure: true, path: "/api/v1/auth/google/callback", maxAge: 600 });
-    const flow = decodeGoogleFlow(value);
+    const flow = decodeGoogleFlow(value, "secret-xyz");
     expect(flow?.next).toBe("/home");
     expect(location.searchParams.get("state")).toBe(flow?.state);
   });
@@ -64,7 +64,7 @@ describe("GET /auth/google", () => {
     vi.stubEnv("GOOGLE_OAUTH_CLIENT_ID", "client");
     vi.stubEnv("GOOGLE_OAUTH_CLIENT_SECRET", "secret");
     await GET(new NextRequest("https://www.censefinance.com/api/v1/auth/google?next=https%3A%2F%2Fevil.example"));
-    expect(decodeGoogleFlow(cookieSet.mock.calls[0][1])?.next).toBe("/start");
+    expect(decodeGoogleFlow(cookieSet.mock.calls[0][1], "secret")?.next).toBe("/start");
   });
 
   it("does not mark the cookie Secure on plain-http localhost", async () => {

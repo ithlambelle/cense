@@ -102,7 +102,7 @@ select throws_ok($$update plaid.transactions set amount_cents = 0$$, '42501', nu
 select throws_ok($$delete from plaid.transactions$$, '42501', null, 'a student cannot delete a transaction');
 select is((select sum(spent_cents)::bigint from public.spending_by_category(3)), 1200::bigint,
   'spending leaves out pending items, transfers and loan payments');
-select is((select sum(income_cents)::bigint from public.income_by_month(3)), 48000::bigint, 'income is money in marked INCOME');
+select is((select sum(income_cents)::bigint from public.income_by_month(3)), 48000::bigint, 'income counts money marked INCOME');
 reset role;
 
 select is((select count(*)::int from plaid.transactions where transaction_id = 'ana-old'), 0,
@@ -186,7 +186,9 @@ set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "d0000000-0000-4000-8000-000000000005", "role": "authenticated"}';
 select is(public.plaid_transactions_cursor('item-old'), null, 'the old Item has no cursor yet');
 select is(public.delete_bank_link(), true, 'the student disconnects while the sync is in flight');
-select lives_ok($$select public.save_bank_link('item-new', 'v1.test', 'First Platypus Bank')$$, 'and links a new bank');
+-- save_bank_link takes only a value shaped like a sealed token
+-- (20261117110000_security_quotas.sql), so this one is long enough to pass.
+select lives_ok($$select public.save_bank_link('item-new', 'v1.' || repeat('A', 40), 'First Platypus Bank')$$, 'and links a new bank');
 select is(public.apply_plaid_transactions_sync('item-old', null, jsonb_build_array(pg_temp.txn('old-row', 1, 700)), '[]', '[]', 'old-c1'), false,
   'the old Item''s batch is refused on the new link');
 select is(public.plaid_transactions_cursor('item-new'), null, 'the new link keeps no cursor from the old Item');

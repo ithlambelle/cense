@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { Student } from "@/lib/api/auth";
+import { claimQuota } from "@/lib/api/quota";
 import type { ConfirmationOutcome } from "@/lib/api/reminders";
 
 import { reminderSettings, resendEmailsUrl } from "./config";
@@ -23,7 +24,7 @@ function log(event: string, fields: Record<string, unknown>, level: "log" | "err
 // confirms is already saved, so a failed email is logged (no address, no
 // card, no key) and the save still succeeds. Skipped when reminder emails are
 // off for the student or the email settings are missing (local runs without
-// Resend).
+// Resend), including SUPABASE_SERVICE_ROLE_KEY, which claims the daily limit.
 async function sendConfirmation(
   student: Student,
   build: (links: ConfirmationEmailLinks) => ConfirmationEmail,
@@ -33,7 +34,7 @@ async function sendConfirmation(
   fetchImpl: typeof fetch,
 ): Promise<ConfirmationOutcome> {
   if (!student.email) return "skipped";
-  const config = reminderSettings(["resendApiKey", "fromEmail", "appUrl", "unsubscribeSecret"]);
+  const config = reminderSettings(["resendApiKey", "fromEmail", "appUrl", "unsubscribeSecret", "serviceRoleKey"]);
   if (!config.ok) return "skipped";
 
   const profile = await student.supabase
@@ -46,6 +47,22 @@ async function sendConfirmation(
     return "failed";
   }
   if ((profile.data as { reminders_unsubscribed_at: string | null } | null)?.reminders_unsubscribed_at) return "skipped";
+
+  // At most 5 per student and 100 in all in any 24 hours
+  // (20261116090000_confirmation_email_limit.sql, 20261117110000_security_quotas.sql):
+  // a save-and-confirm loop would otherwise spend the Resend quota sign-in
+  // codes share. Claimed by the server with the service role for the student
+  // in the session, so no student can call the claim directly. Past the
+  // limit the save still succeeds and the email is skipped.
+  const claim = await claimQuota("claim_confirmation_email", student, config.settings.serviceRoleKey);
+  if (!claim.ok) {
+    log("reminder_confirmation_failed", { code: (claim.reason === "database" && claim.code) || "claim" }, "error");
+    return "failed";
+  }
+  if (claim.data !== true) {
+    log("reminder_confirmation_limited", {});
+    return "skipped";
+  }
 
   const { resendApiKey, fromEmail, appUrl, unsubscribeSecret } = config.settings;
   const unsubscribeUrl = `${appUrl}/api/v1/reminders/unsubscribe?token=${unsubscribeToken(student.studentId, unsubscribeSecret)}`;
