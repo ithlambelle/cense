@@ -497,6 +497,8 @@ test("right after linking, Cense reads the bank and answers the questions itself
   await expect(page).toHaveURL(/\/safe-to-spend\/reading$/);
   await expect(page.getByRole("heading", { level: 1, name: "Here’s what we found" })).toBeVisible();
   const found = page.getByRole("list", { name: "What we found" });
+  // Payees and amounts read from the bank never reach session replay.
+  await expect(found).toHaveClass(/\bph-sensitive\b/);
   await expect(found.getByRole("listitem").filter({ hasText: "Rent" })).toContainText("$650 on the 6th");
   await expect(found.getByRole("listitem").filter({ hasText: "Groceries" })).toContainText("About $275 a month");
   await expect(found.getByRole("listitem").filter({ hasText: "Not in your bank" })).toContainText("Phone, Tuition, Car");

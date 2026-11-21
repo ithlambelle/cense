@@ -9,6 +9,7 @@ import { Constellation, STAR } from "@/components/home/constellation";
 import { Button, ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { ListRowText } from "@/components/ui/list-row";
+import { SENSITIVE } from "@/lib/analytics";
 import { readBankFindings, type BankFindingsData } from "@/lib/api-client/safe-to-spend";
 import { ROUTES, safeToSpendSetupPath, signInPath, yourMoneyPath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -103,7 +104,9 @@ export function ReadingView() {
 
         {/* Replace, not push: the reading is done, so Back never returns to it. */}
         {state.kind === "found" ? (
-          <ul aria-label="What we found" aria-live="polite" className="flex w-full flex-col">
+          // Every row is read from the bank (payees, amounts, days), so session
+          // replay masks the whole list (Data Policy section 5).
+          <ul aria-label="What we found" aria-live="polite" className={cn(SENSITIVE, "flex w-full flex-col")}>
             {rows(state.findings).slice(0, shown).map((row) => (
               <li key={row.key} className="flex items-center gap-3 border-b border-off-white py-3.5 motion-safe:animate-fade-up">
                 {row.found ? <DoneStar /> : <EmptyLead />}
