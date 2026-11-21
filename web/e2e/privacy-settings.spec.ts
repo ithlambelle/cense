@@ -1,7 +1,7 @@
 // The Analytics switch on Security and privacy, as a student: it saves to the
 // profile, so it survives a reload and follows the student to a second
-// browser, and a browser that sends Global Privacy Control shows it off and
-// cannot turn it on. (What PostHog does with it is covered by the unit tests
+// browser, and a browser that sends Global Privacy Control shows it off,
+// cannot turn it on, and saves Off to the account. (What PostHog does with it is covered by the unit tests
 // in src/lib/analytics.test.ts: these runs have no PostHog token.)
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
@@ -85,17 +85,28 @@ test("the Analytics switch saves, survives a reload and follows the student to a
   await expect(page).toHaveURL(/\/settings$/);
 });
 
-test("a browser that sends Global Privacy Control shows analytics off and cannot turn it on", async ({ browser }) => {
+test("a browser that sends Global Privacy Control turns analytics off for the whole account", async ({ browser }) => {
   const page = await newBrowser(browser, true);
-  await signUp(page, uniqueEmail("analytics-gpc"), async () => {});
+  const email = uniqueEmail("analytics-gpc");
+  await signUp(page, email, async () => {});
   await openPrivacy(page);
   const toggle = page.getByRole("switch", ANALYTICS);
   await expect(toggle).not.toBeChecked();
   await expect(toggle).toBeDisabled();
   await expect(page.getByText("Off: your browser asks sites not to track you.")).toBeVisible();
-  // The account's own choice is untouched: it is the browser that says no.
-  expect(await savedAnalyticsOn(page)).toBe(true);
+  // A signed-in student is known, so the signal is saved to the account and
+  // the server's own events stop too (11 CCR 7025(c)).
+  await expect.poll(() => savedAnalyticsOn(page)).toBe(false);
   await axeChecker(page)("security and privacy: browser signal");
+
+  // A browser without the signal shows the saved Off, and can turn it back on.
+  await page.waitForTimeout(5_500);
+  const laptop = await newBrowser(browser);
+  await signUp(laptop, email, async () => {});
+  await openPrivacy(laptop);
+  await expect(laptop.getByRole("switch", ANALYTICS)).not.toBeChecked();
+  await expect(laptop.getByRole("switch", ANALYTICS)).toBeEnabled();
+  await laptop.context().close();
   await page.context().close();
 });
 
