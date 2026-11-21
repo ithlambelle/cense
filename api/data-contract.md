@@ -87,10 +87,12 @@ review sites for estimates, on 2026-10-15; 13 are `recommend`.
     (`/auth/email`, `/auth/email/verify`, `/auth/password/signup`,
     `/auth/password/signup/confirm`, `/auth/password/signin`,
     `/auth/password/reset` and `POST /auth/password/reset/verify`) call
-    `claim_auth_attempt(action, email, ip)` and nothing else, before anyone is
-    signed in. It counts tries in `auth_throttle_events`, which only that
-    function and the daily purge touch. Each row holds only a SHA-256 of the
-    key (email, email and IP, or IP), the bucket and the time; the daily cron's
+    `claim_auth_attempt_hashed(action, email_ip_hash, email_hash, ip_hash)`
+    and nothing else, before anyone is signed in, with keys the server makes
+    as HMAC-SHA256 with `AUTH_THROTTLE_KEY`, so the database never sees the
+    email or IP. It counts tries in `auth_throttle_events`, which only that
+    function and the daily purge touch. Each row holds only that keyed hash
+    (of the email, email and IP, or IP), the bucket and the time; the daily cron's
     `purge_old_quota_rows()` deletes rows older than a day
     (`20261119090000_purge_auth_attempts.sql`), so none stays more than 2 days
     and 1 hour on days the job runs. Per email and IP together, over 10
