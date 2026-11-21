@@ -91,7 +91,8 @@ test("a student's whole first visit, through Plaid Link, breaks no rule of the p
   await page.getByRole("region", { name: "See what’s safe to spend" }).getByRole("link", { name: "Try it" }).click();
   await expect(page).toHaveURL(/\/safe-to-spend\/connect$/);
   await page.getByRole("button", { name: "Link your bank" }).click();
-  await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
+  // Linking opens step L1, which reads the bank (Ben, Nov 21).
+  await expect(page.getByRole("heading", { level: 1, name: "Here’s what we found" })).toBeVisible();
   // Link was loaded from Plaid's address and opened.
   expect(await page.evaluate(() => (window as unknown as { __fakePlaidOpened?: unknown[] }).__fakePlaidOpened?.length)).toBe(1);
 

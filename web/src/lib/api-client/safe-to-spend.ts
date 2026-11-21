@@ -36,6 +36,12 @@ export function linkBank(publicToken: string) {
   return runOutcome(apiRequest("post", "/bank-link", { body: { publicToken } }));
 }
 
+export type BankFindingsData = ApiData<"/bank-link/findings", "post">;
+
+export function readBankFindings() {
+  return runOutcome(apiRequest("post", "/bank-link/findings"));
+}
+
 export function refreshBank() {
   return runOutcome(apiRequest("post", "/bank-link/refresh"));
 }

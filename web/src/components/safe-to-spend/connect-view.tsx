@@ -11,7 +11,7 @@ import { ErrorMessage } from "@/components/ui/error-message";
 import { ListRowText } from "@/components/ui/list-row";
 import { createLinkToken, linkBank } from "@/lib/api-client/safe-to-spend";
 import { openLink } from "@/lib/plaid/link";
-import { ROUTES, safeToSpendSetupPath, signInPath } from "@/lib/routes";
+import { ROUTES, signInPath } from "@/lib/routes";
 import { SAFE_TO_SPEND_COPY } from "@/lib/safe-to-spend/copy";
 import { useIsMounted } from "@/lib/use-is-mounted";
 import { cn } from "@/lib/utils";
@@ -67,9 +67,9 @@ export function ConnectView({ firstLogin = false }: { firstLogin?: boolean }) {
       if (linked.code === "already_linked") return router.replace(ROUTES.safeToSpend);
       return done({ kind: "error", text: linked.message });
     }
-    // Stays pending while the questions load. Replace: the bank is linked, so
-    // Back never returns to this finished screen.
-    router.replace(safeToSpendSetupPath());
+    // Stays pending while the reading screen loads. Replace: the bank is
+    // linked, so Back never returns to this finished screen.
+    router.replace(ROUTES.safeToSpendReading);
   }
 
   return (

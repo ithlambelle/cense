@@ -1019,6 +1019,50 @@ components:
         - typed
         - recurrence
       additionalProperties: false
+    BankFindings:
+      type: object
+      properties:
+        findings:
+          type: array
+          items:
+            $ref: "#/components/schemas/BankFinding"
+        answeredFromBank:
+          type: boolean
+        safeToSpend:
+          $ref: "#/components/schemas/SafeToSpend"
+      required:
+        - findings
+        - answeredFromBank
+        - safeToSpend
+      additionalProperties: false
+    BankFinding:
+      type: object
+      properties:
+        key:
+          type: string
+        kind:
+          type: string
+          enum:
+            - income
+            - family
+            - rent
+            - phone
+            - tuition
+            - groceries
+            - car
+        title:
+          type: string
+        detail:
+          type: string
+        found:
+          type: boolean
+      required:
+        - key
+        - kind
+        - title
+        - detail
+        - found
+      additionalProperties: false
   parameters: {}
   securitySchemes:
     studentSession:
@@ -3238,6 +3282,38 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "502":
           description: Plaid unreachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable or safe to spend off
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /bank-link/findings:
+    post:
+      operationId: readBankFindings
+      summary: "What the linked bank already shows: pay, family money and bills,
+        filling the setup answers the first time"
+      security:
+        - studentSession: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BankFindings"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No bank linked
           content:
             application/json:
               schema:

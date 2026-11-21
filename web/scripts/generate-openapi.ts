@@ -37,6 +37,7 @@ import {
   createBankLinkSchema,
   linkTokenSchema,
   safeToSpendSchema,
+  bankFindingsSchema,
   saveSafeToSpendAnswersSchema,
 } from "../src/lib/api/safe-to-spend";
 import {
@@ -406,6 +407,12 @@ registry.registerPath({
   summary: "Read the balances from Plaid again",
   security: [{ studentSession: [] }],
   responses: { 200: ok(safeToSpendContract), 404: failure("No bank linked"), 409: failure("Reconnect or link again"), 502: failure("Plaid unreachable"), ...safeToSpendResponses },
+});
+registry.registerPath({
+  method: "post", path: "/bank-link/findings", operationId: "readBankFindings",
+  summary: "What the linked bank already shows: pay, family money and bills, filling the setup answers the first time",
+  security: [{ studentSession: [] }],
+  responses: { 200: ok(bankFindingsSchema), 404: failure("No bank linked"), ...safeToSpendResponses },
 });
 registry.registerPath({
   method: "get", path: "/safe-to-spend", operationId: "getSafeToSpend",

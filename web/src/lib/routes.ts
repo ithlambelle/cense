@@ -38,6 +38,7 @@ export const ROUTES = {
   safeToSpend: "/safe-to-spend",
   safeToSpendConnect: "/safe-to-spend/connect",
   safeToSpendSetup: "/safe-to-spend/setup",
+  safeToSpendReading: "/safe-to-spend/reading",
   // Security and privacy (the "Soon" row of Profile, Figma 222:2282): the
   // Analytics switch and Delete my account.
   privacy: "/settings/privacy",
@@ -372,6 +373,7 @@ const NEXT_ALLOW_LIST: readonly string[] = [
   ROUTES.safeToSpend,
   ROUTES.safeToSpendConnect,
   ROUTES.safeToSpendSetup,
+  ROUTES.safeToSpendReading,
   ROUTES.settings,
   ROUTES.reminderSettings,
   ROUTES.accounts,

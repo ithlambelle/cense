@@ -668,6 +668,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/bank-link/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** What the linked bank already shows: pay, family money and bills, filling the setup answers the first time */
+        post: operations["readBankFindings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/safe-to-spend": {
         parameters: {
             query?: never;
@@ -1058,6 +1075,19 @@ export interface components {
             typed: boolean;
             /** @enum {string|null} */
             recurrence: "recurring" | "variable" | null;
+        };
+        BankFindings: {
+            findings: components["schemas"]["BankFinding"][];
+            answeredFromBank: boolean;
+            safeToSpend: components["schemas"]["SafeToSpend"];
+        };
+        BankFinding: {
+            key: string;
+            /** @enum {string} */
+            kind: "income" | "family" | "rent" | "phone" | "tuition" | "groceries" | "car";
+            title: string;
+            detail: string;
+            found: boolean;
         };
     };
     responses: never;
@@ -3595,6 +3625,53 @@ export interface operations {
             };
             /** @description Plaid unreachable */
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable or safe to spend off */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    readBankFindings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankFindings"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description No bank linked */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

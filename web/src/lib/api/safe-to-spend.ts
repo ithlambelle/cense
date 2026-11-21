@@ -106,6 +106,33 @@ export const safeToSpendSchema = z
   .openapi("SafeToSpend");
 
 export type SafeToSpend = z.infer<typeof safeToSpendSchema>;
+
+// What Cense learned from the bank right after linking (Ben, Nov 21): each
+// finding is one line of the "Reading your bank" screen. Names, amounts and
+// dates only; never a transaction id, account id or the bank's raw line.
+export const bankFindingSchema = z
+  .strictObject({
+    key: z.string(),
+    kind: z.enum(["income", "family", ...BILLS]),
+    title: z.string(),
+    detail: z.string(),
+    // False for a bill the bank never shows: answered "none", nothing asked.
+    found: z.boolean(),
+  })
+  .openapi("BankFinding");
+
+export const bankFindingsSchema = z
+  .strictObject({
+    findings: z.array(bankFindingSchema),
+    // True when this call filled in the setup answers; false when the student
+    // had already answered, so nothing they chose was replaced.
+    answeredFromBank: z.boolean(),
+    safeToSpend: safeToSpendSchema,
+  })
+  .openapi("BankFindings");
+
+export type BankFindings = z.infer<typeof bankFindingsSchema>;
+
 export type BillAnswerBody = z.infer<typeof billAnswerSchema>;
 
 export const BANK_LINK_FIELDS = "institution_name, status, linked_at, refreshed_at, set_aside_cents, answered_at";
