@@ -13,7 +13,9 @@ import type { StoreResult } from "./store";
 // last 180 days in the private plaid schema. Students only ever get monthly
 // totals back. Logs carry kinds and counts, never an amount, a merchant or a
 // transaction id. Merchant names are kept for our own recurring-bill
-// detector; account ids tell card spending from debit spending.
+// detector; account ids tell card spending from debit spending. The bank's
+// description and the payment app tell a person's payment from the student
+// moving their own money (Ben, Nov 15; 20261116000000).
 
 // Sync pages are up to 500 transactions; 20 pages is far more than 180 days
 // of a student's spending. The database refuses a sync that would keep more
@@ -44,7 +46,33 @@ export type StoredTransaction = {
   category: string | null;
   category_detailed: string | null;
   merchant_name: string | null;
+  // The bank's description, up to 200 characters, and the payment app that
+  // carried the money, if any.
+  description: string | null;
+  payment_app: PaymentApp | null;
 };
+
+export const PAYMENT_APPS = ["venmo", "zelle", "cash_app", "paypal", "apple_cash"] as const;
+export type PaymentApp = (typeof PAYMENT_APPS)[number];
+
+// Which payment app a name means, or null: "Venmo", "ZELLE PAYMENT TO ...",
+// "Square Cash", "PayPal". The same words the database reads.
+export function paymentAppIn(text: string | null | undefined): PaymentApp | null {
+  if (!text) return null;
+  if (/\bzelle\b/i.test(text)) return "zelle";
+  if (/\bvenmo\b/i.test(text)) return "venmo";
+  if (/\b(cash ?app|square cash)\b/i.test(text)) return "cash_app";
+  if (/\bpay ?pal\b/i.test(text)) return "paypal";
+  if (/\bapple cash\b/i.test(text)) return "apple_cash";
+  return null;
+}
+
+// By character, not UTF-16 unit, so a cut never splits an emoji into a lone
+// surrogate (Postgres refuses it and the whole sync would fail).
+function clip(text: string | null | undefined, max: number): string | null {
+  const kept = Array.from(text?.trim() ?? "").slice(0, max).join("");
+  return kept === "" ? null : kept;
+}
 
 // Plaid's transaction as Cense keeps it, or null for one it does not keep: in
 // a currency other than dollars, without a usable date, or posted before
@@ -53,9 +81,14 @@ export function toStoredTransaction(transaction: PlaidTransaction, oldestKept: s
   if (transaction.iso_currency_code !== "USD" || !DATE.test(transaction.date)) return null;
   if (transaction.date < oldestKept) return null;
   const category = transaction.personal_finance_category ?? null;
-  // By character, not UTF-16 unit, so a cut never splits an emoji into a
-  // lone surrogate (Postgres refuses it and the whole sync would fail).
-  const merchant = Array.from(transaction.merchant_name?.trim() ?? "").slice(0, 100).join("");
+  const merchant = clip(transaction.merchant_name, 100);
+  const description = clip(transaction.name, 200);
+  // Plaid's counterparty marked as a payment app first, then the names.
+  const app =
+    (transaction.counterparties ?? [])
+      .filter((party) => party.type === "payment_app")
+      .map((party) => paymentAppIn(party.name))
+      .find((found) => found !== null) ?? paymentAppIn(merchant) ?? paymentAppIn(description);
   return {
     transaction_id: transaction.transaction_id,
     account_id: transaction.account_id,
@@ -65,7 +98,9 @@ export function toStoredTransaction(transaction: PlaidTransaction, oldestKept: s
     pending: transaction.pending,
     category: category && CATEGORY.test(category.primary) ? category.primary : null,
     category_detailed: category && CATEGORY_DETAILED.test(category.detailed) ? category.detailed : null,
-    merchant_name: merchant === "" ? null : merchant,
+    merchant_name: merchant,
+    description,
+    payment_app: app,
   };
 }
 

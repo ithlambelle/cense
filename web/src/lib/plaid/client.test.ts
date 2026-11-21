@@ -148,7 +148,8 @@ describe("Transactions Sync", () => {
     expect(body).toEqual({ access_token: "access-sandbox-1", cursor: "c1", count: 500 });
     expect(result.ok).toBe(true);
     const page = result.ok ? result.data : null;
-    expect(page?.added[0]).not.toHaveProperty("name");
+    // The description is read since Nov 15 (20261116000000); the location never.
+    expect(page?.added[0]).toHaveProperty("name", "CHIPOTLE 1234 BOSTON MA");
     expect(page?.added[0]).not.toHaveProperty("location");
     expect(page?.added[0]).toMatchObject({ account_id: "acc-1", merchant_name: "Chipotle" });
     expect(page?.removed).toEqual([{ transaction_id: "t0" }]);

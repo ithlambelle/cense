@@ -189,6 +189,14 @@ const syncTransactionSchema = z.object({
   date: z.string(),
   pending: z.boolean(),
   merchant_name: z.string().nullable().optional(),
+  // The bank's own line ("ZELLE PAYMENT FROM DAVID ROSS") and who was on the
+  // other side, which marks a payment app. Kept to tell a person's payment
+  // from the student moving their own money (20261116000000).
+  name: z.string().nullable().optional(),
+  counterparties: z
+    .array(z.object({ name: z.string().nullable().optional(), type: z.string().nullable().optional() }))
+    .nullable()
+    .optional(),
   personal_finance_category: z.object({ primary: z.string(), detailed: z.string() }).nullable().optional(),
 });
 

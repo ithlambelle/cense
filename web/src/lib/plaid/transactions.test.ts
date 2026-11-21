@@ -74,6 +74,8 @@ describe("toStoredTransaction", () => {
       category: "FOOD_AND_DRINK",
       category_detailed: "FOOD_AND_DRINK_RESTAURANT",
       merchant_name: "Chipotle",
+      description: null,
+      payment_app: null,
     });
     // money in keeps Plaid's negative sign
     expect(toStoredTransaction(txn("t2", { amount: -480 }), OLDEST)?.amount_cents).toBe(-48_000);
@@ -145,7 +147,9 @@ describe("syncStudentTransactions", () => {
       "amount_cents",
       "category",
       "category_detailed",
+      "description",
       "merchant_name",
+      "payment_app",
       "pending",
       "posted_on",
       "transaction_id",
@@ -208,3 +212,28 @@ describe("loadSpending", () => {
     expect(s.supabase.rpc).toHaveBeenCalledWith("spending_by_category", { p_months: 3 });
   });
 });
+
+// Ben, Nov 15: the bank's description and the payment app tell a parent's
+// Zelle from a cash-out (20261116000000). Shaped like the sandbox's rows.
+describe("toStoredTransaction, money moved through apps", () => {
+  it("keeps the bank's description, up to 200 characters", () => {
+    const row = toStoredTransaction(txn("t1", { merchant_name: null, name: "ZELLE PAYMENT FROM DAVID ROSS CONF# R82LQ8" }), OLDEST);
+    expect(row?.description).toBe("ZELLE PAYMENT FROM DAVID ROSS CONF# R82LQ8");
+    expect(toStoredTransaction(txn("t2", { name: "d".repeat(250) }), OLDEST)?.description).toHaveLength(200);
+    expect(toStoredTransaction(txn("t3", { name: "  " }), OLDEST)?.description).toBeNull();
+  });
+
+  it("marks the payment app from Plaid's counterparty first, then the names", () => {
+    const byParty = txn("t1", { merchant_name: null, name: "ONLINE PMT 8812", counterparties: [{ name: "Venmo", type: "payment_app" }] });
+    expect(toStoredTransaction(byParty, OLDEST)?.payment_app).toBe("venmo");
+    expect(toStoredTransaction(txn("t2", { merchant_name: null, name: "ZELLE PAYMENT TO MAYA PATEL" }), OLDEST)?.payment_app).toBe("zelle");
+    expect(toStoredTransaction(txn("t3", { merchant_name: "Cash App" }), OLDEST)?.payment_app).toBe("cash_app");
+    expect(toStoredTransaction(txn("t4", { counterparties: [{ name: "Chipotle", type: "merchant" }] }), OLDEST)?.payment_app).toBeNull();
+  });
+
+  it("never keeps the counterparty list itself", () => {
+    const row = toStoredTransaction(txn("t1", { counterparties: [{ name: "Venmo", type: "payment_app" }] }), OLDEST);
+    expect(row).not.toHaveProperty("counterparties");
+  });
+});
+
