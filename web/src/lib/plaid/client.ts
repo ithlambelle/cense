@@ -205,3 +205,30 @@ const syncPageSchema = z.object({
 export async function syncTransactionsPage(config: PlaidConfig, accessToken: string, cursor: string | null) {
   return call(config, "/transactions/sync", { access_token: accessToken, ...(cursor ? { cursor } : {}), count: 500 }, syncPageSchema);
 }
+
+// Each linked credit card's last statement date and next payment due date
+// (US-15), from Liabilities, which Link asks for as an optional product. Only
+// those two dates are read: balances, minimum payments, APRs and payment
+// history are dropped here. A bank without Liabilities answers an error, which
+// the caller treats as nothing to fill in.
+// https://plaid.com/docs/api/products/liabilities/#liabilitiesget
+const liabilitiesSchema = z.object({
+  liabilities: z.object({
+    credit: z
+      .array(
+        z.object({
+          account_id: z.string().min(1).max(200),
+          last_statement_issue_date: z.string().nullable().optional(),
+          next_payment_due_date: z.string().nullable().optional(),
+        }),
+      )
+      .nullable()
+      .optional(),
+  }),
+});
+
+export type PlaidCreditLiability = NonNullable<z.infer<typeof liabilitiesSchema>["liabilities"]["credit"]>[number];
+
+export async function getLiabilities(config: PlaidConfig, accessToken: string) {
+  return call(config, "/liabilities/get", { access_token: accessToken }, liabilitiesSchema);
+}
