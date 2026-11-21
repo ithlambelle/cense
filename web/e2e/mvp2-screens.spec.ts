@@ -166,7 +166,7 @@ test("your account shows the student's card and email, every link opens its scre
   await track(page, DISCOVER, "approved", 50000);
 
   await page.goto("/home");
-  await page.getByRole("link", { name: "Profile" }).click();
+  await page.getByRole("banner").getByRole("link", { name: "Profile" }).click();
   await expect(page).toHaveURL(/\/settings$/);
   await expect(page.getByRole("heading", { level: 1, name: "Your account" })).toBeVisible();
   // The email is shown to the student and masked in session replay.

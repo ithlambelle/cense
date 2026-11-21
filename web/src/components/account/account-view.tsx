@@ -4,6 +4,7 @@ import Link from "next/link";
 import { LogOutButton } from "@/components/account/log-out-button";
 import { CardArt } from "@/components/cards/card-art";
 import { AppHeader } from "@/components/ui/app-header";
+import { BottomNav } from "@/components/ui/bottom-nav";
 import { LIST_ROW as ROW, ListRowChevron as Chevron, SectionHeading } from "@/components/ui/list-row";
 import { STATUS_LABELS } from "@/lib/copy/applications";
 import { SENSITIVE } from "@/lib/analytics";
@@ -59,6 +60,8 @@ export function AccountView({
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
+        {/* The back arrow returns to the screen Profile was opened from (G1's
+            back rule), kept now that Profile is also a tab; the bar is below. */}
         <AppHeader backHref={ROUTES.home} backLabel="Home" />
         <main className="stagger flex flex-1 flex-col gap-2 px-6 pt-3 pb-6">
           <div className="flex items-center gap-4">
@@ -125,6 +128,7 @@ export function AccountView({
           <div className="h-4 shrink-0" />
           <LogOutButton />
         </main>
+        <BottomNav />
       </div>
     </div>
   );

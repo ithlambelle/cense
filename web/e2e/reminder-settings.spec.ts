@@ -71,7 +71,7 @@ test("Reminder settings: open from Your account, each toggle saves, all off and 
   await expect(card.getByRole("link", { name: REMINDER_DONE })).toBeVisible();
 
   // Your account has the row; it opens the screen.
-  await page.getByRole("link", { name: "Profile" }).click();
+  await page.getByRole("banner").getByRole("link", { name: "Profile" }).click();
   await expect(page).toHaveURL(/\/settings$/);
   await page.getByRole("link", { name: "Reminder settings" }).click();
   await expect(page).toHaveURL(/\/settings\/reminders$/);

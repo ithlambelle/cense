@@ -86,7 +86,7 @@ async function confirmDelete(page: Page) {
 
 async function openPrivacy(page: Page) {
   await page.goto("/home");
-  await page.getByRole("link", { name: "Profile" }).click();
+  await page.getByRole("banner").getByRole("link", { name: "Profile" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Your account" })).toBeVisible();
   await page.getByRole("link", { name: "Security and privacy" }).click();
   await expect(page).toHaveURL(/\/settings\/privacy$/);
