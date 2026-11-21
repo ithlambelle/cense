@@ -167,10 +167,10 @@ test("the bottom bar stays fixed to the bottom of the screen, even on a short pa
   }
 });
 
-test("the bottom bar spans the whole screen on Home, Cards and Learn, with nothing around it that clips", async ({ page }) => {
+test("the bottom bar spans the whole screen on every tab, with nothing around it that clips", async ({ page }) => {
   await signUp(page, uniqueEmail("fix-nav-width"), async () => {});
   await page.setViewportSize({ width: 402, height: 874 });
-  for (const path of ["/home", "/cards", "/learn"]) {
+  for (const path of ["/home", "/cards", "/learn", "/calendar", "/settings"]) {
     await page.goto(path);
     const nav = page.getByRole("navigation", { name: "Main" });
     await expect(nav).toBeVisible();

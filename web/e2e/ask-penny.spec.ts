@@ -69,13 +69,18 @@ test("student opens Learn from the bottom bar and gets checked answers to tapped
   const checkA11y = axeChecker(page);
   await signUp(page, uniqueEmail("penny-tap"), checkA11y);
 
-  // Learn is a tab now, beside Home and Cards.
+  // Learn is the center tab, Penny (Bottom nav · 5 tabs, 770:1029): icons
+  // only, each tab named for a screen reader.
   const nav = page.getByRole("navigation", { name: "Main" });
-  await expect(nav.getByRole("link")).toHaveText(["Home", "Cards", "Learn"]);
-  await nav.getByRole("link", { name: "Learn" }).click();
+  const tabs = nav.getByRole("link");
+  await expect(tabs).toHaveCount(5);
+  for (const [index, name] of ["Home", "Cards", "Penny", "Calendar", "Profile"].entries()) {
+    await expect(tabs.nth(index)).toHaveAccessibleName(name);
+  }
+  await nav.getByRole("link", { name: "Penny" }).click();
   await expect(page).toHaveURL(/\/learn$/);
   await expect(page.getByRole("heading", { level: 1, name: "Learn" })).toBeVisible();
-  await expect(nav.getByRole("link", { name: "Learn" })).toHaveAttribute("aria-current", "page");
+  await expect(nav.getByRole("link", { name: "Penny" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByText("Hi! I’m Penny.")).toBeVisible();
   await expect(page.getByText("Ask me about credit, budgeting, saving and student loans.")).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: "Browse by topic" })).toBeVisible();

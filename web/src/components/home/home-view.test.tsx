@@ -165,13 +165,17 @@ describe("HomeView", () => {
     );
   });
 
+  // The avatar stays beside the Profile tab, and both open Your account (Ben, Nov 21).
   it("links the pig avatar to the account screen and marks Home in the bottom bar", () => {
     render(<HomeView state={homeState([], NONE, 0)} initial="M" />);
-    expect(link("Profile")).toBe("/settings");
-    const avatar = screen.getByRole("link", { name: "Profile" }).querySelector("img");
+    const header = within(screen.getByRole("banner"));
+    expect(header.getByRole("link", { name: "Profile" }).getAttribute("href")).toBe("/settings");
+    const avatar = header.getByRole("link", { name: "Profile" }).querySelector("img");
     expect(avatar?.getAttribute("src")).toContain("astro-pig");
     expect(avatar?.getAttribute("alt")).toBe("M");
-    expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
+    const bar = within(screen.getByRole("navigation", { name: "Main" }));
+    expect(bar.getByRole("link", { name: "Profile" }).getAttribute("href")).toBe("/settings");
+    expect(bar.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
   });
 
   // D1 (709:1470): the designers' hero, with when the bank was last read.
