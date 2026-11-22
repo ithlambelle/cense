@@ -140,7 +140,7 @@ describe("ChoiceCard (Design System, Choice card · borderless 765:2498)", () =>
 
 describe("choiceCardClass", () => {
   it("styles a link as a Default card, and a caller's class wins", () => {
-    const list = choiceCardClass("default", "disabled:cursor-not-allowed").split(" ");
+    const list = choiceCardClass("default", "disabled:cursor-not-allowed", "borderless").split(" ");
     expect(list).toEqual(expect.arrayContaining(["bg-off-white", "rounded-button", "min-h-14"]));
     expect(list).toContain("disabled:cursor-not-allowed");
     expect(list).not.toContain("disabled:cursor-progress");
