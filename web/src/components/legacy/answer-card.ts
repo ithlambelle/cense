@@ -34,6 +34,8 @@ export const legacyCard = {
     cn(choiceRowClass, "justify-between text-left font-medium text-indigo-black", selected && "border-2"),
   autopay: cn(setupCardClass, "border border-violet"),
   spendLimit: (selected: boolean) => cn(setupCardClass, "border-violet", selected ? "border-2" : "border"),
+  planAction:
+    "flex w-full items-start gap-3 rounded-input border-[1.5px] border-violet bg-white p-4 text-left hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
   reminder:
     "flex min-h-20 w-full items-center gap-4 rounded-card border-[1.5px] border-violet bg-white px-5 py-3 text-left hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
 }

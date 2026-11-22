@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { legacyCard } from "@/components/legacy/answer-card";
 
+import { choiceRowClass } from "./choice-row";
 import { ChoiceCard as SwitchedChoiceCard, choiceCardClass, type ChoiceCardState } from "./choice-card";
 
 // Pinned to the main look, so flipping UI_VERSION for a rollback does not turn
@@ -198,6 +199,13 @@ describe("the archived card (UI_VERSION.choiceCard = legacy)", () => {
     expect(choiceCardClass("default", undefined, "legacy").split(" ")).toEqual(
       expect.arrayContaining(["border-[1.5px]", "border-violet", "rounded-[18px]"]),
     );
+  });
+});
+
+// Screens still in review import the old name, and must get the current card.
+describe("choiceRowClass (the old name)", () => {
+  it("is the Choice card", () => {
+    expect(choiceRowClass).toBe(choiceCardClass());
   });
 });
 
