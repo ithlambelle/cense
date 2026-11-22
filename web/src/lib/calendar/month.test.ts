@@ -59,34 +59,57 @@ describe("labels", () => {
 });
 
 describe("calendarEntry", () => {
-  it.each<[ComingUpEvent, { what: string; subtitle: string; dot: string; sensitive: boolean }]>([
+  it.each<[ComingUpEvent, { what: string; subtitle: string; dot: string }]>([
     [
       { kind: "payment_due", date: "2026-11-12", card: discover },
-      { what: "Payment due", subtitle: "Discover · autopay is on", dot: "card", sensitive: false },
+      { what: "Payment due", subtitle: "Discover · autopay is on", dot: "card" },
     ],
     [
       { kind: "statement_closes", date: "2026-11-18", card: discover, payDownToCents: 15_000 },
-      { what: "Statement closes", subtitle: "Discover · pay down to $150", dot: "card", sensitive: true },
+      { what: "Statement closes", subtitle: "Discover · pay down to $150", dot: "card" },
     ],
     [
       { kind: "bill", date: "2026-11-15", bill: "rent", share: false, amountCents: 65_000 },
-      { what: "Rent", subtitle: "$650 · you cover it", dot: "bill", sensitive: true },
+      { what: "Rent", subtitle: "$650 · you cover it", dot: "bill" },
     ],
     [
       { kind: "bill", date: "2026-11-01", bill: "phone", share: true, amountCents: 2_250 },
-      { what: "Phone", subtitle: "$22.50 · your share", dot: "bill", sensitive: true },
+      { what: "Phone", subtitle: "$22.50 · your share", dot: "bill" },
     ],
     [
       { kind: "paycheck", date: "2026-11-15", amountCents: 48_000 },
-      { what: "Paycheck", subtitle: "$480 · looks like pay", dot: "money", sensitive: true },
+      { what: "Paycheck", subtitle: "$480 · looks like pay", dot: "money" },
     ],
   ])("reads %o as the frame's row", (event, expected) => {
-    expect(calendarEntry(event)).toMatchObject({ date: event.date, ...expected });
+    expect(calendarEntry(event, "2026-11-01")).toMatchObject({ date: event.date, ...expected });
   });
 
   it("never says autopay is off when the student has not said", () => {
-    expect(calendarEntry({ kind: "payment_due", date: "2026-11-12", card: { ...discover, autopayStatus: "unknown" } }).subtitle).toBe(
+    expect(calendarEntry({ kind: "payment_due", date: "2026-11-12", card: { ...discover, autopayStatus: "unknown" } }, "2026-11-11").subtitle).toBe(
       "Discover · turn on autopay",
     );
+  });
+
+  it("gives no instruction on a day that has passed", () => {
+    const today = "2026-11-22";
+    expect(calendarEntry({ kind: "statement_closes", date: "2026-11-18", card: discover, payDownToCents: 15_000 }, today)).toMatchObject({
+      what: "Statement closed",
+      subtitle: "Discover",
+    });
+    expect(calendarEntry({ kind: "payment_due", date: "2026-11-12", card: { ...discover, autopayStatus: "unknown" } }, today)).toMatchObject({
+      what: "Payment was due",
+      subtitle: "Discover",
+    });
+  });
+
+  it("still gives the instruction today", () => {
+    expect(calendarEntry({ kind: "statement_closes", date: "2026-11-18", card: discover, payDownToCents: 15_000 }, "2026-11-18").subtitle).toBe(
+      "Discover · pay down to $150",
+    );
+  });
+
+  it("sends a payment with autopay not on to the autopay steps, as Home does", () => {
+    const row = calendarEntry({ kind: "payment_due", date: "2026-11-12", card: { ...discover, autopayStatus: "unknown" } }, "2026-11-11");
+    expect(row.href).toContain("/autopay");
   });
 });

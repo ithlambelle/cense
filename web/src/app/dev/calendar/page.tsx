@@ -36,5 +36,5 @@ export default function CalendarPreviewPage() {
     ],
     paychecks: ["2026-11-01", "2026-11-15", "2026-11-29"].map((date) => ({ date, amountCents: 48_000 })),
   });
-  return <CalendarView today={TODAY} entries={events.map(calendarEntry)} />;
+  return <CalendarView today={TODAY} entries={events.map((event) => calendarEntry(event, TODAY))} />;
 }

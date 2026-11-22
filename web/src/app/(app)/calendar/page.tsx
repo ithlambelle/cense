@@ -16,14 +16,15 @@ export const metadata: Metadata = { title: "Calendar | CENSE" };
 // read on the server like Home: the same cards and bills as Home's Coming up,
 // over the whole month instead of the next four, so a date on one is always on
 // the other. Paychecks join once detected income is wired to the student's
-// data (US-16), as on Home. A failed read shows the month with no dates rather
-// than failing the page.
+// data (US-16), as on Home. A failed read still shows the month, and says some
+// dates did not load, so an empty day is never mistaken for nothing being due.
 export default async function CalendarPage() {
   const student = await requireStudent(ROUTES.calendar);
   const [cards, safeToSpend] = await Promise.all([loadComingUpCards(student), plaidConfig() ? loadSafeToSpend(student) : null]);
   const today = cards?.today ?? calendarDate(new Date().toISOString(), "America/New_York");
   const linked = safeToSpend?.ok && safeToSpend.value ? safeToSpend.value : null;
   const { first, last } = monthRange(today);
-  const entries = cards ? datedEvents({ from: first, last, cards: cards.cards, bills: linked?.bills ?? [] }).map(calendarEntry) : [];
-  return <CalendarView today={today} entries={entries} />;
+  const entries = cards ? datedEvents({ from: first, last, cards: cards.cards, bills: linked?.bills ?? [] }).map((event) => calendarEntry(event, today)) : [];
+  const incomplete = cards === null || safeToSpend?.ok === false;
+  return <CalendarView today={today} entries={entries} incomplete={incomplete} />;
 }

@@ -203,7 +203,7 @@ describe("comingUp", () => {
 
   it("says only the card's name before the close when the limit is unknown", () => {
     const [close] = comingUpRows({ today: "2026-11-09", cards: [card({ creditLimitCents: null, paymentDueDay: null })], bills: [] });
-    expect(close).toMatchObject({ subtitle: "Discover", sensitive: false });
+    expect(close).toMatchObject({ subtitle: "Discover", sensitive: true });
   });
 });
 
@@ -220,7 +220,7 @@ describe("comingUpRow links", () => {
       ["Nov 15  Rent, $650", "/safe-to-spend", true],
       ["Nov 20  Paycheck, $480", "/safe-to-spend", true],
       // Autopay not on: straight to the issuer's autopay steps ("Set it up").
-      ["Dec 6  Payment due", `/applications/${DISCOVER_ID}/setup/autopay`, false],
+      ["Dec 6  Payment due", `/applications/${DISCOVER_ID}/setup/autopay`, true],
     ]);
     const [unknown] = comingUpRows({ today: "2026-11-09", cards: [card({ statementClosingDay: null, autopayStatus: "unknown" })], bills: [] });
     expect(unknown).toMatchObject({ subtitle: "Turn on autopay", href: `/applications/${DISCOVER_ID}/setup/autopay` });
@@ -275,8 +275,13 @@ describe("datedEvents", () => {
 
   it("is what Coming up takes its first four rows from", () => {
     const input = { cards: [card()], bills: [rent(15)], paychecks: [{ date: "2026-11-20", amountCents: 48_000 }] };
-    expect(comingUp({ ...input, today: "2026-11-09" })).toEqual(
-      datedEvents({ ...input, from: "2026-11-09", last: addDays("2026-11-09", COMING_UP_DAYS - 1) }).slice(0, COMING_UP_MAX_ROWS),
-    );
+    // Written out, from Coming up before it shared this builder, so a change to
+    // the builder cannot pass by agreeing with itself.
+    expect(comingUp({ ...input, today: "2026-11-09" }).map((event) => `${event.kind} ${event.date}`)).toEqual([
+      "statement_closes 2026-11-13",
+      "bill 2026-11-15",
+      "paycheck 2026-11-20",
+      "payment_due 2026-12-06",
+    ]);
   });
 });

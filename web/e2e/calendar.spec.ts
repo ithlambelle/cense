@@ -44,7 +44,7 @@ test("the Calendar shows an approved card's dates, opens from Home, and lists a 
   await page.goto("/calendar");
   await expect(page.getByRole("heading", { level: 1, name: monthName(today) })).toBeVisible();
   await expect(page.getByRole("button", { name: `Today, ${longDay(today)}` })).toHaveAttribute("aria-current", "date");
-  await expect(whatsNext(page).getByText("Nothing else this month.")).toBeVisible();
+  await expect(whatsNext(page).getByText("No more dates saved this month.")).toBeVisible();
   await checkA11y("calendar: empty");
 
   // An approved card, with its closing day and due day saved.
@@ -75,8 +75,11 @@ test("the Calendar shows an approved card's dates, opens from Home, and lists a 
   const closing = page.getByRole("button", { name: `${longDay(closes)}: Card dates` });
   await closing.click();
   await expect(closing).toHaveAttribute("aria-pressed", "true");
+  // A closing day that has passed says so, and gives no instruction.
   expect(await rowTexts(page, page.getByRole("region", { name: longDay(closes) }))).toEqual([
-    [`${dayLabel(closes, today)} · Statement closes`, "Discover · pay down to $150"],
+    closes < today
+      ? [`${dayLabel(closes, today)} · Statement closed`, "Discover"]
+      : [`${dayLabel(closes, today)} · Statement closes`, "Discover · pay down to $150"],
   ]);
   await closing.click();
   await expect(closing).toHaveAttribute("aria-pressed", "false");
@@ -90,6 +93,11 @@ test("the Calendar shows an approved card's dates, opens from Home, and lists a 
   const box = await closing.boundingBox();
   expect(box!.height).toBeGreaterThanOrEqual(44);
   expect(box!.width).toBeGreaterThanOrEqual(44);
+  // Still 44 wide on the narrowest phone, with nothing scrolling sideways.
+  await page.setViewportSize({ width: 320, height: 640 });
+  const narrow = await closing.boundingBox();
+  expect(narrow!.width).toBeGreaterThanOrEqual(44);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
 test("the Calendar asks a signed-out visitor to sign in, then comes back", async ({ page }) => {

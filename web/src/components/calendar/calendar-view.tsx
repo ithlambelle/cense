@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import { BottomNav } from "@/components/ui/bottom-nav";
+import { ErrorMessage } from "@/components/ui/error-message";
 import { ListRowText } from "@/components/ui/list-row";
-import { SENSITIVE } from "@/lib/analytics";
+import { NO_CAPTURE, SENSITIVE } from "@/lib/analytics";
 import {
   type CalendarEntry,
   dayLabel,
@@ -33,26 +35,50 @@ function Dot({ kind }: { kind: DotKind }) {
 }
 
 // One date as a List row (Divider, 371:3199, no chevron as drawn): "Tomorrow ·
-// Payment due" over "Discover · autopay is on".
+// Payment due" over "Discover · autopay is on". It opens the same place as
+// Home's Coming up. Every row names a card, a bill or an amount, so all are
+// masked in session replay.
 function EntryRow({ entry, today }: { entry: CalendarEntry; today: string }) {
   return (
-    <li className={cn("flex items-center gap-3 border-b border-off-white py-3.5", entry.sensitive && SENSITIVE)}>
-      <ListRowText title={`${dayLabel(entry.date, today)} · ${entry.what}`} subtitle={entry.subtitle} />
+    <li>
+      <Link
+        href={entry.href}
+        className={cn(
+          "flex items-center gap-3 border-b border-off-white py-3.5 hover:bg-off-white focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
+          SENSITIVE,
+        )}
+      >
+        <ListRowText title={`${dayLabel(entry.date, today)} · ${entry.what}`} subtitle={entry.subtitle} />
+      </Link>
     </li>
   );
 }
 
+// "No dates saved", never "nothing is due": Cense only knows the dates it has,
+// and a student with no bank linked may still have rent.
 function nothingOn(date: string, today: string): string {
   const label = dayLabel(date, today);
-  if (label === "Today" || label === "Tomorrow") return `Nothing ${label.toLowerCase()}.`;
-  return `Nothing on ${label}.`;
+  if (label === "Today" || label === "Tomorrow") return `No dates saved for ${label.toLowerCase()}.`;
+  return `No dates saved for ${label}.`;
 }
 
-export function CalendarView({ today, entries }: { today: string; entries: CalendarEntry[] }) {
+export function CalendarView({
+  today,
+  entries,
+  incomplete = false,
+}: {
+  today: string;
+  entries: CalendarEntry[];
+  // A read failed, so an empty day may not be empty.
+  incomplete?: boolean;
+}) {
   // A tapped day shows its own dates; tapping it again goes back to what is next.
   const [picked, setPicked] = useState<string | null>(null);
   const dots = dotsByDate(entries);
   const shown = picked ? entries.filter((entry) => entry.date === picked) : entries.filter((entry) => entry.date >= today);
+  // Only the kinds on this month's calendar: a key for a dot that cannot appear
+  // explains nothing (paychecks join once detected income is wired).
+  const legend = DOT_ORDER.filter((kind) => entries.some((entry) => entry.dot === kind));
 
   return (
     <div className="flex min-h-dvh justify-center bg-background">
@@ -61,15 +87,17 @@ export function CalendarView({ today, entries }: { today: string; entries: Calen
           <h1 className="font-heading text-h2 font-medium text-navy">{monthName(today)}</h1>
           <p className="text-[13px] leading-[normal] text-indigo-black/70">Every date that matters this month</p>
 
-          <div className="flex flex-col gap-1">
+          {/* Below 356px the grid runs wider than the text so each day stays 44 wide. */}
+          <div className="flex flex-col gap-1 max-[355px]:-mx-[18px]">
             <div aria-hidden="true" className="flex">
               {WEEKDAYS.map((letter, index) => (
-                <span key={index} className="flex-1 text-center text-caption leading-[normal] font-semibold text-indigo-black/50">
+                <span key={index} className="flex-1 text-center text-caption leading-[normal] font-semibold text-indigo-black/70">
                   {letter}
                 </span>
               ))}
             </div>
-            <div role="group" aria-label={`${monthName(today)} days`} className="flex flex-col">
+            {/* A day's name says which kinds of dates it holds, so clicks on it are not captured. */}
+            <div role="group" aria-label={`${monthName(today)} days`} className={cn(NO_CAPTURE, "flex flex-col")}>
               {monthWeeks(today).map((week, row) => (
                 <div key={row} className="flex">
                   {week.map((date, column) => {
@@ -114,14 +142,18 @@ export function CalendarView({ today, entries }: { today: string; entries: Calen
             </div>
           </div>
 
-          <ul aria-label="What the dots mean" className="flex gap-4">
-            {DOT_ORDER.map((kind) => (
-              <li key={kind} className="flex items-center gap-1.5 text-caption leading-[normal] text-indigo-black/70">
-                <Dot kind={kind} />
-                {DOT_LABEL[kind]}
-              </li>
-            ))}
-          </ul>
+          {legend.length > 0 ? (
+            <ul aria-label="What the dots mean" className="flex gap-4">
+              {legend.map((kind) => (
+                <li key={kind} className="flex items-center gap-1.5 text-caption leading-[normal] text-indigo-black/70">
+                  <Dot kind={kind} />
+                  {DOT_LABEL[kind]}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          {incomplete ? <ErrorMessage>Some dates didn’t load. Refresh to try again.</ErrorMessage> : null}
 
           <section aria-label={picked ? longDay(picked) : "What's next"} aria-live="polite">
             {shown.length > 0 ? (
@@ -130,9 +162,9 @@ export function CalendarView({ today, entries }: { today: string; entries: Calen
                   <EntryRow key={entry.key} entry={entry} today={today} />
                 ))}
               </ul>
-            ) : (
+            ) : incomplete ? null : (
               <p className="py-3.5 text-body-s text-indigo-black/70">
-                {picked ? nothingOn(picked, today) : "Nothing else this month."}
+                {picked ? nothingOn(picked, today) : "No more dates saved this month."}
               </p>
             )}
           </section>

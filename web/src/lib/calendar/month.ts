@@ -8,6 +8,7 @@
 import { type ComingUpCard, type ComingUpEvent } from "@/lib/home/coming-up";
 import { moneyAmount } from "@/lib/money";
 import { addDays } from "@/lib/reminders/schedule";
+import { autopayStepsPath, paymentRemindersPath, ROUTES } from "@/lib/routes";
 import { BILL_COPY } from "@/lib/safe-to-spend/copy";
 
 // Dot colors (C1's FYI): Amethyst for card dates, Amber Flame for bills,
@@ -88,8 +89,8 @@ export type CalendarEntry = {
   what: string;
   // "Discover · autopay is on", "$650 · you cover it".
   subtitle: string;
-  // Shows the student's money: masked in session replay.
-  sensitive: boolean;
+  // Where the row goes, the same place Home's Coming up sends it.
+  href: string;
 };
 
 const AUTOPAY: Record<ComingUpCard["autopayStatus"], string> = {
@@ -102,26 +103,33 @@ const AUTOPAY: Record<ComingUpCard["autopayStatus"], string> = {
 // One event as the Calendar's row (C1: "Tomorrow · Payment due" over
 // "Discover · ..."). The frame's payment row shows the statement balance;
 // Cense does not read balances yet, so it says the card and its autopay, as
-// Home's Coming up does.
-export function calendarEntry(event: ComingUpEvent): CalendarEntry {
+// Home's Coming up does. A day that has passed says what happened and gives no
+// instruction: a closed statement cannot be paid down before it closes.
+export function calendarEntry(event: ComingUpEvent, today: string): CalendarEntry {
   const base = { date: event.date, dot: dotKind(event) };
+  const past = event.date < today;
   switch (event.kind) {
     case "payment_due":
       return {
         ...base,
         key: `due-${event.card.applicationId}-${event.date}`,
-        what: "Payment due",
-        subtitle: `${event.card.name} · ${AUTOPAY[event.card.autopayStatus]}`,
-        sensitive: false,
+        what: past ? "Payment was due" : "Payment due",
+        subtitle: past ? event.card.name : `${event.card.name} · ${AUTOPAY[event.card.autopayStatus]}`,
+        href:
+          past || event.card.autopayStatus === "on"
+            ? paymentRemindersPath(event.card.applicationId)
+            : autopayStepsPath(event.card.applicationId),
       };
     case "statement_closes":
       return {
         ...base,
         key: `close-${event.card.applicationId}-${event.date}`,
-        what: "Statement closes",
+        what: past ? "Statement closed" : "Statement closes",
         subtitle:
-          event.payDownToCents === null ? event.card.name : `${event.card.name} · pay down to ${moneyAmount(event.payDownToCents)}`,
-        sensitive: event.payDownToCents !== null,
+          past || event.payDownToCents === null
+            ? event.card.name
+            : `${event.card.name} · pay down to ${moneyAmount(event.payDownToCents)}`,
+        href: paymentRemindersPath(event.card.applicationId),
       };
     case "bill":
       return {
@@ -129,7 +137,7 @@ export function calendarEntry(event: ComingUpEvent): CalendarEntry {
         key: `bill-${event.bill}-${event.date}`,
         what: BILL_COPY[event.bill].label,
         subtitle: `${moneyAmount(event.amountCents)} · ${event.share ? "your share" : "you cover it"}`,
-        sensitive: true,
+        href: ROUTES.safeToSpend,
       };
     case "paycheck":
       return {
@@ -137,7 +145,7 @@ export function calendarEntry(event: ComingUpEvent): CalendarEntry {
         key: `paycheck-${event.date}`,
         what: "Paycheck",
         subtitle: `${moneyAmount(event.amountCents)} · looks like pay`,
-        sensitive: true,
+        href: ROUTES.safeToSpend,
       };
   }
 }

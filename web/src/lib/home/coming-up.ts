@@ -171,7 +171,8 @@ export function comingUpRow(event: ComingUpEvent, { nameCards }: { nameCards: bo
         title: `${day}  Statement closes`,
         subtitle: event.payDownToCents === null ? event.card.name : `${event.card.name} · pay down to ${moneyAmount(event.payDownToCents)}`,
         href: paymentRemindersPath(event.card.applicationId),
-        sensitive: event.payDownToCents !== null,
+        // A card's name and status are the student's (analytics.ts).
+        sensitive: true,
       };
     case "payment_due": {
       const autopay = AUTOPAY_LINE[event.card.autopayStatus];
@@ -182,7 +183,7 @@ export function comingUpRow(event: ComingUpEvent, { nameCards }: { nameCards: bo
         // Autopay not on: the issuer's autopay steps, as "Set it up" says. On:
         // the card's dates.
         href: event.card.autopayStatus === "on" ? paymentRemindersPath(event.card.applicationId) : autopayStepsPath(event.card.applicationId),
-        sensitive: false,
+        sensitive: true,
       };
     }
     case "bill":

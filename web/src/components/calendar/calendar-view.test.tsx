@@ -3,7 +3,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { SENSITIVE } from "@/lib/analytics";
+import { NO_CAPTURE, SENSITIVE } from "@/lib/analytics";
 import type { CalendarEntry } from "@/lib/calendar/month";
 
 import { CalendarView } from "./calendar-view";
@@ -11,10 +11,10 @@ import { CalendarView } from "./calendar-view";
 vi.mock("@/components/ui/bottom-nav", () => ({ BottomNav: () => <nav aria-label="Main" /> }));
 
 const ENTRIES: CalendarEntry[] = [
-  { key: "bill-phone", date: "2026-11-01", dot: "bill", what: "Phone", subtitle: "$45 · you cover it", sensitive: true },
-  { key: "due", date: "2026-11-12", dot: "card", what: "Payment due", subtitle: "Discover · autopay is on", sensitive: false },
-  { key: "rent", date: "2026-11-15", dot: "bill", what: "Rent", subtitle: "$650 · you cover it", sensitive: true },
-  { key: "pay", date: "2026-11-15", dot: "money", what: "Paycheck", subtitle: "$480 · looks like pay", sensitive: true },
+  { key: "bill-phone", date: "2026-11-01", dot: "bill", what: "Phone", subtitle: "$45 · you cover it", href: "/home" },
+  { key: "due", date: "2026-11-12", dot: "card", what: "Payment due", subtitle: "Discover · autopay is on", href: "/home" },
+  { key: "rent", date: "2026-11-15", dot: "bill", what: "Rent", subtitle: "$650 · you cover it", href: "/home" },
+  { key: "pay", date: "2026-11-15", dot: "money", what: "Paycheck", subtitle: "$480 · looks like pay", href: "/home" },
 ];
 
 function rows() {
@@ -56,21 +56,40 @@ describe("CalendarView", () => {
   it("says so when a tapped day has nothing", () => {
     render(<CalendarView today="2026-11-11" entries={ENTRIES} />);
     fireEvent.click(screen.getByRole("button", { name: "Today, Wednesday, November 11" }));
-    expect(screen.getByText("Nothing today.")).toBeTruthy();
+    expect(screen.getByText("No dates saved for today.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Saturday, November 14" }));
-    expect(screen.getByText("Nothing on Sat, Nov 14.")).toBeTruthy();
+    expect(screen.getByText("No dates saved for Sat, Nov 14.")).toBeTruthy();
   });
 
   it("says so when nothing else is coming this month", () => {
     render(<CalendarView today="2026-11-20" entries={ENTRIES} />);
-    expect(screen.getByText("Nothing else this month.")).toBeTruthy();
+    expect(screen.getByText("No more dates saved this month.")).toBeTruthy();
   });
 
-  it("masks money in session replay", () => {
+  it("masks every row in session replay, card names included", () => {
     render(<CalendarView today="2026-11-11" entries={ENTRIES} />);
-    const rent = screen.getByText("$650 · you cover it").closest("li")!;
-    expect(rent.className.split(" ")).toContain(SENSITIVE);
-    const due = screen.getByText("Discover · autopay is on").closest("li")!;
-    expect(due.className.split(" ")).not.toContain(SENSITIVE);
+    for (const text of ["$650 · you cover it", "Discover · autopay is on"]) {
+      expect(screen.getByText(text).closest("a")!.className.split(" ")).toContain(SENSITIVE);
+    }
+  });
+
+  it("keeps a day's name, which lists its kinds of dates, out of autocapture", () => {
+    render(<CalendarView today="2026-11-11" entries={ENTRIES} />);
+    expect(screen.getByRole("group", { name: "November days" }).className.split(" ")).toContain(NO_CAPTURE);
+  });
+
+  it("never says a day is empty when a read failed", () => {
+    render(<CalendarView today="2026-11-11" entries={[]} incomplete />);
+    expect(screen.getByText("Some dates didn’t load. Refresh to try again.")).toBeTruthy();
+    expect(screen.queryByText("No more dates saved this month.")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Saturday, November 14" }));
+    expect(screen.queryByText("No dates saved for Sat, Nov 14.")).toBeNull();
+  });
+
+  it("keys only the kinds of dot on this month's calendar", () => {
+    render(<CalendarView today="2026-11-11" entries={ENTRIES.filter((entry) => entry.dot !== "money")} />);
+    const legend = screen.getByRole("list", { name: "What the dots mean" });
+    expect(legend.textContent).toContain("Bills");
+    expect(legend.textContent).not.toContain("Money in");
   });
 });
