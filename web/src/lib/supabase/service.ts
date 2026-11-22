@@ -9,7 +9,7 @@ import { supabaseConfig } from "./config";
 // (lib/api/quota.ts), which only call claim_penny_ask and
 // claim_confirmation_email with the id of the student in the verified
 // session, and the daily reminder job (app/api/v1/cron/reminders, which also runs
-// the purge of bank transactions older than 180 days) and the signed
+// the purge of bank transactions older than 730 days) and the signed
 // unsubscribe link (app/api/v1/reminders/unsubscribe), which only call the
 // database functions made for them and read the Analytics switch
 // (profiles.analytics_opted_out_at, withAnalyticsOn in analytics-server.ts)

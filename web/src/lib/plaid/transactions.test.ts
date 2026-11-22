@@ -14,10 +14,10 @@ import { KEEP_DAYS, loadSpending, MAX_SYNC_PAGES, oldestKeptDate, syncStudentTra
 
 const CONFIG: PlaidConfig = { clientId: "c", secret: "s", baseUrl: "https://sandbox.plaid.com", tokenKey: Buffer.alloc(32) as TokenKey };
 
-// A fixed today, so the 180-day window never moves under the tests.
+// A fixed today, so the 730-day window never moves under the tests.
 const NOW = new Date("2026-11-07T15:00:00Z");
 const ITEM = { itemId: "item-1", accessToken: "access-1" };
-const OLDEST = "2026-05-11";
+const OLDEST = "2024-11-07";
 
 const txn = (id: string, overrides: Partial<PlaidTransaction> = {}): PlaidTransaction => ({
   transaction_id: id,
@@ -54,12 +54,12 @@ afterEach(() => {
 });
 
 describe("oldestKeptDate", () => {
-  it("is 180 days before today in UTC", () => {
-    expect(KEEP_DAYS).toBe(180);
+  it("is 730 days before today in UTC", () => {
+    expect(KEEP_DAYS).toBe(730);
     expect(oldestKeptDate(NOW)).toBe(OLDEST);
     // late evening in Boston is already tomorrow in UTC, as in the database
-    expect(oldestKeptDate(new Date("2026-11-07T23:30:00-05:00"))).toBe("2026-05-12");
-    expect(oldestKeptDate(new Date("2026-03-01T00:00:00Z"))).toBe("2025-09-02");
+    expect(oldestKeptDate(new Date("2026-11-07T23:30:00-05:00"))).toBe("2024-11-08");
+    expect(oldestKeptDate(new Date("2026-03-01T00:00:00Z"))).toBe("2024-03-01");
   });
 });
 
@@ -110,7 +110,7 @@ describe("toStoredTransaction", () => {
   });
 
   it("skips a transaction posted before the oldest day kept, and keeps that day itself", () => {
-    expect(toStoredTransaction(txn("t1", { date: "2026-05-10" }), OLDEST)).toBeNull();
+    expect(toStoredTransaction(txn("t1", { date: "2024-11-06" }), OLDEST)).toBeNull();
     expect(toStoredTransaction(txn("t1", { date: OLDEST }), OLDEST)?.posted_on).toBe(OLDEST);
   });
 });
@@ -130,9 +130,9 @@ describe("syncStudentTransactions", () => {
     expect((apply[0][1] as { p_added: { transaction_id: string }[] }).p_added.map((row) => row.transaction_id)).toEqual(["t1"]);
   });
 
-  it("never sends the database a transaction older than 180 days, or a field it does not keep", async () => {
+  it("never sends the database a transaction older than 730 days, or a field it does not keep", async () => {
     plaid.syncTransactionsPage.mockResolvedValueOnce(
-      page({ added: [txn("new"), txn("old", { date: "2026-04-01" })], modified: [txn("old-mod", { date: "2026-05-10" })], next: "c2" }),
+      page({ added: [txn("new"), txn("old", { date: "2024-10-01" })], modified: [txn("old-mod", { date: "2024-11-06" })], next: "c2" }),
     );
     const s = student((name) => (name === "plaid_transactions_cursor" ? { data: "c1", error: null } : { data: true, error: null }));
     expect(await syncStudentTransactions(s, CONFIG, ITEM, NOW)).toEqual({ kind: "synced", saved: 1, removed: 0 });
