@@ -45,6 +45,7 @@ import {
   passwordSignInSchema,
   passwordSignUpConfirmSchema,
   passwordUpdateSchema,
+  resetLinkSchema,
 } from "../src/lib/api/password";
 
 const registry = new OpenAPIRegistry();
@@ -79,39 +80,53 @@ registry.registerPath({
 registry.registerPath({
   method: "post", path: "/auth/email", operationId: "sendEmailCode", summary: "Send a six-digit email code",
   request: { body: body(z.strictObject({ email: z.email() })) },
-  responses: { 200: ok(z.strictObject({ status: z.literal("code_sent") })), 400: failure("Invalid email"), 502: failure("Email service unavailable") },
+  responses: { 200: ok(z.strictObject({ status: z.literal("code_sent") })), 400: failure("Invalid email"), 429: failure("Too many codes sent to this email or from this address (rate_limited)"), 502: failure("Email service unavailable") },
 });
 registry.registerPath({
   method: "post", path: "/auth/email/verify", operationId: "verifyEmailCode", summary: "Verify an email code and create a session",
   description: "When this code is what confirms the account, any password set before it is replaced with a random one and other sessions end.",
   request: { body: body(z.strictObject({ email: z.email(), code: z.string().regex(/^\d{6}$/) })) },
-  responses: { 200: ok(z.strictObject({ status: z.literal("signed_in") })), 400: failure("Invalid request"), 401: failure("Wrong or expired code"), 502: failure("Account could not be secured") },
+  responses: { 200: ok(z.strictObject({ status: z.literal("signed_in") })), 400: failure("Invalid request"), 401: failure("Wrong or expired code"), 429: failure("Too many code checks (rate_limited)"), 502: failure("Account could not be secured"), 503: failure("The limits could not be checked (sign_in_busy)") },
 });
 registry.registerPath({
   method: "post", path: "/auth/password/signup", operationId: "signUpWithPassword", summary: "Create an optional password account",
   request: { body: body(passwordCredentialsSchema) },
-  responses: { 200: ok(z.strictObject({ status: z.enum(["signed_in", "check_email"]) })), 400: failure("Invalid request"), 429: failure("Rate limited"), 502: failure("Sign-up unavailable") },
+  responses: { 200: ok(z.strictObject({ status: z.enum(["signed_in", "check_email"]) })), 400: failure("Invalid request"), 429: failure("Too many emails to this address or from this address (rate_limited)"), 502: failure("Sign-up unavailable") },
 });
 registry.registerPath({
   method: "post", path: "/auth/password/signup/confirm", operationId: "confirmPasswordSignUp", summary: "Confirm a password sign-up with the emailed code and set its password",
   description: "Sets the chosen password and ends other sessions only when this code is what confirms the account. An account confirmed earlier keeps its password and sessions, and `passwordChanged` is false.",
   request: { body: body(passwordSignUpConfirmSchema) },
-  responses: { 200: ok(z.strictObject({ status: z.literal("signed_in"), passwordChanged: z.boolean() })), 400: failure("Invalid request"), 401: failure("Wrong or expired code"), 502: failure("Password could not be set") },
+  responses: { 200: ok(z.strictObject({ status: z.literal("signed_in"), passwordChanged: z.boolean() })), 400: failure("Invalid request"), 401: failure("Wrong or expired code"), 429: failure("Too many code checks (rate_limited)"), 502: failure("Password could not be set"), 503: failure("The limits could not be checked (sign_in_busy)") },
 });
 registry.registerPath({
   method: "post", path: "/auth/password/signin", operationId: "signInWithPassword", summary: "Sign in with an existing password",
   request: { body: body(passwordSignInSchema) },
-  responses: { 200: ok(z.strictObject({ status: z.literal("signed_in") })), 400: failure("Invalid request"), 401: failure("Incorrect credentials"), 403: failure("Email not confirmed"), 429: failure("Rate limited") },
+  responses: { 200: ok(z.strictObject({ status: z.literal("signed_in") })), 400: failure("Invalid request"), 401: failure("Incorrect credentials"), 403: failure("Email not confirmed"), 429: failure("Too many tries for this email or from this address (rate_limited)"), 503: failure("The limits could not be checked (sign_in_busy)") },
 });
 registry.registerPath({
   method: "post", path: "/auth/password/reset", operationId: "requestPasswordReset", summary: "Send a password reset email",
   request: { body: body(passwordResetRequestSchema) },
-  responses: { 200: ok(z.strictObject({ status: z.literal("check_email") })), 400: failure("Invalid request"), 502: failure("Email service unavailable") },
+  responses: { 200: ok(z.strictObject({ status: z.literal("check_email") })), 400: failure("Invalid request"), 429: failure("Too many emails to this address or from this address (rate_limited)"), 502: failure("Email service unavailable") },
 });
 registry.registerPath({
-  method: "get", path: "/auth/password/reset/verify", operationId: "verifyPasswordReset", summary: "Verify a password reset link",
+  method: "get", path: "/auth/password/reset/verify", operationId: "openPasswordResetLink", summary: "Forward an older reset link to the confirm screen",
+  description: "Verifies nothing: opening a link never signs anyone in. Redirects to /reset-password/confirm with the same token_hash or code.",
   request: { query: z.object({ token_hash: z.string().optional(), code: z.string().optional() }) },
-  responses: { 303: { description: "Redirect to reset form or request a new link" } },
+  responses: { 303: { description: "Redirect to /reset-password/confirm" } },
+});
+registry.registerPath({
+  method: "post", path: "/auth/password/reset/verify", operationId: "verifyPasswordReset", summary: "Verify a password reset link from the confirm screen's button",
+  description: "Starts the reset session. Refused with 409 `signed_in_as_other` when a different account is signed in in this browser, whose session is left as it was.",
+  request: { body: body(resetLinkSchema) },
+  responses: {
+    200: ok(z.strictObject({ status: z.literal("verified") })),
+    400: failure("Invalid request"),
+    401: failure("Link expired or already used (invalid_link)"),
+    409: failure("Another account is signed in here (signed_in_as_other)"),
+    429: failure("Too many tries from this address (rate_limited)"),
+    503: failure("Could not tell who is signed in here (session_check_failed)"),
+  },
 });
 registry.registerPath({
   method: "post", path: "/auth/password/reset/confirm", operationId: "confirmPasswordReset", summary: "Set a password with an authenticated reset session",
@@ -178,7 +193,7 @@ registry.registerPath({
 registry.registerPath({
   method: "get", path: "/quiz", operationId: "getQuiz", summary: "Get saved quiz progress",
   security: [{ studentSession: [] }],
-  responses: { 200: ok(quizDraftContract), 404: failure("No saved quiz"), ...protectedResponses },
+  responses: { 200: ok(quizDraftContract), ...protectedResponses },
 });
 registry.registerPath({
   method: "put", path: "/quiz", operationId: "saveQuiz", summary: "Save partial quiz progress",
@@ -195,7 +210,8 @@ registry.registerPath({
   method: "post", path: "/applications", operationId: "createApplication", summary: "Record a self-reported application or owned card",
   security: [{ studentSession: [] }],
   request: { body: body(createApplicationSchema) },
-  responses: { 201: ok(applicationContract), 400: failure("Invalid application"), 409: failure("Already exists"), ...protectedResponses },
+  description: "409 already_exists when the card is already tracked as applied or approved; 409 limit_reached at the card limit (25 records per student, kept for good).",
+  responses: { 201: ok(applicationContract), 400: failure("Invalid application"), 409: failure("Already exists, or the card limit is reached"), ...protectedResponses },
 });
 registry.registerPath({
   method: "patch", path: "/applications/{id}", operationId: "updateApplication",
@@ -320,15 +336,19 @@ registry.registerPath({
   request: { body: body(updateReminderSettingsSchema) },
   responses: { 200: ok(reminderSettingsContract), 400: failure("Invalid settings"), 404: failure("Profile not found"), ...protectedResponses },
 });
+// id and clickedAt are null when the click was not recorded.
+const issuerClickContract = registry.register("IssuerClick", z.strictObject({
+  id: z.uuid().nullable(), cardId: z.string(), kind: z.enum(["preapproval", "apply"]),
+  url: z.url(), clickedAt: z.iso.datetime({ offset: true }).nullable(),
+}));
 registry.registerPath({
   method: "post", path: "/issuer-clicks", operationId: "recordIssuerClick", summary: "Record an issuer link click",
+  description: "201 with the saved click. When the click cannot be recorded (at most 50 per student a day, or the database is unavailable), 200 with the same address and a null id and clickedAt: the student still goes to the issuer.",
   security: [{ studentSession: [] }],
   request: { body: body(issuerClickSchema) },
   responses: {
-    201: ok(z.strictObject({
-      id: z.uuid(), cardId: z.string(), kind: z.enum(["preapproval", "apply"]),
-      url: z.url(), clickedAt: z.iso.datetime({ offset: true }),
-    })),
+    201: ok(issuerClickContract),
+    200: ok(issuerClickContract),
     400: failure("Invalid request"), 404: failure("Card not found"),
     409: failure("No preapproval link"), ...protectedResponses,
   },

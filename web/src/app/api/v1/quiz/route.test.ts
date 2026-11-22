@@ -49,8 +49,10 @@ describe("GET /quiz", () => {
     expect(String(warn.mock.calls[0][0])).not.toContain("retiredField");
   });
 
-  it("says there is no saved quiz when there is no row", async () => {
+  it("answers an empty draft when there is no row, never a 404 that logs a console error", async () => {
     auth.authenticatedStudent.mockResolvedValue(studentWithDraft(null));
-    expect((await GET()).status).toBe(404);
+    const response = await GET();
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ answers: {}, updatedAt: null });
   });
 });

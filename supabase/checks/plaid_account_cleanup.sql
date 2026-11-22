@@ -15,7 +15,7 @@ begin
   end if;
   if has_function_privilege('authenticated', 'public.claim_plaid_account_cleanup()', 'EXECUTE')
     or has_function_privilege('anon', 'public.claim_plaid_account_cleanup()', 'EXECUTE')
-    or has_function_privilege('authenticated', 'public.finish_plaid_account_cleanup(uuid,uuid,boolean)', 'EXECUTE')
+    or has_function_privilege('authenticated', 'public.finish_plaid_account_cleanup(uuid,uuid,boolean,text)', 'EXECUTE')
     or has_function_privilege('anon', 'public.plaid_account_cleanup_ready()', 'EXECUTE') then
     raise exception 'cleanup functions exposed';
   end if;

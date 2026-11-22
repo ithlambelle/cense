@@ -14,6 +14,7 @@ const NEVER_BACK_TO: readonly string[] = [
   ROUTES.signIn,
   ROUTES.signUp,
   ROUTES.forgotPassword,
+  ROUTES.resetPasswordConfirm,
   ROUTES.resetPassword,
   ROUTES.start,
   ROUTES.accountDeleted,

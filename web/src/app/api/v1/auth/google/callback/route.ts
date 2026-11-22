@@ -23,13 +23,15 @@ export async function GET(request: NextRequest): Promise<Response> {
     Response.redirect(new URL(`${ROUTES.signIn}?error=${error}`, origin), 303);
 
   const cookieStore = await cookies();
-  const flow = decodeGoogleFlow(cookieStore.get(GOOGLE_FLOW_COOKIE)?.value);
+  const cookie = cookieStore.get(GOOGLE_FLOW_COOKIE)?.value;
   // One use only, whatever happens next.
   cookieStore.delete({ name: GOOGLE_FLOW_COOKIE, path: GOOGLE_CALLBACK_PATH });
 
   if (params.get("error") === "access_denied") return signInWith("cancelled");
 
   const config = googleOAuthConfigFor(origin);
+  // Signed by the start route; a cookie it did not set is refused.
+  const flow = config ? decodeGoogleFlow(cookie, config.clientSecret) : null;
   const code = params.get("code");
   // The state has to match the one this browser was sent off with, or the
   // code may be someone else's (a forged sign-in link).

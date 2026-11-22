@@ -2,7 +2,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { createLinkToken, exchangePublicToken, getAccounts, itemAlreadyGone, needsReconnect, removeItem, syncTransactionsPage } from "./client";
+import {
+  createLinkToken,
+  exchangePublicToken,
+  getAccounts,
+  getLiabilities,
+  itemAlreadyGone,
+  needsReconnect,
+  removeItem,
+  syncTransactionsPage,
+} from "./client";
 import type { PlaidConfig } from "./config";
 import type { TokenKey } from "./token-box";
 
@@ -150,5 +159,43 @@ describe("Transactions Sync", () => {
     const fetchMock = answer(200, { added: [], modified: [], removed: [], next_cursor: "c1", has_more: false });
     await syncTransactionsPage(CONFIG, "access-sandbox-1", null);
     expect(sent(fetchMock).body).not.toHaveProperty("cursor");
+  });
+});
+
+describe("Liabilities", () => {
+  it("reads only each credit card's statement and due dates", async () => {
+    const fetchMock = answer(200, {
+      accounts: [{ account_id: "card-1", balances: { current: 410.5 } }],
+      liabilities: {
+        credit: [
+          {
+            account_id: "card-1",
+            last_statement_issue_date: "2026-10-24",
+            next_payment_due_date: "2026-11-18",
+            last_statement_balance: 1708.77,
+            minimum_payment_amount: 20,
+            aprs: [{ apr_percentage: 15.24 }],
+          },
+        ],
+        mortgage: null,
+        student: null,
+      },
+      item: { item_id: "item-1" },
+      request_id: "r",
+    });
+    const result = await getLiabilities(CONFIG, "access-sandbox-1");
+    expect(result).toEqual({
+      ok: true,
+      data: { liabilities: { credit: [{ account_id: "card-1", last_statement_issue_date: "2026-10-24", next_payment_due_date: "2026-11-18" }] } },
+    });
+    const { url, body } = sent(fetchMock);
+    expect(url).toBe("https://sandbox.plaid.com/liabilities/get");
+    expect(body).toEqual({ access_token: "access-sandbox-1" });
+  });
+
+  it("passes on Plaid's code when the bank has no Liabilities", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    answer(400, { error_type: "ITEM_ERROR", error_code: "PRODUCTS_NOT_SUPPORTED", request_id: "r" });
+    expect(await getLiabilities(CONFIG, "access-sandbox-1")).toEqual({ ok: false, kind: "plaid", code: "PRODUCTS_NOT_SUPPORTED" });
   });
 });
