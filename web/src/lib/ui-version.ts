@@ -8,9 +8,14 @@
 //   (Figma 765:2498), approved Nov 16. "legacy": the white card with a 1.5px
 //   violet outline and the green-circle check (SelectionMark) that was live
 //   until then.
+// - nav "five-tab": the Design System's Bottom nav · 5 tabs (770:1029), Home,
+//   Cards, Penny, Calendar and Profile, approved Nov 16. "legacy": the
+//   three-tab bar with labels (Home, Cards, Learn) that was live until then.
 
 export type ChoiceCardLook = "borderless" | "legacy";
+export type NavLook = "five-tab" | "legacy";
 
-export const UI_VERSION: { choiceCard: ChoiceCardLook } = {
+export const UI_VERSION: { choiceCard: ChoiceCardLook; nav: NavLook } = {
   choiceCard: "borderless",
+  nav: "five-tab",
 };
