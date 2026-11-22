@@ -26,7 +26,7 @@ const whatsNext = (page: Page) => page.getByRole("region", { name: "What's next"
 async function rowTexts(page: Page, region = whatsNext(page)): Promise<string[][]> {
   return region
     .getByRole("listitem")
-    .evaluateAll((items) => items.map((item) => [...item.querySelectorAll(":scope > span > span")].map((line) => line.textContent ?? "")));
+    .evaluateAll((items) => items.map((item) => [...item.querySelectorAll(":scope > a > span > span")].map((line) => line.textContent ?? "")));
 }
 
 test("the Calendar shows an approved card's dates, opens from Home, and lists a tapped day", async ({ page }) => {
