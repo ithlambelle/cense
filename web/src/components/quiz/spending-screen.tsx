@@ -5,6 +5,7 @@ import { useEffect, useId, useRef } from "react";
 import { QuizHeader } from "@/components/quiz/quiz-screen";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { Button } from "@/components/ui/button";
+import { legacyCard } from "@/components/legacy/answer-card";
 import { ChoiceCard } from "@/components/ui/choice-card";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { SENSITIVE } from "@/lib/analytics";
@@ -35,9 +36,9 @@ type SpendingScreenProps = {
 
 // The spending question (Figma 144:2635, values from get_design_context): up to two categories, then one rough
 // monthly amount, on one screen. Unlike the other questions a tap only picks
-// and Continue moves on. Each answer is the Design System's Choice card (G1):
-// an unpicked card shows only its 1px outline, as the component's Default
-// draws it, and a picked one its 2px outline and check. The frame draws no
+// and Continue moves on. Each answer is the Design System's Choice card ·
+// borderless (G1, 765:2498): Off-white until picked, solid Violet once picked,
+// with no check. The frame draws no
 // Continue; it is the design system's primary button. The answer is saved on
 // Continue (lib/quiz/spending.ts).
 export function SpendingScreen({
@@ -67,6 +68,7 @@ export function SpendingScreen({
         key={option.id}
         state={selected ? "selected" : "default"}
         multiple
+        legacyClassName={legacyCard.spending}
         aria-pressed={selected}
         disabled={pending}
         onClick={onPick}

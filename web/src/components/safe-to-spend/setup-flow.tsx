@@ -7,6 +7,7 @@ import { useId, useState, type FormEvent } from "react";
 
 import { BACK_CONTROL } from "@/components/ui/app-header";
 import { Button } from "@/components/ui/button";
+import { legacyCard } from "@/components/legacy/answer-card";
 import { ChoiceCard } from "@/components/ui/choice-card";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { ProgressBar } from "@/components/ui/progress-bar";
@@ -280,6 +281,7 @@ function BillStep({
               state={selected ? "selected" : "default"}
               aria-pressed={selected}
               onClick={() => onChange({ coveredBy })}
+              legacyClassName={legacyCard.whoCovers}
             >
               {COVERED_BY_LABELS[coveredBy]}
             </ChoiceCard>

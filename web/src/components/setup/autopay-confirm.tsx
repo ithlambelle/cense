@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { legacyCard } from "@/components/legacy/answer-card";
 import { ChoiceCard } from "@/components/ui/choice-card";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { saveAutopayAnswer } from "@/lib/api-client/applications";
@@ -59,6 +60,7 @@ export function AutopayConfirm({ applicationId, issuerName }: { applicationId: s
             state={answer === option.value ? "selected" : "default"}
             aria-checked={answer === option.value}
             disabled={saving}
+            legacyClassName={legacyCard.autopay}
             onClick={() => {
               setAnswer(option.value);
               setError(null);

@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
+import { legacyCard } from "@/components/legacy/answer-card";
 import { ChoiceCard } from "@/components/ui/choice-card";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { TextField } from "@/components/ui/text-field";
@@ -92,6 +93,7 @@ export function SpendLimitPick({
                 state={selected ? "selected" : "default"}
                 aria-checked={selected}
                 disabled={saving}
+                legacyClassName={legacyCard.spendLimit(selected)}
                 onClick={() => {
                   setPicked(choice.cents);
                   setOther("");

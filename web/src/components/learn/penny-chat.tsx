@@ -8,6 +8,7 @@ import { useEffect, useEffectEvent, useRef, useState, type RefObject } from "rea
 import { PennyComposer } from "@/components/learn/penny-composer";
 import { BackLink } from "@/components/ui/app-header";
 import { Button, ButtonChevron, buttonVariants } from "@/components/ui/button";
+import { legacyCard } from "@/components/legacy/answer-card";
 import { ChoiceCard } from "@/components/ui/choice-card";
 import { NO_CAPTURE, SENSITIVE, track } from "@/lib/analytics";
 import type { PennyReply } from "@/lib/api/penny";
@@ -392,7 +393,9 @@ function MessageView({ message, from, latest, lastRef, onPick, onRetry, busy }: 
         <ul className="flex w-full flex-col gap-3">
           {message.suggestions.map((suggestion) => (
             <li key={suggestion.id}>
-              <ChoiceCard onClick={() => onPick(suggestion)}>{suggestion.question}</ChoiceCard>
+              <ChoiceCard onClick={() => onPick(suggestion)} legacyClassName={legacyCard.penny}>
+                {suggestion.question}
+              </ChoiceCard>
             </li>
           ))}
         </ul>

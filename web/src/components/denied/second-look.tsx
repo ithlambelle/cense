@@ -9,6 +9,7 @@ import { useState } from "react";
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { OutcomeMark } from "@/components/denied/parts";
 import { ButtonChevron, buttonVariants } from "@/components/ui/button";
+import { legacyCard } from "@/components/legacy/answer-card";
 import { ChoiceCard, choiceCardClass } from "@/components/ui/choice-card";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -142,7 +143,12 @@ export function SecondLook({ applicationId, initialView = "ask" }: { application
 
 function ChoiceButton({ children, onClick, disabled }: { children: string; onClick: () => void; disabled: boolean }) {
   return (
-    <ChoiceCard onClick={onClick} disabled={disabled} className="disabled:cursor-not-allowed disabled:opacity-50">
+    <ChoiceCard
+      onClick={onClick}
+      disabled={disabled}
+      className="disabled:cursor-not-allowed disabled:opacity-50"
+      legacyClassName={legacyCard.secondLook}
+    >
       {children}
     </ChoiceCard>
   );

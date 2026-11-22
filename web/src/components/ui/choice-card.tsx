@@ -34,7 +34,10 @@ export type ChoiceCardState = "default" | "selected" | "correct" | "incorrect" |
 
 const STATE_CLASS: Record<ChoiceCardState, string> = {
   default: "bg-off-white font-normal text-indigo-black hover:bg-off-white-hover",
-  selected: "bg-violet font-medium text-white hover:bg-violet-hover",
+  // Forced colors (Windows High Contrast) replace the fill, so the system's
+  // highlight pair carries Selected there.
+  selected:
+    "bg-violet font-medium text-white hover:bg-violet-hover forced-colors:bg-[Highlight] forced-colors:text-[HighlightText] forced-colors:forced-color-adjust-none",
   correct: "bg-green font-medium text-indigo-black",
   incorrect: "bg-coral font-medium text-indigo-black",
   reveal: "bg-off-white font-medium text-indigo-black",
@@ -47,7 +50,7 @@ const STATE_CLASS: Record<ChoiceCardState, string> = {
 // line (Learn's questions, the income answers at 320px); the card then grows
 // past 56 instead of cutting the label off.
 const BASE_CLASS =
-  "flex min-h-14 w-full items-center justify-between gap-4 rounded-button py-3 pr-4 pl-[18px] text-left text-body-m leading-[normal] motion-safe:transition-[background-color,color,scale] motion-safe:duration-200 motion-safe:ease-out-soft motion-safe:active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress"
+  "flex min-h-14 w-full items-center justify-between gap-4 rounded-button py-3 pr-4 pl-[18px] text-left text-body-m leading-[normal] motion-safe:transition-[background-color,color,scale] motion-safe:duration-200 motion-safe:ease-out-soft motion-safe:active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress forced-colors:border forced-colors:border-[ButtonText]"
 
 // The archive drew only chosen and not chosen; it shows any other state as
 // chosen or not, since no live screen judges an answer yet.
@@ -97,6 +100,9 @@ type ChoiceCardProps = ComponentProps<"button"> & {
   multiple?: boolean
   // Shown after the indicator, such as a spinner while the answer saves.
   end?: ReactNode
+  // This screen's own archived card (legacy/answer-card.ts), so a rollback
+  // redraws what it showed. Only used when the look is "legacy".
+  legacyClassName?: string
   // For the component gallery and tests; screens leave it to UI_VERSION.
   look?: ChoiceCardLook
 }
@@ -107,6 +113,7 @@ function ChoiceCard({
   state = "default",
   multiple = false,
   end,
+  legacyClassName,
   look = UI_VERSION.choiceCard,
   className,
   children,
@@ -115,7 +122,7 @@ function ChoiceCard({
 }: ChoiceCardProps) {
   if (look === "legacy") {
     return (
-      <button type={type} className={cn(legacyAnswerCardClass, className)} {...props}>
+      <button type={type} className={cn(legacyClassName ?? legacyAnswerCardClass, className)} {...props}>
         <span className="min-w-0 flex-1">{children}</span>
         <SelectionMark selected={LEGACY_SELECTED.has(state)} ring={multiple} />
         {end}

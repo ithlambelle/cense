@@ -7,6 +7,7 @@ import { TrackedLink } from "@/components/analytics/tracked-link";
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { Mascot } from "@/components/mascot/mascot";
 import { Button } from "@/components/ui/button";
+import { legacyCard } from "@/components/legacy/answer-card";
 import { ChoiceCard, choiceCardClass } from "@/components/ui/choice-card";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { SENSITIVE, track } from "@/lib/analytics";
@@ -126,6 +127,7 @@ export function DeniedOptionsView({ applicationId, preview }: { applicationId: s
               state={knowsReason ? "selected" : "default"}
               aria-pressed={knowsReason}
               onClick={chooseKnowsReason}
+              legacyClassName={legacyCard.denial}
             >
               Yes, I know the reason
             </ChoiceCard>
@@ -138,6 +140,7 @@ export function DeniedOptionsView({ applicationId, preview }: { applicationId: s
                   disabled={saving !== null}
                   onClick={() => void saveThenOpen("no-letter", "no_letter_yet", "noLetter")}
                   className="disabled:opacity-60"
+                  legacyClassName={legacyCard.denialSaving}
                   end={saving === "no-letter" ? <Saving /> : null}
                 >
                   Not yet, I’m waiting on the letter
@@ -181,6 +184,7 @@ export function DeniedOptionsView({ applicationId, preview }: { applicationId: s
                     setError(null);
                   }}
                   className={SENSITIVE}
+                  legacyClassName={legacyCard.denial}
                 >
                   {option.label}
                 </ChoiceCard>

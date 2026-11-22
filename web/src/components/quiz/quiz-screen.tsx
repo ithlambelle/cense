@@ -4,9 +4,11 @@ import Image from "next/image";
 import { useEffect, useId, useRef } from "react";
 
 import { BottomNav } from "@/components/ui/bottom-nav";
+import { legacyCard } from "@/components/legacy/answer-card";
 import { ChoiceCard } from "@/components/ui/choice-card";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { UI_VERSION } from "@/lib/ui-version";
 import { SENSITIVE } from "@/lib/analytics";
 import type { Question } from "@/lib/quiz/questions";
 import { cn } from "@/lib/utils";
@@ -118,7 +120,11 @@ export function QuizScreen({
             role="group"
             aria-labelledby={titleId}
             aria-describedby={step === 1 ? hintId : undefined}
-            className={cn(SENSITIVE, "stagger flex flex-col gap-3 pt-2 [--stagger-offset:120ms]")}
+            className={cn(
+              SENSITIVE,
+              "stagger flex flex-col pt-2 [--stagger-offset:120ms]",
+              UI_VERSION.choiceCard === "legacy" ? legacyCard.quizListGap(question.choices.length) : "gap-3",
+            )}
           >
             {question.choices.map((choice) => (
               <ChoiceCard
@@ -127,6 +133,7 @@ export function QuizScreen({
                 aria-pressed={choice.id === selectedChoiceId}
                 disabled={pending}
                 onClick={() => onChoose(choice.id)}
+                legacyClassName={legacyCard.quiz(question.choices.length > 2)}
               >
                 {choice.label}
               </ChoiceCard>

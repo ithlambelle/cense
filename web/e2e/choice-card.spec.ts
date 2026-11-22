@@ -8,12 +8,16 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { QUESTIONS } from "../src/lib/quiz/questions";
 import { SPENDING_COPY } from "../src/lib/quiz/spending";
+import { UI_VERSION } from "../src/lib/ui-version";
 import { blockExternalRequests, LIKELY_FIT_PICKS, signUp, uniqueEmail } from "./helpers";
 
 const VIOLET = "rgb(151, 64, 197)";
 const INDIGO_BLACK = "rgb(15, 11, 46)";
 const OFF_WHITE = "rgb(236, 234, 246)";
 const WHITE = "rgb(255, 255, 255)";
+
+// These measure the main card. A rollback to the archived one must not turn CI red.
+test.skip(UI_VERSION.choiceCard !== "borderless", "The archived Choice card is switched on");
 
 test.beforeEach(async ({ context }) => {
   await blockExternalRequests(context);

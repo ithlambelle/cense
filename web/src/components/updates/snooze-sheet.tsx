@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { legacyCard } from "@/components/legacy/answer-card";
 import { ChoiceCard } from "@/components/ui/choice-card";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { Sheet } from "@/components/ui/sheet";
@@ -95,6 +96,7 @@ export function SnoozeSheet({
               state={selected ? "selected" : "default"}
               aria-checked={selected}
               onClick={() => setPicked(option.choice)}
+              legacyClassName={legacyCard.snooze(selected)}
             >
               {option.label}
             </ChoiceCard>

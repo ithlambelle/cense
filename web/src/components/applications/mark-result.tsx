@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { Button } from "@/components/ui/button";
+import { legacyCard } from "@/components/legacy/answer-card";
 import { ChoiceCard } from "@/components/ui/choice-card";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { TextField } from "@/components/ui/text-field";
@@ -131,6 +132,7 @@ export function MarkResult({
                 aria-pressed={choice === option.id}
                 disabled={pending}
                 onClick={() => choose(option.id)}
+                legacyClassName={legacyCard.markResult}
               >
                 {option.label}
               </ChoiceCard>

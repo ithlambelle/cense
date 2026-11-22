@@ -9,8 +9,10 @@ import { useState } from "react";
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { confirmationKey } from "@/components/denied/reminder-saved-check";
 import { Button, ButtonChevron, buttonVariants } from "@/components/ui/button";
+import { legacyCard } from "@/components/legacy/answer-card";
 import { ChoiceCard } from "@/components/ui/choice-card";
 import { ErrorMessage } from "@/components/ui/error-message";
+import { UI_VERSION } from "@/lib/ui-version";
 import { saveReapplyReminder } from "@/lib/api-client/reminders";
 import { addMonths, formatIsoDate, toIsoDate } from "@/lib/dates";
 import { deniedPath, ROUTES, signInPath } from "@/lib/routes";
@@ -166,10 +168,16 @@ function TimingOption({
 }) {
   // A Choice card with the date under its label: the component has one label,
   // and the date is what the student is choosing.
+  const legacy = UI_VERSION.choiceCard === "legacy";
   return (
-    <ChoiceCard state={selected ? "selected" : "default"} aria-pressed={selected} onClick={onSelect}>
-      <span className="flex flex-col gap-0.5">
-        <span>{title}</span>
+    <ChoiceCard
+      state={selected ? "selected" : "default"}
+      aria-pressed={selected}
+      onClick={onSelect}
+      legacyClassName={legacyCard.reminder}
+    >
+      <span className={legacy ? "flex min-w-0 flex-1 flex-col gap-0.5 text-indigo-black" : "flex flex-col gap-0.5"}>
+        <span className={legacy ? "font-heading text-h6 font-medium" : undefined}>{title}</span>
         <span className="min-h-5 text-body-s font-normal">{detail}</span>
       </span>
     </ChoiceCard>

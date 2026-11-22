@@ -1,13 +1,20 @@
 // @vitest-environment jsdom
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { ComponentProps } from "react";
 
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { UI_VERSION } from "@/lib/ui-version";
+import { legacyCard } from "@/components/legacy/answer-card";
 
-import { ChoiceCard, choiceCardClass, type ChoiceCardState } from "./choice-card";
+import { ChoiceCard as SwitchedChoiceCard, choiceCardClass, type ChoiceCardState } from "./choice-card";
+
+// Pinned to the main look, so flipping UI_VERSION for a rollback does not turn
+// these red; the archived card has its own tests below.
+function ChoiceCard(props: ComponentProps<typeof SwitchedChoiceCard>) {
+  return <SwitchedChoiceCard look="borderless" {...props} />;
+}
 
 const STATES: ChoiceCardState[] = ["default", "selected", "correct", "incorrect", "reveal"];
 
@@ -16,10 +23,6 @@ function classes(element: Element): string[] {
 }
 
 describe("ChoiceCard (Design System, Choice card · borderless 765:2498)", () => {
-  it("is the main version of the app", () => {
-    expect(UI_VERSION.choiceCard).toBe("borderless");
-  });
-
   // State=Default, 765:2476: Off-white fill, no border, Inter Regular 16 text/primary.
   it("draws Default as an Off-white card with no border and no indicator", () => {
     render(<ChoiceCard>Yes</ChoiceCard>);
@@ -148,9 +151,9 @@ describe("choiceCardClass", () => {
 describe("the archived card (UI_VERSION.choiceCard = legacy)", () => {
   it("draws the white outlined card with the green-circle check when chosen", () => {
     render(
-      <ChoiceCard look="legacy" state="selected" aria-pressed>
+      <SwitchedChoiceCard look="legacy" state="selected" aria-pressed>
         Yes
-      </ChoiceCard>,
+      </SwitchedChoiceCard>,
     );
     const card = screen.getByRole("button", { name: "Yes", pressed: true });
     expect(classes(card)).toEqual(expect.arrayContaining(["border-[1.5px]", "border-violet", "bg-white", "rounded-[18px]"]));
@@ -160,14 +163,35 @@ describe("the archived card (UI_VERSION.choiceCard = legacy)", () => {
   it("draws the empty ring on an unpicked multi-select answer, and nothing on pick-one", () => {
     render(
       <>
-        <ChoiceCard look="legacy" multiple>
+        <SwitchedChoiceCard look="legacy" multiple>
           Groceries
-        </ChoiceCard>
-        <ChoiceCard look="legacy">No</ChoiceCard>
+        </SwitchedChoiceCard>
+        <SwitchedChoiceCard look="legacy">No</SwitchedChoiceCard>
       </>,
     );
     expect(screen.getByRole("button", { name: "Groceries" }).querySelector("img")?.getAttribute("src")).toContain("selection-ring.svg");
     expect(screen.getByRole("button", { name: "No" }).querySelector("img, svg")).toBeNull();
+  });
+
+  // Each screen gets back its own card from main, not an average of them.
+  it.each([
+    ["two-answer quiz question", legacyCard.quiz(false), ["min-h-20", "rounded-card", "border-[1.5px]", "px-[18px]"]],
+    ["longer quiz question", legacyCard.quiz(true), ["min-h-14", "rounded-[18px]", "px-[18px]"]],
+    ["spending question", legacyCard.spending, ["min-h-14", "rounded-[18px]", "px-5"]],
+    ["reminder timing", legacyCard.reminder, ["min-h-20", "rounded-card", "px-5"]],
+    ["autopay", legacyCard.autopay, ["h-14", "rounded-button", "border", "font-medium", "text-indigo-black"]],
+    ["picked spend limit", legacyCard.spendLimit(true), ["h-14", "border-2", "font-medium"]],
+    ["unpicked spend limit", legacyCard.spendLimit(false), ["h-14", "border", "font-medium"]],
+    ["picked snooze", legacyCard.snooze(true), ["border-2", "font-medium", "text-indigo-black", "px-5"]],
+    ["denial row", legacyCard.denial, ["rounded-[18px]", "px-5", "justify-between", "gap-4"]],
+    ["Ask Penny suggestion", legacyCard.penny, ["rounded-[18px]", "px-5", "text-left"]],
+  ])("keeps the %s as it was", (_name, className, expected) => {
+    render(
+      <SwitchedChoiceCard look="legacy" legacyClassName={className}>
+        Answer
+      </SwitchedChoiceCard>,
+    );
+    expect(classes(screen.getByRole("button", { name: "Answer" }))).toEqual(expect.arrayContaining(expected));
   });
 
   it("styles a link as the archived outlined row", () => {
