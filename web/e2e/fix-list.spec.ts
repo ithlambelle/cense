@@ -121,7 +121,7 @@ test("Profile: Cards and Add a card return to Profile, and Log out lands on Welc
   await checkA11y("profile");
 
   // Cards, opened from Profile, has a back arrow to Profile.
-  await page.getByRole("link", { name: "Cards", exact: true }).click();
+  await page.getByRole("list", { name: "Account" }).getByRole("link", { name: "Cards", exact: true }).click();
   await expect(page).toHaveURL(/\/cards\?from=account$/);
   await page.getByRole("link", { name: "Back to Your account" }).click();
   await expect(page).toHaveURL(/\/settings$/);

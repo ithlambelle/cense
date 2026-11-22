@@ -186,7 +186,8 @@ test("your account shows the student's card and email, every link opens its scre
     ["Security and privacy", /\/settings\/privacy$/],
   ] as const) {
     await page.goto("/settings");
-    await page.getByRole("link", { name, exact: typeof name === "string" }).click();
+    // In the page, not the bottom bar, which has a Cards tab too.
+    await page.getByRole("main").getByRole("link", { name, exact: typeof name === "string" }).click();
     await expect(page, String(name)).toHaveURL(path);
   }
 
