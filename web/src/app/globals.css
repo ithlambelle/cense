@@ -116,6 +116,11 @@
   --container-phone: 390px;
 }
 
+/* Keyboard focus never lands behind the fixed bottom bar (WCAG 2.4.11). */
+html:has([data-slot="bottom-nav-space"]) {
+  scroll-padding-bottom: 6.5rem;
+}
+
 /* One theme: light mode, from the latest hi-fi frames (2026-10-16).
    shadcn components read these names. */
 :root {

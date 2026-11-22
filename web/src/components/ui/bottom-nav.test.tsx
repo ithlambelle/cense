@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { act, cleanup, render, screen } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { UI_VERSION } from "@/lib/ui-version";
 
-import { BottomNav } from "./bottom-nav";
+import { BottomNav as SwitchedBottomNav } from "./bottom-nav";
 
 let pathname = "/home";
 vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
@@ -12,6 +12,12 @@ vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
 beforeEach(() => {
   pathname = "/home";
 });
+
+// Pinned to the main look, so flipping UI_VERSION for a rollback does not turn
+// these red; the archived bar passes look="legacy".
+function BottomNav(props: ComponentProps<typeof SwitchedBottomNav>) {
+  return <SwitchedBottomNav look="five-tab" {...props} />;
+}
 
 afterEach(() => {
   cleanup();
@@ -33,10 +39,6 @@ function addField(markup: string): HTMLElement {
 }
 
 describe("BottomNav", () => {
-  it("is the five-tab bar by default", () => {
-    expect(UI_VERSION.nav).toBe("five-tab");
-  });
-
 
   // Bottom nav · 5 tabs (770:1029): icons only, as drawn, each with a name a
   // screen reader says.

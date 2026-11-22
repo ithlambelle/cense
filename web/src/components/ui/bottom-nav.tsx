@@ -103,14 +103,16 @@ function FiveTabNav() {
         className={cn(NAV_HEIGHT, "fixed inset-x-0 bottom-0 flex justify-center overflow-hidden bg-navy")}
       >
         <div className="relative flex w-full max-w-phone">
-          {/* The frame's star layer (770:890), stretched across the bar as drawn. */}
+          {/* The frame's star layer (770:890) at its drawn size, 18px in on a 390 phone.
+              The file stretches to any box, so a fixed width keeps the stars round
+              on a narrower phone, where the bar clips their edges instead. */}
           <Image
             src="/nav/stars.svg"
             alt=""
             aria-hidden="true"
             width={353}
             height={90}
-            className="pointer-events-none absolute -top-3 left-[4.62%] h-[90px] w-[90.51%] max-w-none"
+            className="pointer-events-none absolute -top-3 left-[calc(50%-177px)] h-[90px] w-[353px] max-w-none"
           />
           <ul className="relative flex w-full items-center px-[13px]">
             {TABS.map((tab) => {

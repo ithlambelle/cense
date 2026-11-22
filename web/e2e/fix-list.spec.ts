@@ -4,6 +4,7 @@
 // card back to Profile, and the bottom bar fixed to the bottom.
 import { expect, test, type Page } from "@playwright/test";
 
+import { UI_VERSION } from "../src/lib/ui-version";
 import { axeChecker, blockExternalRequests, signUp, uniqueEmail } from "./helpers";
 import { startFakeEmailServer } from "./support/fake-email-server";
 
@@ -170,7 +171,9 @@ test("the bottom bar stays fixed to the bottom of the screen, even on a short pa
 test("the bottom bar spans the whole screen on every tab, with nothing around it that clips", async ({ page }) => {
   await signUp(page, uniqueEmail("fix-nav-width"), async () => {});
   await page.setViewportSize({ width: 402, height: 874 });
-  for (const path of ["/home", "/cards", "/learn", "/calendar", "/settings"]) {
+  // The archived bar (a rollback) was not on Your account.
+  const tabScreens = ["/home", "/cards", "/learn", "/calendar", ...(UI_VERSION.nav === "five-tab" ? ["/settings"] : [])];
+  for (const path of tabScreens) {
     await page.goto(path);
     const nav = page.getByRole("navigation", { name: "Main" });
     await expect(nav).toBeVisible();

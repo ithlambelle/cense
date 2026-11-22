@@ -1,4 +1,4 @@
-// Ask Penny as a signed-up student: the Learn tab, topic pages, tapped and
+// Ask Penny as a signed-up student: the Penny tab, topic pages, tapped and
 // typed questions, and every edge (advice, off topic, no checked answer, a
 // crisis, a slow or failed answer, offline, the daily limit, signed out).
 // Typed questions go to the stand-in Claude server in support/fake-claude.ts,
@@ -8,6 +8,7 @@ import type { Server } from "node:http";
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+import { UI_VERSION } from "../src/lib/ui-version";
 import { axeChecker, blockExternalRequests, signUp, uniqueEmail } from "./helpers";
 import { received, startFakeClaude } from "./support/fake-claude";
 
@@ -73,14 +74,17 @@ test("student opens Learn from the bottom bar and gets checked answers to tapped
   // only, each tab named for a screen reader.
   const nav = page.getByRole("navigation", { name: "Main" });
   const tabs = nav.getByRole("link");
-  await expect(tabs).toHaveCount(5);
-  for (const [index, name] of ["Home", "Cards", "Penny", "Calendar", "Profile"].entries()) {
+  // The archived bar (a rollback) has three tabs and calls this one Learn.
+  const tabNames = UI_VERSION.nav === "five-tab" ? ["Home", "Cards", "Penny", "Calendar", "Profile"] : ["Home", "Cards", "Learn"];
+  const learnTab = UI_VERSION.nav === "five-tab" ? "Penny" : "Learn";
+  await expect(tabs).toHaveCount(tabNames.length);
+  for (const [index, name] of tabNames.entries()) {
     await expect(tabs.nth(index)).toHaveAccessibleName(name);
   }
-  await nav.getByRole("link", { name: "Penny" }).click();
+  await nav.getByRole("link", { name: learnTab }).click();
   await expect(page).toHaveURL(/\/learn$/);
   await expect(page.getByRole("heading", { level: 1, name: "Learn" })).toBeVisible();
-  await expect(nav.getByRole("link", { name: "Penny" })).toHaveAttribute("aria-current", "page");
+  await expect(nav.getByRole("link", { name: learnTab })).toHaveAttribute("aria-current", "page");
   await expect(page.getByText("Hi! I’m Penny.")).toBeVisible();
   await expect(page.getByText("Ask me about credit, budgeting, saving and student loans.")).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: "Browse by topic" })).toBeVisible();
