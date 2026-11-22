@@ -76,6 +76,9 @@ describe("toStoredTransaction", () => {
       merchant_name: "Chipotle",
       description: null,
       payment_app: null,
+      counterparty_name: null,
+      location_city: null,
+      location_state: null,
     });
     // money in keeps Plaid's negative sign
     expect(toStoredTransaction(txn("t2", { amount: -480 }), OLDEST)?.amount_cents).toBe(-48_000);
@@ -147,7 +150,10 @@ describe("syncStudentTransactions", () => {
       "amount_cents",
       "category",
       "category_detailed",
+      "counterparty_name",
       "description",
+      "location_city",
+      "location_state",
       "merchant_name",
       "payment_app",
       "pending",
@@ -237,3 +243,20 @@ describe("toStoredTransaction, money moved through apps", () => {
   });
 });
 
+
+describe("counterparty and coarse location projection", () => {
+  it("keeps a clipped person or merchant name and only city and region", () => {
+    const row = toStoredTransaction(txn("party", {
+      counterparties: [{ type: "payment_app", name: "Zelle" }, { type: "individual", name: "  " + "😀".repeat(110) }],
+      location: { city: "  " + "c".repeat(120), region: "r".repeat(60) },
+    }), OLDEST);
+    expect(Array.from(row!.counterparty_name!)).toHaveLength(100);
+    expect(row?.location_city).toHaveLength(100);
+    expect(row?.location_state).toHaveLength(50);
+    expect(row).not.toHaveProperty("location");
+    expect(toStoredTransaction(txn("empty", {
+      counterparties: [{ type: "financial_institution", name: "Bank" }],
+      location: { city: " ", region: null },
+    }), OLDEST)).toMatchObject({ counterparty_name: null, location_city: null, location_state: null });
+  });
+});

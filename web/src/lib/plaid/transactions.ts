@@ -50,6 +50,9 @@ export type StoredTransaction = {
   // carried the money, if any.
   description: string | null;
   payment_app: PaymentApp | null;
+  counterparty_name: string | null;
+  location_city: string | null;
+  location_state: string | null;
 };
 
 export const PAYMENT_APPS = ["venmo", "zelle", "cash_app", "paypal", "apple_cash"] as const;
@@ -101,6 +104,12 @@ export function toStoredTransaction(transaction: PlaidTransaction, oldestKept: s
     merchant_name: merchant,
     description,
     payment_app: app,
+    counterparty_name: (transaction.counterparties ?? [])
+      .filter((party) => party.type !== "payment_app" && party.type !== "financial_institution")
+      .map((party) => clip(party.name, 100))
+      .find((name) => name !== null) ?? null,
+    location_city: clip(transaction.location?.city, 100),
+    location_state: clip(transaction.location?.region, 50),
   };
 }
 
