@@ -2,6 +2,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { UI_VERSION } from "@/lib/ui-version";
 import { listCards } from "@/lib/cards/catalog";
 import { RESULT_HEADLINES } from "@/lib/copy/results";
 import type { Application } from "@/lib/api/application";
@@ -174,7 +175,8 @@ describe("HomeView", () => {
     expect(avatar?.getAttribute("src")).toContain("astro-pig");
     expect(avatar?.getAttribute("alt")).toBe("M");
     const bar = within(screen.getByRole("navigation", { name: "Main" }));
-    expect(bar.getByRole("link", { name: "Profile" }).getAttribute("href")).toBe("/settings");
+    // The archived bar (a rollback) has no Profile tab.
+    if (UI_VERSION.nav === "five-tab") expect(bar.getByRole("link", { name: "Profile" }).getAttribute("href")).toBe("/settings");
     expect(bar.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
   });
 
