@@ -42,8 +42,10 @@ if sql(text="select to_regclass('plaid.account_cleanup') is null and to_regproce
 sql("-f", str(down))  # idempotent when already rolled back
 sql("-f", str(up))
 # Later migrations that change the queue, reapplied so the journey tests that
-# run after this check see the current schema.
-for later in ["20261117110000_security_quotas.sql"]:
+# run after this check see the current schema. 20261119090000 comes after
+# security_quotas because it redefines purge_old_quota_rows(), which
+# security_quotas would otherwise put back to its older version.
+for later in ["20261117110000_security_quotas.sql", "20261119090000_purge_auth_attempts.sql"]:
     sql("-f", str(root / "supabase/migrations" / later))
 sql("-f", str(root / "supabase/checks/plaid_account_cleanup.sql"))
 print("Rollback refusal, token preservation, empty rollback, and reapply passed")

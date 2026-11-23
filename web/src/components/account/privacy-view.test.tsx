@@ -77,8 +77,8 @@ describe("Delete my account", () => {
     render(<PrivacyView analyticsOn={true} studentId={STUDENT} isInternal={false} />);
     fireEvent.click(screen.getByRole("button", { name: "Delete my account" }));
     const sheet = await screen.findByRole("dialog", { name: "Delete your account?" });
-    // PostHog queues the analytics deletion (the policy's 30 days); "cards you
-    // track", so no one fears their real card is closed.
+    // PostHog deletes the analytics later, in a batch; "cards you track", so
+    // no one fears their real card is closed.
     expect([...sheet.querySelectorAll("li")].map((li) => li.textContent)).toEqual([
       "Cards you track, quiz answers, plans and reminders are deleted now.",
       "Your analytics follow within 30 days.",

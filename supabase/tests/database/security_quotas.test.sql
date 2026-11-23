@@ -21,9 +21,12 @@ insert into public.profiles (student_id, time_zone) values
   ('f4000000-0000-4000-8000-000000000001', 'America/New_York')
   on conflict (student_id) do update set time_zone = excluded.time_zone;
 -- Start from empty counts (rolled back with the rest), so questions and
--- emails from other local runs cannot fill the shared limits.
+-- emails from other local runs cannot fill the shared limits. Sign-in
+-- attempt records go too: the daily purge also deletes those older than a
+-- day (20261119090000_purge_auth_attempts.sql), and its count below is exact.
 delete from public.penny_asks;
 delete from public.confirmation_email_sends;
+delete from public.auth_throttle_events;
 
 -- Who may claim --------------------------------------------------------------
 

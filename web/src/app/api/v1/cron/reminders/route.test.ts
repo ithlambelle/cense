@@ -287,9 +287,11 @@ describe("GET /cron/reminders", () => {
     expect(vi.mocked(console.error)).not.toHaveBeenCalled();
   });
 
-  // Security audit of a8fe7d4: quota rows of deleted students must go within
-  // two days even when nobody claims, so the cron purges them every run.
-  it("purges Penny and email limit counts older than two days on every run", async () => {
+  // Security audit of a8fe7d4: quota rows of deleted students must go even
+  // when nobody claims, so the cron purges them every run. The same call
+  // deletes sign-in attempt records older than a day
+  // (20261119090000_purge_auth_attempts.sql).
+  it("purges limit counts older than two days and sign-in records older than a day on every run", async () => {
     const calls = database({ purge_old_quota_rows: [{ data: 4, error: null }] });
     resend();
     expect((await cron()).status).toBe(200);

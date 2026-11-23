@@ -12,7 +12,8 @@ import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/cli
 import { ROUTES, signInPath } from "@/lib/routes";
 
 // What a deletion removes, in three lines (the in-app notice cap). Analytics
-// "follow": PostHog queues their deletion, inside the policy's 30 days.
+// "follow": PostHog deletes the events later, in a batch, not at once
+// (lib/account-deletion.ts).
 // "Cards you track", so no one fears their real card is closed.
 const WHAT_GOES = [
   "Cards you track, quiz answers, plans and reminders are deleted now.",
