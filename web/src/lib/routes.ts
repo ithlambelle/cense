@@ -55,6 +55,8 @@ export const ROUTES = {
   // Penny's starters, the topics and Ask Penny (Flow 5).
   learn: "/learn",
   penny: "/learn/penny",
+  // Every date that matters this month: card dates, bills and pay (Figma C1).
+  calendar: "/calendar",
 } as const;
 
 // Your money's tabs: Today (how safe to spend adds up) or This month (the budget).
@@ -378,6 +380,7 @@ const NEXT_ALLOW_LIST: readonly string[] = [
   ROUTES.learn,
   ROUTES.penny,
   ROUTES.updates,
+  ROUTES.calendar,
   // An old reminder email's button (before Updates), still counted on Home.
   ...REMINDER_KINDS.map((kind) => `${ROUTES.home}?${REMINDER_PARAM}=${kind}`),
   // A reminder email's button, opened while signed out: Home still counts the visit.

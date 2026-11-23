@@ -72,23 +72,19 @@ function tieBreak(event: ComingUpEvent): string {
   return "";
 }
 
-export function comingUp({
-  today,
-  cards,
-  bills,
-  paychecks = [],
-  days = COMING_UP_DAYS,
-}: {
-  today: string;
+export type DatedInput = {
   // The student's approved cards.
   cards: ComingUpCard[];
   // Who covers each bill, as saved (empty with no bank linked).
   bills: BillAnswer[];
   paychecks?: Paycheck[];
-  // How many days to look ahead, today included: safe to spend's `days`.
-  days?: number;
-}): ComingUpEvent[] {
-  const last = addDays(today, days - 1);
+};
+
+// Every dated event from `from` to `last` (both included, YYYY-MM-DD), in
+// order, with no cap: Coming up takes the first four from today, and the
+// Calendar (C1) takes the whole month, so the two always agree on a date.
+export function datedEvents({ from, last, cards, bills, paychecks = [] }: DatedInput & { from: string; last: string }): ComingUpEvent[] {
+  const today = from;
   const events: ComingUpEvent[] = [];
 
   for (const card of cards) {
@@ -119,12 +115,21 @@ export function comingUp({
     }
   }
 
-  return events
-    .sort(
-      (a, b) =>
-        a.date.localeCompare(b.date) || KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || tieBreak(a).localeCompare(tieBreak(b), "en"),
-    )
-    .slice(0, COMING_UP_MAX_ROWS);
+  return events.sort(
+    (a, b) => a.date.localeCompare(b.date) || KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || tieBreak(a).localeCompare(tieBreak(b), "en"),
+  );
+}
+
+export function comingUp({
+  today,
+  days = COMING_UP_DAYS,
+  ...input
+}: DatedInput & {
+  today: string;
+  // How many days to look ahead, today included: safe to spend's `days`.
+  days?: number;
+}): ComingUpEvent[] {
+  return datedEvents({ ...input, from: today, last: addDays(today, days - 1) }).slice(0, COMING_UP_MAX_ROWS);
 }
 
 export type ComingUpRow = {
@@ -166,7 +171,8 @@ export function comingUpRow(event: ComingUpEvent, { nameCards }: { nameCards: bo
         title: `${day}  Statement closes`,
         subtitle: event.payDownToCents === null ? event.card.name : `${event.card.name} · pay down to ${moneyAmount(event.payDownToCents)}`,
         href: paymentRemindersPath(event.card.applicationId),
-        sensitive: event.payDownToCents !== null,
+        // A card's name and status are the student's (analytics.ts).
+        sensitive: true,
       };
     case "payment_due": {
       const autopay = AUTOPAY_LINE[event.card.autopayStatus];
@@ -177,7 +183,7 @@ export function comingUpRow(event: ComingUpEvent, { nameCards }: { nameCards: bo
         // Autopay not on: the issuer's autopay steps, as "Set it up" says. On:
         // the card's dates.
         href: event.card.autopayStatus === "on" ? paymentRemindersPath(event.card.applicationId) : autopayStepsPath(event.card.applicationId),
-        sensitive: false,
+        sensitive: true,
       };
     }
     case "bill":

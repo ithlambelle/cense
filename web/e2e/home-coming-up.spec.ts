@@ -174,9 +174,9 @@ test("Coming up lists an approved card's dates and the bills the student pays, a
   expect(await rowTexts(page)).toEqual(expected);
   await expect(comingUp(page)).not.toContainText("Groceries");
   await checkA11y("home: coming up and safe to spend");
-  // Rows with the student's money are masked in session replay; a date alone is not.
+  // Every row names a card, a bill or an amount, so all are masked in session replay.
   const masked = (i: number) => rows(page).nth(i).evaluate((el) => el.closest(".ph-sensitive") !== null);
-  expect([await masked(0), await masked(1), await masked(2), await masked(3)]).toEqual([true, true, true, false]);
+  expect([await masked(0), await masked(1), await masked(2), await masked(3)]).toEqual([true, true, true, true]);
 
   // A reload shows the same.
   await page.reload();

@@ -56,6 +56,7 @@ const SCREEN_NAMES: Record<string, string> = {
   [ROUTES.reminderSettings]: "Reminder settings",
   [ROUTES.privacy]: "Security and privacy",
   [ROUTES.cards]: "Cards",
+  [ROUTES.calendar]: "Calendar",
   [ROUTES.results]: "Your match",
   [ROUTES.quiz]: "the quiz",
   [ROUTES.learn]: "Learn",
