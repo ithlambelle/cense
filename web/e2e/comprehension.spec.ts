@@ -209,19 +209,25 @@ test("a result with no card that fits gives a next step", async ({ page }) => {
 });
 
 test("a secured card's page says what the deposit is, and calls it refundable only where the issuer does", async ({ page }) => {
+  // The deposit is under Fees and rates, one tap away (K2, Figma 821:8793).
+  const fees = () => page.getByRole("button", { name: /^Fees and rates/ }).click();
   // The issuer says the deposit is refundable.
   await page.goto("/cards/capital-one-platinum-secured");
+  await fees();
   await expect(page.getByText("A refundable deposit backs the card.", { exact: false })).toBeVisible();
   await expect(page.getByText(/close the account and pay the balance in full/)).toBeVisible();
   await axeChecker(page)("card page: secured");
   // Bank of America only says it may return the deposit after a review.
   await page.goto("/cards/bofa-bankamericard-secured");
+  await fees();
   await expect(page.getByText("A deposit backs the card.", { exact: false })).toBeVisible();
   await expect(page.getByText(/refundable/i)).toHaveCount(0);
   // In each issuer's own conditions.
   await page.goto("/cards/us-bank-altitude-go-secured");
+  await fees();
   await expect(page.getByText("U.S. Bank returns it if it moves you to the regular card.", { exact: false })).toBeVisible();
   await page.goto("/cards/citi-secured");
+  await fees();
   await expect(page.getByText(/in good standing/)).toBeVisible();
   // No deposit (Chime) and unsecured cards say nothing about one.
   for (const id of ["chime-card", "discover-it-student-cash-back"]) {

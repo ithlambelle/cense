@@ -15,9 +15,10 @@ import { ErrorMessage } from "@/components/ui/error-message";
 import { NoteLine } from "@/components/ui/note";
 import { Sheet } from "@/components/ui/sheet";
 import type { ApiData } from "@/lib/api-client/client";
-import { applyLabel, HAND_OFF_LINE, PREAPPROVAL_LABEL, PREAPPROVAL_LINE } from "@/lib/copy/issuer";
+import { applyAtLabel, PREAPPROVAL_LABEL, PREAPPROVAL_LINE } from "@/lib/copy/issuer";
 import { cardDisplayName } from "@/lib/copy/results";
 import { cardPath, signInPath } from "@/lib/routes";
+import { cn } from "@/lib/utils";
 
 // Only the fields this client component reads, so the rest of the catalog
 // entry (such as its evidence links) is never sent to the browser.
@@ -28,8 +29,6 @@ type IssuerCard = Pick<
 
 type IssuerActionsProps = {
   card: IssuerCard;
-  // The card's notes from the fit tier rules (cardNotes), worked out on the server.
-  notes: string[];
   // False when the page knows the visitor is signed out. Then a tap goes
   // straight to sign-in, returning to this card.
   signedIn: boolean;
@@ -37,12 +36,25 @@ type IssuerActionsProps = {
   tracked?: boolean;
 };
 
+// The two buttons as K2 draws them (Figma 821:8813, 821:8814): the Design
+// System's Primary and Secondary (371:2817, 371:2821), 56 tall, 12 apart. A
+// long label ("Check if you’re preapproved" on a 320 phone, "Apply at
+// American Express") wraps onto a second line instead of running out.
+const WRAPS = "h-auto min-h-14 py-2 whitespace-normal";
+const PRIMARY = cn(WRAPS, "text-left");
+// Secondary: white, 1.5px Amethyst border, Amethyst label at 17, centered;
+// pressed is the 15% Amethyst tint (371:2843).
+const SECONDARY = cn(WRAPS, "pr-4.5 pl-5 text-center text-button text-violet active:bg-violet/15");
+
 // Check preapproval and Apply, each through a sheet that says what happens
 // next before the student leaves Cense (lo-fi 219:909, screens 02 and 04).
 // The click is saved first; the API answers with the address to open. Cense
 // never submits an application. The hand-off itself (issuer-hand-off.tsx) is
-// shared with the top match on Your match.
-export function IssuerActions({ card, notes, signedIn, tracked = false }: IssuerActionsProps) {
+// shared with the top match on Your match. On the card page the buttons stand
+// alone, as K2 draws them: the sheets say the check won’t affect a credit
+// score and that Cense doesn’t submit the application, and the rules’ card
+// notes are under What the issuer looks for.
+export function IssuerActions({ card, signedIn, tracked = false }: IssuerActionsProps) {
   const router = useRouter();
   const handOff = useIssuerHandOff(card, cardPath(card.id), "card_page");
   const { stage, setStage, error, setError, openIssuer } = handOff;
@@ -72,26 +84,25 @@ export function IssuerActions({ card, notes, signedIn, tracked = false }: Issuer
   return (
     <div className="flex flex-col gap-3">
       {card.preapprovalUrl !== null ? (
-        <>
-          <Button aria-label={`${PREAPPROVAL_LABEL}: ${cardDisplayName(card)}`} onClick={() => start("preapproval")}>
-            {PREAPPROVAL_LABEL}
-          </Button>
-          <NoteLine className="text-center">{PREAPPROVAL_LINE}</NoteLine>
-        </>
+        <Button
+          aria-label={`${PREAPPROVAL_LABEL}: ${cardDisplayName(card)}`}
+          className={PRIMARY}
+          onClick={() => start("preapproval")}
+        >
+          {PREAPPROVAL_LABEL}
+        </Button>
       ) : null}
-      {notes.map((note) => (
-        <NoteLine key={note}>{note}</NoteLine>
-      ))}
+      {/* Apply is the primary when the issuer has no preapproval check. */}
       <Button
-        aria-label={`${applyLabel(card.brand)}: ${cardDisplayName(card)}`}
-        variant={card.preapprovalUrl !== null ? "secondary" : "default"}
+        aria-label={`${applyAtLabel(card.brand)}: ${cardDisplayName(card)}`}
+        variant={card.preapprovalUrl !== null ? "outline" : "default"}
+        className={card.preapprovalUrl !== null ? SECONDARY : PRIMARY}
         onClick={() => start("apply")}
       >
-        {applyLabel(card.brand)}
+        {applyAtLabel(card.brand)}
       </Button>
       <BlockedTabLink handOff={handOff} />
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
-      <NoteLine>{HAND_OFF_LINE}</NoteLine>
 
       <Sheet
         open={sheetKind === "preapproval"}
@@ -126,7 +137,7 @@ export function IssuerActions({ card, notes, signedIn, tracked = false }: Issuer
         <div className="rounded-card bg-off-white p-4">
           <p className="font-heading text-h6 font-medium text-navy">You stay in control</p>
           <p className="mt-1 text-body-s text-indigo-black">
-            Cense doesn’t fill in or submit your application. Review the issuer’s terms before you submit.
+            Cense doesn’t fill in or submit your application, or see your credit report. Review the issuer’s terms before you submit.
           </p>
         </div>
         {card.referralDisclosure !== null ? <NoteLine>{card.referralDisclosure}</NoteLine> : null}

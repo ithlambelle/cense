@@ -23,6 +23,34 @@ afterEach(() => {
 });
 
 describe("AutopayConfirm", () => {
+  it("opened from the card's page: Back keeps that origin, Not yet returns to the page and a yes opens Autopay is on from it", async () => {
+    const CARD = "discover-it-student-cash-back";
+    const props = { applicationId: ID, issuerName: "Discover", from: "card", cardId: CARD, cardFrom: "home" } as const;
+    server({ status: 200, body: {} });
+    const { unmount } = render(<AutopayConfirm {...props} />);
+    expect(screen.getByRole("link", { name: "Back to Autopay steps" }).getAttribute("href")).toBe(
+      `/applications/${ID}/setup/autopay?from=card&card_from=home`,
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "Not yet" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith(`/cards/${CARD}?from=home`));
+    unmount();
+    router.push.mockClear();
+    render(<AutopayConfirm {...props} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Yes, the full statement balance" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith(`/applications/${ID}/setup/autopay/on?from=card&card_from=home`));
+  });
+
+  it("opened from the setup list: Not yet goes back to it", async () => {
+    server({ status: 200, body: {} });
+    render(<AutopayConfirm applicationId={ID} issuerName="Discover" />);
+    expect(screen.getByRole("link", { name: "Back to Autopay steps" }).getAttribute("href")).toBe(`/applications/${ID}/setup/autopay`);
+    fireEvent.click(screen.getByRole("radio", { name: "Not yet" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith(`/applications/${ID}/setup`));
+  });
+
   it("returns to this question after signing in when the session ended", async () => {
     server({ status: 401, body: { error: { code: "unauthorized", message: "Sign in to continue." } } });
     render(<AutopayConfirm applicationId={ID} issuerName="Discover" />);

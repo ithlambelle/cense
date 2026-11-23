@@ -75,17 +75,20 @@ test("after approving a card, Back does not reopen the status form", async ({ pa
 
 test("a tracked card's page shows its status, not the preapproval check or apply hand-off", async ({ page }) => {
   await signUp(page, uniqueEmail("tracked-card-page"), async () => {});
+  const LABELS = { approved: "Approved", applied: "APPLIED", rejected: "Not approved" } as const;
   for (const status of ["approved", "applied", "rejected"] as const) {
     const card = status === "approved" ? DISCOVER : status === "applied" ? CHIME : { id: "capital-one-platinum", name: "Capital One Platinum" };
     await track(page, card, status, status === "approved" ? 50000 : null);
     await page.goto(`/cards/${card.id}`);
-    await expect(page.getByRole("heading", { name: "Your status" })).toBeVisible();
+    // K1's card row (Figma 821:8760): the card and its decision.
+    await expect(page.getByRole("region", { name: "Your status" }), status).toHaveText(LABELS[status]);
+    await expect(page.getByRole("link", { name: "Update status" }), status).toBeVisible();
     await expect(page.getByRole("button", { name: /Check if you’re preapproved/ }), status).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /^Apply on/ }), status).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Apply at/ }), status).toHaveCount(0);
   }
   // A card they do not track still offers both.
   await page.goto("/cards/capital-one-savor-students");
-  await expect(page.getByRole("button", { name: /^Apply on/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Apply at/ })).toBeVisible();
 });
 
 test("a second approved card on Home opens its card page, where its status lives", async ({ page }) => {
@@ -98,5 +101,5 @@ test("a second approved card on Home opens its card page, where its status lives
   await expect(other).toHaveAttribute("href", new RegExp(`^/cards/(${DISCOVER.id}|${CHIME.id})\\?from=home$`));
   await other.click();
   await expect(page).toHaveURL(new RegExp(`/cards/(${DISCOVER.id}|${CHIME.id})\\?from=home$`));
-  await expect(page.getByRole("heading", { name: "Your status" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Your status" })).toHaveText("Approved");
 });

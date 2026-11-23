@@ -91,56 +91,107 @@ export function cardSetupPath(applicationId: string): string {
   return `${applicationPath(applicationId)}/setup`;
 }
 
-export function autopayStepsPath(applicationId: string): string {
-  return `${cardSetupPath(applicationId)}/autopay`;
+// Where an autopay or spend limit screen was opened from, so Back and Save
+// return there: the setup list ("setup", the default), Home's star ("home",
+// spend limit only) or the card's own page ("card"). Opened from the card's
+// page, `cardFrom` is where that page was itself opened from, so its Back
+// still goes there afterwards, as paymentRemindersPath does.
+export type SetupOrigin = "setup" | "home" | "card";
+export type AutopayOrigin = Exclude<SetupOrigin, "home">;
+
+function withSetupOrigin(path: string, from?: SetupOrigin, cardFrom?: CardOrigin): string {
+  if (!from || from === "setup") return path;
+  const params = new URLSearchParams({ from });
+  if (from === "card" && cardFrom) params.set("card_from", cardFrom);
+  return `${path}?${params}`;
 }
 
-export function autopayConfirmPath(applicationId: string): string {
-  return `${autopayStepsPath(applicationId)}/confirm`;
+export function autopayStepsPath(applicationId: string, from?: AutopayOrigin, cardFrom?: CardOrigin): string {
+  return withSetupOrigin(`${cardSetupPath(applicationId)}/autopay`, from, cardFrom);
 }
 
-export function autopayOnPath(applicationId: string): string {
-  return `${autopayStepsPath(applicationId)}/on`;
+export function autopayConfirmPath(applicationId: string, from?: AutopayOrigin, cardFrom?: CardOrigin): string {
+  return withSetupOrigin(`${cardSetupPath(applicationId)}/autopay/confirm`, from, cardFrom);
+}
+
+export function autopayOnPath(applicationId: string, from?: AutopayOrigin, cardFrom?: CardOrigin): string {
+  return withSetupOrigin(`${cardSetupPath(applicationId)}/autopay/on`, from, cardFrom);
+}
+
+// An autopay screen's origin read back from an address: the card's page only
+// when it says so.
+export function autopayOrigin(value: string | string[] | undefined): AutopayOrigin {
+  return value === "card" ? "card" : "setup";
+}
+
+// Back to the card's page, as it was opened. A card not in the catalog has no
+// page, so it falls back to the setup list.
+function setupCardLink(applicationId: string, cardId: string | null, cardFrom: CardOrigin | undefined): { href: string; label: string } {
+  return cardId ? { href: cardPath(cardId, cardFrom), label: "Card details" } : { href: cardSetupPath(applicationId), label: "Card setup" };
+}
+
+// Back from the issuer's autopay steps (I2) and "Autopay is on" (I5), and
+// where "Not yet" on I3 goes.
+export function autopayBackLink(
+  applicationId: string,
+  from: AutopayOrigin,
+  cardId: string | null = null,
+  cardFrom?: CardOrigin,
+): { href: string; label: string } {
+  return from === "card" ? setupCardLink(applicationId, cardId, cardFrom) : { href: cardSetupPath(applicationId), label: "Card setup" };
 }
 
 // The spend limit screens (US-04, Figma Flow A 477:1005): "What is your credit
 // limit?" (S1), "A limit to try this month" (S2) and "Pick your limit" (S3).
-// `from` is where the student started: Home's star ("home") or the setup
-// list ("setup", the default). Back from S1 and S2, and every save, return there.
-export type SpendLimitOrigin = "home" | "setup";
+// `from` is where the student started: Home's star ("home"), the card's page
+// ("card", with `cardFrom`) or the setup list ("setup", the default). Back
+// from S1 and S2, and every save, return there.
+export type SpendLimitOrigin = SetupOrigin;
 
-function spendLimitStep(applicationId: string, step: string, from?: SpendLimitOrigin): string {
-  const path = `${cardSetupPath(applicationId)}/spend-limit${step}`;
-  return from === "home" ? `${path}?from=home` : path;
+function spendLimitStep(applicationId: string, step: string, from?: SpendLimitOrigin, cardFrom?: CardOrigin): string {
+  return withSetupOrigin(`${cardSetupPath(applicationId)}/spend-limit${step}`, from, cardFrom);
 }
 
-export function spendLimitCreditPath(applicationId: string, from?: SpendLimitOrigin): string {
-  return spendLimitStep(applicationId, "", from);
+export function spendLimitCreditPath(applicationId: string, from?: SpendLimitOrigin, cardFrom?: CardOrigin): string {
+  return spendLimitStep(applicationId, "", from, cardFrom);
 }
 
-export function spendLimitSuggestionPath(applicationId: string, from?: SpendLimitOrigin): string {
-  return spendLimitStep(applicationId, "/suggestion", from);
+export function spendLimitSuggestionPath(applicationId: string, from?: SpendLimitOrigin, cardFrom?: CardOrigin): string {
+  return spendLimitStep(applicationId, "/suggestion", from, cardFrom);
 }
 
-export function spendLimitPickPath(applicationId: string, from?: SpendLimitOrigin): string {
-  return spendLimitStep(applicationId, "/pick", from);
+export function spendLimitPickPath(applicationId: string, from?: SpendLimitOrigin, cardFrom?: CardOrigin): string {
+  return spendLimitStep(applicationId, "/pick", from, cardFrom);
 }
 
 // Where "Set a spend limit" opens: S2 when the card has a credit limit, or S1
 // to ask for it first (the frames' branch, 477:1087).
-export function spendLimitPath(applicationId: string, creditLimitCents: number | null, from?: SpendLimitOrigin): string {
+export function spendLimitPath(
+  applicationId: string,
+  creditLimitCents: number | null,
+  from?: SpendLimitOrigin,
+  cardFrom?: CardOrigin,
+): string {
   return creditLimitCents !== null && creditLimitCents > 0
-    ? spendLimitSuggestionPath(applicationId, from)
-    : spendLimitCreditPath(applicationId, from);
+    ? spendLimitSuggestionPath(applicationId, from, cardFrom)
+    : spendLimitCreditPath(applicationId, from, cardFrom);
 }
 
-// A spend limit screen's origin read back from an address: Home only when it says so.
+// A spend limit screen's origin read back from an address: Home or the card's
+// page only when it says so.
 export function spendLimitOrigin(value: string | string[] | undefined): SpendLimitOrigin {
-  return value === "home" ? "home" : "setup";
+  return value === "home" || value === "card" ? value : "setup";
 }
 
-export function spendLimitBackLink(applicationId: string, from: SpendLimitOrigin): { href: string; label: string } {
-  return from === "home" ? { href: ROUTES.home, label: "Home" } : { href: cardSetupPath(applicationId), label: "Card setup" };
+export function spendLimitBackLink(
+  applicationId: string,
+  from: SpendLimitOrigin,
+  cardId: string | null = null,
+  cardFrom?: CardOrigin,
+): { href: string; label: string } {
+  if (from === "home") return { href: ROUTES.home, label: "Home" };
+  if (from === "card") return setupCardLink(applicationId, cardId, cardFrom);
+  return { href: cardSetupPath(applicationId), label: "Card setup" };
 }
 
 // "I haven’t heard yet" for one tracked card. `from` is Mark result's, so its

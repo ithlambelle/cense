@@ -5,7 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { SpendLimitPick } from "@/components/setup/spend-limit-pick";
 import { applicationIdSchema } from "@/lib/api/schemas";
 import { suggestedSpendLimitCents, tighterSpendLimitCents } from "@/lib/plan/spend-limit";
-import { spendLimitCreditPath, spendLimitOrigin, spendLimitPickPath } from "@/lib/routes";
+import { cardOrigin, spendLimitCreditPath, spendLimitOrigin, spendLimitPickPath } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
 import { loadCardSetup } from "@/lib/setup/card-setup";
 
@@ -16,13 +16,15 @@ export const metadata: Metadata = { title: "Pick your limit | CENSE" };
 export default async function SpendLimitPickPage({ params, searchParams }: PageProps<"/applications/[id]/setup/spend-limit/pick">) {
   const { id } = await params;
   if (!applicationIdSchema.safeParse(id).success) notFound();
-  const from = spendLimitOrigin((await searchParams).from);
+  const query = await searchParams;
+  const from = spendLimitOrigin(query.from);
+  const cardFrom = cardOrigin(query.card_from);
   const student = await requireStudent(spendLimitPickPath(id));
   const setup = await loadCardSetup(student, id);
   if (!setup) notFound();
   const { creditLimitCents, spendLimitCents } = setup.application;
   const suggested = suggestedSpendLimitCents(creditLimitCents);
-  if (creditLimitCents === null || suggested === null) redirect(spendLimitCreditPath(id, from));
+  if (creditLimitCents === null || suggested === null) redirect(spendLimitCreditPath(id, from, cardFrom));
   return (
     <SpendLimitPick
       applicationId={id}
@@ -31,6 +33,8 @@ export default async function SpendLimitPickPage({ params, searchParams }: PageP
       tighterCents={tighterSpendLimitCents(creditLimitCents)}
       savedCents={spendLimitCents}
       from={from}
+      cardId={setup.application.cardId}
+      cardFrom={cardFrom}
     />
   );
 }

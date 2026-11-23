@@ -15,7 +15,14 @@ import { SENSITIVE } from "@/lib/analytics";
 import { saveSpendLimit } from "@/lib/api-client/applications";
 import { moneyAmount } from "@/lib/money";
 import { SPEND_LIMIT_PERCENT } from "@/lib/plan/spend-limit";
-import { signInPath, spendLimitBackLink, spendLimitPickPath, spendLimitSuggestionPath, type SpendLimitOrigin } from "@/lib/routes";
+import {
+  signInPath,
+  spendLimitBackLink,
+  spendLimitPickPath,
+  spendLimitSuggestionPath,
+  type CardOrigin,
+  type SpendLimitOrigin,
+} from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 import { InfoCallout, SetupHeading, SetupScreen, Spacer } from "./setup-parts";
@@ -25,14 +32,20 @@ export function SpendLimitSuggestion({
   creditLimitCents,
   suggestedCents,
   from,
+  cardId = null,
+  cardFrom,
 }: {
   applicationId: string;
   creditLimitCents: number;
   suggestedCents: number;
   from: SpendLimitOrigin;
+  // Opened from the card's page ("card"): its catalog id and its own origin,
+  // so Back and "Use" return to that page as it was opened.
+  cardId?: string | null;
+  cardFrom?: CardOrigin;
 }) {
   const router = useRouter();
-  const back = spendLimitBackLink(applicationId, from);
+  const back = spendLimitBackLink(applicationId, from, cardId, cardFrom);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const suggested = moneyAmount(suggestedCents);
@@ -81,7 +94,7 @@ export function SpendLimitSuggestion({
       <Button pending={saving} onClick={use} className={SENSITIVE}>
         Use {suggested}
       </Button>
-      <Link href={spendLimitPickPath(applicationId, from)} className={cn(buttonVariants({ variant: "outline" }), "text-button text-violet")}>
+      <Link href={spendLimitPickPath(applicationId, from, cardFrom)} className={cn(buttonVariants({ variant: "outline" }), "text-button text-violet")}>
         Pick my own
       </Link>
       <InfoCallout title="Educational, not financial advice">A starting point. Change it any time.</InfoCallout>
