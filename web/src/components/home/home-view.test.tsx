@@ -1,13 +1,17 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { listCards } from "@/lib/cards/catalog";
 import { RESULT_HEADLINES } from "@/lib/copy/results";
 import type { Application } from "@/lib/api/application";
+import type { SafeToSpend } from "@/lib/api/safe-to-spend";
+import { comingUpRows } from "@/lib/home/coming-up";
 import { homeState } from "@/lib/home/state";
 import { QUIZ_STEP_COUNT } from "@/lib/quiz/spending";
 import { computeResult } from "@/lib/results/compute";
+
+import { updatedLabel } from "@/components/safe-to-spend/updated-time";
 
 import { HomeView } from "./home-view";
 
@@ -169,4 +173,81 @@ describe("HomeView", () => {
     expect(avatar?.getAttribute("alt")).toBe("M");
     expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
   });
+
+  // D1 (709:1470): the designers' hero, with when the bank was last read.
+  it("shows safe to spend as D1 draws it: the number, the next 30 days, when the bank was read, and one link to Your money", async () => {
+    const readAt = new Date();
+    readAt.setHours(15, 10, 0, 0);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(readAt.getTime() + 20 * 60_000));
+    try {
+      render(<HomeView state={homeState([], NONE, 0)} initial="M" safeToSpend={linked({ refreshedAt: readAt.toISOString() })} />);
+      const hero = screen.getByRole("region", { name: "Safe to spend" });
+      expect(hero.textContent).toContain("Safe to spend today:");
+      expect(hero.textContent).toContain("$35 a day");
+      expect(hero.textContent).toContain("For the next 30 days");
+      expect(hero.textContent).toMatch(/Updated 3:10\sPM/);
+      expect(within(hero).getAllByRole("link").map((a) => [a.getAttribute("aria-label"), a.getAttribute("href")])).toEqual([["Your money", "/safe-to-spend"]]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("says the day, not just a time, when the bank was last read on an earlier day", () => {
+    const now = new Date(2026, 10, 19, 9, 0);
+    expect(updatedLabel(new Date(2026, 10, 19, 8, 5).toISOString(), now)).toMatch(/^Updated 8:05\sAM$/);
+    expect(updatedLabel(new Date(2026, 10, 17, 15, 10).toISOString(), now)).toBe("Updated Nov 17");
+  });
+
+  it("shows what to do, not the number, when the bank link is broken", () => {
+    render(<HomeView state={homeState([], NONE, 0)} initial="M" safeToSpend={linked({ status: "reconnect_needed" })} />);
+    const hero = screen.getByRole("region", { name: "Safe to spend" });
+    expect(hero.textContent).toContain("Your bank needs you to sign in again.");
+    expect(hero.textContent).not.toContain("$35");
+    expect(within(hero).getByRole("link", { name: "Reconnect your bank" }).getAttribute("href")).toBe("/settings/accounts");
+    expect(within(hero).queryByRole("link", { name: "Your money" })).toBeNull();
+  });
+
+  it("lists Coming up under the card module, each row a link, and leaves it out when nothing is ahead", () => {
+    const rows = comingUpRows({
+      today: "2026-11-09",
+      cards: [{ applicationId: ID, name: "Discover", creditLimitCents: 50000, statementClosingDay: 13, paymentDueDay: 6, autopayStatus: "off" }],
+      bills: [{ bill: "rent", coveredBy: "me", monthlyCents: 65000, dueDay: 15 }],
+    });
+    const { container, unmount } = render(
+      <HomeView state={homeState([app("approved", { creditLimitCents: 50000 })], NONE, 1)} initial="M" comingUp={rows} />,
+    );
+    const list = screen.getByRole("list", { name: "Coming up" });
+    expect(within(list).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
+      ["Nov 13  Statement closesDiscover · pay down to $150", `/applications/${ID}/reminders`],
+      ["Nov 15  Rent, $650You cover it · you typed this", "/safe-to-spend"],
+      ["Dec 6  Payment dueAutopay is off. Set it up", `/applications/${ID}/setup/autopay`],
+    ]);
+    // After the approved card's module.
+    const headings = [...container.querySelectorAll("h1, h2")].map((h) => h.textContent);
+    expect(headings.indexOf("Coming up")).toBeGreaterThan(headings.indexOf("Student Cash Card"));
+    unmount();
+    render(<HomeView state={homeState([], NONE, 0)} initial="M" comingUp={[]} />);
+    expect(screen.queryByRole("heading", { name: "Coming up" })).toBeNull();
+  });
 });
+
+function linked(extra: Partial<SafeToSpend> = {}): SafeToSpend {
+  return {
+    institutionName: "Bank",
+    status: "active",
+    linkedAt: "2026-11-01T12:00:00.000Z",
+    refreshedAt: null,
+    answered: true,
+    accounts: [],
+    bills: [],
+    setAsideCents: 0,
+    cashCents: 105000,
+    cardCents: 0,
+    billsCents: 0,
+    leftCents: 105000,
+    days: 30,
+    dailyCents: 3500,
+    ...extra,
+  };
+}

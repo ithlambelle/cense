@@ -22,7 +22,8 @@ import {
 } from "@/lib/api/reminders";
 import type { Card } from "@/lib/cards/catalog";
 import type { Student } from "@/lib/api/auth";
-import { listCards } from "@/lib/cards/catalog";
+import { findCard, listCards } from "@/lib/cards/catalog";
+import { comingUpCardNames, type ComingUpCard } from "@/lib/home/coming-up";
 import { firstStatementEmailUpcoming } from "@/lib/home/state";
 import { answeredCount } from "@/lib/quiz/progress";
 import { computeResult, type ResultView } from "@/lib/results/compute";
@@ -130,6 +131,49 @@ export async function loadReminderSettings(student: Student): Promise<ReminderSe
   return data
     ? reminderSettingsFromRow(data as ReminderSettingsRow)
     : { emailsOn: true, statementClosing: true, paymentDue: true, checkAutopay: true };
+}
+
+// What Home's Coming up needs besides the bills (D1): every approved card with
+// its closing and due days, limit and autopay, named as its rows name it, and
+// the student's calendar date in their time zone (New York when none is
+// saved), read as the reminders read it. Null when either read fails, so Home
+// leaves Coming up out rather than failing.
+export async function loadComingUpCards(student: Student): Promise<{ cards: ComingUpCard[]; today: string } | null> {
+  const [applications, profile] = await Promise.all([
+    student.supabase
+      .from("card_applications")
+      .select(APPLICATION_DETAIL_FIELDS)
+      .eq("student_id", student.studentId)
+      .eq("status", "approved"),
+    student.supabase.from("profiles").select("time_zone").eq("student_id", student.studentId).maybeSingle(),
+  ]);
+  let rows: ApplicationDetail[];
+  try {
+    if (applications.error || profile.error) throw new Error("read failed");
+    rows = (applications.data as ApplicationDetailRow[]).map(applicationDetailFromRow);
+  } catch {
+    console.warn(JSON.stringify({ event: "coming_up_read_failed" }));
+    return null;
+  }
+  const names = comingUpCardNames(
+    rows.map((row) => ({
+      applicationId: row.id,
+      cardName: row.cardName,
+      brand: row.cardId ? (findCard(row.cardId)?.brand ?? null) : null,
+    })),
+  );
+  const timeZone = safeTimeZone((profile.data as { time_zone: string | null } | null)?.time_zone);
+  return {
+    today: calendarDate(new Date().toISOString(), timeZone),
+    cards: rows.map((row) => ({
+      applicationId: row.id,
+      name: names.get(row.id) ?? row.cardName,
+      creditLimitCents: row.creditLimitCents,
+      statementClosingDay: row.statementClosingDay,
+      paymentDueDay: row.paymentDueDay,
+      autopayStatus: row.autopayStatus === "on" || row.autopayStatus === "off" ? row.autopayStatus : "unknown",
+    })),
+  };
 }
 
 // What the payment reminder screen starts from: one card with its closing and

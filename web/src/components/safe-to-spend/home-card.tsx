@@ -1,23 +1,24 @@
-import ChevronRight from "@gravity-ui/icons/ChevronRight";
 import Wallet from "@gravity-ui/icons/Wallet";
 import Link from "next/link";
 
 import { RefreshWhenStale } from "@/components/safe-to-spend/refresh-when-stale";
 import { PreviewLabel } from "@/components/safe-to-spend/parts";
+import { UpdatedTime } from "@/components/safe-to-spend/updated-time";
 import { ButtonChevron, buttonVariants } from "@/components/ui/button";
-import { SENSITIVE } from "@/lib/analytics";
+import { MoneyHero } from "@/components/your-money/parts";
 import type { SafeToSpend } from "@/lib/api/safe-to-spend";
 import { moneyAmount } from "@/lib/money";
 import { ROUTES, safeToSpendSetupPath } from "@/lib/routes";
 import { SAFE_TO_SPEND_COPY } from "@/lib/safe-to-spend/copy";
-import { cn } from "@/lib/utils";
 
+// The link under a broken bank's notice: 44px tall to tap.
 const NAVY_LINK =
-  "min-h-11 content-center text-body-s font-semibold text-white underline underline-offset-2 hover:text-light-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-off-white";
+  "inline-flex min-h-11 items-center font-semibold text-white underline underline-offset-2 hover:text-light-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-off-white";
 
-// Safe to spend on Home (US-12). Linked and answered: the navy card from
-// "Home with safe to spend" (Figma 222:2133). Linked but not answered: a
-// prompt to finish. Not linked: an invitation to try the sandbox preview.
+// Safe to spend on Home (US-12). Linked and answered: the designers' navy
+// hero as D1 draws it (Figma 709:1470), the same hero as Your money. Linked
+// but not answered: a prompt to finish. Not linked: an invitation to try the
+// sandbox preview.
 // Nothing at all when safe to spend is off (no Plaid settings).
 // `preview` false drops the Preview label from the invite and setup cards:
 // Home's approval celebration never says "Preview" (Ben, 2026-11-08).
@@ -42,51 +43,41 @@ export function SafeToSpendHome({ safeToSpend, preview = true }: { safeToSpend: 
       />
     );
   }
-  return (
-    <section aria-label="Safe to spend" className="relative flex flex-col rounded-[28px] bg-navy px-[23px] pt-[27px] pb-4 text-white">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-body-m leading-[18px] font-semibold">Safe to spend today:</p>
-        {/* No Preview label on the number (Ben, 2026-11-14); the invite and
-            setup cards keep it. */}
-        <span className="flex items-center gap-3">
-          {/* The whole card opens Your money (D1 decided: tapping the card
-              opens D2, no separate button). The chevron is the
-              link; its tap area covers the card. */}
-          {safeToSpend.status === "active" ? (
-            <Link
-              href={ROUTES.safeToSpend}
-              aria-label="Your money"
-              className="flex min-h-6 items-center rounded-sm after:absolute after:inset-0 after:rounded-[28px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-off-white"
-            >
-              <ChevronRight aria-hidden="true" width={12} height={20} />
-            </Link>
-          ) : null}
-        </span>
-      </div>
-      {/* A broken link shows what to do, never the last number as if current. */}
-      {safeToSpend.status !== "active" ? (
-        <>
-          <p className="pt-3 text-body-s">
-            {safeToSpend.status === "reconnect_needed" ? SAFE_TO_SPEND_COPY.reconnect : SAFE_TO_SPEND_COPY.relink}
-          </p>
-          <Link href={ROUTES.accounts} className={cn(NAVY_LINK, "self-start")}>
-            {safeToSpend.status === "reconnect_needed" ? "Reconnect your bank" : "Connect again"}
+  // A broken link shows what to do, never the last number as if current, the
+  // way Your money's hero says it.
+  if (safeToSpend.status !== "active") {
+    const reconnect = safeToSpend.status === "reconnect_needed";
+    return (
+      <MoneyHero
+        ariaLabel="Safe to spend"
+        label="Safe to spend today:"
+        // Its own block, so its lines are 28px apart, not the number's 44.
+        amount={<span className="block pt-2 text-[20px] leading-7">{reconnect ? SAFE_TO_SPEND_COPY.reconnect : SAFE_TO_SPEND_COPY.relink}</span>}
+        left={
+          <Link href={ROUTES.accounts} className={NAVY_LINK}>
+            {reconnect ? "Reconnect your bank" : "Connect again"}
           </Link>
-        </>
-      ) : (
-        <>
-          {/* Masked in session replay: it is the student's own money. */}
-          <p className={cn(SENSITIVE, "pt-2 font-number text-[36px] leading-[44px] font-medium text-light-blue")}>
-            {moneyAmount(safeToSpend.dailyCents)}
-            <span className="text-[24px]"> a day</span>
-          </p>
-          <div className="flex items-center justify-between gap-3 pt-2 text-body-s">
-            <p>For the next {safeToSpend.days} days</p>
-          </div>
-          <RefreshWhenStale refreshedAt={safeToSpend.refreshedAt} />
-        </>
-      )}
-    </section>
+        }
+      />
+    );
+  }
+  // The designers' hero, as D1 draws it (709:1470): the number in Unbounded
+  // Bold 44, "For the next 30 days" and when the bank was last read. The whole
+  // card opens Your money (D1 decided: tapping the card opens D2, no separate
+  // button). No Preview label on the number (Ben, 2026-11-14); the invite and
+  // setup cards keep it.
+  return (
+    <MoneyHero
+      ariaLabel="Safe to spend"
+      label="Safe to spend today:"
+      amount={moneyAmount(safeToSpend.dailyCents)}
+      unit=" a day"
+      left={`For the next ${safeToSpend.days} days`}
+      right={<UpdatedTime refreshedAt={safeToSpend.refreshedAt} />}
+      link={{ href: ROUTES.safeToSpend, label: "Your money" }}
+    >
+      <RefreshWhenStale refreshedAt={safeToSpend.refreshedAt} />
+    </MoneyHero>
   );
 }
 
