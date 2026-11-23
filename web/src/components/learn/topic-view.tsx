@@ -2,12 +2,12 @@ import Link from "next/link";
 
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
-import { choiceRowClass } from "@/components/ui/choice-row";
+import { choiceCardClass } from "@/components/ui/choice-card";
 import { topicAnswers, type PennyTopic } from "@/lib/penny/answers";
 import { pennyPath, ROUTES } from "@/lib/routes";
 
 // A topic page (Flow 5 A1, 144:3285; C21): Penny's checked answers for one
-// topic as quiz answer rows. Tapping one opens it in Ask Penny.
+// topic as Choice cards, as on the quiz. Tapping one opens it in Ask Penny.
 export function TopicView({ topic }: { topic: { slug: PennyTopic; label: string } }) {
   return (
     <div className="flex min-h-dvh justify-center bg-background">
@@ -21,7 +21,7 @@ export function TopicView({ topic }: { topic: { slug: PennyTopic; label: string 
           <ul className="flex flex-col gap-4">
             {topicAnswers(topic.slug).map((answer) => (
               <li key={answer.id}>
-                <Link href={pennyPath(answer.id, topic.slug)} className={choiceRowClass}>
+                <Link href={pennyPath(answer.id, topic.slug)} className={choiceCardClass()}>
                   {answer.question}
                 </Link>
               </li>

@@ -1,7 +1,7 @@
-// The outlined answer row from the denial and update frames: full width, a
-// violet edge, 18px corners and navy text. For links as it is; buttons add
-// text-left and their disabled look with cn().
-const choiceRowClass =
-  "flex min-h-14 w-full items-center rounded-[18px] border-[1.5px] border-violet bg-white px-5 py-3 text-body-m text-navy hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+// Created with Claude Code (2026-11-22). The old name for an answer styled as a
+// link. Screens still in review import it (first login's "Do you have a credit
+// card yet?", #133), so it now gives them the Choice card and they pick up the
+// new look whichever merges first. New code uses choiceCardClass().
+import { choiceCardClass } from "@/components/ui/choice-card"
 
-export { choiceRowClass }
+export const choiceRowClass = choiceCardClass()

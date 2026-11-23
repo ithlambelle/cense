@@ -10,8 +10,9 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
+import { legacyCard } from "@/components/legacy/answer-card";
+import { ChoiceCard } from "@/components/ui/choice-card";
 import { ErrorMessage } from "@/components/ui/error-message";
-import { SelectionMark } from "@/components/ui/selection-mark";
 import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE } from "@/lib/analytics";
 import { saveSpendLimit } from "@/lib/api-client/applications";
@@ -86,26 +87,21 @@ export function SpendLimitPick({
           {choices.map((choice) => {
             const selected = picked === choice.cents;
             return (
-              <button
+              <ChoiceCard
                 key={choice.cents}
-                type="button"
                 role="radio"
+                state={selected ? "selected" : "default"}
                 aria-checked={selected}
                 disabled={saving}
+                legacyClassName={legacyCard.spendLimit(selected)}
                 onClick={() => {
                   setPicked(choice.cents);
                   setOther("");
                   setError(null);
                 }}
-                className={cn(
-                  "flex h-14 w-full items-center justify-between rounded-button border-violet bg-white pr-4 pl-[18px] text-left text-body-m leading-[normal] font-medium text-indigo-black",
-                  "hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-progress",
-                  selected ? "border-2" : "border",
-                )}
               >
                 {choice.label}
-                <SelectionMark selected={selected} />
-              </button>
+              </ChoiceCard>
             );
           })}
         </div>

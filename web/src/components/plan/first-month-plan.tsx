@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import { legacyCard } from "@/components/legacy/answer-card";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import { moneyAmount } from "@/lib/money";
 import { SPEND_LIMIT_PERCENT, SPEND_LIMIT_SOURCE, suggestedSpendLimitCents } from "@/lib/plan/spend-limit";
 import { paymentRemindersPath, ROUTES, signInPath, spendLimitPath } from "@/lib/routes";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
+import { UI_VERSION } from "@/lib/ui-version";
 import { cn } from "@/lib/utils";
 
 type ActionKey = "autopay" | "spendLimit" | "paymentReminder";
@@ -35,8 +37,14 @@ const ACTIONS: { key: ActionKey; title: string; detail: string }[] = [
   { key: "paymentReminder", title: "Set a payment reminder", detail: "Use the due date on your card statement." },
 ];
 
-const ACTION_ROW =
-  "flex w-full items-start gap-3 rounded-input border-[1.5px] border-violet bg-white p-4 text-left hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+// The Design System's List row, Tinted (273:2196, as on 371:9692): an Off-white
+// tile with no outline, 14px corners, the title Inter Medium 16 and the detail
+// Regular 14 at 70%. The outlined row is archived with the old answer cards and
+// follows the same switch.
+const LEGACY_ROW = UI_VERSION.choiceCard === "legacy";
+const ACTION_ROW = LEGACY_ROW
+  ? legacyCard.planAction
+  : "flex w-full items-center gap-3 rounded-[14px] bg-off-white px-3.5 py-3 text-left hover:bg-off-white-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-safe:transition-colors motion-safe:duration-200";
 
 const NONE_DONE: PlanActions = { autopay: false, spendLimit: false, paymentReminder: false };
 
@@ -178,18 +186,19 @@ function PlanScreen({
                     <span
                       aria-hidden="true"
                       className={cn(
-                        "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-[6px] border-[1.5px] border-violet",
+                        "flex size-5 shrink-0 items-center justify-center rounded-[6px] border-[1.5px] border-violet",
+                        LEGACY_ROW && "mt-0.5",
                         actions[action.key] && "bg-violet text-white",
                       )}
                     >
                       {actions[action.key] ? <Check width={14} height={14} /> : null}
                     </span>
                     <span className="flex flex-col gap-0.5 text-indigo-black">
-                      <span className="font-heading text-h6 font-medium">
+                      <span className={LEGACY_ROW ? "font-heading text-h6 font-medium" : "text-body-m leading-[normal] font-medium"}>
                         {action.title}
                         {action.key !== "autopay" && actions[action.key] ? <span className="sr-only">, done</span> : null}
                       </span>
-                      <span className="text-body-s">{action.detail}</span>
+                      <span className={LEGACY_ROW ? "text-body-s" : "text-body-s text-indigo-black/70"}>{action.detail}</span>
                     </span>
                   </>
                 );

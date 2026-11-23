@@ -1,3 +1,7 @@
+// Archived 2026-11-21 (Claude Code), unchanged from main. Replaced by the
+// Design System's Choice card · borderless (Figma 765:2498, ui/choice-card.tsx).
+// Used only when UI_VERSION.choiceCard is "legacy" (lib/ui-version.ts).
+
 import Image from "next/image"
 
 // The indicator on the right of an answer card, drawn from the designers'

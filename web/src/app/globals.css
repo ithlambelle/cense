@@ -60,6 +60,9 @@
   /* The same steps for Light Blue, the accent (Penny's send buttons). */
   --color-light-blue-hover: color-mix(in oklab, var(--color-light-blue), var(--color-navy) 8%);
   --color-light-blue-pressed: color-mix(in oklab, var(--color-light-blue), var(--color-navy) 18%);
+  /* Off-white's hover, for the unchosen Choice card (765:2498), whose fill is
+     Off-white: the same darkening step, toward Indigo-black. */
+  --color-off-white-hover: color-mix(in oklab, var(--color-off-white), var(--color-indigo-black) 6%);
   /* Plain rgb() rather than color-mix(): same color, wider support. */
   --color-violet-disabled: rgb(151 64 197 / 0.3);
   --color-glow: rgb(236 234 246 / 0.7);

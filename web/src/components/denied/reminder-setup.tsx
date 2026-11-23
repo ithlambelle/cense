@@ -9,8 +9,10 @@ import { useState } from "react";
 import { DeniedLayout } from "@/components/denied/denied-layout";
 import { confirmationKey } from "@/components/denied/reminder-saved-check";
 import { Button, ButtonChevron, buttonVariants } from "@/components/ui/button";
+import { legacyCard } from "@/components/legacy/answer-card";
+import { ChoiceCard } from "@/components/ui/choice-card";
 import { ErrorMessage } from "@/components/ui/error-message";
-import { SelectionMark } from "@/components/ui/selection-mark";
+import { UI_VERSION } from "@/lib/ui-version";
 import { saveReapplyReminder } from "@/lib/api-client/reminders";
 import { addMonths, formatIsoDate, toIsoDate } from "@/lib/dates";
 import { deniedPath, ROUTES, signInPath } from "@/lib/routes";
@@ -164,18 +166,20 @@ function TimingOption({
   title: string;
   detail: string;
 }) {
+  // A Choice card with the date under its label: the component has one label,
+  // and the date is what the student is choosing.
+  const legacy = UI_VERSION.choiceCard === "legacy";
   return (
-    <button
-      type="button"
+    <ChoiceCard
+      state={selected ? "selected" : "default"}
       aria-pressed={selected}
       onClick={onSelect}
-      className="flex min-h-20 w-full items-center gap-4 rounded-card border-[1.5px] border-violet bg-white px-5 py-3 text-left hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      legacyClassName={legacyCard.reminder}
     >
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-indigo-black">
-        <span className="font-heading text-h6 font-medium">{title}</span>
-        <span className="min-h-5 text-body-s">{detail}</span>
+      <span className={legacy ? "flex min-w-0 flex-1 flex-col gap-0.5 text-indigo-black" : "flex flex-col gap-0.5"}>
+        <span className={legacy ? "font-heading text-h6 font-medium" : undefined}>{title}</span>
+        <span className="min-h-5 text-body-s font-normal">{detail}</span>
       </span>
-      <SelectionMark selected={selected} />
-    </button>
+    </ChoiceCard>
   );
 }

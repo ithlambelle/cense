@@ -9,7 +9,7 @@ import type { ComponentType, SVGProps } from "react";
 import { PennyComposer } from "@/components/learn/penny-composer";
 import { MascotStill } from "@/components/mascot/mascot";
 import { BottomNav } from "@/components/ui/bottom-nav";
-import { choiceRowClass } from "@/components/ui/choice-row";
+import { choiceCardClass } from "@/components/ui/choice-card";
 import { findAnswer, PENNY_TOPICS, STARTER_IDS, type PennyTopic } from "@/lib/penny/answers";
 import { PENNY_COPY } from "@/lib/penny/copy";
 import { learnTopicPath, pennyPath } from "@/lib/routes";
@@ -55,7 +55,7 @@ export function LearnHub({ canType }: { canType: boolean }) {
                 if (!starter) return null;
                 return (
                   <li key={id}>
-                    <Link href={pennyPath(id, "learn")} className={choiceRowClass}>
+                    <Link href={pennyPath(id, "learn")} className={choiceCardClass()}>
                       {starter.question}
                     </Link>
                   </li>

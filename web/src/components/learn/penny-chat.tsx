@@ -8,7 +8,8 @@ import { useEffect, useEffectEvent, useRef, useState, type RefObject } from "rea
 import { PennyComposer } from "@/components/learn/penny-composer";
 import { BackLink } from "@/components/ui/app-header";
 import { Button, ButtonChevron, buttonVariants } from "@/components/ui/button";
-import { choiceRowClass } from "@/components/ui/choice-row";
+import { legacyCard } from "@/components/legacy/answer-card";
+import { ChoiceCard } from "@/components/ui/choice-card";
 import { NO_CAPTURE, SENSITIVE, track } from "@/lib/analytics";
 import type { PennyReply } from "@/lib/api/penny";
 import { apiRequest, isUnauthorized, OFFLINE_MESSAGE, type ApiFailure } from "@/lib/api-client/client";
@@ -392,9 +393,9 @@ function MessageView({ message, from, latest, lastRef, onPick, onRetry, busy }: 
         <ul className="flex w-full flex-col gap-3">
           {message.suggestions.map((suggestion) => (
             <li key={suggestion.id}>
-              <button type="button" onClick={() => onPick(suggestion)} className={cn(choiceRowClass, "text-left")}>
+              <ChoiceCard onClick={() => onPick(suggestion)} legacyClassName={legacyCard.penny}>
                 {suggestion.question}
-              </button>
+              </ChoiceCard>
             </li>
           ))}
         </ul>

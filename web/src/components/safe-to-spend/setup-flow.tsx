@@ -5,12 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState, type FormEvent } from "react";
 
-import { answerCardClass } from "@/components/quiz/quiz-screen";
 import { BACK_CONTROL } from "@/components/ui/app-header";
 import { Button } from "@/components/ui/button";
+import { legacyCard } from "@/components/legacy/answer-card";
+import { ChoiceCard } from "@/components/ui/choice-card";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { ProgressBar } from "@/components/ui/progress-bar";
-import { SelectionMark } from "@/components/ui/selection-mark";
 import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE } from "@/lib/analytics";
 import {
@@ -276,16 +276,15 @@ function BillStep({
         {COVERED_BY.map((coveredBy) => {
           const selected = answer.coveredBy === coveredBy;
           return (
-            <button
+            <ChoiceCard
               key={coveredBy}
-              type="button"
+              state={selected ? "selected" : "default"}
               aria-pressed={selected}
               onClick={() => onChange({ coveredBy })}
-              className={cn(answerCardClass, "min-h-14 rounded-[18px]")}
+              legacyClassName={legacyCard.whoCovers}
             >
-              <span className="flex-1">{COVERED_BY_LABELS[coveredBy]}</span>
-              <SelectionMark selected={selected} />
-            </button>
+              {COVERED_BY_LABELS[coveredBy]}
+            </ChoiceCard>
           );
         })}
       </div>
