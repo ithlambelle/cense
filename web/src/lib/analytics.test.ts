@@ -31,12 +31,16 @@ describe("track", () => {
     posthog.__loaded = true;
     const capture = vi.spyOn(posthog, "capture").mockImplementation(() => undefined);
     const at = new Date("2026-10-18T12:00:00Z");
-    track("issuer_link_clicked", { click_id: CLICK, card_id: "discover-it-student-cash-back", link_type: "apply" }, { uuid: CLICK, timestamp: at });
+    track(
+      "issuer_link_clicked",
+      { click_id: CLICK, card_id: "discover-it-student-cash-back", link_type: "apply", source: "card_page" },
+      { uuid: CLICK, timestamp: at },
+    );
     track("denial_plan_viewed");
     expect(capture).toHaveBeenNthCalledWith(
       1,
       "issuer_link_clicked",
-      { click_id: CLICK, card_id: "discover-it-student-cash-back", link_type: "apply" },
+      { click_id: CLICK, card_id: "discover-it-student-cash-back", link_type: "apply", source: "card_page" },
       { uuid: CLICK, timestamp: at },
     );
     expect(capture).toHaveBeenNthCalledWith(2, "denial_plan_viewed", {}, undefined);

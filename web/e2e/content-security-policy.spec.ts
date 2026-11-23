@@ -75,7 +75,7 @@ test("a student's whole first visit, through Plaid Link, breaks no rule of the p
   await takeQuiz(page, LIKELY_FIT_PICKS, checkA11y);
   await expect(page.getByRole("heading", { level: 1, name: "Here’s your match" })).toBeVisible();
 
-  const card = page.getByRole("main").getByRole("link", { name: /^View card: / }).first();
+  const card = page.getByRole("main").getByRole("link", { name: /^See details: / }).first();
   await card.click();
   await expect(page).toHaveURL(/\/cards\/[^/]+/);
   await page.reload();

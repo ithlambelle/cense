@@ -74,6 +74,9 @@ export const WHY_TITLE = "Why it’s right for you";
 // Under the cards whenever one shows an estimate. RESULT_DISCLAIMER stays too.
 export const ESTIMATE_DISCLAIMER = "An estimate from what you told us, not a promise.";
 
+// The link from an option on Your match to its card page (Figma 821:9240).
+export const SEE_DETAILS = "See details";
+
 export const APPROVAL_LINES = {
   likely_fit: "You’re likely to be approved",
   stretch: "Approval is less certain for you",
