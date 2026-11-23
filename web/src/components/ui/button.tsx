@@ -26,6 +26,12 @@ const baseButtonVariants = cva(
           "h-14 justify-center rounded-button border-[1.5px] border-navy bg-white px-6 text-button-s font-semibold text-navy hover:bg-off-white active:bg-off-white disabled:opacity-40 aria-busy:opacity-100",
         // "Log out" (144:3588) and the auth frames' supporting actions (397:1886).
         link: "h-auto min-h-11 justify-center rounded-none px-0 text-body-s text-violet underline underline-offset-2 hover:text-violet-hover",
+        // Button, Type=On dark (371:2829, pressed 371:2851): the primary on a
+        // navy screen, as on the first sign-in welcome (W2, 821:8474). White,
+        // Indigo-black label and chevron, Off-white when pressed. The focus
+        // ring is Light Blue, which shows on navy where Amethyst would not.
+        onDark:
+          "h-14 rounded-button bg-white text-button font-semibold text-indigo-black hover:bg-off-white active:bg-off-white focus-visible:outline-light-blue disabled:opacity-60 aria-busy:bg-white aria-busy:opacity-100",
       },
       size: {
         default: "w-full",
@@ -40,6 +46,8 @@ const baseButtonVariants = cva(
     compoundVariants: [
       { variant: "default", chevron: true, className: "justify-between pr-4.5 pl-5" },
       { variant: "default", chevron: false, className: "justify-center px-5" },
+      { variant: "onDark", chevron: true, className: "justify-between pr-4.5 pl-5" },
+      { variant: "onDark", chevron: false, className: "justify-center px-5" },
     ],
     defaultVariants: {
       variant: "default",
@@ -87,7 +95,7 @@ function Button({
   children,
   ...props
 }: ButtonProps) {
-  const showChevron = variant === "default" && chevron
+  const showChevron = (variant === "default" || variant === "onDark") && chevron
   return (
     <ButtonPrimitive
       data-slot="button"

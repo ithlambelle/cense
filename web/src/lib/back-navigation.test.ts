@@ -17,7 +17,8 @@ describe("previousScreen", () => {
   });
 
   it("never returns to signing in or out, so a student who signed in goes to the parent", () => {
-    for (const path of ["/sign-in?next=%2Fhome", "/sign-up", "/start", "/signed-out", "/forgot-password", "/reset-password/confirm", "/reset-password", "/account-deleted"]) {
+    // Nor to the first sign-in welcome, which is done once Let's go is tapped.
+    for (const path of ["/sign-in?next=%2Fhome", "/sign-up", "/start", "/start/welcome", "/signed-out", "/forgot-password", "/reset-password/confirm", "/reset-password", "/account-deleted"]) {
       expect(previousScreen(at(path, "/settings"), 1, ORIGIN), path).toBeNull();
     }
     expect(previousScreen(at("/api/v1/auth/callback", "/home"), 1, ORIGIN)).toBeNull();
@@ -43,6 +44,8 @@ describe("screenName", () => {
     expect(screenName(new URL(`${ORIGIN}/applications/a1/setup/autopay`))).toBe("Autopay steps");
     expect(screenName(new URL(`${ORIGIN}/applications/a1/setup/autopay/on`))).toBe("Autopay is on");
     expect(screenName(new URL(`${ORIGIN}/applications/a1/setup/spend-limit/suggestion?from=home`))).toBe("Your suggestion");
+    expect(screenName(new URL(`${ORIGIN}/start/link-bank`))).toBe("Link your bank");
+    expect(screenName(new URL(`${ORIGIN}/start/next-step`))).toBe("Your next step");
     expect(screenName(new URL(`${ORIGIN}/applications/a1/setup/elsewhere`))).toBeNull();
     expect(screenName(new URL(`${ORIGIN}/somewhere`))).toBeNull();
   });

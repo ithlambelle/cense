@@ -56,6 +56,18 @@ describe("Button", () => {
     expect(button.lastElementChild?.tagName.toLowerCase()).toBe("svg");
   });
 
+  // Button, Type=On dark (371:2829), as on the first sign-in welcome (W2).
+  it("draws the primary on a navy screen white, with its Indigo-black label and chevron", () => {
+    render(<Button variant="onDark">Let’s go</Button>);
+    const button = screen.getByRole("button", { name: "Let’s go" });
+    for (const name of ["bg-white", "text-indigo-black", "justify-between", "rounded-button", "h-14", "active:bg-off-white", "focus-visible:outline-light-blue"]) {
+      expect(button.className).toContain(name);
+    }
+    expect(button.className).not.toContain("bg-violet");
+    expect(button.className).not.toContain("focus-visible:outline-ring");
+    expect(button.querySelector("svg")?.getAttribute("width")).toBe("14");
+  });
+
   it("draws no chevron on the other variants", () => {
     render(
       <>

@@ -1821,6 +1821,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /me/welcome:
+    put:
+      operationId: markWelcomed
+      summary: Mark the first sign-in welcome as seen
+      description: Saves when the student tapped Let's go on the welcome
+        (profiles.welcomed_at), so sign-in never shows it again. Keeps the first
+        time; a repeat changes nothing.
+      security:
+        - studentSession: []
+      responses:
+        "204":
+          description: Welcome marked as seen
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /cards:
     get:
       operationId: listCards
