@@ -53,7 +53,9 @@ export function MarkResult({
 }) {
   const router = useRouter();
   const isMounted = useIsMounted();
-  const [choice, setChoice] = useState<Choice | null>(null);
+  // An approved card opens on its saved answer, with its limit ready to fix. A
+  // denied card never reaches this screen: the page sends it to the denial guide.
+  const [choice, setChoice] = useState<Choice | null>(application.status === "approved" ? "approved" : null);
   // Starts from the saved limit, so marking an approved card again never erases it.
   const [limit, setLimit] = useState(centsToInput(application.creditLimitCents));
   const [limitError, setLimitError] = useState<string | null>(null);

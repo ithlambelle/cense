@@ -11,11 +11,16 @@
 //   checking, and a bill family covers is not subtracted (Figma 222:2090,
 //   "Family support counts as income").
 // - A card's whole balance is subtracted: it is money already spent.
-// - Only the bills still to come this month are subtracted (Ben, Oct 27): a
-//   bill whose due day has passed is paid, and its money already left checking.
-//   Tuition is asked per semester, turned into a monthly figure and has no due
-//   day, so it is always kept back.
+// - Every bill due in the 30 days the number covers is subtracted, today
+//   included (Ben, Nov 23, replacing "still to come this month" from Oct 27). A
+//   date already past is paid and its money has left checking, but next month's
+//   date often falls inside the 30 days and must be kept back. A monthly bill
+//   can land twice (January 31 and February 28) or, rarely, not at all (January
+//   2 to 31 misses a bill on the 1st). Tuition is asked per semester, turned
+//   into a monthly figure and has no due day, so it is always kept back once.
 // - Savings and similar accounts are shown but not counted.
+
+import { addDays, datesOnDay } from "@/lib/reminders/schedule";
 
 export const BILLS = ["rent", "phone", "tuition", "groceries", "car"] as const;
 export type Bill = (typeof BILLS)[number];
@@ -61,14 +66,21 @@ export type SafeToSpendSum = {
   dailyCents: number;
 };
 
-// What a bill still takes out of the student's month: their amount when they
-// pay all or part of it and its due day is today or later (`today` is the day
-// of the month); nothing when it is already paid this month, family covers it
+const isDueDay = (day: number | null): day is number => day !== null && Number.isInteger(day) && day >= 1 && day <= 31;
+
+// How many times a bill comes due in the 30 days from `today` (YYYY-MM-DD),
+// today included. A bill with no due day (tuition) is kept back once.
+export function billTimesDue(answer: BillAnswer, today: string): number {
+  if (!isDueDay(answer.dueDay)) return 1;
+  return datesOnDay(answer.dueDay, today, addDays(today, SPREAD_DAYS - 1)).length;
+}
+
+// What a bill takes out of the student's next 30 days: their amount each time
+// it comes due, when they pay all or part of it. Nothing when family covers it
 // or it does not apply.
-export function billCents(answer: BillAnswer, today: number): number {
+export function billCents(answer: BillAnswer, today: string): number {
   if (answer.coveredBy !== "me" && answer.coveredBy !== "split") return 0;
-  if (answer.dueDay !== null && answer.dueDay < today) return 0;
-  return answer.monthlyCents ?? 0;
+  return (answer.monthlyCents ?? 0) * billTimesDue(answer, today);
 }
 
 export function computeSafeToSpend({
@@ -80,8 +92,8 @@ export function computeSafeToSpend({
   accounts: BalanceRow[];
   bills: BillAnswer[];
   setAsideCents: number;
-  // Today's day of the month, on the student's calendar.
-  today: number;
+  // Today on the student's calendar (YYYY-MM-DD).
+  today: string;
 }): SafeToSpendSum {
   const cashCents = accounts.filter((a) => a.kind === "cash").reduce((sum, a) => sum + a.balanceCents, 0);
   // A card paid past zero owes nothing; it does not add cash.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { accountKind, balanceRows, computeSafeToSpend, isStale, monthlyFromSemester, semesterFromMonthly, STALE_AFTER_MS, type BankAccountInput } from "./compute";
+import { accountKind, balanceRows, billCents, billTimesDue, computeSafeToSpend, isStale, monthlyFromSemester, semesterFromMonthly, STALE_AFTER_MS, type BankAccountInput } from "./compute";
 
 const account = (overrides: Partial<BankAccountInput> & { type: string; subtype: string | null }, available: number | null, current: number | null): BankAccountInput => ({
   balances: { available, current, iso_currency_code: "USD" },
@@ -24,7 +24,7 @@ describe("computeSafeToSpend", () => {
         { bill: "groceries", coveredBy: "none", monthlyCents: null, dueDay: null },
       ],
       setAsideCents: 5_000,
-      today: 1,
+      today: "2026-11-01",
     });
     expect(sum).toEqual({
       cashCents: 124_000,
@@ -46,7 +46,7 @@ describe("computeSafeToSpend", () => {
       ],
       bills: [],
       setAsideCents: 0,
-      today: 1,
+      today: "2026-11-01",
     });
     expect(sum.leftCents).toBe(-31_000);
     expect(sum.dailyCents).toBe(0);
@@ -60,7 +60,7 @@ describe("computeSafeToSpend", () => {
       ],
       bills: [],
       setAsideCents: 0,
-      today: 1,
+      today: "2026-11-01",
     });
     expect(sum.cardCents).toBe(0);
     expect(sum.dailyCents).toBe(100);
@@ -74,13 +74,13 @@ describe("computeSafeToSpend", () => {
       ],
       bills: [],
       setAsideCents: 0,
-      today: 1,
+      today: "2026-11-01",
     });
     expect(sum.cashCents).toBe(59_000);
   });
 
   it("rounds down to the cent", () => {
-    const sum = computeSafeToSpend({ accounts: [{ name: "C", mask: null, kind: "cash", balanceCents: 100 }], bills: [], setAsideCents: 0, today: 1 });
+    const sum = computeSafeToSpend({ accounts: [{ name: "C", mask: null, kind: "cash", balanceCents: 100 }], bills: [], setAsideCents: 0, today: "2026-11-01" });
     expect(sum.dailyCents).toBe(3);
   });
 });
@@ -154,19 +154,56 @@ describe("isStale", () => {
   });
 });
 
-describe("bills still to come this month (Ben, Oct 27)", () => {
+describe("bills due in the 30 days the number covers (Ben, Nov 23)", () => {
   const accounts = [{ name: "Checking", mask: null, kind: "cash" as const, balanceCents: 124_000 }];
-  const bills = [
-    { bill: "rent" as const, coveredBy: "me" as const, monthlyCents: 65_000, dueDay: 1 },
-    { bill: "phone" as const, coveredBy: "split" as const, monthlyCents: 4_000, dueDay: 28 },
-    { bill: "tuition" as const, coveredBy: "me" as const, monthlyCents: 10_000, dueDay: null },
-  ];
+  const bill = (dueDay: number | null, coveredBy: "me" | "split" | "family" | "none" = "me") => ({ bill: "rent" as const, coveredBy, monthlyCents: 10_000, dueDay });
+  const billsOn = (today: string, dueDay: number | null) => computeSafeToSpend({ accounts, bills: [bill(dueDay)], setAsideCents: 0, today }).billsCents;
 
-  it("leaves out a bill already due this month, keeps one still to come, and always keeps tuition", () => {
-    // On the 15th: rent (the 1st) is paid, the phone (the 28th) is not.
-    expect(computeSafeToSpend({ accounts, bills, setAsideCents: 0, today: 15 }).billsCents).toBe(14_000);
-    // On the 1st, rent is due today and still counts.
-    expect(computeSafeToSpend({ accounts, bills, setAsideCents: 0, today: 1 }).billsCents).toBe(79_000);
+  it("keeps back next month's bill when this month's date has passed", () => {
+    expect(billsOn("2026-11-22", 5)).toBe(10_000);
+  });
+
+  it("matches the Nov 22 walk: $16.83 a day, not $30.16", () => {
+    const cash = [...accounts, { name: "Card", mask: null, kind: "card" as const, balanceCents: 31_000 }];
+    const bills = [
+      { bill: "rent" as const, coveredBy: "me" as const, monthlyCents: 10_000, dueDay: 5 },
+      { bill: "phone" as const, coveredBy: "me" as const, monthlyCents: 10_000, dueDay: 5 },
+      { bill: "tuition" as const, coveredBy: "me" as const, monthlyCents: 2_500, dueDay: null },
+      { bill: "groceries" as const, coveredBy: "me" as const, monthlyCents: 10_000, dueDay: 5 },
+      { bill: "car" as const, coveredBy: "me" as const, monthlyCents: 10_000, dueDay: 5 },
+    ];
+    expect(computeSafeToSpend({ accounts: cash, bills, setAsideCents: 0, today: "2026-11-22" }).dailyCents).toBe(1_683);
+  });
+
+  it("counts a bill due today, and not one on the 31st day", () => {
+    expect(billTimesDue(bill(22), "2026-11-22")).toBe(1);
+    // Nov 2 through Dec 1 is the 30 days; Dec 2 is the 31st.
+    expect(billTimesDue(bill(1), "2026-11-02")).toBe(1);
+    expect(billTimesDue(bill(2), "2026-11-03")).toBe(1);
+    expect(billTimesDue(bill(1), "2026-01-02")).toBe(0);
+  });
+
+  it("counts a bill twice when two due dates land inside the 30 days", () => {
+    expect(billTimesDue(bill(31), "2027-01-31")).toBe(2); // Jan 31 and Feb 28
+    expect(billsOn("2027-01-31", 31)).toBe(20_000);
+    expect(billTimesDue(bill(1), "2027-02-01")).toBe(2); // Feb 1 and Mar 1
+  });
+
+  it("uses a short month's last day, in leap years too", () => {
+    expect(billTimesDue(bill(30), "2027-02-10")).toBe(1); // Feb 28
+    expect(billTimesDue(bill(31), "2028-02-01")).toBe(1); // Feb 29
+    expect(billTimesDue(bill(29), "2028-01-31")).toBe(1); // Feb 29
+  });
+
+  it("crosses the year end", () => {
+    expect(billTimesDue(bill(5), "2026-12-20")).toBe(1); // Jan 5
+  });
+
+  it("keeps tuition back once, and never counts a bill family covers", () => {
+    expect(billsOn("2026-11-22", null)).toBe(10_000);
+    expect(billCents(bill(5, "family"), "2026-11-22")).toBe(0);
+    expect(billCents(bill(5, "none"), "2026-11-22")).toBe(0);
+    expect(billCents(bill(5, "split"), "2026-11-22")).toBe(10_000);
   });
 });
 

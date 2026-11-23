@@ -51,6 +51,25 @@ describe("screenName", () => {
   });
 });
 
+describe("screenName covers every screen with a back arrow", () => {
+  const ID = "00000000-0000-4000-8000-000000000001";
+  it.each([
+    ["/denied/fixable", "Contact the issuer"],
+    ["/denied/no-letter", "Waiting on your letter"],
+    ["/denied/reminder", "Reapply reminder"],
+    ["/denied/reminder/saved", "Reminder saved"],
+    ["/denied/second-look", "Second look"],
+    ["/safe-to-spend/connect", "Link your bank"],
+    ["/safe-to-spend/setup", "Who covers your bills"],
+    [`/applications/${ID}/reminders`, "Payment reminders"],
+    [`/applications/${ID}/waiting`, "Waiting to hear"],
+    [`/updates/${ID}`, "Update"],
+    [`/updates/${ID}/snoozed`, "Snoozed"],
+  ])("%s", (path, name) => {
+    expect(screenName(new URL(path, "https://cense.test"))).toBe(name);
+  });
+});
+
 describe("previousScreenIs", () => {
   afterEach(() => vi.unstubAllGlobals());
 

@@ -42,6 +42,20 @@ afterEach(() => {
   track.mockClear();
 });
 
+describe("a card already marked approved", () => {
+  it("opens on the saved answer with its limit ready to fix", () => {
+    render(<MarkResult application={{ ...application, status: "approved", creditLimitCents: 50_000 }} />);
+    expect(screen.getByRole("button", { name: "I was approved" }).getAttribute("aria-pressed")).toBe("true");
+    expect((screen.getByLabelText(/Credit limit/) as HTMLInputElement).value).toBe("500");
+  });
+
+  it("selects nothing while the student has not heard", () => {
+    render(<MarkResult application={application} />);
+    expect(screen.getByRole("button", { name: "I was approved" }).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.queryByLabelText(/Credit limit/)).toBeNull();
+  });
+});
+
 describe("limitToCents", () => {
   it("reads dollars with or without $, commas and cents", () => {
     expect(limitToCents("")).toBeNull();
