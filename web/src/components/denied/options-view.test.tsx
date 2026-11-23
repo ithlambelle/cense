@@ -39,6 +39,20 @@ afterEach(() => {
   replace.mockClear();
 });
 
+describe("back after answering Not yet", () => {
+  it("does not offer Not yet again once the letter came", () => {
+    render(<DeniedOptionsView applicationId={ID} waitingOnLetter />);
+    expect(screen.queryByRole("button", { name: /Not yet/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Yes, I know the reason" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "I think it was a mistake" })).toBeTruthy();
+  });
+
+  it("offers it to a student who has not answered", () => {
+    render(<DeniedOptionsView applicationId={ID} />);
+    expect(screen.getByRole("button", { name: /Not yet/ })).toBeTruthy();
+  });
+});
+
 describe("DeniedOptionsView", () => {
   it("asks whether the issuer said why, and links the mistake answer to the issuer screen", () => {
     render(<DeniedOptionsView applicationId={ID} />);

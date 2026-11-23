@@ -30,8 +30,8 @@ export function YourMoneyView({
   // This month's budget; null only when it could not be read, and then the
   // This month tab loads its page instead of switching in place.
   budget: Budget | null;
-  // Today's day of the month on the app's calendar, for which bills are still to come.
-  today: number;
+  // Today (YYYY-MM-DD) on the app's calendar, for which bills fall in the next 30 days.
+  today: string;
 }) {
   const [tab, setTab] = useState<YourMoneyTab>(initialTab);
   // The tab the student came from, so the open pill slides from its side.

@@ -18,7 +18,7 @@
 
 import { moneyAmount } from "@/lib/money";
 import { monthDay } from "@/lib/reminders/in-app";
-import { addDays, nextOnDay, payDownTargetCents } from "@/lib/reminders/schedule";
+import { addDays, datesOnDay, payDownTargetCents } from "@/lib/reminders/schedule";
 import { autopayStepsPath, paymentRemindersPath, ROUTES } from "@/lib/routes";
 import { BILL_COPY } from "@/lib/safe-to-spend/copy";
 import { SPREAD_DAYS, type Bill, type BillAnswer } from "@/lib/safe-to-spend/compute";
@@ -57,14 +57,6 @@ export type ComingUpEvent =
 const KIND_ORDER: Record<ComingUpEvent["kind"], number> = { paycheck: 0, statement_closes: 1, payment_due: 2, bill: 3 };
 
 const isDay = (day: number | null): day is number => day !== null && Number.isInteger(day) && day >= 1 && day <= 31;
-
-// Every date from `first` to `last` (both included) that falls on a monthly
-// day, the next one found the way the reminder job finds the next cycle.
-function datesOnDay(day: number, first: string, last: string): string[] {
-  const dates: string[] = [];
-  for (let date = nextOnDay(day, first); date <= last; date = nextOnDay(day, addDays(date, 1))) dates.push(date);
-  return dates;
-}
 
 function tieBreak(event: ComingUpEvent): string {
   if (event.kind === "statement_closes" || event.kind === "payment_due") return event.card.name;

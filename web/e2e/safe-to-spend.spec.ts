@@ -20,6 +20,9 @@ import {
   type LinkOutcome,
 } from "./support/fake-plaid";
 
+const dueInTenDays = () =>
+  new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", day: "numeric" }).format(new Date(Date.now() + 10 * 86_400_000));
+
 let plaid: Server;
 
 test.beforeAll(async () => {
@@ -76,13 +79,13 @@ async function answerWhoCovers(page: Page, checkA11y?: (screen: string) => Promi
         await expect(page.getByRole("main").getByRole("alert")).toContainText("Enter an amount");
       }
       await field.fill(step.amount.value);
-      // Due on the 31st, so the bill is always still to come this month and
-      // the number does not depend on the day the test runs.
+      // Due ten days from now, so the bill lands exactly once in the next 30
+      // days and the number does not depend on the day the test runs.
       if (index === 0) {
         await page.getByRole("button", { name: "Continue" }).click();
         await expect(page.getByRole("main").getByRole("alert")).toContainText("Enter a day from 1 to 31.");
       }
-      await page.getByLabel("Due on day").fill("31");
+      await page.getByLabel("Due on day").fill(dueInTenDays());
     }
     await page.getByRole("button", { name: "Continue" }).click();
   }

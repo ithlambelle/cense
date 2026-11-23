@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { YourMoneyView } from "@/components/your-money/your-money-view";
-import { todayDay } from "@/lib/api/safe-to-spend";
+import { todayDate } from "@/lib/api/safe-to-spend";
 import { loadBudget } from "@/lib/budget/store";
 import { plaidConfig } from "@/lib/plaid/config";
 import { loadSafeToSpend } from "@/lib/plaid/store";
@@ -27,5 +27,5 @@ export default async function YourMoneyPage({ searchParams }: PageProps<"/safe-t
   const read = await loadBudget(student, loaded.value.setAsideCents);
   if (!read.ok && tab === "month") throw new Error("Could not read the student's budget.");
   const budget = read.ok ? read.value : null;
-  return <YourMoneyView tab={tab} data={loaded.value} budget={budget} today={todayDay()} />;
+  return <YourMoneyView tab={tab} data={loaded.value} budget={budget} today={todayDate()} />;
 }

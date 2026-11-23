@@ -125,10 +125,10 @@ export type BillCoverageRow = { bill: string; covered_by: string; monthly_cents:
 
 const iso = (value: string) => new Date(value).toISOString();
 
-// Today's day of the month on the app's calendar (Eastern, the reminder
-// job's default; per-student time zones are SCOPE-20).
-export function todayDay(now: Date = new Date()): number {
-  return Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", day: "numeric" }).format(now));
+// Today (YYYY-MM-DD) on the app's calendar (Eastern, the reminder job's
+// default; per-student time zones are SCOPE-20).
+export function todayDate(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
 }
 
 // Rows to the API shape, with the sum worked out. bigint columns may arrive
@@ -137,7 +137,7 @@ export function safeToSpendFromRows(
   link: BankLinkRow,
   balances: BankBalanceRow[],
   coverage: BillCoverageRow[],
-  today: number = todayDay(),
+  today: string = todayDate(),
 ): SafeToSpend {
   const accounts = [...balances]
     .sort((a, b) => a.position - b.position)

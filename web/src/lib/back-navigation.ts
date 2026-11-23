@@ -63,6 +63,13 @@ const SCREEN_NAMES: Record<string, string> = {
   [ROUTES.plan]: "your plan",
   [ROUTES.denied]: "Denial options",
   [`${ROUTES.denied}/plan`]: "Plan",
+  [`${ROUTES.denied}/fixable`]: "Contact the issuer",
+  [`${ROUTES.denied}/no-letter`]: "Waiting on your letter",
+  [`${ROUTES.denied}/reminder`]: "Reapply reminder",
+  [`${ROUTES.denied}/reminder/saved`]: "Reminder saved",
+  [`${ROUTES.denied}/second-look`]: "Second look",
+  [ROUTES.safeToSpendConnect]: "Link your bank",
+  [ROUTES.safeToSpendSetup]: "Who covers your bills",
   [ROUTES.addCard]: "Add a card",
   [ROUTES.safeToSpend]: "Your money",
   [ROUTES.accounts]: "Accounts",
@@ -88,6 +95,10 @@ export function screenName(url: URL): string | null {
   if (known) return known;
   if (/^\/cards\/[^/]+$/.test(url.pathname)) return "Card details";
   if (/^\/applications\/[^/]+$/.test(url.pathname)) return "Mark result";
+  if (/^\/applications\/[^/]+\/reminders$/.test(url.pathname)) return "Payment reminders";
+  if (/^\/applications\/[^/]+\/waiting$/.test(url.pathname)) return "Waiting to hear";
+  if (/^\/updates\/[^/]+$/.test(url.pathname)) return "Update";
+  if (/^\/updates\/[^/]+\/snoozed$/.test(url.pathname)) return "Snoozed";
   const setup = /^\/applications\/[^/]+\/setup((?:\/[a-z-]+)*)$/.exec(url.pathname)?.[1];
   if (setup !== undefined && SETUP_SCREEN_NAMES[setup]) return SETUP_SCREEN_NAMES[setup];
   // A Learn topic by its slug's words, as its heading says ("student-loans" is

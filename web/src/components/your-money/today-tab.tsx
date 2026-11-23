@@ -19,7 +19,7 @@ import { ordinalDay, YOUR_MONEY_COPY } from "@/lib/budget/copy";
 import { moneyAmount } from "@/lib/money";
 import { ROUTES, signInPath } from "@/lib/routes";
 import { BILL_COPY, SAFE_TO_SPEND_COPY } from "@/lib/safe-to-spend/copy";
-import { billCents, computeSafeToSpend, type Bill, type BillAnswer } from "@/lib/safe-to-spend/compute";
+import { billTimesDue, computeSafeToSpend, type Bill, type BillAnswer } from "@/lib/safe-to-spend/compute";
 import { useIsMounted } from "@/lib/use-is-mounted";
 import { useNow } from "@/lib/use-now";
 
@@ -32,15 +32,16 @@ function paidBills(bills: BillAnswer[]): BillAnswer[] {
 }
 
 // "Due the 15th" (709:1551, without "You cover it", Ben, Nov 14), and
-// "Your share · due the 15th" for a split bill. A bill whose day has passed
-// this month is out of the sum already: "Due the 12th, done this month". A
-// bill with no due day (tuition) has no line, or just "Your share".
-function billLine(answer: BillAnswer, today: number): string | null {
+// "Your share · due the 15th" for a split bill. The row shows one month's
+// amount, so a bill the sum counts twice or not at all says so. A bill with no
+// due day (tuition) has no line, or just "Your share".
+function billLine(answer: BillAnswer, today: string): string | null {
   const share = answer.coveredBy === "split" ? "Your share" : null;
   if (answer.dueDay === null) return share;
   const day = ordinalDay(answer.dueDay);
-  const done = billCents(answer, today) === 0 ? ", done this month" : "";
-  return share ? `${share} · due ${day}${done}` : `Due ${day}${done}`;
+  const times = billTimesDue(answer, today);
+  const note = times === 0 ? ", after these 30 days" : times > 1 ? ", twice in these 30 days" : "";
+  return share ? `${share} · due ${day}${note}` : `Due ${day}${note}`;
 }
 
 function initialValues(answers: SavedAnswers): Record<FieldKey, string> {
@@ -51,7 +52,7 @@ function initialValues(answers: SavedAnswers): Record<FieldKey, string> {
 
 // `shared` holds the bills and savings goal for both tabs (YourMoneyView), so
 // a save finished after the student switched tabs is never lost.
-export function TodayTab({ data, today, shared }: { data: SafeToSpendData; today: number; shared: SharedAnswers }) {
+export function TodayTab({ data, today, shared }: { data: SafeToSpendData; today: string; shared: SharedAnswers }) {
   const router = useRouter();
   const isMounted = useIsMounted();
   const now = useNow();

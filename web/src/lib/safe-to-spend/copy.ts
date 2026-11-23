@@ -15,8 +15,8 @@ export const BILL_COPY: Record<Bill, { label: string; question: string; amountLa
 // "Split" asks for the student's own part, so no 50/50 is assumed.
 export const SHARE_LABEL = "Your share each month";
 export const SEMESTER_SHARE_LABEL = "Your share each semester";
-// The day a monthly bill is due: safe to spend keeps back only the bills
-// still to come this month.
+// The day a monthly bill is due: safe to spend keeps back each date that falls
+// in the next 30 days.
 export const DUE_DAY_LABEL = "Due on day";
 
 export const COVERED_BY_LABELS: Record<CoveredBy, string> = {

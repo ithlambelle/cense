@@ -77,6 +77,13 @@ export function nextOnDay(day: number, from: string): string {
   return dayInMonth(next.year, next.month, day);
 }
 
+// Every date from `first` to `last` (both included) that falls on a monthly day.
+export function datesOnDay(day: number, first: string, last: string): string[] {
+  const dates: string[] = [];
+  for (let date = nextOnDay(day, first); date <= last; date = nextOnDay(day, addDays(date, 1))) dates.push(date);
+  return dates;
+}
+
 // A reminder about `occurrence`, sent DAYS_BEFORE days earlier. When that day
 // has already passed but the occurrence has not, it goes out today instead:
 // a late heads-up still helps, a skipped one does not.

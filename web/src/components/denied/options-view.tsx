@@ -40,7 +40,17 @@ export type OptionsPreview = { reason: Reason; note?: string; saving?: Answer; e
 // plan; "Not yet" saves no_letter_yet and opens "No problem" (A1, 144:2322).
 // Nothing moves on until the save answers, so no screen claims a save that
 // failed. The note must never reach analytics or a URL.
-export function DeniedOptionsView({ applicationId, preview }: { applicationId: string | null; preview?: OptionsPreview }) {
+// `waitingOnLetter`: the student already answered "Not yet", so they are back
+// because the letter came, and that answer is not offered again.
+export function DeniedOptionsView({
+  applicationId,
+  waitingOnLetter = false,
+  preview,
+}: {
+  applicationId: string | null;
+  waitingOnLetter?: boolean;
+  preview?: OptionsPreview;
+}) {
   const router = useRouter();
   const isMounted = useIsMounted();
   const [knowsReason, setKnowsReason] = useState(preview !== undefined);
@@ -134,18 +144,20 @@ export function DeniedOptionsView({ applicationId, preview }: { applicationId: s
           </li>
           {knowsReason ? null : (
             <>
-              <li>
-                <ChoiceCard
-                  aria-busy={saving === "no-letter"}
-                  disabled={saving !== null}
-                  onClick={() => void saveThenOpen("no-letter", "no_letter_yet", "noLetter")}
-                  className="disabled:opacity-60"
-                  legacyClassName={legacyCard.denialSaving}
-                  end={saving === "no-letter" ? <Saving /> : null}
-                >
-                  Not yet, I’m waiting on the letter
-                </ChoiceCard>
-              </li>
+              {waitingOnLetter ? null : (
+                <li>
+                  <ChoiceCard
+                    aria-busy={saving === "no-letter"}
+                    disabled={saving !== null}
+                    onClick={() => void saveThenOpen("no-letter", "no_letter_yet", "noLetter")}
+                    className="disabled:opacity-60"
+                    legacyClassName={legacyCard.denialSaving}
+                    end={saving === "no-letter" ? <Saving /> : null}
+                  >
+                    Not yet, I’m waiting on the letter
+                  </ChoiceCard>
+                </li>
+              )}
               <li>
                 <TrackedLink
                   href={deniedPath("fixable", applicationId)}
