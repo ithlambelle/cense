@@ -10,6 +10,14 @@ import { syncStudentTransactions } from "@/lib/plaid/transactions";
 import { removeBankLinksForStudent } from "@/lib/plaid/unlink";
 import { balanceRows } from "@/lib/safe-to-spend/compute";
 
+// Room for Plaid. Disconnect waits for /item/remove, up to 10 seconds an Item
+// (TIMEOUT_MS in lib/plaid/client.ts), before it deletes anything, and Link
+// makes three Plaid calls in a row. Without Fluid compute Vercel's default
+// limit can be 10 seconds, which would end a Disconnect while Plaid hangs
+// before the delete runs. 30 is within the 60 Vercel's Hobby plan allows
+// without Fluid compute.
+export const maxDuration = 30;
+
 // Removes an Item this request made but could not keep, so it is not left
 // at Plaid (outside the sandbox, an Item bills until removed).
 async function discard(config: PlaidConfig, accessToken: string) {
@@ -74,10 +82,21 @@ export async function POST(request: Request): Promise<Response> {
   return Response.json(loaded.value, { status: 201, headers: NO_STORE });
 }
 
-// Disconnect (US-12): every Item is removed at Plaid first, then the token,
-// balances and answers are deleted (removeBankLinksForStudent, the same step
-// account deletion must take). If Plaid cannot be reached nothing changes, so the
-// token is never lost while the Item still exists there.
+// Disconnect (US-12, Figma E3): never blocked by Plaid (Ben, Nov 18). Each
+// Item is removed at Plaid first, waiting up to the Plaid timeout (10
+// seconds); then the token, balances, transactions and answers are deleted
+// whatever Plaid answered, and any Item Plaid did not confirm removed is
+// queued, with its encrypted token, for the daily cleanup job to remove at
+// Plaid (removeBankLinksForStudent). So a Plaid outage, or a Plaid that never
+// answers, still answers 204.
+// 429 when an Item would be queued and the student already has 3 waiting
+// (the cap in 20261118200000_disconnect_never_blocked.sql): nothing changed,
+// and the copy says when to try again, since the daily job clears the queue.
+// A 429 rather than the 503 data_unavailable: the data is fine and an
+// immediate retry fails the same way, which is a limit, not an outage.
+// The 502 is left only for the database before
+// 20261118200000_disconnect_never_blocked.sql, where Plaid down still means
+// nothing changes.
 export async function DELETE(): Promise<Response> {
   const student = await authenticatedStudent();
   if (!student) return apiError(401, "unauthorized", "Sign in to continue.");
@@ -92,6 +111,8 @@ export async function DELETE(): Promise<Response> {
       return notLinked();
     case "database_error":
       return databaseError("bank_link_delete", result.error);
+    case "queue_full":
+      return apiError(429, "disconnect_limit", "We’re still removing your earlier bank links at Plaid. Nothing changed. Try again tomorrow.");
     default:
       return apiError(502, "bank_unavailable", "We couldn’t disconnect your bank. Nothing changed. Try again in a few minutes.");
   }

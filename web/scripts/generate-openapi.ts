@@ -391,9 +391,9 @@ registry.registerPath({
 });
 registry.registerPath({
   method: "delete", path: "/bank-link", operationId: "deleteBankLink",
-  summary: "Disconnect: remove the Item at Plaid, then delete the token, balances and answers",
+  summary: "Disconnect: delete the token, balances, transactions and answers now; an Item Plaid did not remove is queued and removed at Plaid later",
   security: [{ studentSession: [] }],
-  responses: { 204: { description: "Disconnected" }, 404: failure("No bank linked"), 502: failure("Plaid unreachable; nothing changed"), ...safeToSpendResponses },
+  responses: { 204: { description: "Disconnected, even while Plaid is down" }, 404: failure("No bank linked"), 429: failure("An Item would be queued and 3 already wait for removal at Plaid; nothing changed"), 502: failure("Plaid unreachable on a database without disconnect_bank_link; nothing changed"), ...safeToSpendResponses },
 });
 registry.registerPath({
   method: "post", path: "/bank-link/refresh", operationId: "refreshBankLink",

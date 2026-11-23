@@ -381,7 +381,11 @@ describe("Accounts (709:1609) and the disconnect sheet (709:1664)", () => {
     const sheet = screen.getByRole("dialog", { name: "Disconnect your bank?" });
     expect(within(sheet).getByRole("button", { name: "Disconnect" })).toBeTruthy();
     expect(within(sheet).getByRole("button", { name: "Keep it" })).toBeTruthy();
-    expect(sheet.textContent).toContain("If Plaid is down, nothing changes.");
+    // 709:1666 to 709:1668, with "transactions" kept in the first line.
+    expect(sheet.textContent).toContain("We delete your balances, transactions and answers now.");
+    expect(sheet.textContent).toContain("We remove the link at Plaid after. If Plaid is down, we retry.");
+    expect(sheet.textContent).toContain("Plaid keeps its own copy. Manage it at my.plaid.com.");
+    expect(sheet.textContent).not.toContain("nothing changes");
   });
 
   it("says which kinds of account the bank shared", () => {

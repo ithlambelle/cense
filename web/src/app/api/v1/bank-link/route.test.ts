@@ -17,6 +17,7 @@ const store = vi.hoisted(() => ({
   saveBankLink: vi.fn(),
   saveBalances: vi.fn(),
   deleteBankLink: vi.fn(),
+  disconnectBankLink: vi.fn(),
   loadSafeToSpend: vi.fn(),
 }));
 vi.mock("@/lib/plaid/store", () => store);
@@ -129,17 +130,57 @@ describe("POST /bank-link", () => {
 });
 
 describe("DELETE /bank-link", () => {
-  it("removes the Item at Plaid, then deletes everything", async () => {
-    store.readAccessTokens.mockResolvedValue({ ok: true, value: [{ kind: "token", itemId: "item-1", accessToken: "access-sandbox-1" }] });
+  const ITEM = { kind: "token", itemId: "item-1", accessToken: "access-sandbox-1" };
+  beforeEach(() => {
+    store.readAccessTokens.mockResolvedValue({ ok: true, value: [ITEM] });
+    store.disconnectBankLink.mockResolvedValue({ ok: true, value: true });
     store.deleteBankLink.mockResolvedValue({ ok: true, value: true });
+  });
+
+  it("removes the Item at Plaid, then deletes everything, queueing nothing", async () => {
     const response = await DELETE();
     expect(response.status).toBe(204);
     expect(plaid.removeItem).toHaveBeenCalledWith(CONFIG, "access-sandbox-1");
-    expect(plaid.removeItem.mock.invocationCallOrder[0]).toBeLessThan(store.deleteBankLink.mock.invocationCallOrder[0]);
+    expect(plaid.removeItem.mock.invocationCallOrder[0]).toBeLessThan(store.disconnectBankLink.mock.invocationCallOrder[0]);
+    expect(store.disconnectBankLink).toHaveBeenCalledWith(expect.anything(), ["item-1"]);
   });
 
-  it("changes nothing when Plaid cannot remove the Item, so the token is never lost", async () => {
-    store.readAccessTokens.mockResolvedValue({ ok: true, value: [{ kind: "token", itemId: "item-1", accessToken: "access-sandbox-1" }] });
+  // Figma E3 (Ben, Nov 18): deletion is never blocked by Plaid.
+  it("Plaid down: answers 204, deletes our copy and queues the Item for the daily cleanup", async () => {
+    plaid.removeItem.mockResolvedValue({ ok: false, kind: "network" });
+    const response = await DELETE();
+    expect(response.status).toBe(204);
+    expect(store.disconnectBankLink).toHaveBeenCalledWith(expect.anything(), []);
+    expect(store.deleteBankLink).not.toHaveBeenCalled();
+  });
+
+  it("still deletes, without queueing, when Plaid says the Item is already gone", async () => {
+    plaid.removeItem.mockResolvedValue({ ok: false, kind: "plaid", code: "ITEM_NOT_FOUND" });
+    expect((await DELETE()).status).toBe(204);
+    expect(store.disconnectBankLink).toHaveBeenCalledWith(expect.anything(), ["item-1"]);
+  });
+
+  it("deletes the local copy of a token that cannot be opened, without queueing it", async () => {
+    store.readAccessTokens.mockResolvedValue({ ok: true, value: [{ kind: "unreadable", itemId: "item-1" }] });
+    expect((await DELETE()).status).toBe(204);
+    expect(plaid.removeItem).not.toHaveBeenCalled();
+    expect(store.disconnectBankLink).toHaveBeenCalledWith(expect.anything(), ["item-1"]);
+  });
+
+  it("mixed: queues only the Item Plaid could not remove", async () => {
+    store.readAccessTokens.mockResolvedValue({
+      ok: true,
+      value: [ITEM, { kind: "token", itemId: "item-2", accessToken: "access-sandbox-2" }, { kind: "token", itemId: "item-3", accessToken: "access-sandbox-3" }],
+    });
+    plaid.removeItem.mockImplementation(async (_config: unknown, accessToken: string) =>
+      accessToken === "access-sandbox-2" ? { ok: false, kind: "network" } : accessToken === "access-sandbox-3" ? { ok: false, kind: "plaid", code: "INVALID_ACCESS_TOKEN" } : { ok: true, data: {} },
+    );
+    expect((await DELETE()).status).toBe(204);
+    expect(store.disconnectBankLink).toHaveBeenCalledWith(expect.anything(), ["item-1", "item-3"]);
+  });
+
+  it("before the migration (no disconnect_bank_link), Plaid down still changes nothing and answers 502", async () => {
+    store.disconnectBankLink.mockResolvedValue({ ok: false, error: { code: "PGRST202", message: "no such function" } });
     plaid.removeItem.mockResolvedValue({ ok: false, kind: "network" });
     const response = await DELETE();
     expect(response.status).toBe(502);
@@ -147,18 +188,26 @@ describe("DELETE /bank-link", () => {
     expect(store.deleteBankLink).not.toHaveBeenCalled();
   });
 
-  it("still deletes when Plaid says the Item is already gone", async () => {
-    store.readAccessTokens.mockResolvedValue({ ok: true, value: [{ kind: "token", itemId: "item-1", accessToken: "access-sandbox-1" }] });
-    plaid.removeItem.mockResolvedValue({ ok: false, kind: "plaid", code: "ITEM_NOT_FOUND" });
-    store.deleteBankLink.mockResolvedValue({ ok: true, value: true });
+  it("before the migration, a removed Item is deleted with delete_bank_link as before", async () => {
+    store.disconnectBankLink.mockResolvedValue({ ok: false, error: { code: "42883", message: "function does not exist" } });
     expect((await DELETE()).status).toBe(204);
+    expect(store.deleteBankLink).toHaveBeenCalled();
   });
 
-  it("deletes the local copy of a token that cannot be opened", async () => {
-    store.readAccessTokens.mockResolvedValue({ ok: true, value: [{ kind: "unreadable", itemId: "item-1" }] });
-    store.deleteBankLink.mockResolvedValue({ ok: true, value: true });
-    expect((await DELETE()).status).toBe(204);
-    expect(plaid.removeItem).not.toHaveBeenCalled();
+  it("answers 429 with nothing changed when 3 Items already wait for removal at Plaid", async () => {
+    plaid.removeItem.mockResolvedValue({ ok: false, kind: "network" });
+    store.disconnectBankLink.mockResolvedValue({ ok: false, error: { code: "54000", message: "too many bank removals waiting" } });
+    const response = await DELETE();
+    expect(response.status).toBe(429);
+    const body = await response.json();
+    expect(body.error.code).toBe("disconnect_limit");
+    expect(body.error.message).toContain("Nothing changed");
+    expect(store.deleteBankLink).not.toHaveBeenCalled();
+  });
+
+  it("answers 503 when the delete fails in the database", async () => {
+    store.disconnectBankLink.mockResolvedValue({ ok: false, error: { code: "08006", message: "down" } });
+    expect((await DELETE()).status).toBe(503);
   });
 
   it("answers 404 with no bank, and 401 signed out", async () => {
