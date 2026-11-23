@@ -118,12 +118,12 @@ test("Profile's back returns to the screen Profile was opened from", async ({ pa
   await expect(page).toHaveURL(/\/learn$/);
   // From Home's avatar.
   await page.goto("/home");
-  await page.getByRole("link", { name: "Profile" }).click();
+  await page.getByRole("banner").getByRole("link", { name: "Profile" }).click();
   await expect(page).toHaveURL(/\/settings$/);
   await page.getByRole("link", { name: "Back to Home" }).click();
   await expect(page).toHaveURL(/\/home$/);
   // Into Reminder settings and back, then back again to Home.
-  await page.getByRole("link", { name: "Profile" }).click();
+  await page.getByRole("banner").getByRole("link", { name: "Profile" }).click();
   await page.getByRole("link", { name: "Reminder settings" }).click();
   await page.getByRole("link", { name: "Back to Your account" }).click();
   await expect(page).toHaveURL(/\/settings$/);

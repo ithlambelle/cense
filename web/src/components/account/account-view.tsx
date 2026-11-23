@@ -4,6 +4,7 @@ import Link from "next/link";
 import { LogOutButton } from "@/components/account/log-out-button";
 import { CardArt } from "@/components/cards/card-art";
 import { AppHeader } from "@/components/ui/app-header";
+import { BottomNav } from "@/components/ui/bottom-nav";
 import { LIST_ROW as ROW, ListRowChevron as Chevron, SectionHeading } from "@/components/ui/list-row";
 import { STATUS_LABELS } from "@/lib/copy/applications";
 import { SENSITIVE } from "@/lib/analytics";
@@ -14,12 +15,14 @@ import type { ProfileUpdates } from "@/lib/profile-updates";
 import { QUIZ_RETAKE, quizProgress } from "@/lib/quiz/progress";
 import type { ResultView } from "@/lib/results/compute";
 import { fromAccount, quizPath, ROUTES } from "@/lib/routes";
+import { UI_VERSION } from "@/lib/ui-version";
 import { cn } from "@/lib/utils";
 
 // Profile (Flow F, F5, Figma 477:2797): Updates (count and the latest one),
 // Your card, the Account rows, then Log out as a full-width outlined button
 // with Switch account under it. Plain List rows, Divider style (371:3100).
-// The frame draws no bottom bar. Accounts opens the linked bank and shows only
+// Profile is a tab, so it shows the bottom bar (the frame does not draw it yet)
+// and keeps its back arrow to the screen that opened it. Accounts opens the linked bank and shows only
 // once one is linked (F5 note). Every screen opened from here has a back arrow
 // that returns here (F6 decided).
 export function AccountView({
@@ -59,6 +62,8 @@ export function AccountView({
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       <div className="flex w-full max-w-phone flex-col">
+        {/* The back arrow returns to the screen Profile was opened from (G1's
+            back rule), kept now that Profile is also a tab; the bar is below. */}
         <AppHeader backHref={ROUTES.home} backLabel="Home" />
         <main className="stagger flex flex-1 flex-col gap-2 px-6 pt-3 pb-6">
           <div className="flex items-center gap-4">
@@ -125,6 +130,8 @@ export function AccountView({
           <div className="h-4 shrink-0" />
           <LogOutButton />
         </main>
+        {/* The archived three-tab bar had no Profile tab and was not on this screen. */}
+        {UI_VERSION.nav === "five-tab" ? <BottomNav /> : null}
       </div>
     </div>
   );
