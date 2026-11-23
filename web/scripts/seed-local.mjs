@@ -62,6 +62,9 @@ for (const student of STUDENTS) {
   await api(null, "POST", "/auth/email", { email });
   const verify = await api(null, "POST", "/auth/email/verify", { email, code: await latestCode(email) });
   const cookie = verify.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+  // Past the first sign-in welcome, as "Let's go" does, so each test student
+  // lands on their Home state.
+  await api(cookie, "PUT", "/me/welcome");
   if (student.answers) await api(cookie, "PUT", "/quiz", { answers: student.answers });
   if (student.card) {
     await api(cookie, "POST", "/applications", { ...CARD, status: student.card.status, creditLimitCents: student.card.creditLimitCents ?? null });

@@ -17,6 +17,8 @@ const NEVER_BACK_TO: readonly string[] = [
   ROUTES.resetPasswordConfirm,
   ROUTES.resetPassword,
   ROUTES.start,
+  // The first sign-in welcome: once "Let's go" is tapped it never shows again.
+  ROUTES.startWelcome,
   ROUTES.accountDeleted,
   ROUTES.signedOut,
 ];
@@ -65,6 +67,8 @@ const SCREEN_NAMES: Record<string, string> = {
   [ROUTES.safeToSpend]: "Your money",
   [ROUTES.accounts]: "Accounts",
   [ROUTES.updates]: "Updates",
+  [ROUTES.startLinkBank]: "Link your bank",
+  [ROUTES.startNextStep]: "Your next step",
 };
 
 // One approved card's setup screens (US-10), by the names their own back

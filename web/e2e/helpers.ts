@@ -97,7 +97,16 @@ export async function codeFromMailpit(email: string, seen: Set<string>): Promise
 
 // Signs up a new student through the real UI (email code) and waits for the
 // screen /start sends them to. Runs axe on both sign-up steps.
-export async function signUp(page: Page, email: string, checkA11y: (screen: string) => Promise<void>) {
+// A new student first lands on the first sign-in welcome (Flow 1), which
+// first-login.spec.ts walks. Every other journey starts where a returning
+// student lands: the welcome is marked as seen, as "Let's go" does, and the
+// student lands again. `welcome: true` stops on the welcome instead.
+export async function signUp(
+  page: Page,
+  email: string,
+  checkA11y: (screen: string) => Promise<void>,
+  { welcome = false }: { welcome?: boolean } = {},
+) {
   await page.goto("/sign-up");
   const emailField = page.getByLabel("Email");
   await expect(emailField).toBeEditable();
@@ -113,6 +122,11 @@ export async function signUp(page: Page, email: string, checkA11y: (screen: stri
   await page.getByRole("button", { name: "Verify" }).click();
 
   await page.waitForURL((url) => !["/sign-up", "/sign-in", "/start"].includes(url.pathname));
+  if (!welcome && new URL(page.url()).pathname === "/start/welcome") {
+    expect((await page.request.put("/api/v1/me/welcome")).status()).toBe(204);
+    await page.goto("/start");
+    await page.waitForURL((url) => url.pathname !== "/start");
+  }
   await expect(page.locator("h1", { hasNotText: "Hold tight!" }).first()).toBeVisible();
 }
 

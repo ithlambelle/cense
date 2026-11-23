@@ -78,3 +78,24 @@ describe("ConnectView", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 });
+
+// Created with Claude Code (2026-11-19). E1, the same screen on first sign-in
+// (Flow 1, 821:8502).
+describe("ConnectView on first sign-in (E1)", () => {
+  it("is the same screen, with Skip for now opening Your next step without a bank", () => {
+    render(<ConnectView firstLogin />);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Link your bank");
+    expect(screen.getByRole("button", { name: "Link your bank" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Skip for now" }).getAttribute("href")).toBe("/start/next-step");
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+  });
+
+  it("still sends a student who links a bank to the questions, where linking leads today", async () => {
+    createLinkToken.mockResolvedValue({ kind: "ok", data: { linkToken: "link-sandbox-1" } });
+    openLink.mockResolvedValue({ kind: "connected", publicToken: "public-sandbox-1" });
+    linkBank.mockResolvedValue({ kind: "ok", data: {} });
+    render(<ConnectView firstLogin />);
+    fireEvent.click(screen.getByRole("button", { name: "Link your bank" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/safe-to-spend/setup"));
+  });
+});

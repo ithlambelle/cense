@@ -245,8 +245,10 @@ select set_eq(
 select set_eq(
   $$ select column_name::text from information_schema.column_privileges
      where table_schema = 'public' and table_name = 'profiles' and grantee = 'authenticated' and privilege_type = 'UPDATE' $$,
-  array['remind_statement_closing', 'remind_payment_due', 'remind_check_autopay', 'reminders_unsubscribed_at', 'analytics_opted_out_at'],
-  'profiles: students change only the reminder settings and the Analytics switch');
+  array['remind_statement_closing', 'remind_payment_due', 'remind_check_autopay', 'reminders_unsubscribed_at', 'analytics_opted_out_at',
+        -- 20261119100000_profiles_welcomed_at.sql: the first-login welcome
+        'welcomed_at'],
+  'profiles: students change only the reminder settings, the Analytics switch and when they were welcomed');
 select ok(not has_table_privilege('authenticated', 'public.profiles', 'insert'), 'students cannot add a profile');
 select ok(not has_table_privilege('authenticated', 'public.card_applications', 'delete'), 'or delete a card record');
 select ok(not has_table_privilege('anon', 'public.card_applications', 'select')
