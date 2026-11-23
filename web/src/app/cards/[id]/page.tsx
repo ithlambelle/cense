@@ -12,7 +12,8 @@ import { cardDisplayName } from "@/lib/copy/results";
 import { isInternalStudent } from "@/lib/internal-students";
 import { currentStudent } from "@/lib/session";
 import { estimateYearOne } from "@/lib/results/value";
-import { loadApplicationDetail, loadApplications, loadReminderSettings, loadSpendingProfile } from "@/lib/student-data";
+import type { CardFit } from "@/lib/rules/fit-tier";
+import { loadApplicationDetail, loadApplications, loadCardQuiz, loadReminderSettings } from "@/lib/student-data";
 
 export async function generateMetadata({ params }: PageProps<"/cards/[id]">): Promise<Metadata> {
   const { id } = await params;
@@ -29,24 +30,30 @@ export default async function CardDetailPage({ params, searchParams }: PageProps
   if (!card) notFound();
   const student = await currentStudent();
   const analyticsOn = student ? await loadAnalyticsOn(student) : null;
-  // A signed-in student who tracks this card can update it from here (US-05).
+  // A signed-in student who tracks this card sees it as their card (K1) and
+  // can update it from here (US-05).
   const tracked = student ? cardApplication(await loadApplications(student), card.id) : null;
-  // An approved card's payment reminders are set from here too (Reminders
-  // audit R-09): Home leads with one card, and the others open this page.
+  // An approved card shows its dates, autopay, spend limit and payment
+  // reminders, each changed from here too (Reminders audit R-09): Home leads
+  // with one card, and the others open this page.
   const [detail, settings] =
     student && tracked?.status === "approved"
       ? await Promise.all([loadApplicationDetail(student, tracked.id), loadReminderSettings(student)])
       : [null, null];
   const reminders = detail && settings ? reminderStatus(detail, settings) : null;
   const rewards = cardRewards(card.id);
-  // The student's year-one estimate for this card, from their saved spending
-  // answer. The page still works without it.
+  // How the card fits the student's quiz answers (K2's fit row and Why it
+  // fits you) and their year-one estimate, from their saved answers. The page
+  // still works without them.
   let estimate = null;
+  let fit: CardFit | null = null;
   if (student) {
     try {
-      estimate = estimateYearOne(rewards, await loadSpendingProfile(student));
+      const quiz = await loadCardQuiz(student, card);
+      fit = quiz.fit;
+      estimate = estimateYearOne(rewards, quiz.profile);
     } catch {
-      console.warn(JSON.stringify({ event: "card_estimate_read_failed" }));
+      console.warn(JSON.stringify({ event: "card_quiz_read_failed" }));
     }
   }
   return (
@@ -65,9 +72,11 @@ export default async function CardDetailPage({ params, searchParams }: PageProps
         signedIn={student !== null}
         from={from}
         tracked={tracked}
+        detail={detail}
         reminders={reminders}
         rewards={rewards}
         estimate={estimate}
+        fit={fit}
       />
     </>
   );

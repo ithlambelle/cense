@@ -4,8 +4,10 @@ import {
   allowedNext,
   applicationBackLink,
   applicationPath,
+  autopayBackLink,
   autopayConfirmPath,
   autopayOnPath,
+  autopayOrigin,
   autopayStepsPath,
   cardBackLink,
   cardSetupPath,
@@ -175,6 +177,33 @@ describe("tracked card paths", () => {
     expect(spendLimitOrigin("https://evil.example")).toBe("setup");
     expect(spendLimitBackLink(ID, "home")).toEqual({ href: "/home", label: "Home" });
     expect(spendLimitBackLink(ID, "setup")).toEqual({ href: `/applications/${ID}/setup`, label: "Card setup" });
+  });
+
+  it("opens autopay and the spend limit from the card's page, so Back and Save return to that page as it was opened", () => {
+    const setup = `/applications/${ID}/setup`;
+    const card = "discover-it-student-cash-back";
+    expect(autopayStepsPath(ID, "card", "home")).toBe(`${setup}/autopay?from=card&card_from=home`);
+    expect(autopayConfirmPath(ID, "card", "results")).toBe(`${setup}/autopay/confirm?from=card&card_from=results`);
+    expect(autopayOnPath(ID, "card")).toBe(`${setup}/autopay/on?from=card`);
+    expect(autopayStepsPath(ID, "setup", "home")).toBe(`${setup}/autopay`);
+    expect(spendLimitPath(ID, 50000, "card", "home")).toBe(`${setup}/spend-limit/suggestion?from=card&card_from=home`);
+    expect(spendLimitPath(ID, null, "card")).toBe(`${setup}/spend-limit?from=card`);
+    expect(spendLimitPickPath(ID, "card", "results")).toBe(`${setup}/spend-limit/pick?from=card&card_from=results`);
+    // Home's star never carries a card page's origin.
+    expect(spendLimitPickPath(ID, "home", "results")).toBe(`${setup}/spend-limit/pick?from=home`);
+
+    expect(autopayOrigin("card")).toBe("card");
+    for (const value of [undefined, "setup", "home", ["card"], "https://evil.example"]) expect(autopayOrigin(value)).toBe("setup");
+    expect(spendLimitOrigin("card")).toBe("card");
+
+    const cardDetails = { href: `/cards/${card}?from=home`, label: "Card details" };
+    expect(autopayBackLink(ID, "card", card, "home")).toEqual(cardDetails);
+    expect(spendLimitBackLink(ID, "card", card, "home")).toEqual(cardDetails);
+    expect(autopayBackLink(ID, "card", card)).toEqual({ href: `/cards/${card}`, label: "Card details" });
+    expect(autopayBackLink(ID, "setup", card, "home")).toEqual({ href: setup, label: "Card setup" });
+    // A card not in the catalog has no page: the setup list.
+    expect(autopayBackLink(ID, "card", null)).toEqual({ href: setup, label: "Card setup" });
+    expect(spendLimitBackLink(ID, "card", null)).toEqual({ href: setup, label: "Card setup" });
   });
 });
 

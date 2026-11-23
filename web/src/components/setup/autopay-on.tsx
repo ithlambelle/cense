@@ -7,7 +7,7 @@ import Link from "next/link";
 
 import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { SENSITIVE } from "@/lib/analytics";
-import { cardSetupPath, paymentRemindersPath, ROUTES } from "@/lib/routes";
+import { autopayBackLink, paymentRemindersPath, ROUTES, type AutopayOrigin, type CardOrigin } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 import { HandoffStrip, InfoCallout, SetupHeading, SetupScreen, Spacer } from "./setup-parts";
@@ -18,6 +18,9 @@ export function AutopayOn({
   issuerName,
   amount,
   nextPayment,
+  from = "setup",
+  cardId = null,
+  cardFrom,
 }: {
   applicationId: string;
   cardName: string;
@@ -26,9 +29,15 @@ export function AutopayOn({
   amount: string | null;
   // "Dec 6", or null without a saved due day.
   nextPayment: string | null;
+  // "card": opened from the card's page (its catalog id and own origin given),
+  // so Back, and the reminder screen's Back, return there.
+  from?: AutopayOrigin;
+  cardId?: string | null;
+  cardFrom?: CardOrigin;
 }) {
+  const remindersHref = from === "card" ? paymentRemindersPath(applicationId, "card", cardFrom) : paymentRemindersPath(applicationId, "setup");
   return (
-    <SetupScreen back={{ href: cardSetupPath(applicationId), label: "Card setup" }}>
+    <SetupScreen back={autopayBackLink(applicationId, from, cardId, cardFrom)}>
       <HandoffStrip issuer={issuerName ?? "Your card"} stage="done" />
       <span aria-hidden="true" className="flex size-16 items-center justify-center rounded-pill bg-green">
         <svg width="22" height="17" viewBox="0 0 22 17" fill="none">
@@ -52,7 +61,7 @@ export function AutopayOn({
           {nextPayment ? (
             <p className="font-semibold text-navy">{nextPayment}</p>
           ) : (
-            <Link href={paymentRemindersPath(applicationId, "setup")} className="font-semibold text-violet underline underline-offset-2">
+            <Link href={remindersHref} className="font-semibold text-violet underline underline-offset-2">
               Add your dates
             </Link>
           )}

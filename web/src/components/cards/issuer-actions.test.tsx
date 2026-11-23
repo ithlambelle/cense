@@ -22,7 +22,7 @@ vi.mock("@/lib/analytics", async (importOriginal) => {
 });
 const CLICK_ID = "00000000-0000-4000-8000-0000000000c1";
 
-const APPLY = "Apply on Sample Bank’s site: Sample Bank Card";
+const APPLY = "Apply at Sample Bank: Sample Bank Card";
 const PREAPPROVAL = "Check if you’re preapproved: Sample Bank Card";
 
 // Opens the sheet, then taps its confirm button (where the new tab is opened).
@@ -95,23 +95,45 @@ afterEach(() => {
 });
 
 describe("IssuerActions", () => {
-  it("shows preapproval first, with the line about the credit score", () => {
-    render(<IssuerActions signedIn notes={[]} card={card} />);
-    const buttons = screen.getAllByRole("button").map((button) => button.textContent);
-    expect(buttons).toEqual(["Check if you’re preapproved", "Apply on Sample Bank’s site"]);
-    expect(screen.getByText("This check won’t affect your credit score.")).toBeTruthy();
-    expect(screen.getByText(/doesn’t submit applications/)).toBeTruthy();
+  // K2 (Figma 821:8813, 821:8814): the two buttons alone, preapproval first as
+  // the primary and Apply as the secondary, as on Your match.
+  it("shows preapproval first as the primary, then Apply at the issuer as the secondary", () => {
+    render(<IssuerActions signedIn card={card} />);
+    const buttons = screen.getAllByRole("button");
+    expect(buttons.map((button) => button.textContent)).toEqual(["Check if you’re preapproved", "Apply at Sample Bank"]);
+    expect(buttons[0].className).toContain("bg-violet");
+    expect(buttons[1].className).toContain("border-violet");
+    expect(buttons[1].className).toContain("text-violet");
+    // The lines under the buttons are gone from the page; the sheets say them.
+    expect(screen.queryByText("This check won’t affect your credit score.")).toBeNull();
+    expect(screen.queryByText(/doesn’t submit applications/)).toBeNull();
   });
 
-  it("shows only apply, with the notes it is given, when there is no preapproval check", () => {
-    render(<IssuerActions signedIn notes={["A note from the rules."]} card={{ ...card, preapprovalUrl: null }} />);
-    expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual(["Apply on Sample Bank’s site"]);
-    expect(screen.getByText("A note from the rules.")).toBeTruthy();
-    expect(screen.queryByText(/no preapproval check/)).toBeNull();
+  it("says the check won’t affect the credit score in the preapproval sheet, before the student leaves", async () => {
+    render(<IssuerActions signedIn card={card} />);
+    fireEvent.click(screen.getByRole("button", { name: PREAPPROVAL }));
+    const sheet = await screen.findByRole("dialog", { name: "Check first, then decide" });
+    expect(sheet.textContent).toContain("This check won’t affect your credit score.");
+    expect(sheet.textContent).toContain("A preapproval is not a final decision.");
+  });
+
+  it("shows only Apply, as the primary, when there is no preapproval check", () => {
+    render(<IssuerActions signedIn card={{ ...card, preapprovalUrl: null }} />);
+    const buttons = screen.getAllByRole("button");
+    expect(buttons.map((button) => button.textContent)).toEqual(["Apply at Sample Bank"]);
+    expect(buttons[0].className).toContain("bg-violet");
+  });
+
+  it("lets a long label wrap instead of running out of the button on a narrow phone", () => {
+    render(<IssuerActions signedIn card={card} />);
+    for (const button of screen.getAllByRole("button")) {
+      expect(button.className).toContain("whitespace-normal");
+      expect(button.className).toContain("min-h-14");
+    }
   });
 
   it("shows the referral disclosure in the apply sheet, before the student leaves", async () => {
-    render(<IssuerActions signedIn notes={[]} card={{ ...card, referralDisclosure: "Cense may be paid if you apply." }} />);
+    render(<IssuerActions signedIn card={{ ...card, referralDisclosure: "Cense may be paid if you apply." }} />);
     fireEvent.click(screen.getByRole("button", { name: APPLY }));
     expect(await screen.findByText("Cense may be paid if you apply.")).toBeTruthy();
   });
@@ -119,7 +141,7 @@ describe("IssuerActions", () => {
   it("saves the click, then sends the new tab to the address the API returned", async () => {
     const fetchFn = answer(201, click("https://issuer.example/apply"));
     vi.stubGlobal("fetch", fetchFn);
-    render(<IssuerActions signedIn notes={[]} card={card} />);
+    render(<IssuerActions signedIn card={card} />);
     await openApply();
 
     // The tab is opened during the confirm tap, before the request, and cut off from this page.
@@ -138,7 +160,7 @@ describe("IssuerActions", () => {
 
   it("still opens the issuer when the click could not be recorded, with no analytics copy", async () => {
     vi.stubGlobal("fetch", answer(200, { ...click("https://issuer.example/apply"), id: null, clickedAt: null }));
-    render(<IssuerActions signedIn notes={[]} card={card} />);
+    render(<IssuerActions signedIn card={card} />);
     await openApply();
     await waitFor(() => expect(tab.location.replace).toHaveBeenCalledWith("https://issuer.example/apply"));
     expect(tab.close).not.toHaveBeenCalled();
@@ -148,7 +170,7 @@ describe("IssuerActions", () => {
 
   it("does not ask about applying after a preapproval check", async () => {
     vi.stubGlobal("fetch", answer(201, click("https://issuer.example/preapproval")));
-    render(<IssuerActions signedIn notes={[]} card={card} />);
+    render(<IssuerActions signedIn card={card} />);
     await openPreapproval();
     await waitFor(() => expect(tab.location.replace).toHaveBeenCalled());
     expect(screen.queryByText("Did you finish applying?")).toBeNull();
@@ -156,7 +178,7 @@ describe("IssuerActions", () => {
 
   it("refuses an address that is not https and closes the tab", async () => {
     vi.stubGlobal("fetch", answer(201, click("javascript:alert(1)")));
-    render(<IssuerActions signedIn notes={[]} card={card} />);
+    render(<IssuerActions signedIn card={card} />);
     await openApply();
     await waitFor(() => expect(tab.close).toHaveBeenCalled());
     expect(tab.location.replace).not.toHaveBeenCalled();
@@ -165,7 +187,7 @@ describe("IssuerActions", () => {
 
   it("closes the tab and sends a signed-out visitor to sign in, with a way back to the card", async () => {
     vi.stubGlobal("fetch", answer(401, { error: { code: "unauthorized", message: "Sign in to continue." } }));
-    render(<IssuerActions signedIn notes={[]} card={card} />);
+    render(<IssuerActions signedIn card={card} />);
     await openApply();
     await waitFor(() => expect(push).toHaveBeenCalledWith("/sign-in?next=%2Fcards%2Fsample-card"));
     expect(tab.close).toHaveBeenCalled();
@@ -173,7 +195,7 @@ describe("IssuerActions", () => {
 
   it("closes the tab and shows the API's message when the click cannot be saved", async () => {
     vi.stubGlobal("fetch", answer(503, { error: { code: "catalog_unavailable", message: "The card catalog is not ready yet." } }));
-    render(<IssuerActions signedIn notes={[]} card={card} />);
+    render(<IssuerActions signedIn card={card} />);
     await openApply();
     expect((await screen.findByRole("alert")).textContent).toBe("The card catalog is not ready yet.");
     expect(tab.close).toHaveBeenCalled();
@@ -182,7 +204,7 @@ describe("IssuerActions", () => {
   it("offers a link to tap when the browser blocks the new tab", async () => {
     open.mockReturnValue(null);
     vi.stubGlobal("fetch", answer(201, click("https://issuer.example/apply")));
-    render(<IssuerActions signedIn notes={[]} card={card} />);
+    render(<IssuerActions signedIn card={card} />);
     await openApply();
     const link = await screen.findByRole("link", { name: /new tab didn’t open/ });
     expect(link.getAttribute("href")).toBe("https://issuer.example/apply");
@@ -194,8 +216,8 @@ describe("IssuerActions", () => {
   it("sends a visitor known to be signed out straight to sign in, opening no tab", () => {
     const fetchFn = answer(201, click("https://issuer.example/apply"));
     vi.stubGlobal("fetch", fetchFn);
-    render(<IssuerActions card={card} notes={[]} signedIn={false} />);
-    fireEvent.click(screen.getByRole("button", { name: "Apply on Sample Bank’s site: Sample Bank Card" }));
+    render(<IssuerActions card={card} signedIn={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "Apply at Sample Bank: Sample Bank Card" }));
     expect(push).toHaveBeenCalledWith("/sign-in?next=%2Fcards%2Fsample-card");
     expect(open).not.toHaveBeenCalled();
     expect(fetchFn).not.toHaveBeenCalled();
@@ -204,7 +226,7 @@ describe("IssuerActions", () => {
   it("offers the link when the student closed the tab before the click was saved", async () => {
     tab.closed = true;
     vi.stubGlobal("fetch", answer(201, click("https://issuer.example/apply")));
-    render(<IssuerActions signedIn notes={[]} card={card} />);
+    render(<IssuerActions signedIn card={card} />);
     await openApply();
     expect(await screen.findByRole("link", { name: /new tab didn’t open/ })).toBeTruthy();
     expect(tab.location.replace).not.toHaveBeenCalled();
@@ -223,7 +245,7 @@ describe("IssuerActions", () => {
 
   async function reachQuestion(fetchFn: ReturnType<typeof answer>) {
     vi.stubGlobal("fetch", fetchFn);
-    render(<IssuerActions signedIn notes={[]} card={card} />);
+    render(<IssuerActions signedIn card={card} />);
     await openApply();
     await screen.findByText("Did you finish applying?");
   }
@@ -288,13 +310,18 @@ describe("IssuerActions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Not yet" }));
     expect(fetchFn).toHaveBeenCalledTimes(1);
     expect(track).toHaveBeenLastCalledWith("outcome_reported", { outcome: "didnt_apply", source: "did_you_apply" });
-    expect(screen.getByRole("button", { name: "Apply on Sample Bank’s site: Sample Bank Card" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Apply at Sample Bank: Sample Bank Card" })).toBeTruthy();
   });
 
   it("opens no tab until the student confirms in the sheet, and closes the sheet on Not ready yet", async () => {
-    render(<IssuerActions signedIn notes={[]} card={card} />);
+    render(<IssuerActions signedIn card={card} />);
     fireEvent.click(screen.getByRole("button", { name: APPLY }));
-    expect(await screen.findByRole("dialog", { name: "Apply on the issuer’s site" })).toBeTruthy();
+    const sheet = await screen.findByRole("dialog", { name: "Apply on the issuer’s site" });
+    // Says what Cense never does, including seeing the credit report (no other screen says it now).
+    expect(sheet.textContent).toContain(
+      "Cense doesn’t fill in or submit your application, or see your credit report. Review the issuer’s terms before you submit.",
+    );
+    expect(sheet.textContent).not.toMatch(/—|~/);
     expect(open).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Not ready yet" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -303,7 +330,7 @@ describe("IssuerActions", () => {
 
   it("asks again after a reload if the student left to apply", async () => {
     sessionStorage.setItem("cense:did-you-apply:sample-card", "1");
-    render(<IssuerActions signedIn notes={[]} card={card} />);
+    render(<IssuerActions signedIn card={card} />);
     expect(await screen.findByText("Did you finish applying?")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Not yet" }));
     expect(sessionStorage.getItem("cense:did-you-apply:sample-card")).toBeNull();
