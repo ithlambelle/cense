@@ -491,7 +491,7 @@ test("right after linking, Cense reads the bank and answers the questions itself
   const checkA11y = axeChecker(page);
   await signUp(page, uniqueEmail("sts-reading"), checkA11y);
   await page.goto("/safe-to-spend/connect");
-  await page.getByRole("button", { name: "Connect (Preview)" }).click();
+  await page.getByRole("button", { name: "Link your bank" }).click();
 
   // Step L1: Penny reads; each thing found lands as a row.
   await expect(page).toHaveURL(/\/safe-to-spend\/reading$/);

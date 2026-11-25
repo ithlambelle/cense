@@ -151,9 +151,11 @@ test("Coming up lists an approved card's dates and the bills the student pays, a
   // are never a Coming up row.
   const groceries = ahead(6);
   await page.goto("/safe-to-spend/connect");
-  // "Connect (Preview)" on main, "Link your bank" once the Link your bank
-  // screen (#127, Flow 5 C1) lands: either name, so this passes in both orders.
-  await page.getByRole("button", { name: /^(Connect \(Preview\)|Link your bank)$/ }).click();
+  await page.getByRole("button", { name: "Link your bank" }).click();
+  // Linking opens step L1, which reads the bank; these bills are set by hand,
+  // so take "Fix something" to the questions.
+  await expect(page).toHaveURL(/\/safe-to-spend\/reading$/);
+  await page.getByRole("link", { name: "Fix something" }).click();
   await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
   await answerWhoCovers(page, { rent: dayOf(rent), phone: dayOf(phone), groceries: dayOf(groceries) });
 
