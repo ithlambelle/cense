@@ -75,12 +75,16 @@ set local role service_role;
 select is(public.purge_old_quota_rows(), 0, 'running it again deletes nothing more');
 
 -- The limits still work --------------------------------------------------------
+-- Through claim_auth_attempt_hashed(), as the app's server calls it since
+-- 20261121210000_keyed_auth_throttle.sql. The keys here are plain SHA-256s in
+-- hex, the same bytes as the rows inserted above; the app sends HMACs, which
+-- this function cannot tell apart and does not need to.
 
-select is(public.claim_auth_attempt('verify', 'kai@example.com', '192.0.2.30'), 3600,
+select is(public.claim_auth_attempt_hashed('verify', encode(sha256(convert_to('kai@example.com|192.0.2.30', 'UTF8')), 'hex'), encode(sha256(convert_to('kai@example.com', 'UTF8')), 'hex'), encode(sha256(convert_to('192.0.2.30', 'UTF8')), 'hex')), 3600,
   'the daily cap on code checks still counts the last 24 hours: kai waits until the oldest is a day old');
-select is(public.claim_auth_attempt('verify', 'lee@example.com', '192.0.2.31'), 0,
+select is(public.claim_auth_attempt_hashed('verify', encode(sha256(convert_to('lee@example.com|192.0.2.31', 'UTF8')), 'hex'), encode(sha256(convert_to('lee@example.com', 'UTF8')), 'hex'), encode(sha256(convert_to('192.0.2.31', 'UTF8')), 'hex')), 0,
   'lee''s checks from over a day ago were deleted, and did not count anyway');
-select is(public.claim_auth_attempt('send', 'nia@example.com', '192.0.2.40'), 0, 'a new sign-in email goes ahead');
+select is(public.claim_auth_attempt_hashed('send', encode(sha256(convert_to('nia@example.com|192.0.2.40', 'UTF8')), 'hex'), encode(sha256(convert_to('nia@example.com', 'UTF8')), 'hex'), encode(sha256(convert_to('192.0.2.40', 'UTF8')), 'hex')), 0, 'a new sign-in email goes ahead');
 reset role;
 select is((select count(*)::int from public.auth_throttle_events where at = now()), 7,
   'tries after the purge are counted as before (4 for lee''s check, 3 for nia''s email; kai''s refused try is not)');
