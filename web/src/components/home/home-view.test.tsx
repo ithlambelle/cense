@@ -146,6 +146,18 @@ describe("HomeView", () => {
     await screen.findByText("0 of 3 lit");
   });
 
+  it("invites a student to a sandbox bank on test banks, and to their own bank with real ones", async () => {
+    const state = homeState([app("approved", { creditLimitCents: 50000 })], NONE, 1);
+    const { unmount } = render(<HomeView state={state} initial="M" safeToSpend={null} />);
+    expect(screen.getByText("A daily number from a sandbox bank. No real bank data.")).toBeTruthy();
+    await screen.findByText("0 of 3 lit");
+    unmount();
+    render(<HomeView state={state} initial="M" safeToSpend={null} bankSandbox={false} />);
+    expect(screen.getByText("A daily number from your bank. Read only.")).toBeTruthy();
+    expect(screen.queryByText(/sandbox/i)).toBeNull();
+    await screen.findByText("0 of 3 lit");
+  });
+
   it("writes a limit with a thousands separator, and cents only when there are some", async () => {
     const { unmount } = render(<HomeView state={homeState([app("approved", { creditLimitCents: 150000 })], NONE, 1)} initial="M" />);
     expect(screen.getByText("$1,500")).toBeTruthy();

@@ -11,7 +11,7 @@ import type { PlaidConfig } from "./config";
 import { dueDaysFrom, fillCardDueDays, sameBank } from "./liabilities";
 import type { TokenKey } from "./token-box";
 
-const CONFIG: PlaidConfig = { clientId: "c", secret: "s", baseUrl: "https://sandbox.plaid.com", tokenKey: Buffer.alloc(32) as TokenKey };
+const CONFIG: PlaidConfig = { clientId: "c", secret: "s", baseUrl: "https://sandbox.plaid.com", environment: "sandbox" as const, tokenKey: Buffer.alloc(32) as TokenKey };
 const DISCOVER = { accessToken: "access-1", institutionName: "Discover" };
 
 const card = (over: Record<string, unknown> = {}) => ({

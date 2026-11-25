@@ -23,7 +23,7 @@ afterEach(() => {
 
 describe("ConnectView", () => {
   it("shows the frame's title, subtitle and three titled rows", () => {
-    render(<ConnectView />);
+    render(<ConnectView sandbox />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Link your bank");
     expect(screen.getByText("So Cense can find your next step and what’s safe to spend.")).toBeTruthy();
     const rows = within(screen.getByRole("list", { name: "What Cense reads and keeps" })).getAllByRole("listitem");
@@ -35,14 +35,14 @@ describe("ConnectView", () => {
   });
 
   it("offers Link your bank, Skip for now to Home, and no back arrow", () => {
-    render(<ConnectView />);
+    render(<ConnectView sandbox />);
     expect(screen.getByRole("button", { name: "Link your bank" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Skip for now" }).getAttribute("href")).toBe("/home");
     expect(screen.getAllByRole("link")).toHaveLength(1);
   });
 
   it("draws Skip for now 36px tall with a tap area 4px beyond it above and below (44px)", () => {
-    render(<ConnectView />);
+    render(<ConnectView sandbox />);
     const skip = screen.getByRole("link", { name: "Skip for now" });
     const classes = skip.className.split(/\s+/);
     expect(classes).toEqual(expect.arrayContaining(["h-9", "relative", "after:absolute", "after:inset-x-0", "after:-inset-y-1"]));
@@ -50,18 +50,25 @@ describe("ConnectView", () => {
   });
 
   it("says Secured by Plaid and keeps the Preview and sandbox note, with no Privacy Policy line yet", () => {
-    const { container } = render(<ConnectView />);
+    const { container } = render(<ConnectView sandbox />);
     expect(screen.getByText("Secured by Plaid.")).toBeTruthy();
     expect(screen.getByText("Preview")).toBeTruthy();
     expect(screen.getByText("Sandbox only, no live data")).toBeTruthy();
     expect(container.textContent).not.toMatch(/Privacy Policy|agree/);
   });
 
+  it("drops the sandbox note on real banks for the pilot, keeping Preview", () => {
+    const { container } = render(<ConnectView sandbox={false} />);
+    expect(screen.getByText("Secured by Plaid.")).toBeTruthy();
+    expect(screen.getByText("Preview")).toBeTruthy();
+    expect(container.textContent).not.toMatch(/sandbox|no live data/i);
+  });
+
   it("opens Plaid Link with the server's token, then goes on to the questions", async () => {
     createLinkToken.mockResolvedValue({ kind: "ok", data: { linkToken: "link-sandbox-1" } });
     openLink.mockResolvedValue({ kind: "connected", publicToken: "public-sandbox-1" });
     linkBank.mockResolvedValue({ kind: "ok", data: {} });
-    render(<ConnectView />);
+    render(<ConnectView sandbox />);
     fireEvent.click(screen.getByRole("button", { name: "Link your bank" }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/safe-to-spend/setup"));
     expect(openLink).toHaveBeenCalledWith("link-sandbox-1");
@@ -71,7 +78,7 @@ describe("ConnectView", () => {
   it("stays on the screen and says so when the student closes Link", async () => {
     createLinkToken.mockResolvedValue({ kind: "ok", data: { linkToken: "link-sandbox-1" } });
     openLink.mockResolvedValue({ kind: "cancelled" });
-    render(<ConnectView />);
+    render(<ConnectView sandbox />);
     fireEvent.click(screen.getByRole("button", { name: "Link your bank" }));
     expect(await screen.findByRole("status")).toHaveProperty("textContent", "No bank connected. Try again when you’re ready.");
     expect(linkBank).not.toHaveBeenCalled();
@@ -83,7 +90,7 @@ describe("ConnectView", () => {
 // (Flow 1, 821:8502).
 describe("ConnectView on first sign-in (E1)", () => {
   it("is the same screen, with Skip for now opening Your next step without a bank", () => {
-    render(<ConnectView firstLogin />);
+    render(<ConnectView firstLogin sandbox />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Link your bank");
     expect(screen.getByRole("button", { name: "Link your bank" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Skip for now" }).getAttribute("href")).toBe("/start/next-step");
@@ -94,7 +101,7 @@ describe("ConnectView on first sign-in (E1)", () => {
     createLinkToken.mockResolvedValue({ kind: "ok", data: { linkToken: "link-sandbox-1" } });
     openLink.mockResolvedValue({ kind: "connected", publicToken: "public-sandbox-1" });
     linkBank.mockResolvedValue({ kind: "ok", data: {} });
-    render(<ConnectView firstLogin />);
+    render(<ConnectView firstLogin sandbox />);
     fireEvent.click(screen.getByRole("button", { name: "Link your bank" }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/safe-to-spend/setup"));
   });

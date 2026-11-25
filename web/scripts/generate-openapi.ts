@@ -385,15 +385,17 @@ const safeToSpendResponses = { 503: failure("Data unavailable or safe to spend o
 registry.registerPath({
   method: "post", path: "/bank-link/link-token", operationId: "createBankLinkToken",
   summary: "Create a Plaid Link token: a new bank, or update mode for one that needs a new sign-in",
+  description: "With PLAID_ENV production, only pilot students get one (403 pilot_only), and a new bank only while their allowance and the pilot's Item budget have room (503 bank_link_full).",
   security: [{ studentSession: [] }],
-  responses: { 200: ok(registry.register("LinkToken", linkTokenSchema)), 409: failure("Already linked, or link again"), 502: failure("Plaid unreachable"), ...safeToSpendResponses },
+  responses: { 200: ok(registry.register("LinkToken", linkTokenSchema)), 403: failure("Not in the pilot"), 409: failure("Already linked, or link again"), 502: failure("Plaid unreachable"), ...safeToSpendResponses, 503: failure("Data unavailable, safe to spend off, or no room for a new bank") },
 });
 registry.registerPath({
   method: "post", path: "/bank-link", operationId: "createBankLink",
   summary: "Link a bank: exchange Link's public token on the server and read the balances once",
+  description: "With PLAID_ENV production, only pilot students may link (403 pilot_only), and each exchange first takes one slot of their allowance and of the pilot's Item budget, never given back (503 bank_link_full when none is left; the public token is not exchanged).",
   security: [{ studentSession: [] }],
   request: { body: body(createBankLinkSchema) },
-  responses: { 201: ok(safeToSpendContract), 400: failure("Invalid or expired public token"), 409: failure("Already linked"), 502: failure("Plaid unreachable"), ...safeToSpendResponses },
+  responses: { 201: ok(safeToSpendContract), 400: failure("Invalid or expired public token"), 403: failure("Not in the pilot"), 409: failure("Already linked"), 502: failure("Plaid unreachable"), ...safeToSpendResponses, 503: failure("Data unavailable, safe to spend off, or no room for a new bank") },
 });
 registry.registerPath({
   method: "delete", path: "/bank-link", operationId: "deleteBankLink",

@@ -3074,6 +3074,9 @@ paths:
       operationId: createBankLinkToken
       summary: "Create a Plaid Link token: a new bank, or update mode for one that
         needs a new sign-in"
+      description: With PLAID_ENV production, only pilot students get one (403
+        pilot_only), and a new bank only while their allowance and the pilot's
+        Item budget have room (503 bank_link_full).
       security:
         - studentSession: []
       responses:
@@ -3085,6 +3088,12 @@ paths:
                 $ref: "#/components/schemas/LinkToken"
         "401":
           description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Not in the pilot
           content:
             application/json:
               schema:
@@ -3102,7 +3111,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "503":
-          description: Data unavailable or safe to spend off
+          description: Data unavailable, safe to spend off, or no room for a new bank
           content:
             application/json:
               schema:
@@ -3112,6 +3121,10 @@ paths:
       operationId: createBankLink
       summary: "Link a bank: exchange Link's public token on the server and read the
         balances once"
+      description: With PLAID_ENV production, only pilot students may link (403
+        pilot_only), and each exchange first takes one slot of their allowance
+        and of the pilot's Item budget, never given back (503 bank_link_full
+        when none is left; the public token is not exchanged).
       security:
         - studentSession: []
       requestBody:
@@ -3146,6 +3159,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Not in the pilot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
         "409":
           description: Already linked
           content:
@@ -3159,7 +3178,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "503":
-          description: Data unavailable or safe to spend off
+          description: Data unavailable, safe to spend off, or no room for a new bank
           content:
             application/json:
               schema:

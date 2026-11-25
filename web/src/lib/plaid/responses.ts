@@ -8,9 +8,22 @@ import { apiError } from "@/lib/api/errors";
 
 export const NO_STORE = { "Cache-Control": "no-store" };
 
-// The Plaid settings are missing or not sandbox (lib/plaid/config.ts).
+// The Plaid settings are missing or not usable (lib/plaid/config.ts).
 export function safeToSpendOff(): Response {
   return apiError(503, "safe_to_spend_unavailable", "Safe to spend isn’t available right now.");
+}
+
+// Production only: the student is not on the pilot allowlist
+// (lib/plaid/pilot.ts). No screen offers Link to them, so only a direct call
+// sees this.
+export function pilotOnly(): Response {
+  return apiError(403, "pilot_only", "Connecting a bank isn’t open to everyone yet.");
+}
+
+// Production only: the student's allowance or the pilot's Item budget is used
+// up. Nothing was sent to Plaid.
+export function itemBudgetFull(): Response {
+  return apiError(503, "bank_link_full", "We can’t connect new banks right now. Try again later.");
 }
 
 export function bankUnreachable(): Response {

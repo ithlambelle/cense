@@ -15,7 +15,7 @@ import {
 import type { PlaidConfig } from "./config";
 import type { TokenKey } from "./token-box";
 
-const CONFIG: PlaidConfig = { clientId: "client-id", secret: "the-secret", baseUrl: "https://sandbox.plaid.com", tokenKey: Buffer.alloc(32) as TokenKey };
+const CONFIG: PlaidConfig = { clientId: "client-id", secret: "the-secret", baseUrl: "https://sandbox.plaid.com", environment: "sandbox" as const, tokenKey: Buffer.alloc(32) as TokenKey };
 
 function answer(status: number, body: unknown) {
   const fetchMock = vi.fn(async () => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }));

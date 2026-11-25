@@ -26,7 +26,7 @@ const TOKEN = { ok: true, value: { kind: "token", itemId: "item-1", accessToken:
 
 beforeEach(() => {
   auth.authenticatedStudent.mockResolvedValue({ supabase: {}, studentId: "student-1", email: null });
-  config.plaidConfig.mockReturnValue({ clientId: "c", secret: "s", baseUrl: "https://sandbox.plaid.com", tokenKey: Buffer.alloc(32) });
+  config.plaidConfig.mockReturnValue({ clientId: "c", secret: "s", baseUrl: "https://sandbox.plaid.com", environment: "sandbox" as const, tokenKey: Buffer.alloc(32) });
   store.readAccessToken.mockResolvedValue(TOKEN);
   store.saveBalances.mockResolvedValue({ ok: true, value: true });
   store.markLinkStatus.mockResolvedValue({ ok: true, value: null });

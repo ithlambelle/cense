@@ -274,9 +274,9 @@ Before typed questions work in production:
 - The repository owner sets up the `penny-eval` environment once, since that workflow runs a pull request's own code with a real key (Settings, Environments, New environment, name `penny-eval`): tick Required reviewers and add the owner (and Ben, so the owner's own pull requests can be approved by someone else), tick Prevent self-review, leave Allow administrators to bypass unticked, leave Deployment branches and tags at No restriction (pull request runs need it), and add the environment secret `ANTHROPIC_API_KEY`. Then delete any repository secret named `ANTHROPIC_API_KEY` (Settings, Secrets and variables, Actions): a repository secret can be read by any workflow on any branch, so it would undo the gate. Before approving a run, read the pull request's whole diff, `package.json` and workflow files included.
 - Ben adds `ANTHROPIC_API_KEY` on Vercel (Project Settings, Environment Variables, Production, and Preview only if pull request previews should answer typed questions too), then redeploys, and sets a monthly spend limit for the key's workspace in the Anthropic Console. Until then Learn and Ask Penny show no field to type a question (it could only say Penny is unavailable); starters, topic pages and tapped answers work.
 
-## Safe to spend (Plaid sandbox)
+## Safe to spend (Plaid)
 
-A preview for MVP2 (US-12): a student links a bank through Plaid Link in Plaid's sandbox, says who covers rent, phone, tuition, groceries and car (me, family, split, not applicable) and how much to keep aside, and Home shows one number: (cash in checking - card balances - bills they pay - set aside) / 30 days. Tapping it opens Your money (`/safe-to-spend`): Today shows each step, with the student's own amounts editable in place; This month (`?tab=month`) is the budget from their last full month of transactions (income, needs, wants, saving, left over or short), every number editable. The bank's Refresh now, Change your answers and Disconnect bank live on Accounts (`/settings/accounts`), from Profile. Sandbox only: real bank sign-ins do not work there, and any `PLAID_ENV` other than `sandbox` turns the feature off.
+A preview for MVP2 (US-12): a student links a bank through Plaid Link in Plaid's sandbox, says who covers rent, phone, tuition, groceries and car (me, family, split, not applicable) and how much to keep aside, and Home shows one number: (cash in checking - card balances - bills they pay - set aside) / 30 days. Tapping it opens Your money (`/safe-to-spend`): Today shows each step, with the student's own amounts editable in place; This month (`?tab=month`) is the budget from their last full month of transactions (income, needs, wants, saving, left over or short), every number editable. The bank's Refresh now, Change your answers and Disconnect bank live on Accounts (`/settings/accounts`), from Profile. `PLAID_ENV=sandbox` is Plaid's test banks, open to every student; `PLAID_ENV=production` is real banks for a hand-picked pilot only (Production pilot, below); any other value turns the feature off.
 
 What is kept: the access token, encrypted with AES-256-GCM in the app before it is stored (key in `PLAID_TOKEN_KEY`, never in the database), in the `plaid` schema the Data API does not serve; each account's name, last 4 digits and balance; the student's answers; and 180 days of transactions (id, account id, date, amount, pending, category and merchant name, in the private `plaid` schema, read by students only as monthly totals, purged daily by the reminders cron). Never account or routing numbers, transaction descriptions or locations, or a Plaid response. The browser never receives the access token. Disconnecting asks Plaid to remove the Item (waiting up to Plaid's 10-second timeout), then deletes all of it at once, even when Plaid is down or never answers: an Item Plaid did not confirm removed is queued, with its encrypted token, in the same private `plaid.account_cleanup` queue account deletion uses, and the daily reminders job removes it at Plaid (Figma E3, Ben, Nov 18; `20261118200000_disconnect_never_blocked.sql`). So that queue is filled by Disconnect as well as by account deletion, and its retry and give-up rules (`plaid.account_cleanup` in `api/data-contract.md`) apply to both. A student with 3 rows already waiting there cannot queue another: that Disconnect changes nothing and asks them to try again tomorrow (429). Schema: `supabase/migrations/20261025210000_bank_link_safe_to_spend.sql`.
 
@@ -286,12 +286,13 @@ Before it can run:
 - For This month, `supabase/migrations/20261113120000_your_money_budget.sql` (after `20261113000000_plaid_transactions_item_binding.sql`), the same way. Until it is applied, This month fails to load; Today and Accounts work.
 - Then `supabase/migrations/20261114120000_income_counts_family_money.sql`, the same way. Until it is applied, This month loads but its Income leaves out money from family (D34).
 - Ben or Mabelle adds these on Vercel (Project Settings, Environment Variables), then redeploys. Until all four are set, safe to spend is hidden and its API answers 503.
+- For production only, Yunho also applies `supabase/migrations/20261125120000_plaid_pilot.sql` the same way, before `PLAID_ENV` is set to `production`. Safe to run again; the sandbox never calls it.
 
 | Variable | Where it comes from |
 | --- | --- |
 | `PLAID_CLIENT_ID` | Plaid dashboard, Developers, Keys. |
-| `PLAID_SECRET` | The same page, the Sandbox secret. Mark it Sensitive. |
-| `PLAID_ENV` | `sandbox` |
+| `PLAID_SECRET` | The same page, the secret for the same environment as `PLAID_ENV`. Mark it Sensitive. |
+| `PLAID_ENV` | `sandbox`, or `production` for the pilot (below). One per deployment: the production deployment for the pilot, staging and previews on `sandbox`. |
 | `PLAID_TOKEN_KEY` | `openssl rand -base64 32`, a different one per environment. Mark it Sensitive and keep a copy in the team password manager: changing or losing it makes every stored token unreadable (students link again). |
 
 To try it: Home, "See what's safe to spend", Try it, Link your bank. In Plaid's sandbox Link: Continue without phone number, search for First Platypus Bank and pick the plain "First Platypus Bank" (not the OAuth ones, which need a redirect URI we have not set up), sign in with `user_good` / `pass_good`, then Continue, Share data and Finish without saving. That user's checking and cash management accounts count as cash (about $12,160), its two cards are subtracted (about $5,430), and savings, CD, money market and HSA show as not counted; loans and investments are never read (checked against the sandbox on Oct 27).
@@ -299,6 +300,34 @@ To try it: Home, "See what's safe to spend", Try it, Link your bank. In Plaid's 
 New sandbox connections ask Link for 180 days of transaction history and add Liabilities as an optional product (US-15). Plaid fixes an Item's history when the Item is created, and Liabilities is available in Sandbox without extra product permissions. To get both on an existing sandbox connection, disconnect it (Profile, Accounts, Disconnect bank) and link it again with the test user above, selecting the credit card as well as checking; the normal reconnect flow only repairs an existing Item. Reading Liabilities (`/liabilities/get`), filling in statement dates and balances, and the Liabilities tables are follow-up work.
 
 Locally and in CI the journey tests (`web/e2e/safe-to-spend.spec.ts`) never call Plaid: they start a stand-in on :3597 (`web/e2e/support/fake-plaid.ts`) and answer Link's script in the browser. Start the app for them with `PLAID_CLIENT_ID=e2e-client PLAID_SECRET=e2e-placeholder PLAID_ENV=sandbox PLAID_BASE_URL=http://127.0.0.1:3597` and a `PLAID_TOKEN_KEY` in `web/.env.local`, as the `e2e` job does.
+
+### Production pilot
+
+`PLAID_ENV=production` talks to `https://production.plaid.com` with two limits, both enforced on the server (`web/src/lib/plaid/pilot.ts`) and both kept in the database, where only a team member in the SQL editor can change them (`supabase/migrations/20261125120000_plaid_pilot.sql`). The sandbox ignores both. `PLAID_BASE_URL` set in production turns the feature off: real keys only ever go to Plaid.
+
+- **Who may link.** Only students on the allowlist (`pilot.plaid_students`). Everyone else is never offered Link: Home shows no invitation, first sign-in skips Link your bank, Connect sends them Home, and the API answers 403 `pilot_only`. A student taken off the list keeps seeing, refreshing and disconnecting a bank they already linked, but cannot sign in to it again through Link.
+- **How many Items.** Plaid's Trial plan allows 10 production Items, ever: every access token counts, even after the Item is removed, so a disconnect and relink, a test link or a second try each spend one. Each pilot student has an `allowance` (1 by default) and the whole pilot a `budget` (0 until set). A slot of both is taken right before each public token exchange and never given back, even when the exchange fails. When either is used up, Link is not offered and new links are refused before any exchange (503 `bank_link_full`). Signing in again to a bank already linked (update mode) makes no Item and needs no slot.
+
+Every number is in the database, so nothing a browser sends can change it: a pilot student calling `claim_plaid_item_slot()` directly can use up only their own allowance.
+
+Run these in the Supabase SQL editor (it runs as the database owner; no API role, service role included, can read or write the `pilot` schema):
+
+```sql
+-- set the budget once (10 or less on Plaid's Trial plan; leave room for a retry)
+update pilot.plaid_item_budget set budget = 9;
+-- add a student (allowance 1: one bank, no relink)
+insert into pilot.plaid_students (student_id) select id from auth.users where email = 'student@bu.edu' on conflict do nothing;
+-- let one student link again after a disconnect (spends another Item)
+update pilot.plaid_students set allowance = allowance + 1 where student_id = (select id from auth.users where email = 'student@bu.edu');
+-- take a student off
+delete from pilot.plaid_students where student_id = (select id from auth.users where email = 'student@bu.edu');
+-- how many Items have been made
+select budget, used from pilot.plaid_item_budget;
+```
+
+Never lower `used` by hand: Plaid does not forget an Item. To stop new links at once, set `budget` to `used`; banks already linked keep working. Rolling back: set `PLAID_ENV` back to `sandbox` and redeploy, write down `used`, then run `supabase/rollbacks/20261125120000_plaid_pilot.down.sql`.
+
+Not in this change, and needed before banks that sign in on their own site (Chase, Bank of America, Wells Fargo) work in production: an OAuth redirect URI registered with Plaid and passed when the Link token is made.
 
 ## Keeping card data current
 
