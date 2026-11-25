@@ -2,6 +2,7 @@ import { authenticatedStudent } from "@/lib/api/auth";
 import { databaseError } from "@/lib/api/database";
 import { apiError } from "@/lib/api/errors";
 import type { BankFindings } from "@/lib/api/safe-to-spend";
+import { loadBudget } from "@/lib/budget/store";
 import { plaidConfig } from "@/lib/plaid/config";
 import { NO_STORE, notLinked, safeToSpendOff } from "@/lib/plaid/responses";
 import { loadSafeToSpend, recentTransactions, saveAnswers } from "@/lib/plaid/store";
@@ -43,6 +44,10 @@ export async function POST(): Promise<Response> {
   const after = answeredFromBank ? await loadSafeToSpend(student) : before;
   if (!after.ok) return databaseError("safe_to_spend_read", after.error);
   if (!after.value) return notLinked();
-  const body: BankFindings = { findings, answeredFromBank, safeToSpend: after.value };
+  // Last month, for "Looks right?". Extra: a failed read leaves it out and
+  // the findings still show.
+  const budget = await loadBudget(student, after.value.setAsideCents);
+  if (!budget.ok) console.warn(JSON.stringify({ event: "bank_findings_budget_read_failed" }));
+  const body: BankFindings = { findings, answeredFromBank, safeToSpend: after.value, lastMonth: budget.ok ? budget.value : null };
   return Response.json(body, { headers: NO_STORE });
 }

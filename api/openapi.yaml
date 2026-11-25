@@ -1030,10 +1030,17 @@ components:
           type: boolean
         safeToSpend:
           $ref: "#/components/schemas/SafeToSpend"
+        lastMonth:
+          allOf:
+            - $ref: "#/components/schemas/Budget"
+            - type:
+                - object
+                - "null"
       required:
         - findings
         - answeredFromBank
         - safeToSpend
+        - lastMonth
       additionalProperties: false
     BankFinding:
       type: object
@@ -1877,6 +1884,36 @@ paths:
       responses:
         "204":
           description: Welcome marked as seen
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /me/budget-check:
+    put:
+      operationId: markBudgetChecked
+      summary: Mark last month's budget as checked
+      description: Saves when the student tapped Looks right after Penny read their
+        bank (profiles.budget_checked_at), for Home's next step. Each tap saves
+        the latest time.
+      security:
+        - studentSession: []
+      responses:
+        "204":
+          description: Budget marked as checked
         "401":
           description: Sign-in required
           content:
@@ -3296,7 +3333,7 @@ paths:
     post:
       operationId: readBankFindings
       summary: "What the linked bank already shows: pay, family money and bills,
-        filling the setup answers the first time"
+        filling the setup answers the first time, and last month's budget"
       security:
         - studentSession: []
       responses:

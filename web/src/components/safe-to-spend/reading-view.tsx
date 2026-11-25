@@ -6,12 +6,16 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Constellation, STAR } from "@/components/home/constellation";
-import { Button, ButtonChevron, buttonVariants } from "@/components/ui/button";
+import { GroupHeading, ReadRow, TotalRow } from "@/components/your-money/parts";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { ListRowText } from "@/components/ui/list-row";
 import { SENSITIVE } from "@/lib/analytics";
-import { readBankFindings, type BankFindingsData } from "@/lib/api-client/safe-to-spend";
-import { ROUTES, safeToSpendSetupPath, signInPath, yourMoneyPath } from "@/lib/routes";
+import { markBudgetChecked, readBankFindings, type BankFindingsData } from "@/lib/api-client/safe-to-spend";
+import { monthName } from "@/lib/budget/lines";
+import { moneyAmount } from "@/lib/money";
+import { ROUTES, safeToSpendSetupPath, signInPath } from "@/lib/routes";
+import { useIsMounted } from "@/lib/use-is-mounted";
 import { cn } from "@/lib/utils";
 
 // Created with Claude Code (2026-11-21). Right after a bank links, Cense reads
@@ -19,6 +23,9 @@ import { cn } from "@/lib/utils";
 // becomes the last beat of the welcome: step L1 (Figma 821:8555). Penny, the
 // constellation lighting star by star, then one row per thing found. The
 // student checks it against their own life and fixes anything that is off.
+// Then step 3, "Looks right?": last month from the bank (the This month
+// budget, in totals), Looks right (saved for Home's next step, then Home) or
+// Fix something (the questions, filled in).
 
 // How long each finding waits before it lands, so the screen reads as Penny
 // working through the bank, not a list dumped at once.
@@ -26,7 +33,28 @@ const STEP_MS = 550;
 const STARS = 5;
 
 type Findings = BankFindingsData["findings"];
-type State = { kind: "reading" } | { kind: "found"; findings: Findings } | { kind: "failed"; message: string };
+type LastMonth = NonNullable<BankFindingsData["lastMonth"]>;
+type State = { kind: "reading" } | { kind: "found"; findings: Findings; lastMonth: LastMonth | null } | { kind: "failed"; message: string };
+
+const sum = (lines: { amountCents: number }[]) => lines.reduce((total, line) => total + line.amountCents, 0);
+
+// Last month in four lines, as This month adds it up (Show, don't
+// prescribe: the student's own numbers, no advice). Left out until the bank
+// has sent anything.
+function LastMonthTotals({ budget }: { budget: LastMonth }) {
+  const short = budget.shortfallCents > 0;
+  return (
+    <section aria-labelledby="last-month" className="flex w-full flex-col gap-1 pt-4 motion-safe:animate-fade-up">
+      <GroupHeading id="last-month">Here’s {monthName(budget.month)}</GroupHeading>
+      <ul className="flex flex-col">
+        <ReadRow label="Money in" value={moneyAmount(budget.income.amountCents)} />
+        <ReadRow label="Needs" value={moneyAmount(sum(budget.needs))} />
+        <ReadRow label="Wants" value={moneyAmount(sum(budget.wants))} />
+        <TotalRow label={short ? "Short" : "Left over"} value={moneyAmount(short ? budget.shortfallCents : budget.remainingCents)} />
+      </ul>
+    </section>
+  );
+}
 
 // Lit star, the List row's "Done" lead (371:3118): amber, 24px.
 function DoneStar() {
@@ -48,7 +76,10 @@ function rows(findings: Findings): { key: string; title: string; detail: string;
 
 export function ReadingView() {
   const router = useRouter();
+  const isMounted = useIsMounted();
   const [state, setState] = useState<State>({ kind: "reading" });
+  const [checking, setChecking] = useState(false);
+  const [checkError, setCheckError] = useState<string | null>(null);
   const [shown, setShown] = useState(0);
   const [attempt, setAttempt] = useState(0);
 
@@ -61,7 +92,7 @@ export function ReadingView() {
         if (outcome.code === "not_linked") return router.replace(ROUTES.safeToSpendConnect);
         return setState({ kind: "failed", message: outcome.message });
       }
-      setState({ kind: "found", findings: outcome.data.findings });
+      setState({ kind: "found", findings: outcome.data.findings, lastMonth: outcome.data.lastMonth });
     });
     return () => {
       live = false;
@@ -76,6 +107,22 @@ export function ReadingView() {
   }, [state.kind, shown, total]);
 
   const done = state.kind === "found" && shown >= total;
+
+  // Saved first, then Home, and stays pending while Home loads. Replace: the
+  // reading is done, so Back never returns to it.
+  async function looksRight() {
+    if (checking) return;
+    setChecking(true);
+    setCheckError(null);
+    const outcome = await markBudgetChecked();
+    if (!isMounted()) return;
+    if (outcome.kind === "signed-out") return router.replace(signInPath(ROUTES.safeToSpendReading));
+    if (outcome.kind === "failed") {
+      setChecking(false);
+      return setCheckError(outcome.message);
+    }
+    router.replace(ROUTES.home);
+  }
   // One star per fifth of the rows, the last one when everything has landed.
   const lit = done ? STARS : total ? Math.min(STARS - 1, Math.floor((shown / total) * STARS)) : 0;
 
@@ -116,12 +163,19 @@ export function ReadingView() {
           </ul>
         ) : null}
 
+        {done && state.lastMonth?.hasBankData ? <LastMonthTotals budget={state.lastMonth} /> : null}
+
+        {/* The question comes after last month, not pinned over it: the
+            student reads their numbers, then answers. On a phone they scroll
+            to it. */}
         {done ? (
           <div className="mt-auto flex w-full flex-col gap-2 pt-4 motion-safe:animate-fade-up">
-            <Link href={yourMoneyPath("month")} replace className={buttonVariants()}>
+            <h2 className="pb-1 text-center font-heading text-h6 font-medium text-navy">Looks right?</h2>
+            {checkError ? <ErrorMessage>{checkError}</ErrorMessage> : null}
+            <Button type="button" pending={checking} onClick={looksRight}>
               Looks right
-              <ButtonChevron />
-            </Link>
+            </Button>
+            {/* Replace, not push: the reading is done, so Back never returns to it. */}
             <Link href={safeToSpendSetupPath()} replace className={buttonVariants({ variant: "secondary" })}>
               Fix something
             </Link>

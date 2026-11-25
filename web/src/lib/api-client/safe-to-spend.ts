@@ -42,6 +42,12 @@ export function readBankFindings() {
   return runOutcome(apiRequest("post", "/bank-link/findings"));
 }
 
+// "Looks right" on the reading screen (step 3): the student checked last
+// month's budget.
+export function markBudgetChecked() {
+  return runOutcome(apiRequest("put", "/me/budget-check"));
+}
+
 export function refreshBank() {
   return runOutcome(apiRequest("post", "/bank-link/refresh"));
 }

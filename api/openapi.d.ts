@@ -297,6 +297,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/budget-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Mark last month's budget as checked
+         * @description Saves when the student tapped Looks right after Penny read their bank (profiles.budget_checked_at), for Home's next step. Each tap saves the latest time.
+         */
+        put: operations["markBudgetChecked"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/cards": {
         parameters: {
             query?: never;
@@ -677,7 +697,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** What the linked bank already shows: pay, family money and bills, filling the setup answers the first time */
+        /** What the linked bank already shows: pay, family money and bills, filling the setup answers the first time, and last month's budget */
         post: operations["readBankFindings"];
         delete?: never;
         options?: never;
@@ -1080,6 +1100,7 @@ export interface components {
             findings: components["schemas"]["BankFinding"][];
             answeredFromBank: boolean;
             safeToSpend: components["schemas"]["SafeToSpend"];
+            lastMonth: components["schemas"]["Budget"] & (Record<string, never> | null);
         };
         BankFinding: {
             key: string;
@@ -2011,6 +2032,51 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Welcome marked as seen */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Profile not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    markBudgetChecked: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Budget marked as checked */
             204: {
                 headers: {
                     [name: string]: unknown;

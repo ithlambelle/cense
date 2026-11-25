@@ -189,6 +189,12 @@ registry.registerPath({
   responses: { 204: { description: "Welcome marked as seen" }, 404: failure("Profile not found"), ...protectedResponses },
 });
 registry.registerPath({
+  method: "put", path: "/me/budget-check", operationId: "markBudgetChecked", summary: "Mark last month's budget as checked",
+  description: "Saves when the student tapped Looks right after Penny read their bank (profiles.budget_checked_at), for Home's next step. Each tap saves the latest time.",
+  security: [{ studentSession: [] }],
+  responses: { 204: { description: "Budget marked as checked" }, 404: failure("Profile not found"), ...protectedResponses },
+});
+registry.registerPath({
   method: "get", path: "/cards", operationId: "listCards", summary: "List curated student cards",
   responses: { 200: ok(z.strictObject({ cards: z.array(cardContract) })), 503: failure("Catalog unavailable") },
 });
@@ -410,7 +416,7 @@ registry.registerPath({
 });
 registry.registerPath({
   method: "post", path: "/bank-link/findings", operationId: "readBankFindings",
-  summary: "What the linked bank already shows: pay, family money and bills, filling the setup answers the first time",
+  summary: "What the linked bank already shows: pay, family money and bills, filling the setup answers the first time, and last month's budget",
   security: [{ studentSession: [] }],
   responses: { 200: ok(bankFindingsSchema), 404: failure("No bank linked"), ...safeToSpendResponses },
 });

@@ -1,6 +1,8 @@
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { z } from "zod";
 
+import { budgetSchema } from "./budget";
+
 import {
   BILLS,
   computeSafeToSpend,
@@ -128,6 +130,9 @@ export const bankFindingsSchema = z
     // had already answered, so nothing they chose was replaced.
     answeredFromBank: z.boolean(),
     safeToSpend: safeToSpendSchema,
+    // Last month from the bank, for "Looks right?" (step 3): the This month
+    // budget. Null when it could not be read; the findings still show.
+    lastMonth: budgetSchema.nullable(),
   })
   .openapi("BankFindings");
 

@@ -487,7 +487,7 @@ test("Link cancelled, a bank error and an expired connection leave nothing linke
   expect(removedAccessTokens).not.toContain(linked);
 });
 
-test("right after linking, Cense reads the bank and answers the questions itself, and the answers survive a reload", async ({ page }) => {
+test("right after linking, Cense reads the bank, answers the questions itself and shows last month, and Looks right goes Home", async ({ page }) => {
   const checkA11y = axeChecker(page);
   await signUp(page, uniqueEmail("sts-reading"), checkA11y);
   await page.goto("/safe-to-spend/connect");
@@ -510,12 +510,20 @@ test("right after linking, Cense reads the bank and answers the questions itself
   expect(answers.bills.find((b) => b.bill === "rent")).toEqual({ bill: "rent", coveredBy: "me", monthlyCents: 65_000, dueDay: 6 });
   expect(answers.bills.find((b) => b.bill === "phone")).toEqual({ bill: "phone", coveredBy: "none", monthlyCents: null, dueDay: null });
 
-  // Looks right opens last month's budget; a reload keeps it all.
-  await page.getByRole("link", { name: "Looks right" }).click();
-  await expect(page).toHaveURL(/\/safe-to-spend\?tab=month$/);
-  await page.reload();
-  await page.goto("/home");
+  // Step 3, Looks right?: last month in totals, masked like the findings.
+  const lastMonth = page.getByRole("region", { name: /^Here’s / });
+  await expect(lastMonth).toBeVisible();
+  await expect(lastMonth.getByRole("listitem")).toHaveText([/^Money in\$/, /^Needs\$/, /^Wants\$/, /^(Left over|Short)\$/]);
+  await expect(page.getByRole("heading", { level: 2, name: "Looks right?" })).toBeVisible();
+  await checkA11y("safe to spend: looks right");
+
+  // Looks right saves the check, then Home; Back never returns to the reading.
+  await page.getByRole("button", { name: "Looks right" }).click();
+  await expect(page).toHaveURL(/\/home$/);
   await expect(safeToSpendCard(page)).toContainText("Safe to spend today");
+  await page.goBack();
+  await expect(page).not.toHaveURL(/\/safe-to-spend\/reading$/);
+  await page.goto("/home");
 
   // A second reading never replaces saved answers.
   const before = (await (await page.request.get("/api/v1/safe-to-spend")).json()) as { bills: unknown };
@@ -824,8 +832,11 @@ for (const size of [
     await connect.click();
     await expect(page.getByRole("heading", { level: 1, name: "Here’s what we found" })).toBeVisible();
     await fits("reading your bank");
-    // On the smallest phones the student scrolls to it; from 390 up it is in view.
-    if (size.width >= 390) await expect(page.getByRole("link", { name: "Looks right" })).toBeInViewport();
+    // Last month sits above the question, so the student scrolls to it, and
+    // it comes fully into view at every size.
+    const looksRight = page.getByRole("button", { name: "Looks right" });
+    await looksRight.scrollIntoViewIfNeeded();
+    await expect(looksRight).toBeInViewport({ ratio: 1 });
     await page.getByRole("link", { name: "Fix something" }).click();
     await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
     await fits("who covers");

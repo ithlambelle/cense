@@ -57,13 +57,13 @@ describe("ConnectView", () => {
     expect(container.textContent).not.toMatch(/Privacy Policy|agree/);
   });
 
-  it("opens Plaid Link with the server's token, then goes on to the questions", async () => {
+  it("opens Plaid Link with the server's token, then goes on to Penny reading the bank", async () => {
     createLinkToken.mockResolvedValue({ kind: "ok", data: { linkToken: "link-sandbox-1" } });
     openLink.mockResolvedValue({ kind: "connected", publicToken: "public-sandbox-1" });
     linkBank.mockResolvedValue({ kind: "ok", data: {} });
     render(<ConnectView />);
     fireEvent.click(screen.getByRole("button", { name: "Link your bank" }));
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/safe-to-spend/setup"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/safe-to-spend/reading"));
     expect(openLink).toHaveBeenCalledWith("link-sandbox-1");
     expect(linkBank).toHaveBeenCalledWith("public-sandbox-1");
   });
@@ -90,12 +90,12 @@ describe("ConnectView on first sign-in (E1)", () => {
     expect(screen.getAllByRole("link")).toHaveLength(1);
   });
 
-  it("still sends a student who links a bank to the questions, where linking leads today", async () => {
+  it("still sends a student who links a bank where linking leads today: Penny reading the bank", async () => {
     createLinkToken.mockResolvedValue({ kind: "ok", data: { linkToken: "link-sandbox-1" } });
     openLink.mockResolvedValue({ kind: "connected", publicToken: "public-sandbox-1" });
     linkBank.mockResolvedValue({ kind: "ok", data: {} });
     render(<ConnectView firstLogin />);
     fireEvent.click(screen.getByRole("button", { name: "Link your bank" }));
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/safe-to-spend/setup"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/safe-to-spend/reading"));
   });
 });
