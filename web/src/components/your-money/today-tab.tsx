@@ -10,12 +10,13 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { minusMoney, signedMoney } from "@/components/safe-to-spend/parts";
+import { updatedLabel } from "@/components/safe-to-spend/updated-time";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { amountInput, EditRow, GroupHeading, MoneyHero, MoneyTabs, ReadRow, TotalRow, type SavedAnswers, type SharedAnswers } from "@/components/your-money/parts";
 import { track } from "@/lib/analytics";
 import { parseAmount, refreshBank, saveSafeToSpendAnswers, type SafeToSpendData } from "@/lib/api-client/safe-to-spend";
-import { ordinalDay, YOUR_MONEY_COPY } from "@/lib/budget/copy";
+import { cardNameLine, cardsTotalLine, ordinalDay, YOUR_MONEY_COPY } from "@/lib/budget/copy";
 import { moneyAmount } from "@/lib/money";
 import { ROUTES, signInPath } from "@/lib/routes";
 import { BILL_COPY, SAFE_TO_SPEND_COPY } from "@/lib/safe-to-spend/copy";
@@ -142,6 +143,9 @@ export function TodayTab({ data, today, shared }: { data: SafeToSpendData; today
   }
 
   const broken = data.status !== "active";
+  // Which card the balance is, or that it is the total of several.
+  const cards = data.accounts.filter((account) => account.kind === "card");
+  const cardSub = cards.length === 1 ? cardNameLine(cards[0].name, cards[0].mask) : cards.length > 1 ? cardsTotalLine(cards.length) : null;
   const time = (options: Intl.DateTimeFormatOptions) =>
     now && data.refreshedAt ? new Date(data.refreshedAt).toLocaleString("en-US", options) : "";
   const field = (key: FieldKey, label: string, sub: string | null, fieldLabel: string) => (
@@ -170,7 +174,8 @@ export function TodayTab({ data, today, shared }: { data: SafeToSpendData; today
         amount={broken ? <span className="text-[20px] leading-7">{data.status === "reconnect_needed" ? SAFE_TO_SPEND_COPY.reconnect : SAFE_TO_SPEND_COPY.relink}</span> : moneyAmount(sum.dailyCents)}
         unit={broken ? undefined : " a day"}
         left={broken ? <Link href={ROUTES.accounts} className="font-semibold underline underline-offset-2 hover:text-light-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-off-white">{data.status === "reconnect_needed" ? "Reconnect your bank" : "Connect again"}</Link> : `For the next ${sum.days} days`}
-        right={broken ? null : <span suppressHydrationWarning>{time({ hour: "numeric", minute: "2-digit" }) && `Updated ${time({ hour: "numeric", minute: "2-digit" })}`}</span>}
+        // Home's label: the time when read today, the day when not.
+        right={broken ? null : <span suppressHydrationWarning>{now && data.refreshedAt ? updatedLabel(data.refreshedAt, now) : ""}</span>}
       />
       <MoneyTabs active="today" />
 
@@ -179,7 +184,7 @@ export function TodayTab({ data, today, shared }: { data: SafeToSpendData; today
         {broken ? <p className="text-body-s text-indigo-black/70">{SAFE_TO_SPEND_COPY.lastNumbers}</p> : null}
         <ul aria-labelledby="from-bank" className="flex flex-col gap-2">
           <ReadRow label={YOUR_MONEY_COPY.cash} value={moneyAmount(sum.cashCents)} />
-          <ReadRow label={YOUR_MONEY_COPY.cards} value={minusMoney(sum.cardCents)} />
+          <ReadRow label={cards.length === 1 ? YOUR_MONEY_COPY.card : YOUR_MONEY_COPY.cards} sub={cardSub} value={minusMoney(sum.cardCents)} />
         </ul>
       </section>
 

@@ -6,12 +6,18 @@
 // - Income: the last full calendar month's income (income_by_month).
 // - Needs and wants: one line per Cense category with spending in that month
 //   (categories.ts), plus any line the student typed a number for.
+// - Bills from the safe-to-spend answers that the bank did not show that
+//   month (a phone bill paid from an account Cense cannot see) are added to the
+//   line the bank would have put them on, so This month counts every bill
+//   Today keeps back. A bill the bank shows is never counted twice.
 // - Saving: the safe-to-spend set-aside, which the student typed.
 // A typed number replaces the bank's for that line; untyped lines follow the
 // bank. The arithmetic is draft PR #86's waterfall (budget.ts).
 
+import type { Bill, BillAnswer } from "@/lib/safe-to-spend/compute";
+
 import { computeBudget, type BudgetResult, type Expense, type Recurrence } from "./budget";
-import { BUDGET_CATEGORIES, spendingByCategory, type CategoryKey, type DetailedTotal } from "./categories";
+import { BUDGET_CATEGORIES, censeCategory, spendingByCategory, type CategoryKey, type DetailedTotal } from "./categories";
 
 export type LineKey = "income" | CategoryKey;
 export type LineGroup = "income" | "need" | "want" | "saving";
@@ -25,6 +31,9 @@ export type BudgetLine = {
   // (and for saving, which is always typed).
   bankCents: number | null;
   typed: boolean;
+  // Bills from the safe-to-spend answers the bank did not show this month,
+  // added to the bank's number. Empty for most lines.
+  answers: { bill: Bill; amountCents: number }[];
   // "Fixed" or "Changing" once the recurring detector (#109) says which.
   // Null until then; the #86 math counts a want with no recurrence as changing.
   recurrence: Recurrence | null;
@@ -52,12 +61,55 @@ export type BudgetSummary = {
 
 export const SAVING_LABEL = "Saving";
 
+// How the bank shows each bill the setup questions ask about, as Plaid's
+// categories (the same as Penny's reading of the bank). The first pair also
+// names the This month line the bill belongs on, through censeCategory, so a
+// bill from the answers lands where the bank would have put it.
+const BILL_CATEGORIES: Record<Bill, readonly (readonly [string, string])[]> = {
+  rent: [["RENT_AND_UTILITIES", "RENT_AND_UTILITIES_RENT"]],
+  phone: [["RENT_AND_UTILITIES", "RENT_AND_UTILITIES_TELEPHONE"]],
+  tuition: [["GENERAL_SERVICES", "GENERAL_SERVICES_EDUCATION"]],
+  groceries: [["FOOD_AND_DRINK", "FOOD_AND_DRINK_GROCERIES"]],
+  car: [
+    ["LOAN_PAYMENTS", "LOAN_PAYMENTS_CAR_PAYMENT"],
+    ["TRANSPORTATION", "TRANSPORTATION_GAS"],
+    ["TRANSPORTATION", "TRANSPORTATION_PARKING"],
+  ],
+};
+
+export function billLine(bill: Bill): CategoryKey {
+  const [primary, detailed] = BILL_CATEGORIES[bill][0];
+  return censeCategory(primary, detailed)!;
+}
+
+// The bills the student pays some of, with an amount, that the month's
+// transactions do not show, by the line each belongs on.
+function unseenBills(bills: BillAnswer[], totals: DetailedTotal[]): Partial<Record<CategoryKey, BudgetLine["answers"]>> {
+  const seen = new Set(totals.filter((row) => row.outCents > 0).map((row) => row.categoryDetailed));
+  const byLine: Partial<Record<CategoryKey, BudgetLine["answers"]>> = {};
+  for (const answer of bills) {
+    if (answer.coveredBy !== "me" && answer.coveredBy !== "split") continue;
+    if (!answer.monthlyCents || answer.monthlyCents <= 0) continue;
+    if (BILL_CATEGORIES[answer.bill].some(([, detailed]) => seen.has(detailed))) continue;
+    const key = billLine(answer.bill);
+    (byLine[key] ??= []).push({ bill: answer.bill, amountCents: answer.monthlyCents });
+  }
+  return byLine;
+}
+
+// A line's number when the student has not typed one: the bank's, plus any
+// bills from the answers. Undo on This month goes back to it.
+export function untypedCents(line: Pick<BudgetLine, "bankCents" | "answers">): number {
+  return (line.bankCents ?? 0) + line.answers.reduce((sum, entry) => sum + entry.amountCents, 0);
+}
+
 export function buildBudgetLines({
   month,
   incomeCents,
   totals,
   typed,
   setAsideCents,
+  bills = [],
   hasBankData,
 }: {
   month: string;
@@ -66,21 +118,29 @@ export function buildBudgetLines({
   totals: DetailedTotal[];
   typed: Partial<Record<LineKey, number>>;
   setAsideCents: number;
+  // The safe-to-spend answers. Only read once the bank has sent something:
+  // before that there is no way to tell which bills it shows.
+  bills?: BillAnswer[];
   hasBankData: boolean;
 }): BudgetLines {
   const spent = spendingByCategory(totals);
-  const line = (key: LineKey, label: string, group: LineGroup, bankCents: number | null): BudgetLine => ({
-    key,
-    label,
-    group,
-    bankCents,
-    typed: typed[key] !== undefined,
-    amountCents: typed[key] ?? bankCents ?? 0,
-    recurrence: null,
-  });
-  const categoryLines = BUDGET_CATEGORIES.filter((category) => spent[category.key] !== undefined || typed[category.key] !== undefined).map(
-    (category) => line(category.key, category.label, category.group, spent[category.key] ?? null),
-  );
+  const fromAnswers = hasBankData ? unseenBills(bills, totals) : {};
+  const line = (key: LineKey, label: string, group: LineGroup, bankCents: number | null): BudgetLine => {
+    const answers = key === "income" ? [] : (fromAnswers[key] ?? []);
+    return {
+      key,
+      label,
+      group,
+      bankCents,
+      typed: typed[key] !== undefined,
+      answers,
+      amountCents: typed[key] ?? untypedCents({ bankCents, answers }),
+      recurrence: null,
+    };
+  };
+  const categoryLines = BUDGET_CATEGORIES.filter(
+    (category) => spent[category.key] !== undefined || typed[category.key] !== undefined || fromAnswers[category.key] !== undefined,
+  ).map((category) => line(category.key, category.label, category.group, spent[category.key] ?? null));
   return {
     month,
     hasBankData,
@@ -92,7 +152,10 @@ export function buildBudgetLines({
       label: SAVING_LABEL,
       group: "saving",
       bankCents: null,
-      typed: true,
+      // Only the student sets a savings goal, but $0 is no goal at all, and
+      // saying "You typed" under it claims something they never did.
+      typed: setAsideCents > 0,
+      answers: [],
       amountCents: setAsideCents,
       recurrence: null,
     },

@@ -17,7 +17,7 @@ export async function GET(): Promise<Response> {
   const link = await loadSafeToSpend(student);
   if (!link.ok) return databaseError("safe_to_spend_read", link.error);
   if (!link.value) return notLinked();
-  const budget = await loadBudget(student, link.value.setAsideCents);
+  const budget = await loadBudget(student, link.value);
   if (!budget.ok) return databaseError("budget_read", budget.error);
   return Response.json(budget.value, { headers: NO_STORE });
 }

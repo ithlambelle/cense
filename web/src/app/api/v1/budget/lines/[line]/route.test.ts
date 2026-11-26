@@ -44,7 +44,7 @@ describe("PUT /budget/lines/{line}", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual(BUDGET);
     expect(store.saveBudgetLine).toHaveBeenCalledWith(STUDENT, "groceries", 25000);
-    expect(store.loadBudget).toHaveBeenCalledWith(STUDENT, 10000);
+    expect(store.loadBudget).toHaveBeenCalledWith(STUDENT, { setAsideCents: 10000 });
   });
 
   it("refuses an unknown line, and the saving line, which is the safe-to-spend answer", async () => {
@@ -70,7 +70,7 @@ describe("DELETE /budget/lines/{line}", () => {
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(await response.json()).toEqual(BUDGET);
     expect(store.deleteBudgetLine).toHaveBeenCalledWith(STUDENT, "groceries");
-    expect(store.loadBudget).toHaveBeenCalledWith(STUDENT, 10000);
+    expect(store.loadBudget).toHaveBeenCalledWith(STUDENT, { setAsideCents: 10000 });
   });
 
   it("answers 401 signed out, and deletes nothing", async () => {

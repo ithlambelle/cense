@@ -109,8 +109,9 @@ describe("Your money, Today (709:1520)", () => {
     expect(screen.getByRole("link", { name: "Today" }).getAttribute("aria-current")).toBe("page");
     expect(screen.getByRole("link", { name: "This month" }).getAttribute("href")).toBe("/safe-to-spend?tab=month");
     const bank = within(screen.getByRole("list", { name: "From your bank" }));
-    expect(bank.getByText("Cash in checking").parentElement!.textContent).toBe("Cash in checking$2,100");
-    expect(bank.getByText("Card balances").parentElement!.textContent).toBe("Card balances−$240");
+    expect(bank.getByText("Cash in checking").closest("li")!.textContent).toBe("Cash in checking$2,100");
+    // One card: which card it is (persona walk, Nov 25: "which card?").
+    expect(bank.getByText("Card balance").closest("li")!.textContent).toBe("Card balancePlaid Credit Card ending in 3333−$240");
     expect(screen.getByText("Due the 15th")).toBeTruthy();
     expect(screen.queryByText(/You cover it/)).toBeNull();
     expect((screen.getByLabelText("Rent each month") as HTMLInputElement).value).toBe("650");
@@ -214,6 +215,31 @@ describe("Your money, Today (709:1520)", () => {
     expect(screen.getByText("Cards, bills and your savings goal are more than your checking.")).toBeTruthy();
   });
 
+  it("says the card balance is the total when there is more than one card", () => {
+    const accounts = [...DATA.accounts, { name: "Student Card", mask: "4444", kind: "card" as const, balanceCents: 7000 }];
+    render(<YourMoneyView tab="today" data={{ ...DATA, accounts }} budget={null} today="2026-11-05" />);
+    const bank = within(screen.getByRole("list", { name: "From your bank" }));
+    expect(bank.getByText("Card balances").closest("li")!.textContent).toBe("Card balancesTotal of 2 cards−$310");
+  });
+
+  it("shows the day the bank was read in the hero when it was not today, as Home does", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      // Read Nov 9 at 4:09 PM, opened Nov 25 (persona walk: the hero said only "Updated 4:09 PM").
+      vi.setSystemTime(new Date(2026, 10, 25, 10, 0));
+      const read = new Date(2026, 10, 9, 16, 9).toISOString();
+      render(<YourMoneyView tab="today" data={{ ...DATA, refreshedAt: read }} budget={null} today="2026-11-25" />);
+      expect(within(hero()).getByText("Updated Nov 9")).toBeTruthy();
+      expect(screen.getByText(/^Updated Nov 9, 4:09\sPM$/)).toBeTruthy();
+      cleanup();
+      // Read today: the time, as before.
+      render(<YourMoneyView tab="today" data={{ ...DATA, refreshedAt: new Date(2026, 10, 25, 8, 5).toISOString() }} budget={null} today="2026-11-25" />);
+      expect(within(hero()).getByText(/^Updated 8:05\sAM$/)).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("sends a broken bank link to Accounts instead of showing a number", () => {
     render(<YourMoneyView tab="today" data={{ ...DATA, status: "reconnect_needed" }} budget={null} today="2026-11-05" />);
     expect(hero().textContent).not.toContain("a day");
@@ -236,7 +262,8 @@ describe("Your money, This month (709:1769)", () => {
     expect(within(screen.getByRole("list", { name: "Wants" })).getByLabelText("Eating out each month")).toBeTruthy();
     expect(within(screen.getByRole("list", { name: "Saving" })).getByText("You typed")).toBeTruthy();
     expect((screen.getByLabelText("Income each month") as HTMLInputElement).value).toBe("2,080");
-    expect(screen.getByText("Bank numbers are from October.")).toBeTruthy();
+    // Why this is not Today's number spread out (persona walk, Nov 25).
+    expect(screen.getByText("Bank numbers are from October. Safe to spend starts from what’s in checking today.")).toBeTruthy();
     expect(within(screen.getByRole("list", { name: "Saving" })).getByLabelText("Savings goal")).toBeTruthy();
     expect(screen.queryByText(/financial advice/)).toBeNull();
     expect(track).toHaveBeenCalledWith("your_money_viewed", { tab: "this_month" });
@@ -272,6 +299,33 @@ describe("Your money, This month (709:1769)", () => {
     await commit("Savings goal");
     expect(saveSafeToSpendAnswers).toHaveBeenCalledWith({ bills: DATA.bills, setAsideCents: 15000 });
     expect(saveBudgetLine).not.toHaveBeenCalled();
+  });
+
+  it("counts a bill from the answers that the bank did not show, and says where it came from", () => {
+    // The bank shows rent but no phone; the student pays $40 for phone.
+    render(<YourMoneyView tab="month" data={DATA} budget={budget({ bills: DATA.bills })} today="2026-11-05" />);
+    const rent = screen.getByLabelText("Rent and bills each month") as HTMLInputElement;
+    expect(rent.value).toBe("740");
+    expect(rent.closest("li")!.textContent).toContain("Includes phone from your answers");
+    expect(rent.closest("li")!.textContent).not.toContain("You typed");
+    // 2,080 - 740 - 300 - 200 - 100 = 740
+    expect(hero().textContent).toContain("$740");
+  });
+
+  it("shows a phone bill changed on Today on This month before the page reloads", async () => {
+    render(<YourMoneyView tab="today" data={DATA} budget={budget({ bills: DATA.bills })} today="2026-11-05" />);
+    type("Phone each month", "45");
+    await commit("Phone each month");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("link", { name: "This month" }));
+    });
+    expect((screen.getByLabelText("Rent and bills each month") as HTMLInputElement).value).toBe("745");
+    expect(hero().textContent).toContain("$735");
+  });
+
+  it("says nothing about where a $0 savings goal came from", () => {
+    render(<YourMoneyView tab="month" data={{ ...DATA, setAsideCents: 0 }} budget={budget({ setAsideCents: 0 })} today="2026-11-05" />);
+    expect(screen.getByLabelText("Savings goal").closest("li")!.textContent).toBe("Savings goal$");
   });
 
   it("marks a line the student typed", () => {

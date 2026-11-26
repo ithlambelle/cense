@@ -1,7 +1,9 @@
 // Created with Claude Code (2026-11-13).
 import { describe, expect, it } from "vitest";
 
-import { buildBudgetLines, lastFullMonth, monthName, summarize } from "./lines";
+import type { BillAnswer } from "@/lib/safe-to-spend/compute";
+
+import { billLine, buildBudgetLines, lastFullMonth, monthName, summarize, untypedCents } from "./lines";
 
 const row = (category: string | null, categoryDetailed: string | null, outCents: number, inCents = 0) => ({ category, categoryDetailed, outCents, inCents });
 
@@ -31,6 +33,10 @@ describe("buildBudgetLines", () => {
     expect(lines.saving).toMatchObject({ label: "Saving", amountCents: 5000, typed: true });
   });
 
+  it("does not call a $0 savings goal one the student typed", () => {
+    expect(buildBudgetLines({ ...october, setAsideCents: 0 }).saving).toMatchObject({ amountCents: 0, typed: false });
+  });
+
   it("keeps a typed number over the bank's, and follows the bank on the other lines", () => {
     const lines = buildBudgetLines({ ...october, typed: { groceries: 25000, income: 150000 } });
     expect(lines.income).toMatchObject({ amountCents: 150000, bankCents: 208000, typed: true });
@@ -50,6 +56,79 @@ describe("buildBudgetLines", () => {
   it("has no Fixed or Changing yet: that waits for the recurring detector", () => {
     const lines = buildBudgetLines(october);
     for (const line of [lines.income, ...lines.needs, ...lines.wants, lines.saving]) expect(line.recurrence).toBeNull();
+  });
+});
+
+// The safe-to-spend answers: rent $700 and phone $45 the student pays, tuition
+// family covers, groceries $300, no car.
+const answers: BillAnswer[] = [
+  { bill: "rent", coveredBy: "me", monthlyCents: 70000, dueDay: 6 },
+  { bill: "phone", coveredBy: "me", monthlyCents: 4500, dueDay: 15 },
+  { bill: "tuition", coveredBy: "family", monthlyCents: null, dueDay: null },
+  { bill: "groceries", coveredBy: "me", monthlyCents: 30000, dueDay: 31 },
+  { bill: "car", coveredBy: "none", monthlyCents: null, dueDay: null },
+];
+
+describe("bills from the safe-to-spend answers", () => {
+  it("adds a bill the bank does not show to the line the bank would have put it on", () => {
+    // October shows rent and groceries but no phone bill.
+    const lines = buildBudgetLines({ ...october, bills: answers });
+    expect(lines.needs.find((line) => line.key === "rent_and_bills")).toMatchObject({
+      amountCents: 74500,
+      bankCents: 70000,
+      typed: false,
+      answers: [{ bill: "phone", amountCents: 4500 }],
+    });
+    // 2,080 - 745 - 300 - 200 - 50 = 785
+    expect(summarize(lines).remainingCents).toBe(78500);
+  });
+
+  it("never counts a bill twice when the bank shows it too", () => {
+    const withPhone = { ...october, totals: [...october.totals, row("RENT_AND_UTILITIES", "RENT_AND_UTILITIES_TELEPHONE", 5000)], bills: answers };
+    const lines = buildBudgetLines(withPhone);
+    // The bank's rent and phone; the typed rent and phone are not added on top.
+    expect(lines.needs.find((line) => line.key === "rent_and_bills")).toMatchObject({ amountCents: 75000, bankCents: 75000, answers: [] });
+    expect(lines.needs.find((line) => line.key === "groceries")).toMatchObject({ amountCents: 30000, answers: [] });
+  });
+
+  it("changes nothing when the student pays no bills", () => {
+    const none = answers.map((answer) => ({ ...answer, coveredBy: "family" as const }));
+    expect(buildBudgetLines({ ...october, bills: none })).toEqual(buildBudgetLines(october));
+  });
+
+  it("makes a line for a bill on a line the bank had nothing for, and counts a split bill's share", () => {
+    const lines = buildBudgetLines({
+      ...october,
+      bills: [
+        { bill: "car", coveredBy: "split", monthlyCents: 6000, dueDay: 20 },
+        { bill: "tuition", coveredBy: "me", monthlyCents: 50000, dueDay: null },
+      ],
+    });
+    expect(lines.needs.find((line) => line.key === "transportation")).toMatchObject({ amountCents: 6000, bankCents: null, answers: [{ bill: "car", amountCents: 6000 }] });
+    // Where the bank puts tuition (Other), so it is the same line either way.
+    expect(lines.wants.find((line) => line.key === "other")).toMatchObject({ amountCents: 50000, answers: [{ bill: "tuition", amountCents: 50000 }] });
+  });
+
+  it("keeps the student's own number for the line over the bank and the answers, and undo goes back to both", () => {
+    const lines = buildBudgetLines({ ...october, bills: answers, typed: { rent_and_bills: 80000 } });
+    const rent = lines.needs.find((line) => line.key === "rent_and_bills")!;
+    expect(rent).toMatchObject({ amountCents: 80000, typed: true });
+    expect(untypedCents(rent)).toBe(74500);
+  });
+
+  it("adds nothing before the bank has sent anything, when there is no telling what it shows", () => {
+    const lines = buildBudgetLines({ ...october, totals: [], incomeCents: null, hasBankData: false, bills: answers });
+    expect(lines.needs).toEqual([]);
+  });
+
+  it("puts each bill on the line its bank category maps to", () => {
+    expect(["rent", "phone", "tuition", "groceries", "car"].map((bill) => billLine(bill as BillAnswer["bill"]))).toEqual([
+      "rent_and_bills",
+      "rent_and_bills",
+      "other",
+      "groceries",
+      "transportation",
+    ]);
   });
 });
 

@@ -1056,6 +1056,11 @@ export interface components {
             amountCents: number;
             bankCents: number | null;
             typed: boolean;
+            answers: {
+                /** @enum {string} */
+                bill: "rent" | "phone" | "tuition" | "groceries" | "car";
+                amountCents: number;
+            }[];
             /** @enum {string|null} */
             recurrence: "recurring" | "variable" | null;
         };

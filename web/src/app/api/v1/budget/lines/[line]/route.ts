@@ -30,7 +30,7 @@ export async function PUT(request: Request, context: Params): Promise<Response> 
   const link = await loadSafeToSpend(student);
   if (!link.ok) return databaseError("safe_to_spend_read", link.error);
   if (!link.value) return notLinked();
-  const budget = await loadBudget(student, link.value.setAsideCents);
+  const budget = await loadBudget(student, link.value);
   if (!budget.ok) return databaseError("budget_read", budget.error);
   return Response.json(budget.value, { headers: NO_STORE });
 }
@@ -53,7 +53,7 @@ export async function DELETE(_request: Request, context: Params): Promise<Respon
   const deleted = await deleteBudgetLine(student, key.data as LineKey);
   if (!deleted.ok) return databaseError("budget_line_delete", deleted.error);
 
-  const budget = await loadBudget(student, link.value.setAsideCents);
+  const budget = await loadBudget(student, link.value);
   if (!budget.ok) return databaseError("budget_read", budget.error);
   return Response.json(budget.value, { headers: NO_STORE });
 }
