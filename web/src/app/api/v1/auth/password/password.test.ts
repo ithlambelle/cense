@@ -388,6 +388,15 @@ describe("optional password auth", () => {
       expect(throttle.codeCheckPassed).toHaveBeenCalledOnce();
     });
 
+    it("confirms a sign-up with a 6- or 8-digit code, and refuses 7 or 9 digits before counting", async () => {
+      auth.verifyOtp.mockResolvedValue({ data: { user: { email_confirmed_at: "2026-10-01T09:00:00Z", last_sign_in_at: "2026-11-17T09:00:00Z" } }, error: null });
+      const status = async (code: string) => (await confirmSignUp(request("/api/v1/auth/password/signup/confirm", { ...SIGN_UP_BODY, code }))).status;
+      expect([await status("123456"), await status("12345678")]).toEqual([200, 200]);
+      throttle.authThrottle.mockClear();
+      expect([await status("1234567"), await status("123456789")]).toEqual([400, 400]);
+      expect(throttle.authThrottle).not.toHaveBeenCalled();
+    });
+
     it("does not count a request that fails validation", async () => {
       await signUp(request("/api/v1/auth/password/signup", { email: "student@example.com", password: "short" }));
       await verifyLink(request("/api/v1/auth/password/reset/verify", { tokenHash: "" }));

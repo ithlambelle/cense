@@ -1060,7 +1060,7 @@ paths:
   /auth/email:
     post:
       operationId: sendEmailCode
-      summary: Send a six-digit email code
+      summary: Send an email code (6 digits, or 8 if Supabase is set to 8)
       requestBody:
         content:
           application/json:
@@ -1123,7 +1123,7 @@ paths:
                   format: email
                 code:
                   type: string
-                  pattern: ^\d{6}$
+                  pattern: ^(?:\d{6}|\d{8})$
               required:
                 - email
                 - code
@@ -1250,7 +1250,7 @@ paths:
                   format: email
                 code:
                   type: string
-                  pattern: ^\d{6}$
+                  pattern: ^(?:\d{6}|\d{8})$
                 password:
                   type: string
                   minLength: 8

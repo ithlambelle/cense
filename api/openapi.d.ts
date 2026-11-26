@@ -30,7 +30,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Send a six-digit email code */
+        /** Send an email code (6 digits, or 8 if Supabase is set to 8) */
         post: operations["sendEmailCode"];
         delete?: never;
         options?: never;

@@ -7,12 +7,13 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AuthLayout, BackButton, BackLinkHome } from "@/components/auth/auth-layout";
 import { GoogleButton } from "@/components/auth/google-button";
 import { Button } from "@/components/ui/button";
-import { CODE_LENGTH, CodeInput } from "@/components/ui/code-input";
+import { CodeInput } from "@/components/ui/code-input";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { PasswordField } from "@/components/ui/password-field";
 import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE } from "@/lib/analytics";
 import { apiRequest, failureMessage } from "@/lib/api-client/client";
+import { isEmailCode } from "@/lib/auth/email-code";
 import { looksLikeEmail, passwordProblem } from "@/lib/auth/password";
 import { googleSignInPath, ROUTES, signInPath, signUpPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
@@ -122,8 +123,8 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
   async function submitCode(event: FormEvent) {
     event.preventDefault();
     if (pending) return;
-    if (code.length !== CODE_LENGTH) {
-      setError(`Enter the ${CODE_LENGTH}-digit code from the email.`);
+    if (!isEmailCode(code)) {
+      setError("Enter the whole code from the email.");
       return;
     }
     setPending(true);
@@ -181,7 +182,7 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
         initialEmail={email}
         onDone={leave}
         onConfirmEmail={(address, password) => {
-          // Supabase emails a 6-digit code to confirm the new account (the same
+          // Supabase emails a code to confirm the new account (the same
           // template as code sign-in). The code step sends it with the chosen
           // password to the confirm route, which confirms the account, sets
           // that password and signs the student in. The email was just sent,
@@ -235,8 +236,8 @@ export function SignInFlow({ mode, next, initialError }: SignInFlowProps) {
         {/* The email is the student's own: masked in session replay. */}
         <p className={cn("text-body-s text-indigo-black/70", SENSITIVE)}>
           {confirming
-            ? `We sent a ${CODE_LENGTH}-digit code to ${email.trim()} to confirm your account.`
-            : `We sent a ${CODE_LENGTH}-digit code to ${email.trim()}.`}
+            ? `We sent a code to ${email.trim()} to confirm your account.`
+            : `We sent a code to ${email.trim()}.`}
         </p>
         {confirming ? (
           // Sign-up with an email that already has an account sends a sign-in

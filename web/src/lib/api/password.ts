@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { EMAIL_CODE_PATTERN } from "@/lib/auth/email-code";
+
 export const passwordCredentialsSchema = z.strictObject({
   email: z.email().max(254),
   password: z.string().min(8).max(72).refine((value) => new TextEncoder().encode(value).length <= 72, "Use a password of 72 bytes or fewer."),
@@ -25,7 +27,7 @@ export const passwordUpdateSchema = z.strictObject({ password: passwordCredentia
 // sign-up screen, which is set once the code proves the inbox.
 export const passwordSignUpConfirmSchema = z.strictObject({
   email: z.email().max(254),
-  code: z.string().regex(/^\d{6}$/),
+  code: z.string().regex(EMAIL_CODE_PATTERN),
   password: passwordCredentialsSchema.shape.password,
 });
 

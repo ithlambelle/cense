@@ -2,12 +2,13 @@ import { z } from "zod";
 
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { confirmedByThisCode, unusablePassword } from "@/lib/api/confirmation";
+import { EMAIL_CODE_PATTERN } from "@/lib/auth/email-code";
 import { authThrottle, codeCheckPassed } from "@/lib/auth/throttle";
 import { createStudentClient } from "@/lib/supabase/server";
 
 const requestSchema = z.strictObject({
   email: z.email().max(254),
-  code: z.string().regex(/^\d{6}$/),
+  code: z.string().regex(EMAIL_CODE_PATTERN),
 });
 
 export async function POST(request: Request): Promise<Response> {

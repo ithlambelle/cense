@@ -36,9 +36,9 @@ describe("TextField", () => {
 });
 
 describe("CodeInput", () => {
-  it("keeps six digits from whatever is typed or pasted", () => {
+  it("keeps up to eight digits from whatever is typed or pasted", () => {
     expect(digitsOnly("482 916")).toBe("482916");
-    expect(digitsOnly("482-916-777")).toBe("482916");
+    expect(digitsOnly("482-916-777")).toBe("48291677");
     expect(digitsOnly("abc")).toBe("");
   });
 

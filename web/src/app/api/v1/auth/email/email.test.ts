@@ -87,6 +87,17 @@ describe("verifying an email code", () => {
     log.mockRestore();
   });
 
+  it("takes a 6- or 8-digit code (Supabase's code length can be raised), and nothing else", async () => {
+    auth.verifyOtp.mockResolvedValue({ data: { user: CONFIRMED_EARLIER }, error: null });
+    for (const code of ["123456", "12345678"]) {
+      expect((await verify(request({ email: "student@example.com", code }))).status, code).toBe(200);
+    }
+    for (const code of ["1234567", "123456789", "12345", "12a456", "１２３４５６"]) {
+      expect((await verify(request({ email: "student@example.com", code }))).status, code).toBe(400);
+    }
+    expect(auth.verifyOtp.mock.calls.map(([args]) => args.token)).toEqual(["123456", "12345678"]);
+  });
+
   it("checks the request before calling the provider", async () => {
     const response = await verify(request({ email: "student@example.com", code: "12345" }));
     expect(response.status).toBe(400);
