@@ -1,8 +1,9 @@
 // Created with Claude Code (2026-11-26). The words of Home's next step card
 // (Flow 1 N1, Figma 821:8595): its eyebrow, the "Why this step first" box,
 // the credit to the flowchart the order comes from, and each step's title, why
-// line and button. Only N1's own step (Find your first card) is drawn; the
-// rest follow its pattern and are proposed to Ben and design.
+// line and button. Only N1's own step is drawn (as "Find your first card");
+// the rest follow its pattern and are proposed to Ben and design. Never
+// "first card": it may not be the student's first (Mikhaela, Nov 9; #151).
 
 import { moneyAmount } from "@/lib/money";
 
@@ -22,8 +23,10 @@ export const NEXT_STEP_COPY = {
   },
   checkBudget: {
     title: "Check your budget",
-    why: "Every step after this uses last month’s numbers, so make sure they’re right.",
-    action: "Check last month",
+    whyUnread: "Penny reads your pay and bills from your bank. Then you check they look right.",
+    read: "Read my bank",
+    whyRead: "Penny read your pay and bills from your bank. Make sure they look right.",
+    check: "Check what Penny found",
   },
   coverEssentials: {
     title: "Cover the essentials first",
@@ -33,23 +36,27 @@ export const NEXT_STEP_COPY = {
   },
   turnOnAutopay: {
     title: "Turn on autopay",
-    why: (cardName: string) => `${cardName} has no autopay yet. Paying at least the minimum on time avoids late fees and protects your credit.`,
+    // off: the student said so. unknown: they have not said (a card added by hand).
+    whyOff: (cardName: string) => `${cardName} has no autopay yet. Paying at least the minimum on time avoids late fees and protects your credit.`,
+    whyUnknown: (cardName: string) => `Tell us if ${cardName} has autopay. Paying at least the minimum on time avoids late fees and protects your credit.`,
     action: "Turn on autopay",
   },
   emergencyFund: {
     title: "Start your emergency fund",
     // savingsCents null: no savings account at the linked bank.
     why: (savingsCents: number | null, targetCents: number) =>
-      `${savingsCents === null ? "Cense doesn’t see a savings account." : `You have ${moneyAmount(savingsCents)} in savings.`} A first cushion is $1,000, or a month of rent, bills and groceries if that’s more: ${moneyAmount(targetCents)} for you.`,
+      `${savingsCents === null ? "Cense doesn’t see a savings account." : `You have ${moneyAmount(savingsCents)} in savings and similar accounts.`} A first cushion is $1,000, or a month of rent, bills and groceries if that’s more: ${moneyAmount(targetCents)} for you.`,
     action: "Start my emergency fund",
   },
-  firstCard: {
-    title: "Find your first card",
-    // N1's own words (821:8609).
-    why: "We didn’t see a credit card at your bank. A first card, used lightly and paid in full, starts your credit history.",
-    // N1's button before the quiz; after it, the matches it found.
+  findCard: {
+    // As #151 words the card flow, not N1's "Find your first card".
+    title: "Find a card that fits",
+    // N1's words (821:8609) without "first".
+    why: "We didn’t see a credit card at your bank. A card used lightly and paid in full builds your credit history.",
+    // N1's button before the quiz; after it, its matches, or why none fits yet.
     takeQuiz: "Take the card quiz",
     seeMatches: "See your matches",
+    seeWhy: "See why",
   },
   goals: {
     title: "Your goals",

@@ -240,6 +240,8 @@ describe("PickGoal", () => {
     expect(goals().getAllByRole("button", { pressed: true }).map((button) => button.textContent)).toEqual(["Emergency fund"]);
     expect(amount().value).toBe("1240");
     expect(date().value).toBe("");
+    // One goal at a time: saving this one replaces the saved goal, and the screen says so.
+    expect(screen.getByText("This replaces your Laptop goal.")).toBeTruthy();
   });
 
   it("keeps the saved goal as it was when it is the one asked for", () => {
@@ -247,6 +249,7 @@ describe("PickGoal", () => {
     render(<PickGoal saved={saved} preselect="emergency_fund" setAsideCents={11_257} today={TODAY} suggestions={SUGGESTIONS} />);
     expect(amount().value).toBe("2000");
     expect(date().value).toBe("2027-08-01");
+    expect(screen.queryByText(/This replaces your/)).toBeNull();
   });
 
   it("says a set-aside the student changed since stays, and where to change it", () => {

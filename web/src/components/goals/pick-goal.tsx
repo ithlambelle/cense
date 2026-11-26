@@ -179,6 +179,7 @@ export function PickGoal({
 
             {preset ? (
               <div className={`${SENSITIVE} flex flex-col gap-4 motion-safe:animate-fade-up`}>
+                {saved && saved.preset !== preset ? <p className="text-body-s text-indigo-black">{GOAL_COPY.replacesGoal(saved.name)}</p> : null}
                 {preset === "other" ? (
                   <TextField
                     label={GOAL_COPY.nameLabel}

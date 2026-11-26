@@ -235,13 +235,13 @@ export const EVENTS = {
     ledger: "bank_links.set_aside_cents",
     properties: z.strictObject({ preset: z.enum(GOAL_PRESETS) }),
   },
-  next_step_shown: {
+  next_step_viewed: {
     question: "Demo Day step 9: which next step does Home show students, and does it change as they act (the persona walk found Home never changed after setup)? The rule's id only.",
     owner: "Ben",
     addedIn: 8,
     properties: z.strictObject({ step: z.enum(NEXT_STEP_IDS) }),
   },
-  next_step_tapped: {
+  next_step_clicked: {
     question: "Demo Day step 9: do students tap the next step Home shows, and which ones? The rule's id only.",
     owner: "Ben",
     addedIn: 8,

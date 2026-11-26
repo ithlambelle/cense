@@ -52,6 +52,8 @@ export const GOAL_COPY = {
   amountTooBig: "Goals go up to $1,000,000.",
   dateAfterToday: "Pick a date after today.",
   dateTooLate: "Pick a date in the next 30 years.",
+  // One goal at a time: picking another goal than the saved one replaces it on save.
+  replacesGoal: (name: string) => `This replaces your ${name} goal.`,
 } as const;
 
 export const PLAN_COPY = {

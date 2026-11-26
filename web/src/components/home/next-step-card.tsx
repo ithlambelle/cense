@@ -5,7 +5,7 @@
 // Flow 1 N1 (Figma 821:8595) as a Home card rather than a full screen: the
 // "YOUR NEXT STEP" eyebrow, the title, the Info callout "Why this step first"
 // (Neutral, 371:3444), one primary button, and the flowchart the order comes
-// from credited underneath.
+// from credited underneath (not on Link your bank, which comes before it).
 
 import Link from "next/link";
 import { useEffect, useId } from "react";
@@ -20,7 +20,7 @@ export function NextStepCard({ step }: { step: NextStep }) {
   const titleId = useId();
   // Counted each time Home shows a step, so a change after the student acts is seen.
   useEffect(() => {
-    track("next_step_shown", { step: step.id });
+    track("next_step_viewed", { step: step.id });
   }, [step.id]);
 
   return (
@@ -37,11 +37,12 @@ export function NextStepCard({ step }: { step: NextStep }) {
       <div className={SENSITIVE}>
         <InfoCallout title={NEXT_STEP_CARD_COPY.whyTitle}>{step.why}</InfoCallout>
       </div>
-      <Link href={step.action.href} onClick={() => track("next_step_tapped", { step: step.id })} className={buttonVariants()}>
+      <Link href={step.action.href} onClick={() => track("next_step_clicked", { step: step.id })} className={buttonVariants()}>
         {step.action.label}
         <ButtonChevron />
       </Link>
-      <p className="text-center text-body-s text-indigo-black/70">{NEXT_STEP_CARD_COPY.credit}</p>
+      {/* The flowchart starts from a known budget, so linking a bank is not one of its steps. */}
+      {step.id !== "link_bank" ? <p className="text-center text-body-s text-indigo-black/70">{NEXT_STEP_CARD_COPY.credit}</p> : null}
     </section>
   );
 }

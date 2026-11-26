@@ -5,8 +5,8 @@
 //
 // The order follows the r/personalfinance US flowchart, credited on the card.
 // Shipped rows (Ben, Nov 26): 1 Link your bank, 2 Check your budget, 3 Cover
-// the essentials, 4 Turn on autopay, 5 Start your emergency fund, 7 Find your
-// first card, 9 Your goals. Emergency fund comes before a first card (Ben,
+// the essentials, 4 Turn on autopay, 5 Start your emergency fund, 7 Find a
+// card that fits, 9 Your goals. Emergency fund comes before a card (Ben,
 // Nov 21). Rows 6 (Pay down your card, APR 10% or more) and 8 (Grow your
 // emergency fund, under 3 months of essentials) are behind the cut line: each
 // is one more entry in RULES, in its place, with its id in NEXT_STEP_IDS.
@@ -26,7 +26,7 @@ export const NEXT_STEP_IDS = [
   "cover_essentials",
   "turn_on_autopay",
   "start_emergency_fund",
-  "find_first_card",
+  "find_a_card",
   "your_goals",
 ] as const;
 export type NextStepId = (typeof NEXT_STEP_IDS)[number];
@@ -46,18 +46,22 @@ export type NextStepInputs = {
     lastMonth: { incomeCents: number; spentCents: number } | null;
     // One month of rent, bills and groceries (essentialsCents in goals/presets).
     essentialsCents: number;
-    // The linked savings accounts' balances added up; null when the bank
-    // shows no savings account.
+    // The linked savings and similar accounts (money market, CD, HSA: the
+    // kind is all that is stored) added up; null when the bank shows none.
     savingsCents: number | null;
     // The bank shows a credit card.
     hasCardAccount: boolean;
   } | null;
-  // The student's approved tracked cards, most recently changed first.
-  approvedCards: { applicationId: string; name: string; autopayOn: boolean }[];
-  // A tracked card is waiting on the issuer's decision.
-  cardApplied: boolean;
-  // The card quiz has a result (a match, or no card fits).
-  quizComplete: boolean;
+  // The student's approved tracked cards, most recently changed first, except
+  // the one Home leads with (its own star already asks for autopay). autopay
+  // "unknown": the student has not said (a card added by hand starts so).
+  approvedCards: { applicationId: string; name: string; autopay: "on" | "off" | "unknown" }[];
+  // Any tracked card: approved (the one Home leads with included), waiting
+  // on the issuer, or turned down (another hard check right after a denial is
+  // not the next step).
+  cardTracked: boolean;
+  // Where the card quiz stands: not finished, a match, or no card fits.
+  quiz: "unfinished" | "match" | "no_card";
   // The student's one goal, or null. accepted: Accept plan has set its money aside.
   goal: { preset: GoalPreset; name: string; accepted: boolean } | null;
 };
@@ -76,12 +80,16 @@ const step = (id: NextStepId, title: string, why: string, label: string, href: s
 const RULES: readonly Rule[] = [
   // 1. No bank linked.
   ({ bank }) => (bank ? null : step("link_bank", NEXT_STEP_COPY.linkBank.title, NEXT_STEP_COPY.linkBank.why, NEXT_STEP_COPY.linkBank.action, ROUTES.safeToSpendConnect)),
-  // 2. The bank is not read yet, or last month is not confirmed. The reading
-  // screen reads it and ends on Looks right.
-  ({ bank }) =>
-    bank && (!bank.answered || !bank.budgetChecked)
-      ? step("check_budget", NEXT_STEP_COPY.checkBudget.title, NEXT_STEP_COPY.checkBudget.why, NEXT_STEP_COPY.checkBudget.action, ROUTES.safeToSpendReading)
-      : null,
+  // 2. The bank is not read yet, or what Penny found is not confirmed. The
+  // reading screen reads it and ends on Looks right (with last month only
+  // when the bank's history covers it, so the words never promise it).
+  ({ bank }) => {
+    if (!bank || (bank.answered && bank.budgetChecked)) return null;
+    const copy = NEXT_STEP_COPY.checkBudget;
+    return bank.answered
+      ? step("check_budget", copy.title, copy.whyRead, copy.check, ROUTES.safeToSpendReading)
+      : step("check_budget", copy.title, copy.whyUnread, copy.read, ROUTES.safeToSpendReading);
+  },
   // 3. More went out than came in last month (a whole month only).
   ({ bank }) => {
     const month = bank?.lastMonth;
@@ -90,29 +98,34 @@ const RULES: readonly Rule[] = [
     return step("cover_essentials", copy.title, copy.why(month.spentCents, month.incomeCents), copy.action, yourMoneyPath("month"));
   },
   // 4. An approved card without autopay (any autopay pays at least the
-  // minimum). The most recently changed one first.
+  // minimum). The most recently changed one first. Said as missing only when
+  // the student said it is off; unknown is asked.
   ({ approvedCards }) => {
-    const card = approvedCards.find((entry) => !entry.autopayOn);
+    const card = approvedCards.find((entry) => entry.autopay !== "on");
     if (!card) return null;
     const copy = NEXT_STEP_COPY.turnOnAutopay;
-    return step("turn_on_autopay", copy.title, copy.why(card.name), copy.action, autopayStepsPath(card.applicationId));
+    const why = card.autopay === "off" ? copy.whyOff(card.name) : copy.whyUnknown(card.name);
+    return step("turn_on_autopay", copy.title, why, copy.action, autopayStepsPath(card.applicationId));
   },
   // 5. Savings under the first cushion, and no emergency fund goal started.
+  // A plan the student accepted for another goal stands: Home does not push
+  // them to replace it (Gap Plan: show, don't prescribe). A goal only saved
+  // still gets the cushion first; Pick a goal says it replaces that goal.
   ({ bank, goal }) => {
-    if (!bank || goal?.preset === "emergency_fund") return null;
+    if (!bank || goal?.preset === "emergency_fund" || goal?.accepted) return null;
     const target = emergencyTargetCents(bank.essentialsCents);
     if ((bank.savingsCents ?? 0) >= target) return null;
     const copy = NEXT_STEP_COPY.emergencyFund;
     return step("start_emergency_fund", copy.title, copy.why(bank.savingsCents, target), copy.action, startGoalPath("emergency_fund"));
   },
   // 6. Pay down your card: cut for the demo.
-  // 7. No credit card: none at the bank, none approved or waiting.
-  ({ bank, approvedCards, cardApplied, quizComplete }) => {
-    if (!bank || bank.hasCardAccount || approvedCards.length > 0 || cardApplied) return null;
-    const copy = NEXT_STEP_COPY.firstCard;
-    return quizComplete
-      ? step("find_first_card", copy.title, copy.why, copy.seeMatches, ROUTES.results)
-      : step("find_first_card", copy.title, copy.why, copy.takeQuiz, quizPath());
+  // 7. No credit card: none at the bank, none tracked. The button follows
+  // the quiz: take it, see its matches, or see why none fits yet.
+  ({ bank, cardTracked, quiz }) => {
+    if (!bank || bank.hasCardAccount || cardTracked) return null;
+    const copy = NEXT_STEP_COPY.findCard;
+    if (quiz === "unfinished") return step("find_a_card", copy.title, copy.why, copy.takeQuiz, quizPath());
+    return step("find_a_card", copy.title, copy.why, quiz === "match" ? copy.seeMatches : copy.seeWhy, ROUTES.results);
   },
   // 8. Grow your emergency fund: cut for the demo.
 ];
@@ -136,15 +149,16 @@ export function nextStep(inputs: NextStepInputs): NextStep {
 // The rules' inputs from what Home reads: the bank link (null: none), whether
 // last month was confirmed, last month's budget only when the bank's history
 // covers it whole (null otherwise), every tracked card (most recently changed
-// first), the approved cards' names and autopay as Coming up reads them,
-// whether the quiz has a result, and the goal.
+// first), the approved cards' names and autopay as Coming up reads them, the
+// card Home leads with, where the quiz stands, and the goal.
 export function nextStepInputs({
   safeToSpend,
   budgetChecked,
   lastMonth,
   applications,
   approvedCards,
-  quizComplete,
+  leadingCardId,
+  quiz,
   goal,
 }: {
   safeToSpend: SafeToSpend | null;
@@ -152,7 +166,9 @@ export function nextStepInputs({
   lastMonth: Budget | null;
   applications: Application[];
   approvedCards: { applicationId: string; name: string; autopayStatus: string }[];
-  quizComplete: boolean;
+  // The approved card Home leads with, whose star carries its autopay; null when none.
+  leadingCardId: string | null;
+  quiz: NextStepInputs["quiz"];
   goal: Goal | null;
 }): NextStepInputs {
   const savings = safeToSpend?.accounts.filter((account) => account.kind === "other") ?? [];
@@ -167,11 +183,14 @@ export function nextStepInputs({
       hasCardAccount: safeToSpend.accounts.some((account) => account.kind === "card"),
     },
     approvedCards: applications.flatMap((application) => {
-      const card = application.status === "approved" ? approvedCards.find((entry) => entry.applicationId === application.id) : undefined;
-      return card ? [{ applicationId: card.applicationId, name: card.name, autopayOn: card.autopayStatus === "on" }] : [];
+      if (application.status !== "approved" || application.id === leadingCardId) return [];
+      const card = approvedCards.find((entry) => entry.applicationId === application.id);
+      if (!card) return [];
+      const autopay = card.autopayStatus === "on" || card.autopayStatus === "off" ? card.autopayStatus : "unknown";
+      return [{ applicationId: card.applicationId, name: card.name, autopay }];
     }),
-    cardApplied: applications.some((application) => application.status === "applied"),
-    quizComplete,
+    cardTracked: applications.length > 0,
+    quiz,
     goal: goal && { preset: goal.preset, name: goal.name, accepted: goal.acceptedMonthlyCents !== null },
   };
 }

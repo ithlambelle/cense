@@ -66,7 +66,8 @@ export default async function HomePage({ searchParams }: PageProps<"/home">) {
             lastMonth: stepData.lastMonth,
             applications,
             approvedCards: comingUpCards.cards,
-            quizComplete: quiz.kind !== "quiz_unfinished",
+            leadingCardId: state.kind === "tracking" && state.primary.status === "approved" ? state.primary.id : null,
+            quiz: quiz.kind === "quiz_unfinished" ? "unfinished" : quiz.kind,
             goal: stepData.goal,
           }),
         )

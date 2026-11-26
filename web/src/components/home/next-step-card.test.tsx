@@ -26,7 +26,7 @@ afterEach(() => {
 });
 
 const BANK = { answered: true, budgetChecked: true, lastMonth: null, essentialsCents: 92_500, savingsCents: 50_000, hasCardAccount: true };
-const inputs = (extra: Partial<NextStepInputs> = {}): NextStepInputs => ({ bank: BANK, approvedCards: [], cardApplied: false, quizComplete: false, goal: null, ...extra });
+const inputs = (extra: Partial<NextStepInputs> = {}): NextStepInputs => ({ bank: BANK, approvedCards: [], cardTracked: false, quiz: "unfinished", goal: null, ...extra });
 const card = () => screen.getByRole("region", { name: "Start your emergency fund" });
 
 describe("NextStepCard", () => {
@@ -36,7 +36,7 @@ describe("NextStepCard", () => {
     expect(within(region).getByText("Your next step")).toBeTruthy();
     expect(within(region).getByRole("heading", { level: 2, name: "Start your emergency fund" })).toBeTruthy();
     expect(within(region).getByText("Why this step first")).toBeTruthy();
-    expect(within(region).getByText(/^You have \$500 in savings\./)).toBeTruthy();
+    expect(within(region).getByText(/^You have \$500 in savings and similar accounts\./)).toBeTruthy();
     // The why line carries the student's own amounts: masked in session replay.
     expect(within(region).getByText(/^You have \$500/).closest(".ph-sensitive")).not.toBeNull();
     const links = within(region).getAllByRole("link");
@@ -44,17 +44,17 @@ describe("NextStepCard", () => {
     expect(within(region).getByText("Order from the r/personalfinance flowchart.")).toBeTruthy();
   });
 
-  it("counts the step shown, and the tap, with the rule's id only", () => {
+  it("counts the step viewed, and the click, with the rule's id only", () => {
     const { rerender } = render(<NextStepCard step={nextStep(inputs())} />);
-    expect(track).toHaveBeenCalledWith("next_step_shown", { step: "start_emergency_fund" });
+    expect(track).toHaveBeenCalledWith("next_step_viewed", { step: "start_emergency_fund" });
     fireEvent.click(within(card()).getByRole("link"));
-    expect(track).toHaveBeenCalledWith("next_step_tapped", { step: "start_emergency_fund" });
+    expect(track).toHaveBeenCalledWith("next_step_clicked", { step: "start_emergency_fund" });
     // A new step is counted again; the same one re-rendered is not.
     track.mockClear();
     rerender(<NextStepCard step={nextStep(inputs())} />);
     expect(track).not.toHaveBeenCalled();
     rerender(<NextStepCard step={nextStep(inputs({ goal: { preset: "emergency_fund", name: "Emergency fund", accepted: true } }))} />);
-    expect(track).toHaveBeenCalledWith("next_step_shown", { step: "your_goals" });
+    expect(track).toHaveBeenCalledWith("next_step_viewed", { step: "your_goals" });
   });
 });
 
@@ -84,9 +84,10 @@ describe("Home with a next step", () => {
     expect(hero.compareDocumentPosition(card()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("Link your bank stands in for the safe-to-spend invite", () => {
+  it("Link your bank stands in for the safe-to-spend invite, with no flowchart credit (the chart starts after it)", () => {
     render(<HomeView state={homeState([], NONE, 0)} initial="M" safeToSpend={null} nextStep={nextStep(inputs({ bank: null }))} />);
-    expect(screen.getByRole("region", { name: "Link your bank" })).toBeTruthy();
+    const region = screen.getByRole("region", { name: "Link your bank" });
+    expect(within(region).queryByText("Order from the r/personalfinance flowchart.")).toBeNull();
     expect(screen.queryByRole("region", { name: "See what’s safe to spend" })).toBeNull();
   });
 
@@ -102,17 +103,18 @@ describe("Home with a next step", () => {
     expect(screen.getByRole("region", { name: "Safe to spend" })).toBeTruthy();
   });
 
-  it("Find your first card stands in for the quiz prompt; other steps leave it", () => {
+  // Found by the quiz prompt's button, not its heading, which #151 rewords.
+  it("Find a card that fits stands in for the quiz prompt; other steps leave it", () => {
     const { unmount } = render(
       <HomeView state={homeState([], NONE, 0)} initial="M" safeToSpend={linked()} nextStep={nextStep(inputs({ bank: { ...BANK, savingsCents: 200_000, hasCardAccount: false } }))} />,
     );
-    expect(screen.getByRole("region", { name: "Find your first card" })).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: /questions to your first card/ })).toBeNull();
+    expect(screen.getByRole("region", { name: "Find a card that fits" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Start the quiz" })).toBeNull();
     // I already have a card stays: the card may be at another bank.
     expect(screen.getByRole("link", { name: "I already have a card" })).toBeTruthy();
     unmount();
     render(<HomeView state={homeState([], NONE, 0)} initial="M" safeToSpend={linked()} nextStep={nextStep(inputs())} />);
-    expect(screen.getByRole("heading", { name: /questions to your first card/ })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Start the quiz" })).toBeTruthy();
   });
 
   it("is left out when there is no step", () => {

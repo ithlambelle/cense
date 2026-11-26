@@ -55,7 +55,7 @@ type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 // `nextStep` is the one next step from the priority rules, right under safe
 // to spend; null leaves it out. It stands in for what it repeats: the bank
 // invite (Link your bank), the "Finish safe to spend" prompt (Check your
-// budget before the bank is read) and the quiz prompt (Find your first card).
+// budget before the bank is read) and the quiz prompt (Find a card that fits).
 export function HomeView({
   state,
   initial,
@@ -122,7 +122,7 @@ export function HomeView({
               </>
             }
             ahead={<ComingUp rows={comingUp} />}
-            quizPrompt={nextStep?.id !== "find_first_card"}
+            quizPrompt={nextStep?.id !== "find_a_card"}
           />
         </main>
         {celebrate ? <StarConfetti /> : null}
@@ -155,7 +155,7 @@ function HomeContent({
   // Coming up: right after the leading card's module (safe to spend stays
   // first, above the card module: Ben, Nov 15), before any other cards.
   ahead: ReactNode;
-  // False when the next step is Find your first card, which says the same.
+  // False when the next step is Find a card that fits, which says the same.
   quizPrompt: boolean;
 }) {
   if (state.kind === "no_quiz") {
