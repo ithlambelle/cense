@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { YourMoneyView } from "@/components/your-money/your-money-view";
 import { todayDay } from "@/lib/api/safe-to-spend";
 import { loadBudget } from "@/lib/budget/store";
+import { loadGoal } from "@/lib/goals/store";
 import { plaidConfig } from "@/lib/plaid/config";
 import { loadSafeToSpend } from "@/lib/plaid/store";
 import { ROUTES, safeToSpendSetupPath } from "@/lib/routes";
@@ -27,5 +28,9 @@ export default async function YourMoneyPage({ searchParams }: PageProps<"/safe-t
   const read = await loadBudget(student, loaded.value.setAsideCents);
   if (!read.ok && tab === "month") throw new Error("Could not read the student's budget.");
   const budget = read.ok ? read.value : null;
-  return <YourMoneyView tab={tab} data={loaded.value} budget={budget} today={todayDay()} />;
+  // Whether the savings goal line says Change goal or Set a goal. Extra: a
+  // failed read says Set a goal, which still opens the saved goal.
+  const goal = await loadGoal(student);
+  if (!goal.ok) console.warn(JSON.stringify({ event: "your_money_goal_read_failed" }));
+  return <YourMoneyView tab={tab} data={loaded.value} budget={budget} today={todayDay()} hasGoal={goal.ok && goal.value !== null} />;
 }

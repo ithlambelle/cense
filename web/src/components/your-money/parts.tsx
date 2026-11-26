@@ -204,7 +204,8 @@ export function EditRow({
 }: {
   id: string;
   label: string;
-  sub?: string | null;
+  // The quiet line under the label: text, or a link (the savings goal's).
+  sub?: ReactNode;
   // What a screen reader hears for the field: "Rent each month".
   fieldLabel: string;
   value: string;

@@ -13,6 +13,9 @@ export const YOUR_MONEY_COPY = {
   cards: "Card balances",
   // The set-aside from the safe-to-spend answers, on both tabs (Ben, Nov 14).
   setAside: "Savings goal",
+  // Under the savings goal: the way to the goal it is for (Pick a goal).
+  setGoal: "Set a goal",
+  changeGoal: "Change goal",
   // This month (709:1769, 709:1865)
   leftLabel: "Left over each month:",
   shortLabel: "Short each month by:",
