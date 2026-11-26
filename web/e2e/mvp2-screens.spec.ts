@@ -100,12 +100,11 @@ test("a student adds a card they already have, and it stays on Home", async ({ p
 test("the first-month plan saves autopay, opens the spend limit and reminder screens, and shows only the student's own card", async ({ page, browser }) => {
   const checkA11y = axeChecker(page);
   await signUp(page, uniqueEmail("plan"), checkA11y);
-  // Two cards added by name: Home leads with the newer one and lists the other,
-  // which opens the first-month plan (cards not in the catalog have no card page).
+  // Two cards added by name. Home now sends a card with no catalog page to its
+  // setup list (remove-card.spec.ts), so the first-month plan is opened directly.
   const older = await track(page, { cardId: null, cardName: "Older Credit Union Card" }, "approved");
   await track(page, { cardId: null, cardName: "Newer Store Card" }, "approved");
-  await page.goto("/home");
-  await page.getByRole("link", { name: /Older Credit Union Card/ }).click();
+  await page.goto(`/plan?application=${older}`);
   await expect(page).toHaveURL(new RegExp(`/plan\\?application=${older}$`));
   await expect(page.getByRole("heading", { level: 1, name: "Your first-month plan" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: "Older Credit Union Card" })).toBeVisible();
