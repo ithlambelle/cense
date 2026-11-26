@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import type { BillAnswer } from "@/lib/safe-to-spend/compute";
 
-import { billLine, buildBudgetLines, lastFullMonth, monthName, summarize, untypedCents } from "./lines";
+import { billLine, buildBudgetLines, lastFullMonth, monthName, summarize, untypedCents, withBillAmount } from "./lines";
 
 const row = (category: string | null, categoryDetailed: string | null, outCents: number, inCents = 0) => ({ category, categoryDetailed, outCents, inCents });
 
@@ -119,6 +119,57 @@ describe("bills from the safe-to-spend answers", () => {
   it("adds nothing before the bank has sent anything, when there is no telling what it shows", () => {
     const lines = buildBudgetLines({ ...october, totals: [], incomeCents: null, hasBankData: false, bills: answers });
     expect(lines.needs).toEqual([]);
+  });
+
+  // Audit, Nov 26: the same payment under another category was counted twice.
+  const only = (bill: BillAnswer["bill"], monthlyCents: number): BillAnswer[] => [{ bill, coveredBy: "me", monthlyCents, dueDay: 6 }];
+  const bank = (...rows: ReturnType<typeof row>[]) => ({ ...october, totals: rows });
+  const line = (lines: ReturnType<typeof buildBudgetLines>, key: string) => [...lines.needs, ...lines.wants].find((entry) => entry.key === key);
+
+  it("does not add rent paid by Zelle, which the bank already counts in Other", () => {
+    const lines = buildBudgetLines({ ...bank(row("TRANSFER_OUT", "TRANSFER_OUT_ACCOUNT_TRANSFER", 65000)), bills: only("rent", 65000) });
+    expect(line(lines, "rent_and_bills")).toBeUndefined();
+    expect(line(lines, "other")).toMatchObject({ amountCents: 65000, answers: [] });
+  });
+
+  it("does not add groceries bought at a superstore", () => {
+    const lines = buildBudgetLines({ ...bank(row("GENERAL_MERCHANDISE", "GENERAL_MERCHANDISE_SUPERSTORES", 30000)), bills: only("groceries", 27500) });
+    expect(line(lines, "groceries")).toBeUndefined();
+    expect(line(lines, "shopping_and_personal_care")).toMatchObject({ amountCents: 30000 });
+  });
+
+  it("does not add a car bill the bank shows as insurance", () => {
+    const lines = buildBudgetLines({ ...bank(row("GENERAL_SERVICES", "GENERAL_SERVICES_INSURANCE", 15000)), bills: only("car", 15000) });
+    expect(line(lines, "transportation")).toBeUndefined();
+    expect(line(lines, "rent_and_bills")).toMatchObject({ amountCents: 15000, answers: [] });
+  });
+
+  it("lets a $12 parking charge hide only $12 of a $300 car bill", () => {
+    const lines = buildBudgetLines({ ...bank(row("TRANSPORTATION", "TRANSPORTATION_PARKING", 1200)), bills: only("car", 30000) });
+    expect(line(lines, "transportation")).toMatchObject({ amountCents: 30000, bankCents: 1200, answers: [{ bill: "car", amountCents: 28800, seenCents: 1200 }] });
+  });
+
+  it("adds rent paid elsewhere when the money sent to friends is less than the rent", () => {
+    const lines = buildBudgetLines({ ...bank(row("TRANSFER_OUT", "TRANSFER_OUT_ACCOUNT_TRANSFER", 20000)), bills: only("rent", 65000) });
+    expect(line(lines, "rent_and_bills")).toMatchObject({ amountCents: 65000, answers: [{ bill: "rent", amountCents: 65000, seenCents: 0 }] });
+  });
+
+  it("lets one payment by Zelle stand for one bill only", () => {
+    const bills: BillAnswer[] = [...only("rent", 65000), { bill: "phone", coveredBy: "me", monthlyCents: 4500, dueDay: 15 }];
+    const lines = buildBudgetLines({ ...bank(row("TRANSFER_OUT", "TRANSFER_OUT_ACCOUNT_TRANSFER", 65000)), bills });
+    expect(line(lines, "rent_and_bills")).toMatchObject({ amountCents: 4500, answers: [{ bill: "phone", amountCents: 4500 }] });
+  });
+
+  it("misses a small bill paid elsewhere when the student sends more than it to people (the known limit)", () => {
+    const lines = buildBudgetLines({ ...bank(row("TRANSFER_OUT", "TRANSFER_OUT_ACCOUNT_TRANSFER", 10000)), bills: only("phone", 4500) });
+    expect(line(lines, "rent_and_bills")).toBeUndefined();
+  });
+
+  it("follows a bill's new amount from Today, keeping what the bank showed of it", () => {
+    const entry = { bill: "car" as const, amountCents: 28800, seenCents: 1200 };
+    expect(withBillAmount(entry, 40000)).toEqual({ bill: "car", amountCents: 38800, seenCents: 1200 });
+    expect(withBillAmount(entry, 0)).toBeNull();
+    expect(withBillAmount(entry, null)).toBeNull();
   });
 
   it("puts each bill on the line its bank category maps to", () => {

@@ -323,6 +323,18 @@ describe("Your money, This month (709:1769)", () => {
     expect(hero().textContent).toContain("$735");
   });
 
+  it("drops a bill emptied on Today from This month before the page reloads", async () => {
+    render(<YourMoneyView tab="today" data={DATA} budget={budget({ bills: DATA.bills })} today="2026-11-05" />);
+    type("Phone each month", "");
+    await commit("Phone each month");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("link", { name: "This month" }));
+    });
+    const rent = screen.getByLabelText("Rent and bills each month") as HTMLInputElement;
+    expect(rent.value).toBe("700");
+    expect(rent.closest("li")!.textContent).not.toContain("from your answers");
+  });
+
   it("says nothing about where a $0 savings goal came from", () => {
     render(<YourMoneyView tab="month" data={{ ...DATA, setAsideCents: 0 }} budget={budget({ setAsideCents: 0 })} today="2026-11-05" />);
     expect(screen.getByLabelText("Savings goal").closest("li")!.textContent).toBe("Savings goal$");

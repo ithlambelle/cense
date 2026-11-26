@@ -1017,9 +1017,12 @@ components:
                   - car
               amountCents:
                 type: integer
+              seenCents:
+                type: integer
             required:
               - bill
               - amountCents
+              - seenCents
             additionalProperties: false
         recurrence:
           type:

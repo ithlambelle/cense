@@ -9,8 +9,10 @@
 // - Bills from the safe-to-spend answers that the bank did not show that
 //   month (a phone bill paid from an account Cense cannot see) are added to the
 //   line the bank would have put them on, so This month counts every bill
-//   Today keeps back. A bill the bank shows is never counted twice.
-// - Saving: the safe-to-spend set-aside, which the student typed.
+//   Today keeps back. A bill the bank shows is never counted twice
+//   (billsFromAnswers).
+// - Saving: the safe-to-spend set-aside, which the student typed; a $0 goal
+//   is not called typed.
 // A typed number replaces the bank's for that line; untyped lines follow the
 // bank. The arithmetic is draft PR #86's waterfall (budget.ts).
 
@@ -28,12 +30,13 @@ export type BudgetLine = {
   group: LineGroup;
   amountCents: number;
   // The bank's number for the line, null for a line the bank has nothing for
-  // (and for saving, which is always typed).
+  // (and for saving, which has no bank number).
   bankCents: number | null;
   typed: boolean;
   // Bills from the safe-to-spend answers the bank did not show this month,
-  // added to the bank's number. Empty for most lines.
-  answers: { bill: Bill; amountCents: number }[];
+  // added to the bank's number: the part not shown (amountCents) and the part
+  // the bank already showed somewhere (seenCents). Empty for most lines.
+  answers: { bill: Bill; amountCents: number; seenCents: number }[];
   // "Fixed" or "Changing" once the recurring detector (#109) says which.
   // Null until then; the #86 math counts a want with no recurrence as changing.
   recurrence: Recurrence | null;
@@ -61,40 +64,85 @@ export type BudgetSummary = {
 
 export const SAVING_LABEL = "Saving";
 
-// How the bank shows each bill the setup questions ask about, as Plaid's
-// categories (the same as Penny's reading of the bank). The first pair also
-// names the This month line the bill belongs on, through censeCategory, so a
-// bill from the answers lands where the bank would have put it.
-const BILL_CATEGORIES: Record<Bill, readonly (readonly [string, string])[]> = {
-  rent: [["RENT_AND_UTILITIES", "RENT_AND_UTILITIES_RENT"]],
-  phone: [["RENT_AND_UTILITIES", "RENT_AND_UTILITIES_TELEPHONE"]],
-  tuition: [["GENERAL_SERVICES", "GENERAL_SERVICES_EDUCATION"]],
-  groceries: [["FOOD_AND_DRINK", "FOOD_AND_DRINK_GROCERIES"]],
-  car: [
-    ["LOAN_PAYMENTS", "LOAN_PAYMENTS_CAR_PAYMENT"],
-    ["TRANSPORTATION", "TRANSPORTATION_GAS"],
-    ["TRANSPORTATION", "TRANSPORTATION_PARKING"],
-  ],
+// Where the bank can show each bill the setup questions ask about, as Plaid
+// detailed categories. `own` is the bill's own category (the same as Penny's
+// reading of the bank); its first entry names the This month line the bill
+// belongs on, through censeCategory, so a bill from the answers lands where
+// the bank would have put it. `also` is where the same payment often lands
+// under another name: groceries bought at a superstore, car insurance. Money
+// sent through a payment app or to a person (TRANSFER_OUT, Other) can be any
+// bill, such as rent paid by Zelle.
+const BILL_CATEGORIES: Record<Bill, { own: readonly (readonly [string, string])[]; also: readonly string[] }> = {
+  rent: { own: [["RENT_AND_UTILITIES", "RENT_AND_UTILITIES_RENT"]], also: [] },
+  phone: { own: [["RENT_AND_UTILITIES", "RENT_AND_UTILITIES_TELEPHONE"]], also: ["RENT_AND_UTILITIES_INTERNET_AND_CABLE"] },
+  tuition: { own: [["GENERAL_SERVICES", "GENERAL_SERVICES_EDUCATION"]], also: [] },
+  groceries: {
+    own: [["FOOD_AND_DRINK", "FOOD_AND_DRINK_GROCERIES"]],
+    also: ["GENERAL_MERCHANDISE_SUPERSTORES", "GENERAL_MERCHANDISE_DISCOUNT_STORES", "GENERAL_MERCHANDISE_CONVENIENCE_STORES"],
+  },
+  car: {
+    own: [
+      ["LOAN_PAYMENTS", "LOAN_PAYMENTS_CAR_PAYMENT"],
+      ["TRANSPORTATION", "TRANSPORTATION_GAS"],
+      ["TRANSPORTATION", "TRANSPORTATION_PARKING"],
+    ],
+    also: ["GENERAL_SERVICES_INSURANCE", "GENERAL_SERVICES_AUTOMOTIVE", "TRANSPORTATION_TOLLS"],
+  },
 };
 
 export function billLine(bill: Bill): CategoryKey {
-  const [primary, detailed] = BILL_CATEGORIES[bill][0];
+  const [primary, detailed] = BILL_CATEGORIES[bill].own[0];
   return censeCategory(primary, detailed)!;
 }
 
-// The bills the student pays some of, with an amount, that the month's
-// transactions do not show, by the line each belongs on.
-function unseenBills(bills: BillAnswer[], totals: DetailedTotal[]): Partial<Record<CategoryKey, BudgetLine["answers"]>> {
-  const seen = new Set(totals.filter((row) => row.outCents > 0).map((row) => row.categoryDetailed));
+export type BillFromAnswers = BudgetLine["answers"][number];
+
+// The part of each bill the student pays that the month's spending does not
+// already show, by the line it belongs on. Totals only, so the rule is about
+// money, not names: each dollar the bank shows pays at most one bill.
+// 1. The bill's own category and the categories it often lands under count
+//    toward it, in part: groceries at a superstore, insurance toward the car.
+//    Spending there that is not the bill can only hide part of it (a $12
+//    parking charge leaves $288 of a $300 car bill), never add to it.
+// 2. Money sent to people or payment apps counts only when it covers all of
+//    what is left of the bill, as one payment would (rent by Zelle). Smaller
+//    sums are most likely friends being paid back, so they hide nothing.
+// Never counted twice: a bill the bank shows anywhere above adds nothing.
+// Missed: a bill paid elsewhere while the student sends at least as much to
+// people that month (a $45 phone and $100 of Venmo); then the line is the
+// bank's alone, as it was before bills from the answers were added.
+function billsFromAnswers(bills: BillAnswer[], totals: DetailedTotal[]): Partial<Record<CategoryKey, BudgetLine["answers"]>> {
+  const left = new Map<string, number>();
+  for (const row of totals) {
+    if (row.categoryDetailed && row.outCents > 0) left.set(row.categoryDetailed, (left.get(row.categoryDetailed) ?? 0) + row.outCents);
+  }
+  const take = (detailed: string, cents: number): number => {
+    const used = Math.min(left.get(detailed) ?? 0, cents);
+    if (used > 0) left.set(detailed, (left.get(detailed) ?? 0) - used);
+    return cents - used;
+  };
+  const paying = bills.filter((answer) => (answer.coveredBy === "me" || answer.coveredBy === "split") && (answer.monthlyCents ?? 0) > 0);
+  // Every bill's own category first, so one bill never takes another's.
+  const unseen = new Map<Bill, number>();
+  for (const answer of paying) unseen.set(answer.bill, BILL_CATEGORIES[answer.bill].own.reduce((cents, [, detailed]) => take(detailed, cents), answer.monthlyCents!));
+  for (const answer of paying) unseen.set(answer.bill, BILL_CATEGORIES[answer.bill].also.reduce((cents, detailed) => take(detailed, cents), unseen.get(answer.bill)!));
+  const transfers = [...left.keys()].filter((detailed) => detailed.startsWith("TRANSFER_OUT_"));
   const byLine: Partial<Record<CategoryKey, BudgetLine["answers"]>> = {};
-  for (const answer of bills) {
-    if (answer.coveredBy !== "me" && answer.coveredBy !== "split") continue;
-    if (!answer.monthlyCents || answer.monthlyCents <= 0) continue;
-    if (BILL_CATEGORIES[answer.bill].some(([, detailed]) => seen.has(detailed))) continue;
-    const key = billLine(answer.bill);
-    (byLine[key] ??= []).push({ bill: answer.bill, amountCents: answer.monthlyCents });
+  for (const answer of paying) {
+    let cents = unseen.get(answer.bill)!;
+    const sent = transfers.reduce((sum, detailed) => sum + (left.get(detailed) ?? 0), 0);
+    if (cents > 0 && sent >= cents) cents = transfers.reduce((rest, detailed) => take(detailed, rest), cents);
+    if (cents <= 0) continue;
+    (byLine[billLine(answer.bill)] ??= []).push({ bill: answer.bill, amountCents: cents, seenCents: answer.monthlyCents! - cents });
   }
   return byLine;
+}
+
+// A bill from the answers as the student changes its amount on Today: what
+// the bank showed of it stays, the rest is added. Gone once nothing is left.
+export function withBillAmount(entry: BillFromAnswers, monthlyCents: number | null): BillFromAnswers | null {
+  const cents = (monthlyCents ?? 0) - entry.seenCents;
+  return cents > 0 ? { ...entry, amountCents: cents } : null;
 }
 
 // A line's number when the student has not typed one: the bank's, plus any
@@ -124,7 +172,7 @@ export function buildBudgetLines({
   hasBankData: boolean;
 }): BudgetLines {
   const spent = spendingByCategory(totals);
-  const fromAnswers = hasBankData ? unseenBills(bills, totals) : {};
+  const fromAnswers = hasBankData ? billsFromAnswers(bills, totals) : {};
   const line = (key: LineKey, label: string, group: LineGroup, bankCents: number | null): BudgetLine => {
     const answers = key === "income" ? [] : (fromAnswers[key] ?? []);
     return {

@@ -18,7 +18,7 @@ import { deleteBudgetLine, saveBudgetLine, type BudgetLineKey } from "@/lib/api-
 import { parseAmount, saveSafeToSpendAnswers } from "@/lib/api-client/safe-to-spend";
 import { parseDollarsToCents } from "@/lib/budget/amount";
 import { bankMonthLine, bankNumberLabel, fromAnswersLine, noIncomeLine, YOUR_MONEY_COPY } from "@/lib/budget/copy";
-import { monthName, summarize, untypedCents, type BudgetLine, type BudgetLines } from "@/lib/budget/lines";
+import { monthName, summarize, untypedCents, withBillAmount, type BudgetLine, type BudgetLines } from "@/lib/budget/lines";
 import { moneyAmount } from "@/lib/money";
 import { ROUTES, signInPath } from "@/lib/routes";
 import { BILL_COPY } from "@/lib/safe-to-spend/copy";
@@ -37,12 +37,14 @@ export function MonthTab({ budget, shared }: { budget: Budget; shared: SharedAns
   const router = useRouter();
   // Bills from the answers and the savings goal follow the shared copy too,
   // so a bill changed on Today shows here even before the page reloads.
+  // A bill emptied or set to $0 there leaves the line.
   const fromShared = (line: BudgetLine): BudgetLine => {
     if (line.answers.length === 0) return line;
-    const answers = line.answers.map((entry) => ({
-      ...entry,
-      amountCents: shared.answers.bills.find((answer) => answer.bill === entry.bill)?.monthlyCents ?? entry.amountCents,
-    }));
+    const answers = line.answers.flatMap((entry) => {
+      const answer = shared.answers.bills.find((bill) => bill.bill === entry.bill);
+      const current = answer ? withBillAmount(entry, answer.monthlyCents) : entry;
+      return current ? [current] : [];
+    });
     return { ...line, answers, amountCents: line.typed ? line.amountCents : untypedCents({ bankCents: line.bankCents, answers }) };
   };
   const budgetLines = budget as unknown as BudgetLines;

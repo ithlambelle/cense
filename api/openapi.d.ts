@@ -1060,6 +1060,7 @@ export interface components {
                 /** @enum {string} */
                 bill: "rent" | "phone" | "tuition" | "groceries" | "car";
                 amountCents: number;
+                seenCents: number;
             }[];
             /** @enum {string|null} */
             recurrence: "recurring" | "variable" | null;

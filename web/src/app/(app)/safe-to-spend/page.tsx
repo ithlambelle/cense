@@ -24,7 +24,7 @@ export default async function YourMoneyPage({ searchParams }: PageProps<"/safe-t
   const tab = (await searchParams).tab === "month" ? "month" : "today";
   // Both tabs come with the page, so switching tabs needs no reload. If the
   // budget cannot be read, Today still opens and This month fails on its own.
-  const read = await loadBudget(student, loaded.value);
+  const read = await loadBudget(student, loaded.value.setAsideCents, undefined, loaded.value.bills);
   if (!read.ok && tab === "month") throw new Error("Could not read the student's budget.");
   const budget = read.ok ? read.value : null;
   return <YourMoneyView tab={tab} data={loaded.value} budget={budget} today={todayDate()} />;

@@ -13,13 +13,15 @@ import { buildBudgetLines, lastFullMonth, summarize, type LineKey } from "./line
 
 const LINE_KEYS = new Set<string>(["income", ...CATEGORY_KEYS]);
 
-// The budget for the student's last full month. `answers` are their
-// safe-to-spend bills and set-aside, already read by the page: the set-aside is
-// the saving line, and a bill the bank did not show is added to its line.
+// The budget for the student's last full month. `setAsideCents` and `bills`
+// come from their safe-to-spend answers, already read by the page: the
+// set-aside is the saving line, and a bill the bank did not show is added to
+// its line. Without `bills`, the lines are the bank's and the typed numbers.
 export async function loadBudget(
   student: Student,
-  answers: { bills: BillAnswer[]; setAsideCents: number },
+  setAsideCents: number,
   now: Date = new Date(),
+  bills: BillAnswer[] = [],
 ): Promise<StoreResult<Budget>> {
   const month = lastFullMonth(now);
   const { supabase, studentId } = student;
@@ -55,8 +57,8 @@ export async function loadBudget(
     incomeCents: monthIncome ? Number(monthIncome.income_cents) : null,
     totals,
     typed: typedAmounts,
-    setAsideCents: answers.setAsideCents,
-    bills: answers.bills,
+    setAsideCents,
+    bills,
     hasBankData: incomeRows.length > 0 || detailedRows.length > 0 || ((recent.data ?? []) as unknown[]).length > 0,
   });
   return { ok: true, value: { ...lines, ...summarize(lines) } };
