@@ -29,11 +29,11 @@ describe("password checks", () => {
   it("says nothing before the student types, hints while they type, and errs only once they tried to submit", () => {
     expect(passwordFeedback("", false)).toEqual({});
     expect(passwordFeedback("abc", false)).toEqual({ hint: "Use at least 8 characters." });
-    expect(passwordFeedback("abcdefgh", false)).toEqual({});
+    expect(passwordFeedback("x".repeat(8), false)).toEqual({});
     expect(passwordFeedback("x".repeat(73), false)).toEqual({ hint: "Use 72 characters or fewer." });
     expect(passwordFeedback("", true)).toEqual({ error: "Use at least 8 characters." });
     expect(passwordFeedback("abc", true)).toEqual({ error: "Use at least 8 characters." });
-    expect(passwordFeedback("abcdefgh", true)).toEqual({});
+    expect(passwordFeedback("x".repeat(8), true)).toEqual({});
   });
 
   it("catches an email that is clearly unfinished", () => {

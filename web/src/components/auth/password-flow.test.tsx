@@ -46,14 +46,14 @@ describe("password sign-up and log-in", () => {
     expect(shown()).toEqual({ hint: null, invalid: false });
     fill("Password", "abc");
     expect(shown()).toEqual({ hint: "Use at least 8 characters.", invalid: false });
-    fill("Password", "abcdefghij");
+    fill("Password", "x".repeat(10));
     expect(shown()).toEqual({ hint: null, invalid: false });
 
     // After Sign up, the rule is an error, and it still follows the typing.
-    fill("Password", "short");
+    fill("Password", "x".repeat(5));
     fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
     expect(shown()).toEqual({ hint: "Use at least 8 characters.", invalid: true });
-    fill("Password", "shortbutlonger");
+    fill("Password", "x".repeat(14));
     expect(shown()).toEqual({ hint: null, invalid: false });
     fill("Password", "x".repeat(73));
     expect(shown()).toEqual({ hint: "Use 72 characters or fewer.", invalid: true });
@@ -65,7 +65,7 @@ describe("password sign-up and log-in", () => {
     const fetchFn = server(200, { status: "signed_in" });
     openPassword(SIGN_UP);
     fill("Email", "alex@email.com");
-    fill("Password", "short");
+    fill("Password", "x".repeat(5));
     fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
     expect(screen.getByText("Use at least 8 characters.")).toBeTruthy();
     fill("Password", "correcthorse");
