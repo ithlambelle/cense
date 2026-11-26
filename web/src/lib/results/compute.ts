@@ -57,8 +57,17 @@ export function rankedFit(answers: QuizAnswers, cards: Card[], rewardsFor: Rewar
   return { result: evaluateFit(answers, cards, values), estimates };
 }
 
+// The catalog without the cards the student already has (an approved card
+// with that catalog id, from Mark result or Add a card), so no result offers
+// a card they own. Applied and denied cards stay: the result screen shows
+// those as tracked instead of offering them again.
+export function cardsToOffer(cards: Card[], applications: { cardId: string | null; status: string }[]): Card[] {
+  const owned = new Set(applications.flatMap((application) => (application.status === "approved" && application.cardId ? [application.cardId] : [])));
+  return owned.size === 0 ? cards : cards.filter((card) => !owned.has(card.id));
+}
+
 // Works out what the result screen shows from the saved quiz answers and the
-// catalog. Tiers, reasons and order come from evaluateFit; nothing here decides
+// catalog (cardsToOffer's list for a signed-in student). Tiers, reasons and order come from evaluateFit; nothing here decides
 // fit. The ranking lists likely fits before stretches, so a stretch is shown
 // only when fewer than three likely fits are left after the issuer limit.
 export function computeResult(savedAnswers: unknown, cards: Card[], rewardsFor: RewardsLookup = cardRewards): ResultView {

@@ -381,7 +381,11 @@ export interface paths {
         get: operations["getApplication"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Remove a card the student added themselves, with its reminders and setup steps
+         * @description Only a card added with I already have a card (source added). Someone else's card answers 404, the same as a missing one. A card applied for through Cense answers 409 not_removable: it is the record of what the issuer decided.
+         */
+        delete: operations["deleteApplication"];
         options?: never;
         head?: never;
         /**
@@ -2330,6 +2334,71 @@ export interface operations {
             };
             /** @description Application not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    deleteApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid application ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Application not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Applied for through Cense, so not removable */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

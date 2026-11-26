@@ -26,7 +26,7 @@ import { findCard, listCards } from "@/lib/cards/catalog";
 import { comingUpCardNames, type ComingUpCard } from "@/lib/home/coming-up";
 import { firstStatementEmailUpcoming } from "@/lib/home/state";
 import { answeredCount } from "@/lib/quiz/progress";
-import { computeResult, type ResultView } from "@/lib/results/compute";
+import { cardsToOffer, computeResult, type ResultView } from "@/lib/results/compute";
 import { spendingProfile, type SpendingProfile } from "@/lib/results/value";
 import { evaluateFit, type CardFit } from "@/lib/rules/fit-tier";
 
@@ -45,7 +45,8 @@ export async function loadStudentSnapshot(student: Student): Promise<StudentSnap
   const [applications, answers] = await Promise.all([loadApplications(student), readQuizAnswers(student, "snapshot_read")]);
   return {
     applications,
-    quiz: computeResult(answers, listCards()),
+    // Never a card the student already has.
+    quiz: computeResult(answers, cardsToOffer(listCards(), applications)),
     quizAnswered: answeredCount(answers),
   };
 }
@@ -65,7 +66,8 @@ export async function loadApplications(student: Student): Promise<Application[]>
 // Only the quiz result, for screens that show the match but not the tracked
 // cards (the Cards tab).
 export async function loadQuizResult(student: Student): Promise<ResultView> {
-  return computeResult(await readQuizAnswers(student, "result_read"), listCards());
+  const [applications, answers] = await Promise.all([loadApplications(student), readQuizAnswers(student, "result_read")]);
+  return computeResult(answers, cardsToOffer(listCards(), applications));
 }
 
 // What a card's page needs from the student's quiz, from one read: how that
@@ -102,6 +104,20 @@ export async function loadApplication(student: Student, applicationId: string): 
     .maybeSingle();
   if (error) throw new Error("Could not read the student's card.");
   return data ? applicationFromRow(data as ApplicationRow) : null;
+}
+
+// Whether the student added this card themselves ("I already have a card").
+// Only those can be removed (DELETE /applications/{id}); a card applied for
+// through Cense is the record of what the issuer decided.
+export async function addedByHand(student: Student, applicationId: string): Promise<boolean> {
+  const { data, error } = await student.supabase
+    .from("card_applications")
+    .select("source")
+    .eq("id", applicationId)
+    .eq("student_id", student.studentId)
+    .maybeSingle();
+  if (error) throw new Error("Could not read the student's card.");
+  return (data as { source: string } | null)?.source === "added";
 }
 
 // One tracked card with its denial reason and note, autopay and closing and

@@ -2,7 +2,13 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { AddCardScreen } from "./add-card-form";
+import { AddCardScreen, matchingCards } from "./add-card-form";
+
+const CATALOG = [
+  { id: "discover-it-student-cash-back", name: "Discover it Student Cash Back" },
+  { id: "discover-it-student-chrome", name: "Discover it Student Chrome" },
+  { id: "chase-freedom-rise", name: "Chase Freedom Rise" },
+];
 
 const track = vi.fn();
 vi.mock("@/lib/analytics", () => ({ SENSITIVE: "ph-sensitive", track: (...args: unknown[]) => track(...args) }));
@@ -26,7 +32,7 @@ describe("AddCardScreen", () => {
   it("saves the card by name as approved, then goes Home", async () => {
     const fetchFn = vi.fn<typeof fetch>(async () => Response.json({}, { status: 201 }));
     vi.stubGlobal("fetch", fetchFn);
-    render(<AddCardScreen />);
+    render(<AddCardScreen catalog={CATALOG} />);
     addCard("  Student Cash Card ");
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
     expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toEqual({
@@ -39,20 +45,20 @@ describe("AddCardScreen", () => {
 
   it("opened from Profile, Back, Cancel and Add card all return to Profile, replacing the form", async () => {
     vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => Response.json({}, { status: 201 })));
-    const { unmount } = render(<AddCardScreen fromAccount />);
+    const { unmount } = render(<AddCardScreen catalog={CATALOG} fromAccount />);
     expect(screen.getByRole("link", { name: "Back to Your account" }).getAttribute("href")).toBe("/settings");
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(replace).toHaveBeenCalledWith("/settings");
     unmount();
     replace.mockClear();
-    render(<AddCardScreen fromAccount />);
+    render(<AddCardScreen catalog={CATALOG} fromAccount />);
     addCard("Student Cash Card");
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/settings"));
     expect(push).not.toHaveBeenCalled();
   });
 
   it("opened from Home, Cancel returns Home, replacing the form", () => {
-    render(<AddCardScreen />);
+    render(<AddCardScreen catalog={CATALOG} />);
     expect(screen.getByRole("link", { name: "Back to Home" }).getAttribute("href")).toBe("/home");
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(replace).toHaveBeenCalledWith("/home");
@@ -62,7 +68,7 @@ describe("AddCardScreen", () => {
   it("at the card limit, says so plainly and stays on the form", async () => {
     vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () =>
       Response.json({ error: { code: "limit_reached", message: "You’ve reached the card limit." } }, { status: 409 })));
-    render(<AddCardScreen />);
+    render(<AddCardScreen catalog={CATALOG} />);
     addCard("Student Cash Card");
     expect((await screen.findByRole("alert")).textContent).toBe("You’ve reached the card limit.");
     expect(push).not.toHaveBeenCalled();
@@ -71,7 +77,7 @@ describe("AddCardScreen", () => {
 
   it("on a network failure, says the card may have been saved instead of inviting a duplicate", async () => {
     vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => Promise.reject(new TypeError("Failed to fetch"))));
-    render(<AddCardScreen />);
+    render(<AddCardScreen catalog={CATALOG} />);
     addCard("Student Cash Card");
     expect((await screen.findByRole("alert")).textContent).toBe(
       "We couldn’t confirm that. Go back and check your cards before adding it again.",
@@ -85,7 +91,7 @@ describe("AddCardScreen", () => {
     async (limit, cents) => {
       const fetchFn = vi.fn<typeof fetch>(async () => Response.json({}, { status: 201 }));
       vi.stubGlobal("fetch", fetchFn);
-      render(<AddCardScreen />);
+      render(<AddCardScreen catalog={CATALOG} />);
       fireEvent.change(screen.getByLabelText("Credit limit (optional)"), { target: { value: limit } });
       addCard("Student Cash Card");
       await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
@@ -99,7 +105,7 @@ describe("AddCardScreen", () => {
     async (limit) => {
       const fetchFn = vi.fn<typeof fetch>();
       vi.stubGlobal("fetch", fetchFn);
-      render(<AddCardScreen />);
+      render(<AddCardScreen catalog={CATALOG} />);
       const field = screen.getByLabelText("Credit limit (optional)");
       fireEvent.change(field, { target: { value: limit } });
       addCard("Student Cash Card");
@@ -112,7 +118,7 @@ describe("AddCardScreen", () => {
 
   it("masks the credit limit in replay and preserves both fields after a failed save", async () => {
     vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => Promise.reject(new TypeError("Failed to fetch"))));
-    render(<AddCardScreen />);
+    render(<AddCardScreen catalog={CATALOG} />);
     const field = screen.getByLabelText("Credit limit (optional)") as HTMLInputElement;
     expect(field.closest(".ph-sensitive")).not.toBeNull();
     fireEvent.change(field, { target: { value: "$750" } });
@@ -122,5 +128,73 @@ describe("AddCardScreen", () => {
     expect((screen.getByLabelText("Card name") as HTMLInputElement).value).toBe("Student Cash Card");
     expect(field.getAttribute("readonly")).toBeNull();
     expect(track).not.toHaveBeenCalled();
+  });
+});
+
+describe("matchingCards", () => {
+  it("finds catalog cards with every word typed, in any order, from the second letter", () => {
+    expect(matchingCards(CATALOG, "d")).toEqual([]);
+    expect(matchingCards(CATALOG, "di").map((card) => card.id)).toEqual(["discover-it-student-cash-back", "discover-it-student-chrome"]);
+    expect(matchingCards(CATALOG, "cash disc").map((card) => card.id)).toEqual(["discover-it-student-cash-back"]);
+    expect(matchingCards(CATALOG, "CHASE  freedom").map((card) => card.id)).toEqual(["chase-freedom-rise"]);
+    expect(matchingCards(CATALOG, "Student Cash Card")).toEqual([]);
+  });
+});
+
+describe("AddCardScreen, picking from the catalog", () => {
+  it("saves a picked card with its catalog id and the catalog's name", async () => {
+    const fetchFn = vi.fn<typeof fetch>(async () => Response.json({}, { status: 201 }));
+    vi.stubGlobal("fetch", fetchFn);
+    render(<AddCardScreen catalog={CATALOG} />);
+    fireEvent.change(screen.getByLabelText("Card name"), { target: { value: "discover cash" } });
+    expect((await screen.findByRole("status")).textContent).toBe("1 card matches");
+    fireEvent.click(screen.getByRole("button", { name: "Discover it Student Cash Back" }));
+    expect((screen.getByLabelText("Card name") as HTMLInputElement).value).toBe("Discover it Student Cash Back");
+    expect(screen.queryByRole("list", { name: "Cards that match" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Add card" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
+    expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toEqual({
+      cardId: "discover-it-student-cash-back",
+      cardName: "Discover it Student Cash Back",
+      status: "approved",
+      creditLimitCents: null,
+    });
+  });
+
+  it("gives a name typed in full its catalog id, and drops a pick once the name is edited", async () => {
+    const fetchFn = vi.fn<typeof fetch>(async () => Response.json({}, { status: 201 }));
+    vi.stubGlobal("fetch", fetchFn);
+    render(<AddCardScreen catalog={CATALOG} />);
+    addCard("chase freedom rise");
+    await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toMatchObject({ cardId: "chase-freedom-rise", cardName: "Chase Freedom Rise" });
+  });
+
+  it("keeps the name as typed, with no id, after My card isn't listed", async () => {
+    const fetchFn = vi.fn<typeof fetch>(async () => Response.json({}, { status: 201 }));
+    vi.stubGlobal("fetch", fetchFn);
+    render(<AddCardScreen catalog={CATALOG} />);
+    const field = screen.getByLabelText("Card name");
+    fireEvent.change(field, { target: { value: "Discover" } });
+    fireEvent.click(screen.getByRole("button", { name: "Discover it Student Chrome" }));
+    // Editing the picked name drops the pick and lists the matches again.
+    fireEvent.change(field, { target: { value: "Discover it Stu" } });
+    expect(screen.getByRole("list", { name: "Cards that match" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "My card isn’t listed" }));
+    expect(screen.queryByRole("list", { name: "Cards that match" })).toBeNull();
+    fireEvent.change(field, { target: { value: "Discover it Student" } });
+    expect(screen.queryByRole("list", { name: "Cards that match" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Add card" }));
+    await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toMatchObject({ cardId: null, cardName: "Discover it Student" });
+  });
+
+  it("says plainly when the card is already on the student's list", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () =>
+      Response.json({ error: { code: "already_exists", message: "An active record for this card already exists." } }, { status: 409 })));
+    render(<AddCardScreen catalog={CATALOG} />);
+    addCard("Chase Freedom Rise");
+    expect((await screen.findByRole("alert")).textContent).toBe("This card is already on your list.");
+    expect(replace).not.toHaveBeenCalled();
   });
 });

@@ -13,7 +13,7 @@ import { isInternalStudent } from "@/lib/internal-students";
 import { currentStudent } from "@/lib/session";
 import { estimateYearOne } from "@/lib/results/value";
 import type { CardFit } from "@/lib/rules/fit-tier";
-import { loadApplicationDetail, loadApplications, loadCardQuiz, loadReminderSettings } from "@/lib/student-data";
+import { addedByHand, loadApplicationDetail, loadApplications, loadCardQuiz, loadReminderSettings } from "@/lib/student-data";
 
 export async function generateMetadata({ params }: PageProps<"/cards/[id]">): Promise<Metadata> {
   const { id } = await params;
@@ -40,6 +40,8 @@ export default async function CardDetailPage({ params, searchParams }: PageProps
     student && tracked?.status === "approved"
       ? await Promise.all([loadApplicationDetail(student, tracked.id), loadReminderSettings(student)])
       : [null, null];
+  // A card the student added themselves can be removed from here.
+  const removable = student && tracked ? await addedByHand(student, tracked.id) : false;
   const reminders = detail && settings ? reminderStatus(detail, settings) : null;
   const rewards = cardRewards(card.id);
   // How the card fits the student's quiz answers (K2's fit row and Why it
@@ -77,6 +79,7 @@ export default async function CardDetailPage({ params, searchParams }: PageProps
         rewards={rewards}
         estimate={estimate}
         fit={fit}
+        removable={removable}
       />
     </>
   );

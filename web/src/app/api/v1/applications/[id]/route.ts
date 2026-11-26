@@ -158,3 +158,44 @@ export async function PATCH(request: Request, context: Params): Promise<Response
   }
   return detailResponse(data);
 }
+
+// Removes a card the student added themselves ("I already have a card"), with
+// everything hanging off it: its reminders (the scheduled emails) and its
+// setup steps go with it (foreign keys, on delete cascade). Only the
+// student's own row: someone else's id answers 404, the same as a missing
+// one. A card applied for through Cense is kept, because it is the record of
+// what the issuer decided (applied, approved, denied), the denial plan and
+// reapply reminder hang off it, and its status can be changed instead.
+export async function DELETE(_request: Request, context: Params): Promise<Response> {
+  const student = await authenticatedStudent();
+  if (!student) return apiError(401, "unauthorized", "Sign in to continue.");
+
+  const { id } = await context.params;
+  if (!applicationIdSchema.safeParse(id).success) return apiError(400, "invalid_request", "Invalid application ID.");
+
+  const current = await student.supabase
+    .from("card_applications")
+    .select("source")
+    .eq("id", id)
+    .eq("student_id", student.studentId)
+    .maybeSingle();
+  if (current.error) return databaseError("application_read", current.error);
+  if (!current.data) return apiError(404, "not_found", "Application not found.");
+  if ((current.data as { source: string }).source !== "added") {
+    return apiError(409, "not_removable", "Only a card you added yourself can be removed.");
+  }
+
+  // The database allows the same and no more (its delete policy): the
+  // student's own row, added by hand.
+  const { data, error } = await student.supabase
+    .from("card_applications")
+    .delete()
+    .eq("id", id)
+    .eq("student_id", student.studentId)
+    .eq("source", "added")
+    .select("id");
+  if (error) return databaseError("application_delete", error);
+  // Removed meanwhile (a second tap, another tab).
+  if (!data || data.length === 0) return apiError(404, "not_found", "Application not found.");
+  return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
+}

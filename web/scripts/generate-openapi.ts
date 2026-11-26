@@ -233,6 +233,14 @@ registry.registerPath({
   request: { params: z.object({ id: z.uuid() }) },
   responses: { 200: ok(applicationDetailContract), 400: failure("Invalid application ID"), 404: failure("Application not found"), ...protectedResponses },
 });
+registry.registerPath({
+  method: "delete", path: "/applications/{id}", operationId: "deleteApplication",
+  summary: "Remove a card the student added themselves, with its reminders and setup steps",
+  description: "Only a card added with I already have a card (source added). Someone else's card answers 404, the same as a missing one. A card applied for through Cense answers 409 not_removable: it is the record of what the issuer decided.",
+  security: [{ studentSession: [] }],
+  request: { params: z.object({ id: z.uuid() }) },
+  responses: { 204: { description: "Removed" }, 400: failure("Invalid application ID"), 404: failure("Application not found"), 409: failure("Applied for through Cense, so not removable"), ...protectedResponses },
+});
 const planStepContract = registry.register("PlanStep", planStepSchema);
 const planParams = z.object({ id: z.uuid(), plan: planNameSchema });
 registry.registerPath({

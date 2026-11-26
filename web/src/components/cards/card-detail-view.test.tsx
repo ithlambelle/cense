@@ -268,6 +268,14 @@ describe("CardDetailView, the student's own card (K1)", () => {
     expect(screen.queryByRole("button", { name: /Check if you’re preapproved/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Apply at/ })).toBeNull();
     expect(screen.getByRole("link", { name: "Update status" }).getAttribute("href")).toBe(`/applications/${ID}?from=card`);
+    // Applied for through Cense: kept, so no Remove.
+    expect(screen.queryByRole("button", { name: "Remove this card" })).toBeNull();
+  });
+
+  it("offers Remove this card for a card the student added themselves", () => {
+    render(<CardDetailView card={catalogCard(DISCOVER)} signedIn tracked={TRACKED} detail={SET_UP} reminders="on" removable />);
+    expect(screen.getByRole("button", { name: "Remove this card" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Apply at/ })).toBeNull();
   });
 
   it("shows the saved days with the way to change them, keeping the page's own origin for Back and Save", () => {

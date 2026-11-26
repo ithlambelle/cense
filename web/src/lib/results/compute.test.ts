@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { listCards, type Card } from "../cards/catalog";
 import { evaluateFit } from "../rules/fit-tier";
-import { computeResult, RESULT_OPTIONS, type ResultView } from "./compute";
+import { cardsToOffer, computeResult, RESULT_OPTIONS, type ResultView } from "./compute";
 import { fixtureRate, fixtureRewards, GROCERY_CHROME, lookup } from "./rewards.fixtures";
 
 const cards = listCards();
@@ -117,3 +117,32 @@ describe("computeResult", () => {
     expect(shown[0].rewards).toBeNull();
   });
 });
+
+describe("cardsToOffer", () => {
+  // Devon (persona walk, Nov 25): his own Discover it Student Cash Back was
+  // listed "Likely fit" with Apply.
+  const ESTABLISHED = { ...ALL_SIX, under21: false, incomeBand: "5k_to_15k", standing: "established" } as const;
+  const owns = (cardId: string | null, status = "approved") => ({ cardId, status });
+
+  it("never offers a card the student already has", () => {
+    const ids = (view: ResultView) => options(view).map((option) => option.card.id);
+    // Before: his own two cards fit him, and the first is the top match.
+    expect(ids(computeResult(ESTABLISHED, cards))[0]).toBe("discover-it-student-cash-back");
+    const mine = [owns("discover-it-student-cash-back"), owns("chase-freedom-rise")];
+    const after = ids(computeResult(ESTABLISHED, cardsToOffer(cards, mine)));
+    expect(after).toHaveLength(RESULT_OPTIONS.max);
+    expect(after).not.toContain("discover-it-student-cash-back");
+    expect(after).not.toContain("chase-freedom-rise");
+    expect(after[0]).toBe("discover-it-student-chrome");
+  });
+
+  it("keeps applied and denied cards, a card with no catalog id, and the whole catalog when nothing is owned", () => {
+    expect(cardsToOffer(cards, [])).toBe(cards);
+    expect(cardsToOffer(cards, [owns(null)])).toBe(cards);
+    expect(cardsToOffer(cards, [owns("discover-it-student-cash-back", "applied"), owns("chase-freedom-rise", "rejected")])).toBe(cards);
+    const offered = cardsToOffer(cards, [owns("discover-it-student-cash-back")]);
+    expect(offered).toHaveLength(cards.length - 1);
+    expect(offered.map((card) => card.id)).not.toContain("discover-it-student-cash-back");
+  });
+});
+

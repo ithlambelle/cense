@@ -49,3 +49,22 @@ describe("POST /applications", () => {
     expect((await post(CARD)).status).toBe(503);
   });
 });
+
+describe("POST /applications, the credit limit rule", () => {
+  // The same rule as the Add a card form: $1 to $100,000, or none.
+  it.each([0, 99, 10_000_001, 500.5])("refuses a credit limit of %s cents before saving", async (cents) => {
+    const insert = vi.fn();
+    auth.authenticatedStudent.mockResolvedValue({ supabase: { from: () => ({ insert }) }, studentId: "student-1", email: null });
+    const response = await post({ ...CARD, creditLimitCents: cents });
+    expect(response.status).toBe(400);
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it.each([100, 10_000_000, null])("takes a credit limit of %s", async (cents) => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    auth.authenticatedStudent.mockResolvedValue(studentWhoseInsertFails({ code: "PGRST000", message: "down" }));
+    // Past validation, to the insert (which this stand-in fails).
+    expect((await post({ ...CARD, creditLimitCents: cents })).status).toBe(503);
+  });
+});
+
