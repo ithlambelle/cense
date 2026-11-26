@@ -70,11 +70,12 @@ describe("optional password auth", () => {
     });
   });
 
-  it("does not call the provider for an invalid password", async () => {
+  it("does not call the provider for an invalid password, and says why in the form's words", async () => {
     const response = await signUp(request("/api/v1/auth/password/signup", {
       email: "student@example.com", password: "short",
     }));
     expect(response.status).toBe(400);
+    expect((await response.json()).error).toEqual({ code: "invalid_password", message: "Use at least 8 characters." });
     expect(auth.signUp).not.toHaveBeenCalled();
   });
 
@@ -83,7 +84,7 @@ describe("optional password auth", () => {
       email: "student@example.com", password: "é".repeat(37),
     }));
     expect(response.status).toBe(400);
-    expect((await response.json()).error.message).toContain("72 bytes");
+    expect((await response.json()).error).toEqual({ code: "invalid_password", message: "That password is too long." });
     expect(auth.signUp).not.toHaveBeenCalled();
   });
 

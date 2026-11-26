@@ -35,6 +35,17 @@ describe("ResetPassword", () => {
     expect(fetchFn).not.toHaveBeenCalled();
   });
 
+  it("keeps the length rule on the password as it is now, so it clears once the password fits", () => {
+    server(() => Response.json({ status: "password_updated" }));
+    render(<ResetPassword />);
+    expect(screen.queryByText("Use at least 8 characters.")).toBeNull();
+    submit("short", "short");
+    expect(screen.getByRole("alert").textContent).toBe("Use at least 8 characters.");
+    fireEvent.change(screen.getByLabelText("New password"), { target: { value: "long enough" } });
+    expect(screen.queryByText("Use at least 8 characters.")).toBeNull();
+    expect(screen.getByLabelText("New password").getAttribute("aria-invalid")).toBeNull();
+  });
+
   it("saves the new password and sends the student on to /start", async () => {
     const fetchFn = server(() => Response.json({ status: "password_updated" }));
     render(<ResetPassword />);
@@ -63,10 +74,10 @@ describe("ResetPassword", () => {
   });
 
   it("shows the API's message when it refuses the password, and stays put", async () => {
-    server(() => Response.json({ error: { code: "invalid_password", message: "Use a password of 72 bytes or fewer." } }, { status: 400 }));
+    server(() => Response.json({ error: { code: "invalid_password", message: "Use 72 characters or fewer." } }, { status: 400 }));
     render(<ResetPassword />);
     submit("long enough", "long enough");
-    expect((await screen.findByRole("alert")).textContent).toBe("Use a password of 72 bytes or fewer.");
+    expect((await screen.findByRole("alert")).textContent).toBe("Use 72 characters or fewer.");
     expect(replace).not.toHaveBeenCalled();
   });
 

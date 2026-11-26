@@ -13,7 +13,7 @@ import { PasswordField } from "@/components/ui/password-field";
 import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE } from "@/lib/analytics";
 import { apiRequest, failureMessage } from "@/lib/api-client/client";
-import { looksLikeEmail, passwordProblem } from "@/lib/auth/password";
+import { looksLikeEmail, passwordFeedback, passwordProblem } from "@/lib/auth/password";
 import { googleSignInPath, ROUTES, signInPath, signUpPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
 import { cn } from "@/lib/utils";
@@ -320,7 +320,12 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnc
   const [repeat, setRepeat] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string; repeat?: string; form?: string }>({});
   const [pending, setPending] = useState(false);
+  // True once Sign up has been tapped: the password rule then shows as an error.
+  const [submitted, setSubmitted] = useState(false);
   const signUp = mode === "sign-up";
+  // On sign-up the rule follows the password as it is typed, so a fixed
+  // password never keeps an old error.
+  const rule = signUp ? passwordFeedback(password, submitted) : {};
   const isMounted = useIsMounted();
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -338,6 +343,7 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnc
     const next: typeof errors = {};
     if (!looksLikeEmail(email)) next.email = "That email doesn’t look quite right.";
     if (signUp) {
+      setSubmitted(true);
       const problem = passwordProblem(password);
       if (problem) next.password = problem;
       else if (repeat !== password) next.repeat = "Let’s make those passwords match.";
@@ -404,7 +410,8 @@ function PasswordStep({ mode, title, initialEmail, onDone, onConfirmEmail, onUnc
           ref={passwordRef}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          error={errors.password}
+          hint={rule.hint}
+          error={signUp ? rule.error : errors.password}
           disabled={pending}
         />
         {signUp ? (
