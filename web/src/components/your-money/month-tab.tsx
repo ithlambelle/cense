@@ -17,10 +17,11 @@ import type { Budget } from "@/lib/api/budget";
 import { deleteBudgetLine, saveBudgetLine, type BudgetLineKey } from "@/lib/api-client/budget";
 import { parseAmount, saveSafeToSpendAnswers } from "@/lib/api-client/safe-to-spend";
 import { parseDollarsToCents } from "@/lib/budget/amount";
-import { bankMonthLine, bankNumberLabel, noIncomeLine, YOUR_MONEY_COPY } from "@/lib/budget/copy";
-import { monthName, summarize, type BudgetLine, type BudgetLines } from "@/lib/budget/lines";
+import { bankMonthLine, bankNumberLabel, fromAnswersLine, noIncomeLine, YOUR_MONEY_COPY } from "@/lib/budget/copy";
+import { monthName, summarize, untypedCents, withBillAmount, type BudgetLine, type BudgetLines } from "@/lib/budget/lines";
 import { moneyAmount } from "@/lib/money";
 import { ROUTES, signInPath } from "@/lib/routes";
+import { BILL_COPY } from "@/lib/safe-to-spend/copy";
 
 // Saving is the set-aside, so it saves with the safe-to-spend answers and
 // keeps that screen's range; every other line saves to the budget.
@@ -34,8 +35,21 @@ function parseLine(line: BudgetLine, text: string): number | null {
 // an older one from before a save on Today.
 export function MonthTab({ budget, shared }: { budget: Budget; shared: SharedAnswers }) {
   const router = useRouter();
-  const lines = budget as unknown as BudgetLines;
-  const savingLine: BudgetLine = { ...lines.saving, amountCents: shared.answers.setAsideCents };
+  // Bills from the answers and the savings goal follow the shared copy too,
+  // so a bill changed on Today shows here even before the page reloads.
+  // A bill emptied or set to $0 there leaves the line.
+  const fromShared = (line: BudgetLine): BudgetLine => {
+    if (line.answers.length === 0) return line;
+    const answers = line.answers.flatMap((entry) => {
+      const answer = shared.answers.bills.find((bill) => bill.bill === entry.bill);
+      const current = answer ? withBillAmount(entry, answer.monthlyCents) : entry;
+      return current ? [current] : [];
+    });
+    return { ...line, answers, amountCents: line.typed ? line.amountCents : untypedCents({ bankCents: line.bankCents, answers }) };
+  };
+  const budgetLines = budget as unknown as BudgetLines;
+  const lines: BudgetLines = { ...budgetLines, needs: budgetLines.needs.map(fromShared), wants: budgetLines.wants.map(fromShared) };
+  const savingLine: BudgetLine = { ...lines.saving, amountCents: shared.answers.setAsideCents, typed: shared.answers.setAsideCents > 0 };
   const all = [lines.income, ...lines.needs, ...lines.wants, savingLine];
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(all.map((line) => [line.key, amountInput(line.amountCents)])),
@@ -123,16 +137,19 @@ export function MonthTab({ budget, shared }: { budget: Budget; shared: SharedAns
       setErrors((current) => ({ ...current, [line.key]: result.message }));
       return;
     }
-    const bankCents = line.bankCents ?? 0;
-    lastSaved.current[line.key] = bankCents;
-    if (latest.current[line.key] === tapped) setValue(line.key, amountInput(bankCents));
+    const untyped = untypedCents(line);
+    lastSaved.current[line.key] = untyped;
+    if (latest.current[line.key] === tapped) setValue(line.key, amountInput(untyped));
     router.refresh();
   }
 
-  // The quiet line under a label. "Fixed" and "Changing" (and "looks like
-  // pay" on income) come from the recurring detector (#109) and slot in here.
+  // The quiet line under a label: where a number came from when it is not the
+  // bank's (the bank's are named once, under the lines). "Fixed" and
+  // "Changing" (and "looks like pay" on income) come from the recurring
+  // detector (#109) and slot in here.
   function sub(line: BudgetLine): string | null {
     if (line.typed) return YOUR_MONEY_COPY.youTyped;
+    if (line.answers.length > 0) return fromAnswersLine(line.answers.map((entry) => BILL_COPY[entry.bill].label));
     if (line.group === "income" && line.bankCents === null) return noIncomeLine(month);
     if (line.recurrence) return line.recurrence === "recurring" ? "Fixed" : "Changing";
     return null;

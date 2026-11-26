@@ -44,7 +44,7 @@ describe("PUT /budget/lines/{line}", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual(BUDGET);
     expect(store.saveBudgetLine).toHaveBeenCalledWith(STUDENT, "groceries", 25000);
-    expect(store.loadBudget).toHaveBeenCalledWith(STUDENT, 10000);
+    expect(store.loadBudget).toHaveBeenCalledWith(STUDENT, 10000, undefined, undefined);
   });
 
   it("refuses an unknown line, and the saving line, which is the safe-to-spend answer", async () => {
@@ -70,7 +70,7 @@ describe("DELETE /budget/lines/{line}", () => {
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(await response.json()).toEqual(BUDGET);
     expect(store.deleteBudgetLine).toHaveBeenCalledWith(STUDENT, "groceries");
-    expect(store.loadBudget).toHaveBeenCalledWith(STUDENT, 10000);
+    expect(store.loadBudget).toHaveBeenCalledWith(STUDENT, 10000, undefined, undefined);
   });
 
   it("answers 401 signed out, and deletes nothing", async () => {
@@ -111,5 +111,14 @@ describe("DELETE /budget/lines/{line}", () => {
     const response = await DELETE(del(), params("income"));
     expect(response.status).toBe(503);
     expect(store.loadBudget).not.toHaveBeenCalled();
+  });
+});
+
+describe("the budget after a save", () => {
+  it("is read with the student's bills, so a bill the bank did not show is counted", async () => {
+    const bills = [{ bill: "phone", coveredBy: "me", monthlyCents: 4500, dueDay: 15 }];
+    plaidStore.loadSafeToSpend.mockResolvedValue({ ok: true, value: { setAsideCents: 10000, bills } });
+    await PUT(put({ amountCents: 25000 }), params("groceries"));
+    expect(store.loadBudget).toHaveBeenCalledWith(STUDENT, 10000, undefined, bills);
   });
 });

@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { MAX_AMOUNT_CENTS } from "@/lib/budget/amount";
 import { CATEGORY_KEYS } from "@/lib/budget/categories";
+import { BILLS } from "@/lib/safe-to-spend/compute";
 
 extendZodWithOpenApi(z);
 
@@ -22,8 +23,14 @@ export const budgetLineSchema = z
     amountCents: z.int(),
     // The bank's number for the line; null when the bank has none.
     bankCents: z.int().nullable(),
-    // True when the student typed the number (saving always is).
+    // True when the student typed the number; for saving, when the savings
+    // goal is above $0.
     typed: z.boolean(),
+    // Bills from the student's safe-to-spend answers that the bank did not
+    // show that month: the part added to amountCents, the part the bank
+    // already showed somewhere, and the money sent to people still unmatched
+    // when the bill was checked. Empty for most lines.
+    answers: z.array(z.strictObject({ bill: z.enum(BILLS), amountCents: z.int(), seenCents: z.int(), sentCents: z.int() })),
     // fixed or changing, once the recurring detector says; null until then.
     recurrence: z.enum(["recurring", "variable"]).nullable(),
   })

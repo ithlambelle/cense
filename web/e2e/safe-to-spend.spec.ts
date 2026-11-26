@@ -184,7 +184,9 @@ test("a student links the sandbox bank, says who covers what, and sees safe to s
   await expect(page.getByRole("heading", { level: 1, name: "Your money" })).toBeVisible();
   const bank = page.getByRole("list", { name: "From your bank" });
   await expect(bank.getByRole("listitem").filter({ hasText: "Cash in checking" })).toContainText("$1,240");
-  await expect(bank.getByRole("listitem").filter({ hasText: "Card balances" })).toContainText("$310");
+  // One card: which card it is.
+  await expect(bank.getByRole("listitem").filter({ hasText: "Card balance" })).toContainText("Plaid Credit Card ending in 3333");
+  await expect(bank.getByRole("listitem").filter({ hasText: "Card balance" })).toContainText("$310");
   await expect(page.getByLabel("Rent each month")).toHaveValue("650");
   await expect(page.getByLabel("Phone each month")).toHaveValue("40");
   await expect(page.getByLabel("Savings goal")).toHaveValue("50");
@@ -343,16 +345,19 @@ test("Your money: a student edits a bill on Today, reads This month from their o
   await expect(safeToSpendCard(page)).toContainText("$4.66 a day");
 
   // This month, from the stand-in bank's last full month: income $1,800;
-  // needs 650 + 275 + 24; wants 70 + 12 + 50 (after a refund); $50 aside.
-  // A card payment and a move to savings are not spending. 669 left over.
+  // needs 650 + 40 + 275 + 24 (the bank shows no phone bill, so the $40 share
+  // from the answers is added to Rent and bills); wants 70 + 12 + 50 (after a
+  // refund); $50 aside. A card payment and a move to savings are not
+  // spending. 629 left over.
   await safeToSpendCard(page).getByRole("link", { name: "Your money" }).click();
   await page.getByRole("link", { name: "This month" }).click();
   await expect(page).toHaveURL(/\/safe-to-spend\?tab=month$/);
   const hero = page.getByRole("region", { name: /each month/ });
   await expect(hero).toContainText("Left over each month:");
-  await expect(hero).toContainText("$669");
+  await expect(hero).toContainText("$629");
   await expect(page.getByLabel("Income each month")).toHaveValue("1,800");
-  await expect(page.getByLabel("Rent and bills each month")).toHaveValue("650");
+  await expect(page.getByLabel("Rent and bills each month")).toHaveValue("690");
+  await expect(page.getByLabel("Rent and bills each month").locator("xpath=ancestor::li[1]")).toContainText("Includes phone from your answers");
   await expect(page.getByLabel("Groceries each month")).toHaveValue("275");
   await expect(page.getByLabel("Eating out each month")).toHaveValue("70");
   await expect(page.getByLabel("Shopping and personal care each month")).toHaveValue("50");
@@ -364,35 +369,35 @@ test("Your money: a student edits a bill on Today, reads This month from their o
 
   // Edit a line: the total moves as typed, the number is the student's after a reload.
   await page.getByLabel("Groceries each month").fill("300");
-  await expect(hero).toContainText("$644");
+  await expect(hero).toContainText("$604");
   await page.getByLabel("Groceries each month").press("Enter");
   await expect(page.getByLabel("Groceries each month").locator("xpath=ancestor::li[1]")).toContainText("You typed");
   await page.reload();
   await expect(page.getByLabel("Groceries each month")).toHaveValue("300");
-  await expect(hero).toContainText("$644");
+  await expect(hero).toContainText("$604");
 
   // Undo: the typed number goes, and the bank's $275 is back after a reload.
   const groceries = page.getByLabel("Groceries each month").locator("xpath=ancestor::li[1]");
   await expect(groceries).toContainText("You typed");
   await page.getByRole("button", { name: "Use the bank's number for Groceries" }).click();
   await expect(page.getByLabel("Groceries each month")).toHaveValue("275");
-  await expect(hero).toContainText("$669");
+  await expect(hero).toContainText("$629");
   await expect(groceries).not.toContainText("You typed");
   await expect(page.getByRole("button", { name: "Use the bank's number for Groceries" })).toHaveCount(0);
   await page.reload();
   await expect(page.getByLabel("Groceries each month")).toHaveValue("275");
   await expect(groceries).not.toContainText("You typed");
-  await expect(hero).toContainText("$669");
+  await expect(hero).toContainText("$629");
   expect((await asStudent(context, { table: "budget_amounts" })).body).toEqual([]);
   // Typed again for the Short steps below.
   await page.getByLabel("Groceries each month").fill("300");
   await page.getByLabel("Groceries each month").press("Enter");
   await expect(groceries).toContainText("You typed");
 
-  // Short: eating out at $1,000 is 286 short, and fixed costs did not pass income.
+  // Short: eating out at $1,000 is 326 short, and fixed costs did not pass income.
   await page.getByLabel("Eating out each month").fill("1000");
   await expect(hero).toContainText("Short each month by:");
-  await expect(hero).toContainText("$286");
+  await expect(hero).toContainText("$326");
   await expect(hero).toContainText("After needs, wants and saving");
   await page.getByLabel("Eating out each month").press("Enter");
   await expect(page.getByLabel("Eating out each month").locator("xpath=ancestor::li[1]")).toContainText("You typed");
@@ -411,6 +416,46 @@ test("Your money: a student edits a bill on Today, reads This month from their o
   // Back leaves Your money for Home; the tabs never stack in history.
   await page.getByRole("link", { name: "Back to Home" }).click();
   await expect(page).toHaveURL(/\/home$/);
+});
+
+// Persona walk, Nov 25: This month left out a phone bill typed in setup
+// that Today kept back, so the two tabs stopped adding up.
+test("This month counts the phone bill Today keeps back, after a reload, a change on Today and the next day", async ({ page }) => {
+  await linkedStudent(page, "sts-month-agrees");
+  await safeToSpendCard(page).getByRole("link", { name: "Your money" }).click();
+  const fromYou = page.getByRole("list", { name: "From you", exact: true });
+  await expect(fromYou.getByRole("listitem").filter({ hasText: "Phone" })).toBeVisible();
+  await expect(page.getByLabel("Phone each month")).toHaveValue("40");
+
+  // The stand-in bank shows rent ($650) but no phone bill: 650 + 40.
+  await page.getByRole("link", { name: "This month" }).click();
+  const hero = page.getByRole("region", { name: /each month/ });
+  const rent = page.getByLabel("Rent and bills each month");
+  await expect(rent).toHaveValue("690");
+  await expect(rent.locator("xpath=ancestor::li[1]")).toContainText("Includes phone from your answers");
+  await expect(hero).toContainText("$629");
+  await page.reload();
+  await expect(rent).toHaveValue("690");
+  await expect(hero).toContainText("$629");
+
+  // A new phone amount on Today shows on This month at once, and after a reload.
+  await page.getByRole("link", { name: "Today" }).click();
+  await page.getByLabel("Phone each month").fill("45");
+  await page.getByLabel("Phone each month").press("Enter");
+  await expect(page.getByRole("list", { name: "From you", exact: true }).getByRole("listitem").filter({ hasText: "Left for 30 days" })).toContainText("$185");
+  await page.getByRole("link", { name: "This month" }).click();
+  await expect(rent).toHaveValue("695");
+  await expect(hero).toContainText("$624");
+  await page.reload();
+  await expect(rent).toHaveValue("695");
+  await expect(hero).toContainText("$624");
+
+  // The next day the hero says which day the bank was read, not only a time.
+  const tomorrow = new Date(Date.now() + 86_400_000);
+  await page.clock.setFixedTime(tomorrow);
+  await page.goto("/safe-to-spend");
+  const day = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date());
+  await expect(page.getByRole("region", { name: "Safe to spend today" })).toContainText(`Updated ${day}`);
 });
 
 test("This month waits for the bank's transactions, then shows them after Refresh now", async ({ page }) => {

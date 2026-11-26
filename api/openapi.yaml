@@ -1002,6 +1002,31 @@ components:
             - "null"
         typed:
           type: boolean
+        answers:
+          type: array
+          items:
+            type: object
+            properties:
+              bill:
+                type: string
+                enum:
+                  - rent
+                  - phone
+                  - tuition
+                  - groceries
+                  - car
+              amountCents:
+                type: integer
+              seenCents:
+                type: integer
+              sentCents:
+                type: integer
+            required:
+              - bill
+              - amountCents
+              - seenCents
+              - sentCents
+            additionalProperties: false
         recurrence:
           type:
             - string
@@ -1017,6 +1042,7 @@ components:
         - amountCents
         - bankCents
         - typed
+        - answers
         - recurrence
       additionalProperties: false
   parameters: {}

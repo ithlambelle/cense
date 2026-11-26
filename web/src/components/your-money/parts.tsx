@@ -159,11 +159,15 @@ export function GroupHeading({ id, children }: { id?: string; children: ReactNod
 }
 
 // A row from the bank, read only (709:1541): label left, amount right, an
-// Off-white line under it.
-export function ReadRow({ label, value }: { label: string; value: string }) {
+// Off-white line under it, and a quiet line under the label as EditRow's.
+export function ReadRow({ label, sub, value }: { label: string; sub?: string | null; value: string }) {
   return (
     <li className="flex items-center gap-3 border-b border-off-white py-2 text-body-m text-indigo-black [&:has(+[data-total])]:border-b-0">
-      <span className="min-w-0 flex-1">{label}</span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span>{label}</span>
+        {/* An account's name is the student's: masked in session replay. */}
+        {sub ? <span className={cn(SENSITIVE, "text-[13px] leading-[18px] text-indigo-black/70")}>{sub}</span> : null}
+      </span>
       <span className={cn(SENSITIVE, "shrink-0 tabular-nums")}>{value}</span>
     </li>
   );

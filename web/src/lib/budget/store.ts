@@ -3,6 +3,7 @@ import "server-only";
 import type { Student } from "@/lib/api/auth";
 import type { Budget } from "@/lib/api/budget";
 import type { StoreResult } from "@/lib/plaid/store";
+import type { BillAnswer } from "@/lib/safe-to-spend/compute";
 
 import { CATEGORY_KEYS, type DetailedTotal } from "./categories";
 import { buildBudgetLines, lastFullMonth, summarize, type LineKey } from "./lines";
@@ -12,9 +13,16 @@ import { buildBudgetLines, lastFullMonth, summarize, type LineKey } from "./line
 
 const LINE_KEYS = new Set<string>(["income", ...CATEGORY_KEYS]);
 
-// The budget for the student's last full month. `setAsideCents` comes from
-// their safe-to-spend answers, already read by the page.
-export async function loadBudget(student: Student, setAsideCents: number, now: Date = new Date()): Promise<StoreResult<Budget>> {
+// The budget for the student's last full month. `setAsideCents` and `bills`
+// come from their safe-to-spend answers, already read by the page: the
+// set-aside is the saving line, and a bill the bank did not show is added to
+// its line. Without `bills`, the lines are the bank's and the typed numbers.
+export async function loadBudget(
+  student: Student,
+  setAsideCents: number,
+  now: Date = new Date(),
+  bills: BillAnswer[] = [],
+): Promise<StoreResult<Budget>> {
   const month = lastFullMonth(now);
   const { supabase, studentId } = student;
   // Three months back, so the last full month is in the window whatever the
@@ -50,6 +58,7 @@ export async function loadBudget(student: Student, setAsideCents: number, now: D
     totals,
     typed: typedAmounts,
     setAsideCents,
+    bills,
     hasBankData: incomeRows.length > 0 || detailedRows.length > 0 || ((recent.data ?? []) as unknown[]).length > 0,
   });
   return { ok: true, value: { ...lines, ...summarize(lines) } };
