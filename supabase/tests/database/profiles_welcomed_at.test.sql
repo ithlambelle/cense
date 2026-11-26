@@ -58,7 +58,9 @@ select set_eq(
   $$ select column_name::text from information_schema.column_privileges
      where table_schema = 'public' and table_name = 'profiles' and grantee = 'authenticated' and privilege_type = 'UPDATE' $$,
   array['remind_statement_closing', 'remind_payment_due', 'remind_check_autopay', 'reminders_unsubscribed_at',
-        'analytics_opted_out_at', 'welcomed_at'],
+        'analytics_opted_out_at', 'welcomed_at',
+        -- 20261126160000_application_check_ins.sql: the Application updates switch
+        'remind_application_updates'],
   'and otherwise only the reminder settings and the Analytics switch, as before');
 select ok(not has_column_privilege('anon', 'public.profiles', 'welcomed_at', 'UPDATE'),
   'signed out, no one can change it');
