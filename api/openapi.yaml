@@ -1019,10 +1019,13 @@ components:
                 type: integer
               seenCents:
                 type: integer
+              sentCents:
+                type: integer
             required:
               - bill
               - amountCents
               - seenCents
+              - sentCents
             additionalProperties: false
         recurrence:
           type:

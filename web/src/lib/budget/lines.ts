@@ -9,7 +9,7 @@
 // - Bills from the safe-to-spend answers that the bank did not show that
 //   month (a phone bill paid from an account Cense cannot see) are added to the
 //   line the bank would have put them on, so This month counts every bill
-//   Today keeps back. A bill the bank shows is never counted twice
+//   Today keeps back once, as far as the bank's totals can tell
 //   (billsFromAnswers).
 // - Saving: the safe-to-spend set-aside, which the student typed; a $0 goal
 //   is not called typed.
@@ -34,9 +34,10 @@ export type BudgetLine = {
   bankCents: number | null;
   typed: boolean;
   // Bills from the safe-to-spend answers the bank did not show this month,
-  // added to the bank's number: the part not shown (amountCents) and the part
-  // the bank already showed somewhere (seenCents). Empty for most lines.
-  answers: { bill: Bill; amountCents: number; seenCents: number }[];
+  // added to the bank's number: the part not shown (amountCents), the part the
+  // bank already showed somewhere (seenCents), and the money sent to people
+  // still unmatched when the bill was checked (sentCents). Empty for most lines.
+  answers: { bill: Bill; amountCents: number; seenCents: number; sentCents: number }[];
   // "Fixed" or "Changing" once the recurring detector (#109) says which.
   // Null until then; the #86 math counts a want with no recurrence as changing.
   recurrence: Recurrence | null;
@@ -95,8 +96,9 @@ export function billLine(bill: Bill): CategoryKey {
 export type BillFromAnswers = BudgetLine["answers"][number];
 
 // The part of each bill the student pays that the month's spending does not
-// already show, by the line it belongs on. Totals only, so the rule is about
-// money, not names: each dollar the bank shows pays at most one bill.
+// already show, by the line it belongs on. Totals only (net of refunds), so
+// the rule is about money, not names: each dollar the bank shows is matched
+// to at most one bill.
 // 1. Any spending in the bill's own category means the bank shows the bill:
 //    nothing is added, whatever the amount (the bank's month is the number).
 // 2. Spending where the bill often lands under another name counts toward it,
@@ -105,16 +107,19 @@ export type BillFromAnswers = BudgetLine["answers"][number];
 //    charge leaves $288 of a $300 car bill), never add to it.
 // 3. Money sent to people or payment apps counts only when it covers all of
 //    what is left of the bill, as one payment would (rent by Zelle). Smaller
-//    sums are most likely friends being paid back, so they hide nothing.
-// Never counted twice: a bill the bank shows anywhere above adds nothing.
-// Missed: a bill paid elsewhere while the student sends at least as much to
-// people that month (a $45 phone and $100 of Venmo); then the line is the
-// bank's alone, as it was before bills from the answers were added.
+//    sums are most likely friends being paid back, so they hide nothing. It
+//    cannot say which bill it paid, so the largest bill it covers is matched
+//    first: a $275 grocery Venmo is not used up by a $45 phone paid elsewhere.
+// Wrong when that guess is: a bill paid elsewhere is left out while the
+// student sends at least as much to people that month (a $45 phone and $100
+// of Venmo), and if the money sent paid a smaller bill than the one it was
+// matched to, that smaller bill is counted twice.
 function billsFromAnswers(bills: BillAnswer[], totals: DetailedTotal[]): Partial<Record<CategoryKey, BudgetLine["answers"]>> {
   const left = new Map<string, number>();
   for (const row of totals) {
-    if (row.categoryDetailed && row.outCents > 0) left.set(row.categoryDetailed, (left.get(row.categoryDetailed) ?? 0) + row.outCents);
+    if (row.categoryDetailed) left.set(row.categoryDetailed, (left.get(row.categoryDetailed) ?? 0) + row.outCents - row.inCents);
   }
+  for (const [detailed, cents] of left) if (cents <= 0) left.delete(detailed);
   const take = (detailed: string, cents: number): number => {
     const used = Math.min(left.get(detailed) ?? 0, cents);
     if (used > 0) left.set(detailed, (left.get(detailed) ?? 0) - used);
@@ -129,22 +134,35 @@ function billsFromAnswers(bills: BillAnswer[], totals: DetailedTotal[]): Partial
   const unseen = new Map<Bill, number>();
   for (const answer of paying) unseen.set(answer.bill, BILL_CATEGORIES[answer.bill].also.reduce((cents, detailed) => take(detailed, cents), answer.monthlyCents!));
   const transfers = [...left.keys()].filter((detailed) => detailed.startsWith("TRANSFER_OUT_"));
+  // Largest first; `sent` is what was still unmatched when the bill's turn came.
+  const sent = new Map<Bill, number>();
+  for (const answer of [...paying].sort((a, b) => unseen.get(b.bill)! - unseen.get(a.bill)!)) {
+    const cents = unseen.get(answer.bill)!;
+    const available = transfers.reduce((sum, detailed) => sum + (left.get(detailed) ?? 0), 0);
+    sent.set(answer.bill, available);
+    if (cents > 0 && available >= cents) unseen.set(answer.bill, transfers.reduce((rest, detailed) => take(detailed, rest), cents));
+  }
   const byLine: Partial<Record<CategoryKey, BudgetLine["answers"]>> = {};
   for (const answer of paying) {
-    let cents = unseen.get(answer.bill)!;
-    const sent = transfers.reduce((sum, detailed) => sum + (left.get(detailed) ?? 0), 0);
-    if (cents > 0 && sent >= cents) cents = transfers.reduce((rest, detailed) => take(detailed, rest), cents);
+    const cents = unseen.get(answer.bill)!;
     if (cents <= 0) continue;
-    (byLine[billLine(answer.bill)] ??= []).push({ bill: answer.bill, amountCents: cents, seenCents: answer.monthlyCents! - cents });
+    (byLine[billLine(answer.bill)] ??= []).push({
+      bill: answer.bill,
+      amountCents: cents,
+      seenCents: answer.monthlyCents! - cents,
+      sentCents: sent.get(answer.bill)!,
+    });
   }
   return byLine;
 }
 
-// A bill from the answers as the student changes its amount on Today: what
-// the bank showed of it stays, the rest is added. Gone once nothing is left.
+// A bill from the answers as the student changes its amount on Today, by the
+// same rule as billsFromAnswers: what the bank showed of it stays, and the rest
+// is added unless the money sent to people that was still unmatched covers it.
+// Gone once nothing is left, so the number does not change on a reload.
 export function withBillAmount(entry: BillFromAnswers, monthlyCents: number | null): BillFromAnswers | null {
   const cents = (monthlyCents ?? 0) - entry.seenCents;
-  return cents > 0 ? { ...entry, amountCents: cents } : null;
+  return cents > 0 && entry.sentCents < cents ? { ...entry, amountCents: cents } : null;
 }
 
 // A line's number when the student has not typed one: the bank's, plus any

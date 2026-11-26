@@ -27,9 +27,10 @@ export const budgetLineSchema = z
     // goal is above $0.
     typed: z.boolean(),
     // Bills from the student's safe-to-spend answers that the bank did not
-    // show that month: the part added to amountCents, and the part the bank
-    // already showed somewhere. Empty for most lines.
-    answers: z.array(z.strictObject({ bill: z.enum(BILLS), amountCents: z.int(), seenCents: z.int() })),
+    // show that month: the part added to amountCents, the part the bank
+    // already showed somewhere, and the money sent to people still unmatched
+    // when the bill was checked. Empty for most lines.
+    answers: z.array(z.strictObject({ bill: z.enum(BILLS), amountCents: z.int(), seenCents: z.int(), sentCents: z.int() })),
     // fixed or changing, once the recurring detector says; null until then.
     recurrence: z.enum(["recurring", "variable"]).nullable(),
   })

@@ -171,10 +171,40 @@ describe("bills from the safe-to-spend answers", () => {
   });
 
   it("follows a bill's new amount from Today, keeping what the bank showed of it", () => {
-    const entry = { bill: "car" as const, amountCents: 28800, seenCents: 1200 };
-    expect(withBillAmount(entry, 40000)).toEqual({ bill: "car", amountCents: 38800, seenCents: 1200 });
+    const entry = { bill: "car" as const, amountCents: 28800, seenCents: 1200, sentCents: 0 };
+    expect(withBillAmount(entry, 40000)).toEqual({ bill: "car", amountCents: 38800, seenCents: 1200, sentCents: 0 });
     expect(withBillAmount(entry, 0)).toBeNull();
     expect(withBillAmount(entry, null)).toBeNull();
+  });
+
+  // Audit round 2, Nov 26.
+  it("matches money sent to people to the largest bill first, so a small bill paid elsewhere does not use it up", () => {
+    const phone: BillAnswer = { bill: "phone", coveredBy: "me", monthlyCents: 4500, dueDay: 15 };
+    // Groceries Venmo'd to a roommate, phone paid elsewhere.
+    const groceries = buildBudgetLines({ ...bank(row("TRANSFER_OUT", "TRANSFER_OUT_ACCOUNT_TRANSFER", 27500)), bills: [phone, ...only("groceries", 27500)] });
+    expect(line(groceries, "groceries")).toBeUndefined();
+    expect(line(groceries, "rent_and_bills")).toMatchObject({ amountCents: 4500, answers: [{ bill: "phone", amountCents: 4500 }] });
+    // The car paid by Zelle, phone paid elsewhere.
+    const car = buildBudgetLines({ ...bank(row("TRANSFER_OUT", "TRANSFER_OUT_ACCOUNT_TRANSFER", 30000)), bills: [phone, ...only("car", 30000)] });
+    expect(line(car, "transportation")).toBeUndefined();
+    expect(line(car, "rent_and_bills")).toMatchObject({ amountCents: 4500, answers: [{ bill: "phone", amountCents: 4500 }] });
+  });
+
+  it("counts a store's spending net of returns", () => {
+    const returned = { category: "GENERAL_MERCHANDISE", categoryDetailed: "GENERAL_MERCHANDISE_SUPERSTORES", outCents: 30000, inCents: 30000 };
+    const lines = buildBudgetLines({ ...october, totals: [returned], bills: only("groceries", 27500) });
+    expect(line(lines, "groceries")).toMatchObject({ amountCents: 27500, answers: [{ bill: "groceries", amountCents: 27500, seenCents: 0 }] });
+  });
+
+  it("applies the same rule on Today as after a reload when a bill gets smaller", () => {
+    // $45 phone, $30 sent to people: too little to be the phone, so it is added.
+    const lines = buildBudgetLines({ ...bank(row("TRANSFER_OUT", "TRANSFER_OUT_ACCOUNT_TRANSFER", 3000)), bills: only("phone", 4500) });
+    const entry = line(lines, "rent_and_bills")!.answers[0];
+    expect(entry).toEqual({ bill: "phone", amountCents: 4500, seenCents: 0, sentCents: 3000 });
+    // Lowered to $20 on Today: the $30 now covers it, as the server says after a reload.
+    expect(withBillAmount(entry, 2000)).toBeNull();
+    expect(buildBudgetLines({ ...bank(row("TRANSFER_OUT", "TRANSFER_OUT_ACCOUNT_TRANSFER", 3000)), bills: only("phone", 2000) }).needs).toEqual([]);
+    expect(withBillAmount(entry, 6000)).toMatchObject({ amountCents: 6000 });
   });
 
   it("puts each bill on the line its bank category maps to", () => {
