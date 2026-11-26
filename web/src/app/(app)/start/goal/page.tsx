@@ -3,11 +3,11 @@ import { notFound, redirect } from "next/navigation";
 
 import { PickGoal } from "@/components/goals/pick-goal";
 import { easternToday } from "@/lib/goals/plan";
-import { suggestedAmount } from "@/lib/goals/presets";
+import { GOAL_PRESETS, suggestedAmount, type GoalPreset } from "@/lib/goals/presets";
 import { loadGoal } from "@/lib/goals/store";
 import { plaidConfig } from "@/lib/plaid/config";
 import { loadSafeToSpend } from "@/lib/plaid/store";
-import { ROUTES } from "@/lib/routes";
+import { PRESET_PARAM, ROUTES } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Pick a goal | CENSE" };
@@ -16,8 +16,12 @@ export const metadata: Metadata = { title: "Pick a goal | CENSE" };
 // 4), right after "Looks right?". The plan it leads to saves a set-aside on
 // the linked bank, so a student with no bank links one first. The suggested
 // amounts come from the student's saved answers (which Penny's reading filled
-// in) and their card balance.
-export default async function StartGoalPage() {
+// in) and their card balance. Opened with ?preset= (Home's next step "Start
+// your emergency fund"), that goal starts picked with its suggestion; any
+// other value is ignored.
+export default async function StartGoalPage({ searchParams }: PageProps<"/start/goal">) {
+  const asked = (await searchParams)[PRESET_PARAM];
+  const preselect = GOAL_PRESETS.find((preset): preset is GoalPreset => preset === asked) ?? null;
   const student = await requireStudent(ROUTES.startGoal);
   if (!plaidConfig()) notFound();
   const today = easternToday();
@@ -29,6 +33,7 @@ export default async function StartGoalPage() {
   return (
     <PickGoal
       saved={goal.value}
+      preselect={preselect}
       setAsideCents={money.value.setAsideCents}
       today={today}
       suggestions={{ emergency_fund: suggestedAmount("emergency_fund", from), pay_off_card: suggestedAmount("pay_off_card", from) }}

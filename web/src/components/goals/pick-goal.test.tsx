@@ -228,6 +228,27 @@ describe("PickGoal", () => {
     expect(deleteGoal).toHaveBeenCalledTimes(1);
   });
 
+  // Home's next step "Start your emergency fund" opens ?preset=emergency_fund.
+  it("starts with a goal picked and its suggestion filled in, over another saved goal", () => {
+    const { unmount } = render(<PickGoal saved={null} preselect="emergency_fund" setAsideCents={0} today={TODAY} suggestions={SUGGESTIONS} />);
+    expect(goals().getByRole("button", { name: "Emergency fund" }).getAttribute("aria-pressed")).toBe("true");
+    expect(amount().value).toBe("1240");
+    expect(date().value).toBe("");
+    unmount();
+    render(<PickGoal saved={LAPTOP} preselect="emergency_fund" setAsideCents={11_257} today={TODAY} suggestions={SUGGESTIONS} />);
+    expect(goals().getByRole("button", { name: "Emergency fund" }).getAttribute("aria-pressed")).toBe("true");
+    expect(goals().getAllByRole("button", { pressed: true }).map((button) => button.textContent)).toEqual(["Emergency fund"]);
+    expect(amount().value).toBe("1240");
+    expect(date().value).toBe("");
+  });
+
+  it("keeps the saved goal as it was when it is the one asked for", () => {
+    const saved: Goal = { ...LAPTOP, preset: "emergency_fund", name: "Emergency fund", amountCents: 200_000 };
+    render(<PickGoal saved={saved} preselect="emergency_fund" setAsideCents={11_257} today={TODAY} suggestions={SUGGESTIONS} />);
+    expect(amount().value).toBe("2000");
+    expect(date().value).toBe("2027-08-01");
+  });
+
   it("says a set-aside the student changed since stays, and where to change it", () => {
     render(<PickGoal saved={LAPTOP} setAsideCents={5_000} today={TODAY} suggestions={SUGGESTIONS} />);
     fireEvent.click(screen.getByRole("button", { name: "Remove my goal" }));

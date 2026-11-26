@@ -32,11 +32,15 @@ type Suggestions = Partial<Record<GoalPreset, Suggestion | null>>;
 
 export function PickGoal({
   saved,
+  preselect = null,
   setAsideCents,
   today,
   suggestions,
 }: {
   saved: Goal | null;
+  // A goal to start picked (Home's next step), with its suggestion filled in.
+  // The saved goal itself, or none, changes nothing.
+  preselect?: GoalPreset | null;
   // The student's set-aside now, for what Remove my goal does to it.
   setAsideCents: number;
   today: string;
@@ -45,15 +49,21 @@ export function PickGoal({
   const router = useRouter();
   const isMounted = useIsMounted();
   const titleId = useId();
-  const [preset, setPreset] = useState<GoalPreset | null>(saved?.preset ?? null);
+  const fresh = preselect !== null && preselect !== saved?.preset ? preselect : null;
+  const [preset, setPreset] = useState<GoalPreset | null>(fresh ?? saved?.preset ?? null);
   // "open": shown since the screen opened (a saved goal behind More goals);
   // "tapped": the student opened them, so focus moves to the first new card.
-  const [more, setMore] = useState<"closed" | "open" | "tapped">(saved !== null && MORE_PRESETS.includes(saved.preset) ? "open" : "closed");
-  const [name, setName] = useState(saved?.preset === "other" ? saved.name : "");
-  const [amount, setAmount] = useState(saved ? centsToInput(saved.amountCents) : "");
+  const [more, setMore] = useState<"closed" | "open" | "tapped">(
+    (fresh !== null && MORE_PRESETS.includes(fresh)) || (fresh === null && saved !== null && MORE_PRESETS.includes(saved.preset)) ? "open" : "closed",
+  );
+  const [name, setName] = useState(fresh === null && saved?.preset === "other" ? saved.name : "");
+  const freshSuggestion = fresh ? suggestions[fresh] : null;
+  const [amount, setAmount] = useState(
+    fresh ? (freshSuggestion ? centsToInput(freshSuggestion.amountCents) : "") : saved ? centsToInput(saved.amountCents) : "",
+  );
   // Only a date the student picked: the 6-month default shows as no date.
   const savedDate = saved?.dateChosen ? saved.targetDate : "";
-  const [date, setDate] = useState(savedDate);
+  const [date, setDate] = useState(fresh ? "" : savedDate);
   const [error, setError] = useState<FieldError | null>(null);
   const [pending, setPending] = useState<"save" | "remove" | null>(null);
   const [confirming, setConfirming] = useState(false);

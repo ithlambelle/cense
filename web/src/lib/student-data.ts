@@ -20,7 +20,12 @@ import {
   type ReminderSettings,
   type ReminderSettingsRow,
 } from "@/lib/api/reminders";
+import type { Budget } from "@/lib/api/budget";
+import type { Goal } from "@/lib/api/goals";
+import { coversMonth } from "@/lib/budget/lines";
+import { loadBudget } from "@/lib/budget/store";
 import type { Card } from "@/lib/cards/catalog";
+import { loadGoal } from "@/lib/goals/store";
 import type { Student } from "@/lib/api/auth";
 import { findCard, listCards } from "@/lib/cards/catalog";
 import { comingUpCardNames, type ComingUpCard } from "@/lib/home/coming-up";
@@ -224,5 +229,37 @@ export async function loadReminderSetup(
       scheduled: email && { occurrence: email.occurrence, sentAt: email.sent_at, attempts: email.attempts },
       today: calendarDate(new Date().toISOString(), timeZone),
     }),
+  };
+}
+
+// How far back the oldest transaction is looked for, as the post-link reading
+// reads (bank-link/findings, READ_DAYS): far enough to reach the start of the
+// last full month.
+const HISTORY_DAYS = 124;
+
+// What Home's next step needs besides safe to spend, the cards and the quiz
+// (lib/home/next-step.ts): whether the student confirmed last month (Looks
+// right), last month's budget only when the bank's history covers the whole
+// month, and their goal. Read together, alongside Home's other reads. Null
+// when any read fails, so Home leaves the step out rather than guess it.
+export async function loadNextStepData(student: Student): Promise<{ budgetChecked: boolean; lastMonth: Budget | null; goal: Goal | null } | null> {
+  const { supabase, studentId } = student;
+  const [profile, budget, oldest, goal] = await Promise.all([
+    supabase.from("profiles").select("budget_checked_at").eq("student_id", studentId).maybeSingle(),
+    // The set-aside is not read here: the step compares money in and out only.
+    loadBudget(student, 0),
+    // Only the oldest date, so one row comes back.
+    supabase.rpc("my_recent_transactions", { p_days: HISTORY_DAYS }).select("posted_on").order("posted_on", { ascending: true }).limit(1),
+    loadGoal(student),
+  ]);
+  if (profile.error || !budget.ok || oldest.error || !goal.ok) {
+    console.warn(JSON.stringify({ event: "next_step_read_failed" }));
+    return null;
+  }
+  const first = ((oldest.data ?? []) as { posted_on: string }[])[0]?.posted_on ?? null;
+  return {
+    budgetChecked: (profile.data as { budget_checked_at: string | null } | null)?.budget_checked_at != null,
+    lastMonth: coversMonth(budget.value.month, first) ? budget.value : null,
+    goal: goal.value,
   };
 }

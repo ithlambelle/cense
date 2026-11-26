@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { GOAL_PRESETS } from "./goals/presets";
+import { NEXT_STEP_IDS } from "./home/next-step";
 import { PENNY_ANSWER_IDS } from "./penny/answers";
 
 // The tracking plan: every analytics event Cense sends, the question it
@@ -22,7 +23,7 @@ import { PENNY_ANSWER_IDS } from "./penny/answers";
 // reminder job, an email's unsubscribe link).
 
 // Bump when an event or property is added, changed or removed.
-export const TRACKING_PLAN_VERSION = 7;
+export const TRACKING_PLAN_VERSION = 8;
 
 const cardId = z.string().regex(/^[a-z0-9-]{1,100}$/);
 const fitTier = z.enum(["likely_fit", "stretch", "not_yet"]);
@@ -233,6 +234,18 @@ export const EVENTS = {
     addedIn: 7,
     ledger: "bank_links.set_aside_cents",
     properties: z.strictObject({ preset: z.enum(GOAL_PRESETS) }),
+  },
+  next_step_shown: {
+    question: "Demo Day step 9: which next step does Home show students, and does it change as they act (the persona walk found Home never changed after setup)? The rule's id only.",
+    owner: "Ben",
+    addedIn: 8,
+    properties: z.strictObject({ step: z.enum(NEXT_STEP_IDS) }),
+  },
+  next_step_tapped: {
+    question: "Demo Day step 9: do students tap the next step Home shows, and which ones? The rule's id only.",
+    owner: "Ben",
+    addedIn: 8,
+    properties: z.strictObject({ step: z.enum(NEXT_STEP_IDS) }),
   },
 } satisfies Record<string, CatalogEntry>;
 

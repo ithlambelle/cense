@@ -12,6 +12,7 @@ import type { ComponentType, ReactNode, SVGProps } from "react";
 import { ApprovalHeading, ApprovedCard, StarConfetti } from "@/components/home/approved-card";
 import { ComingUp } from "@/components/home/coming-up";
 import { DeniedCard } from "@/components/home/denied-card";
+import { NextStepCard } from "@/components/home/next-step-card";
 import { ReminderArrival } from "@/components/home/reminder-arrival";
 import { Greeting } from "@/components/home/greeting";
 import { UpdatedLine } from "@/components/home/updated-line";
@@ -27,6 +28,7 @@ import { SENSITIVE } from "@/lib/analytics";
 import type { Application } from "@/lib/api/application";
 import type { SafeToSpend } from "@/lib/api/safe-to-spend";
 import type { ComingUpRow } from "@/lib/home/coming-up";
+import type { NextStep as PriorityStep } from "@/lib/home/next-step";
 import { ALL_REMINDERS_ON, celebrating, paymentReminderOn, type CardDetail, type HomeState, type StarSettings } from "@/lib/home/state";
 import { moneyAmount } from "@/lib/money";
 import { quizProgress } from "@/lib/quiz/progress";
@@ -50,6 +52,10 @@ type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 // not exist there). `safeToSpend` is the student's sandbox bank link (null:
 // none yet); left out when safe to spend is off. `comingUp` is Coming up's
 // rows (D1): the dates ahead, shown under the card module when there are any.
+// `nextStep` is the one next step from the priority rules, right under safe
+// to spend; null leaves it out. It stands in for what it repeats: the bank
+// invite (Link your bank), the "Finish safe to spend" prompt (Check your
+// budget before the bank is read) and the quiz prompt (Find your first card).
 export function HomeView({
   state,
   initial,
@@ -57,6 +63,7 @@ export function HomeView({
   reminderSettings = ALL_REMINDERS_ON,
   celebrateId = null,
   fromReminder = null,
+  nextStep = null,
   sampleStars,
   safeToSpend,
   comingUp = [],
@@ -67,11 +74,14 @@ export function HomeView({
   reminderSettings?: StarSettings;
   celebrateId?: string | null;
   fromReminder?: ReminderKind | null;
+  nextStep?: PriorityStep | null;
   sampleStars?: number;
   safeToSpend?: SafeToSpend | null;
   comingUp?: ComingUpRow[];
 }) {
   const celebrate = celebrating(state, celebrateId);
+  const repeatsMoneyCard = nextStep?.id === "link_bank" || (nextStep?.id === "check_budget" && safeToSpend?.answered === false);
+  const money = safeToSpend !== undefined && !repeatsMoneyCard ? <SafeToSpendHome safeToSpend={safeToSpend} preview={!celebrate} /> : null;
   return (
     <div className="flex min-h-dvh justify-center bg-background">
       {/* No overflow clip on this column: Safari clips a fixed child to it, so
@@ -105,8 +115,14 @@ export function HomeView({
             reminderSettings={reminderSettings}
             celebrate={celebrate}
             sampleStars={sampleStars}
-            top={safeToSpend !== undefined ? <SafeToSpendHome safeToSpend={safeToSpend} preview={!celebrate} /> : null}
+            top={
+              <>
+                {money}
+                {nextStep ? <NextStepCard step={nextStep} /> : null}
+              </>
+            }
             ahead={<ComingUp rows={comingUp} />}
+            quizPrompt={nextStep?.id !== "find_first_card"}
           />
         </main>
         {celebrate ? <StarConfetti /> : null}
@@ -127,6 +143,7 @@ function HomeContent({
   sampleStars,
   top,
   ahead,
+  quizPrompt,
 }: {
   state: HomeState;
   detail: CardDetail | null;
@@ -138,6 +155,8 @@ function HomeContent({
   // Coming up: right after the leading card's module (safe to spend stays
   // first, above the card module: Ben, Nov 15), before any other cards.
   ahead: ReactNode;
+  // False when the next step is Find your first card, which says the same.
+  quizPrompt: boolean;
 }) {
   if (state.kind === "no_quiz") {
     return (
@@ -147,7 +166,7 @@ function HomeContent({
           <MascotStill pose="idle" size={72} className="shrink-0" />
         </div>
         {top}
-        <QuizPrompt answered={state.answered} />
+        {quizPrompt ? <QuizPrompt answered={state.answered} /> : null}
         <Link
           href={ROUTES.addCard}
           className="min-h-11 content-center self-center text-body-s text-violet underline underline-offset-2 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"

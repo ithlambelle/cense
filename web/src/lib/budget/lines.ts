@@ -124,6 +124,18 @@ export function summarize(lines: BudgetLines, amounts: Partial<Record<string, nu
   };
 }
 
+// Last month is read as a whole month only when the bank's history starts in
+// its first week, so half a month is never shown or judged as the whole month.
+// `month` is its first day and `oldest` the oldest transaction's date, both
+// YYYY-MM-DD; null when the bank has sent nothing.
+export const MONTH_START_SLACK_DAYS = 7;
+
+export function coversMonth(month: string, oldest: string | null): boolean {
+  if (oldest === null) return false;
+  const days = Math.round((Date.parse(`${oldest}T00:00:00Z`) - Date.parse(`${month}T00:00:00Z`)) / 86_400_000);
+  return days <= MONTH_START_SLACK_DAYS;
+}
+
 const MONTH = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "long" });
 
 // "October" for "2026-10-01".
