@@ -211,4 +211,18 @@ describe("PaymentReminderSetup", () => {
     renderSetup({ closing: 12, due: 9 });
     expect(screen.queryByRole("link", { name: "I don’t know yet" })).toBeNull();
   });
+
+  it("keeps I don't know yet from leaving while a save is in flight", () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(() => new Promise<Response>(() => {})));
+    renderSetup();
+    fireEvent.change(closingField(), { target: { value: "14" } });
+    fireEvent.change(dueField(), { target: { value: "9" } });
+    const skip = screen.getByRole("link", { name: "I don’t know yet" });
+    expect(fireEvent.click(skip)).toBe(true);
+    fireEvent.click(saveButton());
+    expect(skip.getAttribute("aria-disabled")).toBe("true");
+    // Cancelled: the click is prevented, so nothing navigates.
+    expect(fireEvent.click(skip)).toBe(false);
+  });
 });
+

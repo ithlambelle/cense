@@ -216,9 +216,20 @@ export function PaymentReminderSetup({
             Save reminders
           </Button>
           {/* Before any days are saved, a way on without them: nothing is
-              saved and the star stays out, so it can be done later. */}
+              saved and the star stays out, so it can be done later. Inert
+              while a save is in flight: a double tap on Save could land on it
+              when the error above the button clears and the button moves up,
+              leaving before the save finished. */}
           {statementClosingDay === null && paymentDueDay === null ? (
-            <Link href={doneHref} className={buttonVariants({ variant: "link" })}>
+            <Link
+              href={doneHref}
+              aria-disabled={pending || undefined}
+              tabIndex={pending ? -1 : undefined}
+              onClick={(event) => {
+                if (pending) event.preventDefault();
+              }}
+              className={cn(buttonVariants({ variant: "link" }), pending && "pointer-events-none opacity-60")}
+            >
               I don’t know yet
             </Link>
           ) : null}
