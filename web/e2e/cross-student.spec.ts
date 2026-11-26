@@ -157,7 +157,7 @@ test("a student cannot read or change another student's data, through the API or
     expect({ label, code: error?.code }).toEqual({ label, code });
   };
   await refused("B adds a card as A", b.db.from("card_applications").insert({ student_id: a.id, card_id: "x", card_name: "x", source: "added", status: "applied" }), "42501");
-  // a student may delete only their own card added by hand (20261126140000):
+  // a student may delete only their own card added by hand (20261126150000):
   // A's card is out of B's reach
   await none("B deletes A's card", b.db.from("card_applications").delete().eq("id", approved).select("id"));
   await refused("B writes A's quiz", b.db.from("quiz_drafts").insert({ student_id: a.id, answers: {} }), "42501");

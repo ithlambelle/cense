@@ -1,13 +1,13 @@
 -- Created with Claude Code (2026-11-26). Removing a card
--- (20261126140000_card_applications_remove.sql): a student removes only their
+-- (20261126150000_card_applications_remove.sql): a student removes only their
 -- own card, only one they added themselves, and its reminders and setup steps
--- go with it. Run with `npx supabase test db` on the local stack. One
+-- go with it. And a credit limit is null or above zero. Run with `npx supabase test db` on the local stack. One
 -- transaction, rolled back at the end.
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(12);
+select plan(17);
 
 create temp table students (name text primary key, id uuid);
 insert into students values
@@ -93,6 +93,34 @@ select is((select count(*)::int from public.card_applications where id in (pg_te
   'the applied card and the other student''s card stay');
 select ok(pg_temp.hanging('applied') >= 2, 'with their reminders and steps');
 select ok(pg_temp.hanging('theirs') >= 2, 'for both');
+
+-------------------------------------------------------------------------------
+-- A credit limit is null or above zero, even written straight to the table.
+set local role authenticated;
+select pg_temp.as_student('owner');
+select throws_ok(
+  $$ insert into public.card_applications (student_id, card_name, source, status, credit_limit_cents)
+     values (pg_temp.student('owner'), 'Zero', 'added', 'approved', 0) $$,
+  '23514', null, 'a student cannot save a $0 limit through the Data API');
+select throws_ok(
+  $$ update public.card_applications set credit_limit_cents = 0 where id = pg_temp.card_id('applied') $$,
+  '23514', null, 'nor change a limit to $0');
+select lives_ok(
+  $$ update public.card_applications set credit_limit_cents = 100 where id = pg_temp.card_id('applied') $$,
+  'a $1 limit saves');
+reset role;
+
+-- NOT VALID: a $0 saved before the check does not stop it being added.
+alter table public.card_applications drop constraint card_applications_credit_limit_positive;
+update public.card_applications set credit_limit_cents = 0 where id = pg_temp.card_id('applied');
+select lives_ok(
+  $$ alter table public.card_applications
+       add constraint card_applications_credit_limit_positive
+       check (credit_limit_cents is null or credit_limit_cents > 0) not valid $$,
+  'a $0 saved before the check does not block adding it');
+select lives_ok(
+  $$ update public.card_applications set credit_limit_cents = null, autopay_status = 'on' where id = pg_temp.card_id('applied') $$,
+  'and saving that card with its limit cleared, as PATCH does, works');
 
 select * from finish();
 rollback;

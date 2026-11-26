@@ -250,7 +250,7 @@ select set_eq(
         'welcomed_at'],
   'profiles: students change only the reminder settings, the Analytics switch and when they were welcomed');
 select ok(not has_table_privilege('authenticated', 'public.profiles', 'insert'), 'students cannot add a profile');
--- 20261126140000_card_applications_remove.sql: students may delete, and its
+-- 20261126150000_card_applications_remove.sql: students may delete, and its
 -- policy limits that to their own cards added by hand.
 select ok(has_table_privilege('authenticated', 'public.card_applications', 'delete'), 'students may remove a card record (policy-limited)');
 select ok(not has_table_privilege('anon', 'public.card_applications', 'select')

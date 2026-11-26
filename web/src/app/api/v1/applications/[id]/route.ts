@@ -6,6 +6,7 @@ import {
   type ApplicationDetailRow,
 } from "@/lib/api/application";
 import { authenticatedStudent, type Student } from "@/lib/api/auth";
+import { savedCreditLimitCents } from "@/lib/api/credit-limit";
 import { databaseError } from "@/lib/api/database";
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { applicationIdSchema, updateApplicationSchema } from "@/lib/api/schemas";
@@ -56,6 +57,10 @@ function changes(body: Update, current: ApplicationDetailRow): Record<string, un
     set.credit_limit_cents = body.creditLimitCents;
   } else if (status !== "approved" && current.credit_limit_cents !== null) {
     // Leaving approved drops the limit, which only an approved card can have.
+    set.credit_limit_cents = null;
+  } else if (current.credit_limit_cents !== null && savedCreditLimitCents(current.credit_limit_cents) === null) {
+    // A $0 saved before the rule reads as no limit; saving the card makes it
+    // so, which the database's check (credit_limit_cents > 0) also needs.
     set.credit_limit_cents = null;
   }
 
