@@ -13,7 +13,7 @@ vi.mock("@/lib/supabase/service", () => ({ createServiceClient }));
 
 import { createHmac } from "node:crypto";
 
-import { authThrottle, clientIp, ipv6Prefix64, throttleEmail, throttleKey, throttleKeys } from "./throttle";
+import { authThrottle, clientIp, codeCheckNotMade, codeCheckPassed, codeSent, ipv6Prefix64, throttleEmail, throttleKey, throttleKeys } from "./throttle";
 
 const SECRET = "a-random-secret-of-at-least-32-characters";
 const VERCEL = { VERCEL: "1", VERCEL_ENV: "production", SUPABASE_SERVICE_ROLE_KEY: "service-key", AUTH_THROTTLE_KEY: SECRET };
@@ -22,6 +22,16 @@ const request = (headers: Record<string, string> = {}) => new Request("https://c
 // The database answers `answer` (or throws it) once the call is made.
 function database(answer: { data: unknown; error: unknown } | Error) {
   abortSignal.mockImplementation(() => (answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer)));
+  rpc.mockImplementation((...args: unknown[]) => {
+    claim(...args);
+    return { abortSignal };
+  });
+}
+
+// The database answers each call in turn, the last answer from then on.
+function databaseAnswers(...answers: { data: unknown; error: unknown }[]) {
+  let call = 0;
+  abortSignal.mockImplementation(() => Promise.resolve(answers[Math.min(call++, answers.length - 1)]));
   rpc.mockImplementation((...args: unknown[]) => {
     claim(...args);
     return { abortSignal };
@@ -219,5 +229,96 @@ describe("throttleKey", () => {
       p_ip_hash: null,
     });
     expect(throttleKeys(SECRET, null, "203.0.113.7")).toEqual({ p_email_ip_hash: null, p_email_hash: null, p_ip_hash: throttleKey(SECRET, "ip", "203.0.113.7") });
+  });
+});
+
+describe("the code limit", () => {
+  const ok = { data: 0, error: null };
+
+  it("counts a code check against that code after the time limits, with the email and IP keys", async () => {
+    databaseAnswers(ok);
+    expect(await authThrottle(request({ "x-forwarded-for": "203.0.113.7" }), "verify", "Student+x@Example.com", VERCEL)).toBeNull();
+    const keys = throttleKeys(SECRET, "student@example.com", "203.0.113.7");
+    expect(claim.mock.calls).toEqual([
+      ["claim_auth_attempt_hashed", { p_action: "verify", ...keys }],
+      // The code count keeps the +tag: Supabase treats student+x@ as its own account.
+      ["auth_code_check", { p_step: "claim", p_email_hash: throttleKey(SECRET, "code_email", "student+x@example.com"), p_ip_hash: keys.p_ip_hash, p_send_ms: null }],
+    ]);
+  });
+
+  it("is only for code checks", async () => {
+    databaseAnswers(ok);
+    for (const action of ["send", "password", "link"] as const) await authThrottle(request(), action, "student@example.com", VERCEL);
+    expect(claim.mock.calls.map(([fn]) => fn)).toEqual(Array(3).fill("claim_auth_attempt_hashed"));
+  });
+
+  it("answers 401 code_used_up in plain words once the code has had 5 tries", async () => {
+    databaseAnswers(ok, { data: -1, error: null });
+    const response = await authThrottle(request(), "verify", "student@example.com", VERCEL);
+    expect(response?.status).toBe(401);
+    expect(response?.headers.get("Retry-After")).toBeNull();
+    expect(await response?.json()).toEqual({ error: { code: "code_used_up", message: "Too many wrong codes. Tap Resend email for a new one." } });
+  });
+
+  it("answers 429 with the wait when the address has made too many wrong checks", async () => {
+    databaseAnswers(ok, { data: 540, error: null });
+    const response = await authThrottle(request(), "verify", "student@example.com", VERCEL);
+    expect(response?.status).toBe(429);
+    expect(response?.headers.get("Retry-After")).toBe("540");
+  });
+
+  it("never checks the code limit once a time limit has refused", async () => {
+    databaseAnswers({ data: 360, error: null });
+    expect((await authThrottle(request(), "verify", "student@example.com", VERCEL))?.status).toBe(429);
+    expect(claim).toHaveBeenCalledOnce();
+  });
+
+  it("refuses with 503 when the code limit cannot be checked, logging no email", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    databaseAnswers(ok, { data: null, error: { code: "PGRST202", message: "student@example.com" } });
+    expect((await authThrottle(request(), "verify", "student@example.com", VERCEL))?.status).toBe(503);
+    expect(JSON.stringify(log.mock.calls)).not.toContain("student@example.com");
+    log.mockRestore();
+  });
+
+  it("starts the count again for exactly that email (+tag kept) when a new code is sent, from when the send began", async () => {
+    databaseAnswers(ok);
+    await codeSent(" Student+x@Example.com", 1234, VERCEL);
+    expect(claim).toHaveBeenCalledWith("auth_code_check", { p_step: "new_code", p_email_hash: throttleKey(SECRET, "code_email", "student+x@example.com"), p_ip_hash: null, p_send_ms: 1234 });
+    expect(throttleKey(SECRET, "code_email", "student+x@example.com")).not.toBe(throttleKey(SECRET, "code_email", "student@example.com"));
+    expect(throttleKey(SECRET, "code_email", "ana@example.com")).not.toBe(throttleKey(SECRET, "email", "ana@example.com"));
+  });
+
+  it("gives the IP's place back after a right code, and calls nothing when the IP is unknown", async () => {
+    databaseAnswers(ok);
+    await codeCheckPassed(request({ "x-forwarded-for": "203.0.113.7" }), VERCEL);
+    expect(claim).toHaveBeenCalledWith("auth_code_check", { p_step: "give_back", p_email_hash: null, p_ip_hash: throttleKey(SECRET, "ip", "203.0.113.7"), p_send_ms: null });
+    claim.mockClear();
+    await codeCheckPassed(request({ "x-forwarded-for": "203.0.113.7" }), { SUPABASE_SERVICE_ROLE_KEY: "service-key" });
+    expect(claim).not.toHaveBeenCalled();
+  });
+
+  it("gives back both the email's and the IP's place for a check Supabase never made", async () => {
+    databaseAnswers(ok);
+    await codeCheckNotMade(request({ "x-forwarded-for": "203.0.113.7" }), "Student+x@Example.com", VERCEL);
+    expect(claim).toHaveBeenCalledWith("auth_code_check", {
+      p_step: "give_back",
+      p_email_hash: throttleKey(SECRET, "code_email", "student+x@example.com"),
+      p_ip_hash: throttleKey(SECRET, "ip", "203.0.113.7"),
+      p_send_ms: null,
+    });
+  });
+
+  it("never throws when giving back or restarting fails, and logs no email or IP", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    database(new Error("connection reset"));
+    await expect(codeSent("student@example.com", 10, VERCEL)).resolves.toBeUndefined();
+    await expect(codeCheckPassed(request({ "x-forwarded-for": "203.0.113.7" }), VERCEL)).resolves.toBeUndefined();
+    const logged = JSON.stringify(log.mock.calls);
+    expect(logged).toContain("auth_code_sent");
+    expect(logged).toContain("auth_code_passed");
+    expect(logged).not.toContain("student@example.com");
+    expect(logged).not.toContain("203.0.113.7");
+    log.mockRestore();
   });
 });

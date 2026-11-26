@@ -57,7 +57,7 @@ describe("SignInFlow", () => {
     expect(fetchFn.mock.calls[0][0]).toBe("/api/v1/auth/email");
     expect(JSON.parse(String(fetchFn.mock.calls[0][1]?.body))).toEqual({ email: "student@example.edu" });
     expect(window.location.href).not.toContain("student");
-    expect(screen.getByText("We sent a 6-digit code to student@example.edu.")).toBeTruthy();
+    expect(screen.getByText("We sent a code to student@example.edu.")).toBeTruthy();
     expect(screen.queryByText(/This code signs you in/)).toBeNull();
   });
 
@@ -119,15 +119,34 @@ describe("SignInFlow", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("explains a short code instead of sending it", async () => {
+  it("explains a code of the wrong length (not 6 or 8 digits) instead of sending it", async () => {
     const fetchFn = server([CODE_SENT]);
     render(<SignInFlow mode="sign-in" next={null} initialError={null} />);
     await reachCodeStep();
     const calls = fetchFn.mock.calls.length;
-    fireEvent.change(screen.getByLabelText("Verification code"), { target: { value: "4829" } });
-    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
-    expect((await screen.findByRole("alert")).textContent).toBe("Enter the 6-digit code from the email.");
+    for (const typed of ["4829", "4829167"]) {
+      fireEvent.change(screen.getByLabelText("Verification code"), { target: { value: typed } });
+      fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+      expect((await screen.findByRole("alert")).textContent).toBe("Enter the whole code from the email.");
+    }
     expect(fetchFn.mock.calls.length).toBe(calls);
+  });
+
+  it("takes an 8-digit code too, so Supabase's code length can be raised (a 9th digit is dropped)", async () => {
+    const fetchFn = server([CODE_SENT, SIGNED_IN]);
+    render(<SignInFlow mode="sign-in" next="/quiz" initialError={null} />);
+    await reachCodeStep();
+    const field = screen.getByLabelText("Verification code");
+    // No maxLength: a pasted "9999 9999" would be cut before the spaces go.
+    expect(field.hasAttribute("maxLength")).toBe(false);
+    expect(field.getAttribute("inputMode")).toBe("numeric");
+    expect(field.getAttribute("autoComplete")).toBe("one-time-code");
+    expect(field.getAttribute("placeholder")).not.toMatch(/6/);
+    fireEvent.change(field, { target: { value: "482916735" } });
+    expect((field as HTMLInputElement).value).toBe("48291673");
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+    await vi.waitFor(() => expect(replace).toHaveBeenCalledWith("/quiz"));
+    expect(JSON.parse(String(fetchFn.mock.calls.at(-1)?.[1]?.body))).toEqual({ email: "student@example.edu", code: "48291673" });
   });
 
   it("holds the resend control during the cooldown", async () => {

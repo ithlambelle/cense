@@ -79,7 +79,7 @@ export async function newEmail(email: string, seen: Set<string>): Promise<{ subj
   throw new Error(`No email arrived in Mailpit for ${email}`);
 }
 
-// Polls Mailpit for a 6-digit code in a message to `email` that was not there
+// Polls Mailpit for a 6- or 8-digit code in a message to `email` that was not there
 // before (`seen`). Matched by message id, not time: the Docker VM's clock can
 // drift a minute from the host's (it did on Oct 24), which made a time filter
 // drop fresh codes.
@@ -88,7 +88,7 @@ export async function codeFromMailpit(email: string, seen: Set<string>): Promise
     const response = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`);
     const list = (await response.json()) as MailpitList;
     const message = list.messages?.find((m) => !seen.has(m.ID));
-    const code = message && /\b(\d{6})\b/.exec(message.Snippet ?? "")?.[1];
+    const code = message && /\b(\d{8}|\d{6})\b/.exec(message.Snippet ?? "")?.[1];
     if (code) return code;
     await new Promise((resolve) => setTimeout(resolve, 500));
   }

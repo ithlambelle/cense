@@ -88,7 +88,8 @@ review sites for estimates, on 2026-10-15; 13 are `recommend`.
     `/auth/password/signup/confirm`, `/auth/password/signin`,
     `/auth/password/reset` and `POST /auth/password/reset/verify`) call
     `claim_auth_attempt_hashed(action, email_ip_hash, email_hash, ip_hash)`
-    and nothing else, before anyone is signed in, with keys the server makes
+    and, for code checks, `auth_code_check(step, email_hash, ip_hash, send_ms)`, and
+    nothing else, before anyone is signed in, with keys the server makes
     as HMAC-SHA256 with `AUTH_THROTTLE_KEY`, so the database never sees the
     email or IP. It counts tries in `auth_throttle_events`, which only that
     function and the daily purge touch. Each row holds only that keyed hash
@@ -108,7 +109,21 @@ review sites for estimates, on 2026-10-15; 13 are `recommend`.
     addresses); Google sign-in is never blocked. Past a limit the route answers
     `429` `rate_limited`, "Too many tries. Try again in N minutes." (or hours),
     with `Retry-After`, before Supabase is called. A refused try is not
-    counted. When the count cannot be checked (the call fails or takes over 3
+    counted. Each code check (`/auth/email/verify`,
+    `/auth/password/signup/confirm`) is also counted against the code
+    (`20261126150100_sign_in_code_checks.sql`): after 5 checks of one email's
+    code, by the email alone (lowercased and trimmed, +tag kept, as Supabase
+    keys accounts), the route answers `401` `code_used_up`, "Too many wrong
+    codes. Tap Resend email for a new one.", even for the right code, until a
+    new code is sent (`/auth/email`, or a sign-up that sends one; a reset
+    email does not count). The new code clears only checks made before its
+    send began. Per IP, 60 wrong codes per 10 minutes across all emails, then
+    `429` `rate_limited`; a right code does not count. The place is taken
+    before Supabase checks the code, so parallel guesses cannot pass the
+    count. These limits cover the app's routes only: Supabase Auth's own
+    `/auth/v1/verify` can be called directly with the public key, so its
+    dashboard settings (README, "Sign-in limit key, in order") still matter.
+    When the count cannot be checked (the call fails or takes over 3
     seconds, or production has no key), code and password checks answer `503`
     `sign_in_busy`, "Sign-in is busy right now. Try again in a minute.", and
     emails and reset links go ahead; both are logged.
@@ -128,7 +143,7 @@ review sites for estimates, on 2026-10-15; 13 are `recommend`.
 
 | Endpoint | Role |
 | --- | --- |
-| `POST /api/v1/auth/email`, `POST /api/v1/auth/email/verify` | Send and verify a six-digit email code. When the code is what confirms the account, any password set before it is replaced with a random one and other sessions end. |
+| `POST /api/v1/auth/email`, `POST /api/v1/auth/email/verify` | Send and verify an email code: 6 digits, or 8 once Supabase is set to 8 (`web/src/lib/auth/email-code.ts`). When the code is what confirms the account, any password set before it is replaced with a random one and other sessions end. |
 | `POST /api/v1/auth/password/signup`, `POST /api/v1/auth/password/signin` | Optional password account creation and sign-in. Sign-up gives the same answer whether or not the email has an account; an existing account is emailed a sign-in code instead. |
 | `POST /api/v1/auth/password/signup/confirm` | Confirm a password sign-up with the emailed code. When this code is what confirms the account, set the chosen password and end other sessions. An account confirmed earlier keeps its password and sessions and answers `passwordChanged: false`. |
 | `POST /api/v1/auth/password/reset`, `POST /api/v1/auth/password/reset/confirm` | Request a reset email (its link, built from `APP_BASE_URL`, opens `/reset-password/confirm`) and set a password with an authenticated session. |

@@ -18,7 +18,7 @@ CENSE helps students choose a first credit card with clear, personalized guidanc
 | Frontend | Next.js 16 and TypeScript, styled with Tailwind CSS. Mobile-first web app that can be installed to the Home Screen. A native SwiftUI app follows in MVP2 and calls the same API. |
 | Backend | TypeScript on Node.js. Next.js route handlers under `/api/v1`, described by `api/openapi.yaml`. Business rules run on the server only. The reminder job runs once a day on Vercel Cron (see Reminder emails below). |
 | Database | Supabase Postgres. Schema changes only through SQL migrations in this repo. Row level security on every table that holds user data. |
-| Auth | Supabase Auth with Google and a 6-digit email code, plus optional password sign-in. Sign in with Apple is added later. |
+| Auth | Supabase Auth with Google and an emailed sign-in code (6 digits, or 8 once the hosted setting is raised), plus optional password sign-in. Sign in with Apple is added later. |
 | Hosting | Vercel. Every pull request gets a preview deployment; `main` is production. |
 | Email | Resend, for sign-in codes and reminders. |
 | Analytics and errors | PostHog, with pseudonymous IDs. |
@@ -120,7 +120,7 @@ flowchart TB
 
 | Risk | Mitigation |
 | --- | --- |
-| Google sign-in may not work inside the app once it is saved to the iPhone Home Screen. An installed web app keeps its own storage, separate from Safari, and redirect-based sign-in has reported failures there. | The 6-digit email code works in that setting and is always offered. Google sign-in is tested on a real iPhone, in Safari and from the Home Screen, before MVP1. |
+| Google sign-in may not work inside the app once it is saved to the iPhone Home Screen. An installed web app keeps its own storage, separate from Safari, and redirect-based sign-in has reported failures there. | The emailed sign-in code works in that setting and is always offered. Google sign-in is tested on a real iPhone, in Safari and from the Home Screen, before MVP1. |
 | A signed-in user can reach Supabase's data API directly, without going through our server. | Row level security on every table that holds user data, plus a test in CI (`web/e2e/cross-student.spec.ts`) that signs in as two students and proves neither can read or change the other's records, through the API or straight to the database. Narrowing the default table grants to what the API uses is still open. |
 | Card terms and links go stale, so a recommendation could rest on old facts. | Card data lives in typed files in this repo, each card with a last-verified date. It is validated in CI and changes only through a reviewed pull request. |
 | The reminder job could send a reminder twice, or stop without anyone noticing. | Each reminder is claimed once by a unique key, so a rerun cannot send it again. Each run pings a Healthchecks.io check (`REMINDER_HEARTBEAT_URL`), which emails the team when a send fails or a day passes with no run (see Reminder emails). With the variable unset, nothing alerts. |
@@ -153,7 +153,7 @@ Setup verified from a fresh clone by a second teammate: verified by Yunho on 202
 
 The journey tests (Playwright) and the seed script run against a local Supabase stack, never a hosted project. They need Docker. CI runs the same tests on every pull request (the `e2e` job in `.github/workflows/ci.yml`), so a pull request is green only when they pass.
 
-The stack's config is `supabase/config.toml` (migrations from `supabase/migrations`, sign-in emails that show the 6-digit code, Mailpit at http://127.0.0.1:54324). From the repo root:
+The stack's config is `supabase/config.toml` (migrations from `supabase/migrations`, sign-in emails that show the code, Mailpit at http://127.0.0.1:54324). From the repo root:
 
 ```bash
 npx supabase start        # first run pulls the Docker images
@@ -245,11 +245,19 @@ Before it can run:
 
 ### Sign-in limit key, in order
 
-1. Paste `supabase/migrations/20261121210000_keyed_auth_throttle.sql` (cense-preview, then production). Harmless on its own: the deployed code does not call it yet.
+1. Paste `supabase/migrations/20261121210000_keyed_auth_throttle.sql` and `supabase/migrations/20261126150100_sign_in_code_checks.sql` (cense-preview, then production). Harmless on their own: the deployed code does not call them yet. Code that calls `auth_code_check` refuses every code check (503) until the second one is in.
 2. Set `AUTH_THROTTLE_KEY` on Production and Preview, then deploy the code that calls `claim_auth_attempt_hashed`.
 3. Once that deploy is live, paste `supabase/migrations/20261121210100_retire_unkeyed_auth_throttle.sql`. On cense-preview, first rebase or merge every open branch onto this change: a preview still on the old code refuses code and password sign-ins once the retire step is in.
 
-Rolling back after step 3: run `supabase/rollbacks/20261121210100_retire_unkeyed_auth_throttle.down.sql` first, then roll back the app (Vercel Instant Rollback included), then `supabase/rollbacks/20261121210000_keyed_auth_throttle.down.sql`.
+Rolling back after step 3: run `supabase/rollbacks/20261121210100_retire_unkeyed_auth_throttle.down.sql` first, then roll back the app (Vercel Instant Rollback included), then `supabase/rollbacks/20261121210000_keyed_auth_throttle.down.sql` and `supabase/rollbacks/20261126150100_sign_in_code_checks.down.sql`.
+
+### Supabase Auth settings (Ben, in the Supabase dashboard)
+
+The app's code limits (`auth_code_check`) cover only the app's own routes. Anyone can call Supabase Auth's `/auth/v1/verify` directly with the public key. The guards there are a longer code and a short expiry (steps 1 and 3), not a tighter rate limit (step 2). These settings are not in this repo; `supabase/config.toml` holds only the local values.
+
+1. Authentication > Sign In / Providers > Email > **Email OTP expiration**: `600` seconds (hosted default 3600). Local key: `[auth.email] otp_expiry = 600`. It also sets how long reset links last, which the reset screen already assumes is 10 minutes.
+2. Authentication > Rate Limits > **Verification requests** (`/auth/v1/verify`, per IP, per 5 minutes; hosted default 30): keep 30, or raise it. Never lower it. The app checks codes from its server with the publishable key, so Supabase sees Vercel's addresses, shared by every student, and a low number would lock students out in a busy moment. When it does refuse, the app answers "Too many sign-ins right now. Try again in a minute." and the check costs the student none of their 5 tries. Local key: `[auth.rate_limit] token_verifications`; Management API `rate_limit_verify`. A later improvement, not a step now: Supabase can count the student's own address if the server sends it in `Sb-Forwarded-For`, which needs a secret key on those calls and `security_sb_forwarded_for_enabled` on the project.
+3. **Email OTP length** `8` (local key `[auth.email] otp_length`, the same Email panel), any time after this code is deployed: the code box and both verify routes take 6 or 8 digits (`web/src/lib/auth/email-code.ts`), and no screen says how many. Before deploying it, the hosted 6-digit length must stay. If the hosted email templates were edited in the dashboard, check they do not say "6-digit" (the repo's `supabase/templates/code.html` shows only the code).
 
 To run it by hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/v1/cron/reminders`. It answers with counts only: `claimed`, `sent`, `failed`, `unconfirmed` (sent but not marked), `deferred` (out of time, sent next run) and `abandoned` (failed for the third time, never tried again). Running it again the same day does not retry a failed send; that waits for the next day.
 

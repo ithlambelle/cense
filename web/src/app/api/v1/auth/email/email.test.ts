@@ -8,7 +8,12 @@ const auth = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ createStudentClient: async () => ({ auth }) }));
-const throttle = vi.hoisted(() => ({ authThrottle: vi.fn<(...args: unknown[]) => Promise<Response | null>>(async () => null) }));
+const throttle = vi.hoisted(() => ({
+  authThrottle: vi.fn<(...args: unknown[]) => Promise<Response | null>>(async () => null),
+  codeSent: vi.fn(async () => {}),
+  codeCheckPassed: vi.fn(async () => {}),
+  codeCheckNotMade: vi.fn(async () => {}),
+}));
 vi.mock("@/lib/auth/throttle", () => throttle);
 
 import { POST as verify } from "./verify/route";
@@ -83,6 +88,26 @@ describe("verifying an email code", () => {
     log.mockRestore();
   });
 
+  it("takes a 6- or 8-digit code (Supabase's code length can be raised), and nothing else", async () => {
+    auth.verifyOtp.mockResolvedValue({ data: { user: CONFIRMED_EARLIER }, error: null });
+    for (const code of ["123456", "12345678"]) {
+      expect((await verify(request({ email: "student@example.com", code }))).status, code).toBe(200);
+    }
+    for (const code of ["1234567", "123456789", "12345", "12a456", "１２３４５６"]) {
+      expect((await verify(request({ email: "student@example.com", code }))).status, code).toBe(400);
+    }
+    expect(auth.verifyOtp.mock.calls.map(([args]) => args.token)).toEqual(["123456", "12345678"]);
+  });
+
+  it("answers Supabase's own rate limit as a short wait, and gives the check's places back", async () => {
+    auth.verifyOtp.mockResolvedValue({ data: { user: null }, error: new AuthApiError("Request rate limit reached", 429, "over_request_rate_limit") });
+    const response = await verify(request(BODY));
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual({ error: { code: "rate_limited", message: "Too many sign-ins right now. Try again in a minute." } });
+    expect(throttle.codeCheckNotMade).toHaveBeenCalledWith(expect.any(Request), "student@example.com");
+    expect(throttle.codeCheckPassed).not.toHaveBeenCalled();
+  });
+
   it("checks the request before calling the provider", async () => {
     const response = await verify(request({ email: "student@example.com", code: "12345" }));
     expect(response.status).toBe(400);
@@ -98,6 +123,27 @@ describe("verifying an email code", () => {
     auth.verifyOtp.mockClear();
     const limited = await verify(request(BODY));
     expect(limited.status).toBe(429);
+    expect(auth.verifyOtp).not.toHaveBeenCalled();
+  });
+
+  it("gives the check's place back after a right code, never after a wrong one", async () => {
+    auth.verifyOtp.mockResolvedValue({ data: { user: CONFIRMED_EARLIER }, error: null });
+    await verify(request(BODY));
+    expect(throttle.codeCheckPassed).toHaveBeenCalledOnce();
+    expect(throttle.codeCheckPassed).toHaveBeenCalledWith(expect.any(Request));
+
+    throttle.codeCheckPassed.mockClear();
+    auth.verifyOtp.mockResolvedValue({ data: { user: null }, error: new AuthApiError("Token has expired or is invalid", 403, "otp_expired") });
+    await verify(request(BODY));
+    expect(throttle.codeCheckPassed).not.toHaveBeenCalled();
+  });
+
+  it("refuses a code that has had 5 tries before Supabase sees it, even the right one", async () => {
+    throttle.authThrottle.mockResolvedValueOnce(Response.json({ error: { code: "code_used_up", message: "Too many wrong codes. Tap Resend email for a new one." } }, { status: 401 }));
+    auth.verifyOtp.mockResolvedValue({ data: { user: CONFIRMED_EARLIER }, error: null });
+    const response = await verify(request(BODY));
+    expect(response.status).toBe(401);
+    expect((await response.json()).error.code).toBe("code_used_up");
     expect(auth.verifyOtp).not.toHaveBeenCalled();
   });
 });

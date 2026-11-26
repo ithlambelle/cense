@@ -30,7 +30,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Send a six-digit email code */
+        /** Send an email code (6 digits, or 8 if Supabase is set to 8) */
         post: operations["sendEmailCode"];
         delete?: never;
         options?: never;
@@ -1197,7 +1197,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
-            /** @description Wrong or expired code */
+            /** @description Wrong or expired code (invalid_code), or 5 tries on this code since it was sent (code_used_up: send a new code) */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1206,7 +1206,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
-            /** @description Too many code checks (rate_limited) */
+            /** @description Too many code checks, or too many wrong codes from this address (rate_limited) */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -1333,7 +1333,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
-            /** @description Wrong or expired code */
+            /** @description Wrong or expired code (invalid_code), or 5 tries on this code since it was sent (code_used_up: send a new code) */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1342,7 +1342,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
-            /** @description Too many code checks (rate_limited) */
+            /** @description Too many code checks, or too many wrong codes from this address (rate_limited) */
             429: {
                 headers: {
                     [name: string]: unknown;

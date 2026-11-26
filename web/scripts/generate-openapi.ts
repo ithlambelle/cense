@@ -21,6 +21,7 @@ import {
 } from "../src/lib/api/schemas";
 import { budgetLineKeySchema, budgetSchema, saveBudgetLineSchema } from "../src/lib/api/budget";
 import { askPennySchema, pennyReplySchema } from "../src/lib/api/penny";
+import { EMAIL_CODE_PATTERN } from "../src/lib/auth/email-code";
 import { planNameSchema, planProgressSchema, planStepNameSchema, planStepSchema } from "../src/lib/api/plans";
 import {
   createReapplyReminderSchema,
@@ -78,15 +79,15 @@ registry.registerPath({
   responses: { 200: ok(z.strictObject({ status: z.literal("ok"), service: z.literal("cense-api") })), 500: failure("Service unavailable") },
 });
 registry.registerPath({
-  method: "post", path: "/auth/email", operationId: "sendEmailCode", summary: "Send a six-digit email code",
+  method: "post", path: "/auth/email", operationId: "sendEmailCode", summary: "Send an email code (6 digits, or 8 if Supabase is set to 8)",
   request: { body: body(z.strictObject({ email: z.email() })) },
   responses: { 200: ok(z.strictObject({ status: z.literal("code_sent") })), 400: failure("Invalid email"), 429: failure("Too many codes sent to this email or from this address (rate_limited)"), 502: failure("Email service unavailable") },
 });
 registry.registerPath({
   method: "post", path: "/auth/email/verify", operationId: "verifyEmailCode", summary: "Verify an email code and create a session",
   description: "When this code is what confirms the account, any password set before it is replaced with a random one and other sessions end.",
-  request: { body: body(z.strictObject({ email: z.email(), code: z.string().regex(/^\d{6}$/) })) },
-  responses: { 200: ok(z.strictObject({ status: z.literal("signed_in") })), 400: failure("Invalid request"), 401: failure("Wrong or expired code"), 429: failure("Too many code checks (rate_limited)"), 502: failure("Account could not be secured"), 503: failure("The limits could not be checked (sign_in_busy)") },
+  request: { body: body(z.strictObject({ email: z.email(), code: z.string().regex(EMAIL_CODE_PATTERN) })) },
+  responses: { 200: ok(z.strictObject({ status: z.literal("signed_in") })), 400: failure("Invalid request"), 401: failure("Wrong or expired code (invalid_code), or 5 tries on this code since it was sent (code_used_up: send a new code)"), 429: failure("Too many code checks, or too many wrong codes from this address (rate_limited)"), 502: failure("Account could not be secured"), 503: failure("The limits could not be checked (sign_in_busy)") },
 });
 registry.registerPath({
   method: "post", path: "/auth/password/signup", operationId: "signUpWithPassword", summary: "Create an optional password account",
@@ -97,7 +98,7 @@ registry.registerPath({
   method: "post", path: "/auth/password/signup/confirm", operationId: "confirmPasswordSignUp", summary: "Confirm a password sign-up with the emailed code and set its password",
   description: "Sets the chosen password and ends other sessions only when this code is what confirms the account. An account confirmed earlier keeps its password and sessions, and `passwordChanged` is false.",
   request: { body: body(passwordSignUpConfirmSchema) },
-  responses: { 200: ok(z.strictObject({ status: z.literal("signed_in"), passwordChanged: z.boolean() })), 400: failure("Invalid request"), 401: failure("Wrong or expired code"), 429: failure("Too many code checks (rate_limited)"), 502: failure("Password could not be set"), 503: failure("The limits could not be checked (sign_in_busy)") },
+  responses: { 200: ok(z.strictObject({ status: z.literal("signed_in"), passwordChanged: z.boolean() })), 400: failure("Invalid request"), 401: failure("Wrong or expired code (invalid_code), or 5 tries on this code since it was sent (code_used_up: send a new code)"), 429: failure("Too many code checks, or too many wrong codes from this address (rate_limited)"), 502: failure("Password could not be set"), 503: failure("The limits could not be checked (sign_in_busy)") },
 });
 registry.registerPath({
   method: "post", path: "/auth/password/signin", operationId: "signInWithPassword", summary: "Sign in with an existing password",

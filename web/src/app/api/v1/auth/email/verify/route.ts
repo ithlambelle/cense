@@ -2,12 +2,13 @@ import { z } from "zod";
 
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { confirmedByThisCode, unusablePassword } from "@/lib/api/confirmation";
-import { authThrottle } from "@/lib/auth/throttle";
+import { CODE_CHECK_BUSY_MESSAGE, EMAIL_CODE_PATTERN } from "@/lib/auth/email-code";
+import { authThrottle, codeCheckNotMade, codeCheckPassed } from "@/lib/auth/throttle";
 import { createStudentClient } from "@/lib/supabase/server";
 
 const requestSchema = z.strictObject({
   email: z.email().max(254),
-  code: z.string().regex(/^\d{6}$/),
+  code: z.string().regex(EMAIL_CODE_PATTERN),
 });
 
 export async function POST(request: Request): Promise<Response> {
@@ -24,9 +25,18 @@ export async function POST(request: Request): Promise<Response> {
     type: "email",
   });
 
+  if (error?.status === 429) {
+    // Supabase's own limit: the code was never checked, so no try is used.
+    await codeCheckNotMade(request, parsed.data.email);
+    const busy = apiError(429, "rate_limited", CODE_CHECK_BUSY_MESSAGE);
+    busy.headers.set("Retry-After", "60");
+    return busy;
+  }
   if (error) {
     return apiError(401, "invalid_code", "The code is wrong or expired. Request a new one.");
   }
+  // Only wrong codes count against the student's address.
+  await codeCheckPassed(request);
 
   // A password set before the inbox was proven may not be the student's: anyone
   // can sign up with someone else's email. When this code is what confirms the

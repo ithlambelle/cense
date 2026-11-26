@@ -1,12 +1,14 @@
 "use client"
 
 import { TextField } from "@/components/ui/text-field"
+import { EMAIL_CODE_MAX_LENGTH } from "@/lib/auth/email-code"
 
-export const CODE_LENGTH = 6
-
-// Keeps digits only, so a pasted "482 916" or "482-916" still works.
+// Keeps digits only, so a pasted "482 916" or "9999 9999" still works. A code
+// is 6 or 8 digits (lib/auth/email-code.ts); the box keeps up to 8. The input
+// has no maxLength: the browser would cut a pasted code before its spaces
+// or dashes are stripped here.
 export function digitsOnly(value: string): string {
-  return value.replace(/\D/g, "").slice(0, CODE_LENGTH)
+  return value.replace(/\D/g, "").slice(0, EMAIL_CODE_MAX_LENGTH)
 }
 
 type CodeInputProps = {
@@ -31,8 +33,7 @@ function CodeInput({ value, onChange, label = "Verification code", error, disabl
       inputMode="numeric"
       autoComplete="one-time-code"
       pattern="[0-9]*"
-      maxLength={CODE_LENGTH + 3}
-      placeholder={`${CODE_LENGTH}-digit code`}
+      placeholder="Code from the email"
       inputClassName="tracking-[0.35em] placeholder:tracking-normal"
     />
   )

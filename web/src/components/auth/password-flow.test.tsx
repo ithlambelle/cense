@@ -67,8 +67,8 @@ describe("password sign-up and log-in", () => {
     fill("Password", "correcthorse");
     fill("Repeat password", "correcthorse");
     fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
-    // The confirmation email carries a 6-digit code, so the code step opens.
-    expect(await screen.findByText("We sent a 6-digit code to alex@email.com to confirm your account.")).toBeTruthy();
+    // The confirmation email carries a code, so the code step opens.
+    expect(await screen.findByText("We sent a code to alex@email.com to confirm your account.")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Resend email in \d+s/ })).toBeTruthy();
     // An email that already has an account gets the same answer and a sign-in code.
     expect(screen.getByText("Already have an account? This code signs you in.")).toBeTruthy();
@@ -156,7 +156,7 @@ describe("password sign-up and log-in", () => {
     fireEvent.click(screen.getByRole("button", { name: /Log in/ }));
     expect(fetchFn).toHaveBeenCalledTimes(2);
     sendCode(Response.json({ status: "code_sent" }, { status: 200 }));
-    expect(await screen.findByText("We sent a 6-digit code to alex@email.com to confirm your account.")).toBeTruthy();
+    expect(await screen.findByText("We sent a code to alex@email.com to confirm your account.")).toBeTruthy();
     expect(fetchFn.mock.calls[1][0]).toBe("/api/v1/auth/email");
     expect(JSON.parse(String(fetchFn.mock.calls[1][1]?.body))).toEqual({ email: "alex@email.com" });
     // The code confirms the account and signs the student in.

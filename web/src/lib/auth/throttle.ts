@@ -24,6 +24,12 @@ import { createServiceClient } from "@/lib/supabase/service";
 // looser per-email ceilings (and 50 code checks per email a day) stop a
 // guessing attack spread over many addresses.
 //
+// A code check is also counted against the code itself (2026-11-26,
+// auth_code_check() in 20261126150100_sign_in_code_checks.sql): 5 checks per
+// code sent, by the email alone, then the student must ask for a new code;
+// and per IP, 60 wrong codes per 10 minutes, across all emails. The code
+// count keys the email as Supabase does, +tag kept (codeEmail).
+//
 // The database never sees the email or the IP (2026-11-21). This server sends
 // only HMAC-SHA256 keys made with AUTH_THROTTLE_KEY, a random secret kept in
 // Vercel's Sensitive settings and never in the database, to
@@ -36,7 +42,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 //
 // It uses the service role: the routes run before anyone is signed in, and a
 // function the anon key could call would let anyone burn another student's or
-// a whole campus's tries directly. It calls only that one function.
+// a whole campus's tries directly. It calls only those two functions.
 //
 // When the count cannot be checked (the database call fails or takes over 3
 // seconds, or production has no service role key), code and password checks
@@ -105,7 +111,7 @@ const MIN_KEY_LENGTH = 32;
 // The key for one limit: HMAC-SHA256 of a label and the value, in lowercase
 // hex. The label keeps an email, an email with an IP and an IP from ever
 // sharing a key.
-export function throttleKey(secret: string, label: "email_ip" | "email" | "ip", value: string): string {
+export function throttleKey(secret: string, label: "email_ip" | "email" | "ip" | "code_email", value: string): string {
   return createHmac("sha256", secret).update(`${label}\n${value}`).digest("hex");
 }
 
@@ -140,16 +146,10 @@ function unchecked(action: AuthAction): Response | null {
   return response;
 }
 
-// Null when the try may go ahead. Otherwise the answer to send back, in the
-// API's error shape: 429 rate_limited past a limit, or 503 sign_in_busy when
-// a code or password check could not be counted. `email` is the one the
-// request names, or null when it names none.
-export async function authThrottle(
-  request: Request,
-  action: AuthAction,
-  email: string | null,
-  env: Record<string, string | undefined> = process.env,
-): Promise<Response | null> {
+// The service client and key to count with, or the answer to give when the
+// count cannot be made: null to let the try through, a 503 to refuse it.
+function counter(action: AuthAction, env: Record<string, string | undefined>):
+  { client: ReturnType<typeof createServiceClient>; secret: string } | { answer: Response | null } {
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!serviceRoleKey) {
     // A local run or preview without the key is normal: no limits there.
@@ -158,7 +158,7 @@ export async function authThrottle(
       warnedNotConfigured = true;
       console.error(JSON.stringify({ event: "auth_throttle_not_configured", missing: ["SUPABASE_SERVICE_ROLE_KEY"] }));
     }
-    return env.VERCEL_ENV === "production" ? unchecked(action) : null;
+    return { answer: env.VERCEL_ENV === "production" ? unchecked(action) : null };
   }
 
   const secret = env.AUTH_THROTTLE_KEY?.trim();
@@ -169,30 +169,136 @@ export async function authThrottle(
     // found quickly.
     console.error(JSON.stringify(secret ? { event: "auth_throttle_not_configured", invalid: ["AUTH_THROTTLE_KEY"], reason: "too_short" } : { event: "auth_throttle_not_configured", missing: ["AUTH_THROTTLE_KEY"] }));
   }
-  if (!keyed && env.VERCEL_ENV === "production") return unchecked(action);
+  if (!keyed && env.VERCEL_ENV === "production") return { answer: unchecked(action) };
+  return { client: createServiceClient(serviceRoleKey), secret: keyed ?? STAND_IN_KEY };
+}
 
-  let wait: unknown;
+const FAILED = Symbol("failed");
+
+// One call to a counting function, cut off after CLAIM_TIMEOUT_MS. FAILED
+// when it errors or times out, logged with the error code only: never the
+// email or the IP.
+async function count(
+  client: ReturnType<typeof createServiceClient>,
+  fn: "claim_auth_attempt_hashed" | "auth_code_check",
+  args: Record<string, string | number | null>,
+  action: AuthAction,
+  operation = "auth_throttle",
+): Promise<unknown> {
   try {
-    const { data, error } = await createServiceClient(serviceRoleKey)
-      .rpc("claim_auth_attempt_hashed", {
-        p_action: action,
-        ...throttleKeys(keyed ?? STAND_IN_KEY, throttleEmail(email), clientIp(request.headers, env)),
-      })
-      .abortSignal(AbortSignal.timeout(CLAIM_TIMEOUT_MS));
-    if (error) {
-      // The code only: never the email or the IP.
-      console.error(JSON.stringify({ event: "database_error", operation: "auth_throttle", action, code: error.code }));
-      return unchecked(action);
-    }
-    wait = data;
+    const { data, error } = await client.rpc(fn, args).abortSignal(AbortSignal.timeout(CLAIM_TIMEOUT_MS));
+    if (!error) return data;
+    console.error(JSON.stringify({ event: "database_error", operation, action, code: error.code }));
   } catch {
-    console.error(JSON.stringify({ event: "database_error", operation: "auth_throttle", action, code: "fetch_failed" }));
-    return unchecked(action);
+    console.error(JSON.stringify({ event: "database_error", operation, action, code: "fetch_failed" }));
   }
+  return FAILED;
+}
 
-  if (typeof wait !== "number" || !Number.isFinite(wait) || wait <= 0) return null;
+function isWait(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+function tooMany(wait: number): Response {
   const seconds = Math.min(86_400, Math.ceil(wait));
   const response = apiError(429, "rate_limited", waitMessage(seconds));
   response.headers.set("Retry-After", String(seconds));
   return response;
+}
+
+// Null when the try may go ahead. Otherwise the answer to send back, in the
+// API's error shape: 429 rate_limited past a limit, or 503 sign_in_busy when
+// a code or password check could not be counted. `email` is the one the
+// request names, or null when it names none.
+//
+// A code check ("verify") is then also counted against that code
+// (auth_code_check(), 20261126150100_sign_in_code_checks.sql): after 5 checks
+// since the email's last code was sent, it answers 401 code_used_up until a
+// new code is sent (call codeSent), and 429 once the IP has made too many
+// wrong checks. The check's place is taken before the code is checked, so
+// parallel guesses cannot slip past; call codeCheckPassed after a right code.
+export async function authThrottle(
+  request: Request,
+  action: AuthAction,
+  email: string | null,
+  env: Record<string, string | undefined> = process.env,
+): Promise<Response | null> {
+  const ready = counter(action, env);
+  if ("answer" in ready) return ready.answer;
+  const keys = throttleKeys(ready.secret, throttleEmail(email), clientIp(request.headers, env));
+
+  const wait = await count(ready.client, "claim_auth_attempt_hashed", { p_action: action, ...keys }, action);
+  if (wait === FAILED) return unchecked(action);
+  if (isWait(wait)) return tooMany(wait);
+  if (action !== "verify") return null;
+
+  const counted = codeEmail(email);
+  const code = await count(ready.client, "auth_code_check", {
+    p_step: "claim",
+    p_email_hash: counted ? throttleKey(ready.secret, "code_email", counted) : null,
+    p_ip_hash: keys.p_ip_hash,
+    p_send_ms: null,
+  }, action);
+  if (code === FAILED) return unchecked(action);
+  if (code === -1) return apiError(401, "code_used_up", CODE_USED_UP_MESSAGE);
+  if (isWait(code)) return tooMany(code);
+  return null;
+}
+
+export const CODE_USED_UP_MESSAGE = "Too many wrong codes. Tap Resend email for a new one.";
+
+// After a right code: gives that check's place back, so only wrong codes
+// count against the IP. Only the IP limits give places back, so off Vercel
+// (no IP) nothing is called. A failure is logged and the place stays taken.
+export async function codeCheckPassed(request: Request, env: Record<string, string | undefined> = process.env): Promise<void> {
+  const ip = clientIp(request.headers, env);
+  if (!ip) return;
+  const ready = counter("verify", env);
+  if ("answer" in ready) return;
+  await count(ready.client, "auth_code_check", { p_step: "give_back", p_email_hash: null, p_ip_hash: throttleKey(ready.secret, "ip", ip), p_send_ms: null }, "verify", "auth_code_passed");
+}
+
+// After Supabase refused a code check with its own rate limit, so the code
+// was never checked: gives back both the email's place and the IP's, so it
+// uses up none of the student's 5 tries. A failure is logged and the places
+// stay taken.
+export async function codeCheckNotMade(request: Request, email: string, env: Record<string, string | undefined> = process.env): Promise<void> {
+  const counted = codeEmail(email);
+  const ip = clientIp(request.headers, env);
+  if (!counted && !ip) return;
+  const ready = counter("verify", env);
+  if ("answer" in ready) return;
+  await count(ready.client, "auth_code_check", {
+    p_step: "give_back",
+    p_email_hash: counted ? throttleKey(ready.secret, "code_email", counted) : null,
+    p_ip_hash: ip ? throttleKey(ready.secret, "ip", ip) : null,
+    p_send_ms: null,
+  }, "verify", "auth_code_not_made");
+}
+
+// The email as the code count keys it: lowercased and trimmed, +tag KEPT.
+// Supabase treats ana+1@x.com as its own account with its own code, so
+// sending ana+1@ a code must never restart ana@'s count. (The time limits use
+// throttleEmail, which drops the tag, so that a+1@ and a+2@ share them.)
+export function codeEmail(email: string | null): string | null {
+  return email?.trim().toLowerCase() || null;
+}
+
+// After Supabase has sent a new code to `email`: the email's code count
+// starts again, except for checks made since the send began (`sendMs`
+// milliseconds ago), which may already have met the new code. Only after a
+// send that worked, so a refused send (Supabase's own wait between emails)
+// never gives the old code more tries. A failure is logged; the student then
+// sees code_used_up and can send again.
+export async function codeSent(email: string, sendMs: number, env: Record<string, string | undefined> = process.env): Promise<void> {
+  const counted = codeEmail(email);
+  if (!counted) return;
+  const ready = counter("send", env);
+  if ("answer" in ready) return;
+  await count(ready.client, "auth_code_check", {
+    p_step: "new_code",
+    p_email_hash: throttleKey(ready.secret, "code_email", counted),
+    p_ip_hash: null,
+    p_send_ms: Math.max(0, Math.round(sendMs)),
+  }, "send", "auth_code_sent");
 }

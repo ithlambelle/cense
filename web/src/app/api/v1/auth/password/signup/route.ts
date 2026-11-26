@@ -1,7 +1,7 @@
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { authCallbackUrl, passwordCredentialsSchema } from "@/lib/api/password";
 import { emailLinkOrigin, logMissingAppBaseUrl } from "@/lib/auth/email-links";
-import { authThrottle } from "@/lib/auth/throttle";
+import { authThrottle, codeSent } from "@/lib/auth/throttle";
 import { createCookielessClient, createStudentClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request): Promise<Response> {
@@ -23,6 +23,8 @@ export async function POST(request: Request): Promise<Response> {
   const origin = emailLinkOrigin(request.url);
   if (!origin) logMissingAppBaseUrl("auth/password/signup");
   const supabase = await createStudentClient();
+  // When the email went out, for codeSent: checks made since may have met the new code.
+  let sendStarted = Date.now();
   const { data, error } = await supabase.auth.signUp({
     ...parsed.data,
     options: origin ? { emailRedirectTo: authCallbackUrl(origin, "/sign-in?confirmed=1") } : undefined,
@@ -38,6 +40,7 @@ export async function POST(request: Request): Promise<Response> {
     (!error && Array.isArray(data.user?.identities) && data.user.identities.length === 0);
   if (existing) {
     // Cookieless, so the response carries the same cookies as a new account's.
+    sendStarted = Date.now();
     const { error: otpError } = await createCookielessClient().auth.signInWithOtp({
       email: parsed.data.email,
       options: { shouldCreateUser: false },
@@ -45,6 +48,7 @@ export async function POST(request: Request): Promise<Response> {
     // Only the code: the email must not reach the logs. A failed send keeps
     // the same answer, and the code screen offers Resend.
     if (otpError) console.error("Sign-in code for an existing account failed", { code: otpError.code, status: otpError.status });
+    else await codeSent(parsed.data.email, Date.now() - sendStarted);
     return checkEmail();
   }
 
@@ -54,9 +58,11 @@ export async function POST(request: Request): Promise<Response> {
     return apiError(502, "sign_up_failed", "We could not create your account. Please try again.");
   }
 
-  return data.session
-    ? Response.json({ status: "signed_in" }, { headers: { "Cache-Control": "no-store" } })
-    : checkEmail();
+  if (data.session) return Response.json({ status: "signed_in" }, { headers: { "Cache-Control": "no-store" } });
+  // A confirmation code was sent: the email's 5 tries start again, exactly
+  // as for an existing account above.
+  await codeSent(parsed.data.email, Date.now() - sendStarted);
+  return checkEmail();
 }
 
 function checkEmail(): Response {

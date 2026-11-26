@@ -1060,7 +1060,7 @@ paths:
   /auth/email:
     post:
       operationId: sendEmailCode
-      summary: Send a six-digit email code
+      summary: Send an email code (6 digits, or 8 if Supabase is set to 8)
       requestBody:
         content:
           application/json:
@@ -1123,7 +1123,7 @@ paths:
                   format: email
                 code:
                   type: string
-                  pattern: ^\d{6}$
+                  pattern: ^(?:\d{6}|\d{8})$
               required:
                 - email
                 - code
@@ -1150,13 +1150,15 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "401":
-          description: Wrong or expired code
+          description: "Wrong or expired code (invalid_code), or 5 tries on this code
+            since it was sent (code_used_up: send a new code)"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "429":
-          description: Too many code checks (rate_limited)
+          description: Too many code checks, or too many wrong codes from this address
+            (rate_limited)
           content:
             application/json:
               schema:
@@ -1248,7 +1250,7 @@ paths:
                   format: email
                 code:
                   type: string
-                  pattern: ^\d{6}$
+                  pattern: ^(?:\d{6}|\d{8})$
                 password:
                   type: string
                   minLength: 8
@@ -1283,13 +1285,15 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "401":
-          description: Wrong or expired code
+          description: "Wrong or expired code (invalid_code), or 5 tries on this code
+            since it was sent (code_used_up: send a new code)"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "429":
-          description: Too many code checks (rate_limited)
+          description: Too many code checks, or too many wrong codes from this address
+            (rate_limited)
           content:
             application/json:
               schema:
