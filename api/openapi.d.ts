@@ -625,7 +625,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create a Plaid Link token: a new bank, or update mode for one that needs a new sign-in */
+        /**
+         * Create a Plaid Link token: a new bank, or update mode for one that needs a new sign-in
+         * @description With PLAID_ENV production, only pilot students get one (403 pilot_only), and a new bank only while their allowance and the pilot's Item budget have room (503 bank_link_full).
+         */
         post: operations["createBankLinkToken"];
         delete?: never;
         options?: never;
@@ -642,7 +645,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Link a bank: exchange Link's public token on the server and read the balances once */
+        /**
+         * Link a bank: exchange Link's public token on the server and read the balances once
+         * @description With PLAID_ENV production, only pilot students may link (403 pilot_only), and each exchange first takes one slot of their allowance and of the pilot's Item budget, never given back (503 bank_link_full when none is left; the public token is not exchanged). A failed exchange after the slot was taken answers 502 pilot_link_failed, since trying again would only meet bank_link_full.
+         */
         post: operations["createBankLink"];
         /** Disconnect: delete the token, balances, transactions and answers now; an Item Plaid did not remove is queued and removed at Plaid later */
         delete: operations["deleteBankLink"];
@@ -3385,6 +3391,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Not in the pilot */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
             /** @description Already linked, or link again */
             409: {
                 headers: {
@@ -3394,7 +3409,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
-            /** @description Plaid unreachable */
+            /** @description Plaid unreachable, or the pilot exchange failed (pilot_link_failed) */
             502: {
                 headers: {
                     [name: string]: unknown;
@@ -3403,7 +3418,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
-            /** @description Data unavailable or safe to spend off */
+            /** @description Data unavailable, safe to spend off, or no room for a new bank */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -3456,6 +3471,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
+            /** @description Not in the pilot */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
             /** @description Already linked */
             409: {
                 headers: {
@@ -3465,7 +3489,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
-            /** @description Plaid unreachable */
+            /** @description Plaid unreachable, or the pilot exchange failed (pilot_link_failed) */
             502: {
                 headers: {
                     [name: string]: unknown;
@@ -3474,7 +3498,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
-            /** @description Data unavailable or safe to spend off */
+            /** @description Data unavailable, safe to spend off, or no room for a new bank */
             503: {
                 headers: {
                     [name: string]: unknown;

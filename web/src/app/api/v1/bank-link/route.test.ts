@@ -27,7 +27,7 @@ vi.mock("@/lib/plaid/transactions", () => transactions);
 
 import { DELETE, POST } from "./route";
 
-const CONFIG = { clientId: "c", secret: "s", baseUrl: "https://sandbox.plaid.com", tokenKey: Buffer.alloc(32) };
+const CONFIG = { clientId: "c", secret: "s", baseUrl: "https://sandbox.plaid.com", environment: "sandbox" as const, tokenKey: Buffer.alloc(32) };
 const SAFE_TO_SPEND = { institutionName: "First Platypus Bank", dailyCents: 633 };
 const ACCOUNTS = {
   ok: true,
@@ -215,5 +215,88 @@ describe("DELETE /bank-link", () => {
     expect((await DELETE()).status).toBe(404);
     auth.authenticatedStudent.mockResolvedValueOnce(null);
     expect((await DELETE()).status).toBe(401);
+  });
+});
+
+// Created with Claude Code (2026-11-25). The production pilot
+// (lib/plaid/pilot.ts runs for real against these database answers).
+describe("POST /bank-link in production", () => {
+  const PRODUCTION = { ...CONFIG, baseUrl: "https://production.plaid.com", environment: "production" as const };
+  const rpc = vi.fn();
+  const pilot = (answers: { access?: string; claim?: boolean }) =>
+    rpc.mockImplementation(async (name: string) => {
+      if (name === "plaid_pilot_access") return { data: answers.access ?? "open", error: null };
+      if (name === "claim_plaid_item_slot") return { data: answers.claim ?? true, error: null };
+      return { data: null, error: { message: `unexpected ${name}` } };
+    });
+
+  beforeEach(() => {
+    config.plaidConfig.mockReturnValue(PRODUCTION);
+    auth.authenticatedStudent.mockResolvedValue({ supabase: { rpc }, studentId: "student-1", email: null });
+  });
+  afterEach(() => rpc.mockReset());
+
+  it("links a pilot student's bank after taking a slot, before the exchange", async () => {
+    pilot({ access: "open", claim: true });
+    const response = await post({ publicToken: "public-production-1" });
+    expect(response.status).toBe(201);
+    expect(rpc).toHaveBeenCalledWith("claim_plaid_item_slot");
+    expect(rpc.mock.invocationCallOrder[1]).toBeLessThan(plaid.exchangePublicToken.mock.invocationCallOrder[0]);
+    expect(plaid.exchangePublicToken).toHaveBeenCalledWith(PRODUCTION, "public-production-1");
+  });
+
+  it("refuses a student outside the pilot without taking a slot or calling Plaid", async () => {
+    pilot({ access: "none" });
+    const response = await post({ publicToken: "public-production-1" });
+    expect(response.status).toBe(403);
+    expect((await response.json()).error.code).toBe("pilot_only");
+    expect(rpc).not.toHaveBeenCalledWith("claim_plaid_item_slot");
+    expect(plaid.exchangePublicToken).not.toHaveBeenCalled();
+  });
+
+  it("refuses when no slot is left, and never exchanges the public token", async () => {
+    pilot({ access: "open", claim: false });
+    const response = await post({ publicToken: "public-production-1" });
+    expect(response.status).toBe(503);
+    expect((await response.json()).error.code).toBe("bank_link_full");
+    expect(plaid.exchangePublicToken).not.toHaveBeenCalled();
+  });
+
+  it("refuses a second bank before taking a slot", async () => {
+    pilot({ access: "open" });
+    store.linkStatus.mockResolvedValue({ ok: true, value: "active" });
+    const response = await post({ publicToken: "public-production-1" });
+    expect(response.status).toBe(409);
+    expect(rpc).not.toHaveBeenCalledWith("claim_plaid_item_slot");
+  });
+
+  it("keeps the slot taken when the exchange fails, and says so instead of 'try again', which would only meet bank_link_full", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    pilot({ access: "open", claim: true });
+    for (const failure of [{ ok: false, kind: "network" }, { ok: false, kind: "plaid", code: "INVALID_PUBLIC_TOKEN" }]) {
+      plaid.exchangePublicToken.mockResolvedValueOnce(failure);
+      const response = await post({ publicToken: "public-production-1" });
+      expect(response.status).toBe(502);
+      const body = await response.json();
+      expect(body.error.code).toBe("pilot_link_failed");
+      expect(body.error.message).not.toMatch(/try again/i);
+    }
+    expect(rpc.mock.calls.filter(([name]) => name === "claim_plaid_item_slot")).toHaveLength(2);
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("plaid_pilot_slot_lost"));
+  });
+
+  it("refuses when the pilot cannot be read, before Plaid is called", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "42883", message: "function does not exist" } });
+    const response = await post({ publicToken: "public-production-1" });
+    expect(response.status).toBe(503);
+    expect((await response.json()).error.code).toBe("data_unavailable");
+    expect(plaid.exchangePublicToken).not.toHaveBeenCalled();
+  });
+
+  it("never asks the pilot in the sandbox", async () => {
+    config.plaidConfig.mockReturnValue(CONFIG);
+    const response = await post({ publicToken: "public-sandbox-1" });
+    expect(response.status).toBe(201);
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

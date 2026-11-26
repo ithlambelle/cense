@@ -404,6 +404,37 @@ describe("Accounts (709:1609) and the disconnect sheet (709:1664)", () => {
   });
 });
 
+// Created with Claude Code (2026-11-25). The production pilot: a broken link
+// is never deleted in the hope of linking again when the student has no room.
+describe("Accounts in the production pilot", () => {
+  it("offers no Connect again to a student with no room left, and says who can help", () => {
+    render(<AccountsView data={{ ...DATA, status: "relink_needed" }} canLink={false} canUpdate sandbox={false} />);
+    expect(screen.queryByRole("button", { name: "Connect again" })).toBeNull();
+    expect(screen.getByText("To connect a bank again, ask the Cense team for a new pilot spot.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Disconnect bank" })).toBeTruthy();
+  });
+
+  it("still offers Reconnect (signing in again uses no new spot) to a student still in the pilot", () => {
+    render(<AccountsView data={{ ...DATA, status: "reconnect_needed" }} canLink={false} canUpdate sandbox={false} />);
+    expect(screen.getByRole("button", { name: "Reconnect your bank" })).toBeTruthy();
+  });
+
+  it("offers no Reconnect to a student taken off the pilot", () => {
+    render(<AccountsView data={{ ...DATA, status: "reconnect_needed" }} canLink={false} canUpdate={false} sandbox={false} />);
+    expect(screen.queryByRole("button", { name: "Reconnect your bank" })).toBeNull();
+  });
+
+  it("warns before Disconnect that it is the student's last link, and only then", () => {
+    render(<AccountsView data={DATA} canLink={false} canUpdate sandbox={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect bank" }));
+    expect(screen.getByText("You can’t connect a bank again without a new pilot spot.")).toBeTruthy();
+    cleanup();
+    render(<AccountsView data={DATA} />);
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect bank" }));
+    expect(screen.queryByText(/pilot spot/)).toBeNull();
+  });
+});
+
 describe("words", () => {
   it("never tells a student what to do, on Today, This month, Short, errors or Accounts", async () => {
     const screens = [
@@ -412,6 +443,7 @@ describe("words", () => {
       () => render(<YourMoneyView tab="month" data={DATA} budget={budget()} today={5} />),
       () => render(<YourMoneyView tab="month" data={DATA} budget={budget({ incomeCents: null, totals: [], hasBankData: false })} today={5} />),
       () => render(<AccountsView data={DATA} />),
+      () => render(<AccountsView data={{ ...DATA, status: "relink_needed" }} canLink={false} canUpdate sandbox={false} />),
     ];
     for (const show of screens) {
       show();

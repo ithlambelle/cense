@@ -22,7 +22,8 @@ import styles from "./welcome.module.css";
 // go". W2 never moves on by itself (Ben, on the W2 card): the student reads
 // at their own pace. "Let's go" saves that the welcome is done
 // (PUT /me/welcome) before it moves on, so the welcome never comes back, then
-// opens Link your bank (E1), or Your next step where safe to spend is off.
+// opens Link your bank (E1), or Your next step where the student cannot link
+// a bank, and W2's line says which.
 
 export const ADVANCE_MS = 1500;
 
@@ -33,6 +34,9 @@ export const WELCOME_COPY = {
   helloLine: "Hi, I’m Penny.",
   goTitle: "Let’s make money make Cense!",
   goLine: "First, link your bank so I can find your next step.",
+  // When "Let's go" leads to Your next step instead (no bank to link: safe to
+  // spend is off, or, with real banks, the student is not in the pilot).
+  goLineNoBank: "First, let’s find your next step.",
   goAction: "Let’s go",
 } as const;
 
@@ -152,7 +156,9 @@ function LetsGo({ next }: { next: string }) {
         <h1 ref={heading} tabIndex={-1} className="font-heading text-h1 font-medium text-balance text-white outline-none">
           {WELCOME_COPY.goTitle}
         </h1>
-        <p className="text-body-m text-pretty text-white/70">{WELCOME_COPY.goLine}</p>
+        <p className="text-body-m text-pretty text-white/70">
+          {next === ROUTES.startLinkBank ? WELCOME_COPY.goLine : WELCOME_COPY.goLineNoBank}
+        </p>
       </div>
       <div className="flex-1" />
       <div

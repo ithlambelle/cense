@@ -3074,6 +3074,9 @@ paths:
       operationId: createBankLinkToken
       summary: "Create a Plaid Link token: a new bank, or update mode for one that
         needs a new sign-in"
+      description: With PLAID_ENV production, only pilot students get one (403
+        pilot_only), and a new bank only while their allowance and the pilot's
+        Item budget have room (503 bank_link_full).
       security:
         - studentSession: []
       responses:
@@ -3089,6 +3092,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Not in the pilot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
         "409":
           description: Already linked, or link again
           content:
@@ -3096,13 +3105,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "502":
-          description: Plaid unreachable
+          description: Plaid unreachable, or the pilot exchange failed (pilot_link_failed)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "503":
-          description: Data unavailable or safe to spend off
+          description: Data unavailable, safe to spend off, or no room for a new bank
           content:
             application/json:
               schema:
@@ -3112,6 +3121,12 @@ paths:
       operationId: createBankLink
       summary: "Link a bank: exchange Link's public token on the server and read the
         balances once"
+      description: With PLAID_ENV production, only pilot students may link (403
+        pilot_only), and each exchange first takes one slot of their allowance
+        and of the pilot's Item budget, never given back (503 bank_link_full
+        when none is left; the public token is not exchanged). A failed exchange
+        after the slot was taken answers 502 pilot_link_failed, since trying
+        again would only meet bank_link_full.
       security:
         - studentSession: []
       requestBody:
@@ -3146,6 +3161,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Not in the pilot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
         "409":
           description: Already linked
           content:
@@ -3153,13 +3174,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "502":
-          description: Plaid unreachable
+          description: Plaid unreachable, or the pilot exchange failed (pilot_link_failed)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "503":
-          description: Data unavailable or safe to spend off
+          description: Data unavailable, safe to spend off, or no room for a new bank
           content:
             application/json:
               schema:

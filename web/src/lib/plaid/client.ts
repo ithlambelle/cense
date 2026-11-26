@@ -20,7 +20,9 @@ export type PlaidFailure =
   // No answer: offline, timed out, refused.
   | { ok: false; kind: "network" }
   // An answer that is not the shape Plaid documents.
-  | { ok: false; kind: "unexpected" };
+  | { ok: false; kind: "unexpected" }
+  // Never sent: the access token belongs to the other Plaid environment.
+  | { ok: false; kind: "wrong_environment" };
 
 export type PlaidResult<T> = { ok: true; data: T } | PlaidFailure;
 
@@ -30,7 +32,24 @@ const errorSchema = z.object({
   request_id: z.string().optional(),
 });
 
+// Plaid's access tokens name their environment (access-sandbox-...,
+// access-production-...). A token from the other one is never sent: Plaid
+// would answer INVALID_ACCESS_TOKEN, which reads as "already gone", so
+// Disconnect and the cleanup queue would drop a real Item without removing it
+// at Plaid, and a sandbox link would pass for a real bank. Instead the call
+// fails, Disconnect queues the Item, and the cleanup retries it until the app
+// is back in the token's environment (README, "Production pilot").
+export function tokenEnvironment(accessToken: string): "sandbox" | "production" | null {
+  const match = /^access-(sandbox|production)-/.exec(accessToken);
+  return match ? (match[1] as "sandbox" | "production") : null;
+}
+
 async function call<T>(config: PlaidConfig, path: string, body: Record<string, unknown>, schema: z.ZodType<T>): Promise<PlaidResult<T>> {
+  const token = typeof body.access_token === "string" ? tokenEnvironment(body.access_token) : null;
+  if (token !== null && token !== config.environment) {
+    console.error(JSON.stringify({ event: "plaid_token_wrong_environment", path, token, app: config.environment }));
+    return { ok: false, kind: "wrong_environment" };
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {

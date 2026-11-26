@@ -15,7 +15,7 @@ import type { TokenKey } from "./token-box";
 import { removeBankLinksForStudent } from "./unlink";
 
 const STUDENT = { supabase: {}, studentId: "student-1", email: null } as unknown as Student;
-const CONFIG: PlaidConfig = { clientId: "c", secret: "s", baseUrl: "https://sandbox.plaid.com", tokenKey: Buffer.alloc(32) as TokenKey };
+const CONFIG: PlaidConfig = { clientId: "c", secret: "s", baseUrl: "https://sandbox.plaid.com", environment: "sandbox" as const, tokenKey: Buffer.alloc(32) as TokenKey };
 const token = (n: number) => ({ kind: "token", itemId: `item-${n}`, accessToken: `access-${n}` });
 const PLAID_DOWN = { ok: false, kind: "network" };
 const ALREADY_GONE = { ok: false, kind: "plaid", code: "ITEM_NOT_FOUND" };

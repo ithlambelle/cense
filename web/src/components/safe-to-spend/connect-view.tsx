@@ -24,7 +24,7 @@ const UNAVAILABLE = "We couldn’t open Plaid. Check your connection, then try a
 type Note = { kind: "info" | "error"; text: string } | null;
 
 // "Link your bank" (Flow 5 C1, Figma 821:9643; the same screen as Flow 1 E1,
-// 821:8502): what Cense reads and keeps, then Plaid Link in the sandbox. Link
+// 821:8502): what Cense reads and keeps, then Plaid Link. Link
 // hands back a one-time public token; the server exchanges it and keeps the
 // access token, so the browser never holds it.
 //
@@ -33,7 +33,9 @@ type Note = { kind: "info" | "error"; text: string } | null;
 // (N3, 821:8701) instead of Home, and it arrives from the welcome as drawn:
 // Penny shrinks into the corner as the screen slides up (CSS only; still
 // with reduced motion). Linking goes where it always does, the questions.
-export function ConnectView({ firstLogin = false }: { firstLogin?: boolean }) {
+// `sandbox` (PLAID_ENV sandbox, test banks) adds the "Sandbox only" note under
+// Preview; with real banks for the pilot it is left out.
+export function ConnectView({ firstLogin = false, sandbox }: { firstLogin?: boolean; sandbox: boolean }) {
   const router = useRouter();
   const isMounted = useIsMounted();
   const [pending, setPending] = useState(false);
@@ -122,14 +124,14 @@ export function ConnectView({ firstLogin = false }: { firstLogin?: boolean }) {
             {SAFE_TO_SPEND_COPY.connectSkip}
           </Link>
           {/* The frame's footer (821:9662), without its Privacy Policy line
-              until a public policy page exists. Preview and the sandbox note
-              stay until real bank data is live; they sit here, in the
-              footer's own type, so the rest of the frame is as drawn. */}
+              until a public policy page exists. Preview stays; the sandbox
+              note only on test banks. They sit here, in the footer's own
+              type, so the rest of the frame is as drawn. */}
           <div className="flex flex-col text-[13px] leading-[18px] text-indigo-black/70">
             <p>{SAFE_TO_SPEND_COPY.securedBy}</p>
             <p className="flex items-center gap-2">
               <PreviewLabel className="leading-[18px]" />
-              <span>{SAFE_TO_SPEND_COPY.sandboxNote}</span>
+              {sandbox ? <span>{SAFE_TO_SPEND_COPY.sandboxNote}</span> : null}
             </p>
           </div>
         </main>

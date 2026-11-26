@@ -26,7 +26,7 @@ const TOKEN = { ok: true, value: { kind: "token", itemId: "item-1", accessToken:
 
 beforeEach(() => {
   auth.authenticatedStudent.mockResolvedValue({ supabase: {}, studentId: "student-1", email: null });
-  config.plaidConfig.mockReturnValue({ clientId: "c", secret: "s", baseUrl: "https://sandbox.plaid.com", tokenKey: Buffer.alloc(32) });
+  config.plaidConfig.mockReturnValue({ clientId: "c", secret: "s", baseUrl: "https://sandbox.plaid.com", environment: "sandbox" as const, tokenKey: Buffer.alloc(32) });
   store.readAccessToken.mockResolvedValue(TOKEN);
   store.saveBalances.mockResolvedValue({ ok: true, value: true });
   store.markLinkStatus.mockResolvedValue({ ok: true, value: null });
@@ -87,6 +87,12 @@ describe("POST /bank-link/refresh", () => {
     expect((await (await POST()).json()).error.code).toBe("relink_needed");
     expect(store.markLinkStatus.mock.calls.map((call) => call[1])).toEqual(["relink_needed", "relink_needed"]);
     expect(store.saveBalances).not.toHaveBeenCalled();
+  });
+
+  it("saves that the link must be made again when its token is from the other Plaid environment", async () => {
+    plaid.getAccounts.mockResolvedValue({ ok: false, kind: "wrong_environment" });
+    expect((await (await POST()).json()).error.code).toBe("relink_needed");
+    expect(store.markLinkStatus).toHaveBeenCalledWith(expect.anything(), "relink_needed");
   });
 
   it("keeps the old numbers when the bank is down", async () => {

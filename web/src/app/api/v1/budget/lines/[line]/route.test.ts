@@ -26,7 +26,7 @@ const del = () => new Request("http://test", { method: "DELETE" });
 
 beforeEach(() => {
   auth.authenticatedStudent.mockResolvedValue(STUDENT);
-  config.plaidConfig.mockReturnValue({ clientId: "c", secret: "s", baseUrl: "https://sandbox.plaid.com", tokenKey: Buffer.alloc(32) });
+  config.plaidConfig.mockReturnValue({ clientId: "c", secret: "s", baseUrl: "https://sandbox.plaid.com", environment: "sandbox" as const, tokenKey: Buffer.alloc(32) });
   plaidStore.loadSafeToSpend.mockResolvedValue({ ok: true, value: { setAsideCents: 10000 } });
   store.loadBudget.mockResolvedValue({ ok: true, value: BUDGET });
   store.saveBudgetLine.mockResolvedValue({ ok: true, value: true });

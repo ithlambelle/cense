@@ -15,11 +15,14 @@ import { ErrorMessage } from "@/components/ui/error-message";
 import { Sheet } from "@/components/ui/sheet";
 import { disconnectBank } from "@/lib/api-client/safe-to-spend";
 import { ROUTES, signInPath } from "@/lib/routes";
+import { SAFE_TO_SPEND_COPY } from "@/lib/safe-to-spend/copy";
 import { useIsMounted } from "@/lib/use-is-mounted";
 
 const LINK = "text-violet underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-ring";
 
-export function DisconnectSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+// lastLink: in the production pilot, a student with no room left cannot link
+// a bank again after this, so the sheet says so before they choose.
+export function DisconnectSheet({ open, onOpenChange, lastLink = false }: { open: boolean; onOpenChange: (open: boolean) => void; lastLink?: boolean }) {
   const router = useRouter();
   const isMounted = useIsMounted();
   const [pending, setPending] = useState(false);
@@ -76,6 +79,7 @@ export function DisconnectSheet({ open, onOpenChange }: { open: boolean; onOpenC
           </span>
         </li>
       </ul>
+      {lastLink ? <p className="text-body-s font-semibold text-navy">{SAFE_TO_SPEND_COPY.pilotLastLink}</p> : null}
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
       <Button type="button" pending={pending} onClick={disconnect}>
         Disconnect

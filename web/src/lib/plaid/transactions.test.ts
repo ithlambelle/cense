@@ -12,7 +12,7 @@ import type { PlaidConfig } from "./config";
 import type { TokenKey } from "./token-box";
 import { KEEP_DAYS, loadSpending, MAX_SYNC_PAGES, oldestKeptDate, syncStudentTransactions, toStoredTransaction } from "./transactions";
 
-const CONFIG: PlaidConfig = { clientId: "c", secret: "s", baseUrl: "https://sandbox.plaid.com", tokenKey: Buffer.alloc(32) as TokenKey };
+const CONFIG: PlaidConfig = { clientId: "c", secret: "s", baseUrl: "https://sandbox.plaid.com", environment: "sandbox" as const, tokenKey: Buffer.alloc(32) as TokenKey };
 
 // A fixed today, so the 180-day window never moves under the tests.
 const NOW = new Date("2026-11-07T15:00:00Z");

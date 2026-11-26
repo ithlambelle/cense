@@ -38,7 +38,9 @@ export async function POST(): Promise<Response> {
       if (!marked.ok) return databaseError("bank_link_mark_status", marked.error);
       return reconnectNeeded();
     }
-    if (itemAlreadyGone(accounts)) return relink();
+    // Gone at Plaid, or made in the other environment (a sandbox link after
+    // the switch to production): only linking again helps.
+    if (itemAlreadyGone(accounts) || accounts.kind === "wrong_environment") return relink();
     return bankUnreachable();
   }
 

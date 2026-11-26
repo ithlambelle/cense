@@ -47,8 +47,10 @@ type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 // `celebrateId` is the card Mark result just approved (?celebrate=),
 // celebrated once. `sampleStars` is for the dev gallery only: the approved or
 // denied card shows these stars and never calls the API (its sample card does
-// not exist there). `safeToSpend` is the student's sandbox bank link (null:
-// none yet); left out when safe to spend is off. `comingUp` is Coming up's
+// not exist there). `safeToSpend` is the student's bank link (null: none yet,
+// so Home invites them); left out when safe to spend is off or they cannot
+// link one. `bankSandbox` is true on Plaid's test banks, which the invitation
+// says. `comingUp` is Coming up's
 // rows (D1): the dates ahead, shown under the card module when there are any.
 export function HomeView({
   state,
@@ -59,6 +61,7 @@ export function HomeView({
   fromReminder = null,
   sampleStars,
   safeToSpend,
+  bankSandbox = true,
   comingUp = [],
 }: {
   state: HomeState;
@@ -69,6 +72,7 @@ export function HomeView({
   fromReminder?: ReminderKind | null;
   sampleStars?: number;
   safeToSpend?: SafeToSpend | null;
+  bankSandbox?: boolean;
   comingUp?: ComingUpRow[];
 }) {
   const celebrate = celebrating(state, celebrateId);
@@ -105,7 +109,7 @@ export function HomeView({
             reminderSettings={reminderSettings}
             celebrate={celebrate}
             sampleStars={sampleStars}
-            top={safeToSpend !== undefined ? <SafeToSpendHome safeToSpend={safeToSpend} preview={!celebrate} /> : null}
+            top={safeToSpend !== undefined ? <SafeToSpendHome safeToSpend={safeToSpend} preview={!celebrate} sandbox={bankSandbox} /> : null}
             ahead={<ComingUp rows={comingUp} />}
           />
         </main>

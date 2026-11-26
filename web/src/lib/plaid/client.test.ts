@@ -11,11 +11,12 @@ import {
   needsReconnect,
   removeItem,
   syncTransactionsPage,
+  tokenEnvironment,
 } from "./client";
 import type { PlaidConfig } from "./config";
 import type { TokenKey } from "./token-box";
 
-const CONFIG: PlaidConfig = { clientId: "client-id", secret: "the-secret", baseUrl: "https://sandbox.plaid.com", tokenKey: Buffer.alloc(32) as TokenKey };
+const CONFIG: PlaidConfig = { clientId: "client-id", secret: "the-secret", baseUrl: "https://sandbox.plaid.com", environment: "sandbox" as const, tokenKey: Buffer.alloc(32) as TokenKey };
 
 function answer(status: number, body: unknown) {
   const fetchMock = vi.fn(async () => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }));
@@ -199,3 +200,31 @@ describe("Liabilities", () => {
     expect(await getLiabilities(CONFIG, "access-sandbox-1")).toEqual({ ok: false, kind: "plaid", code: "PRODUCTS_NOT_SUPPORTED" });
   });
 });
+
+// Created with Claude Code (2026-11-25). Switching PLAID_ENV must never turn a
+// real Item into "already gone" (review of #144).
+describe("a token from the other Plaid environment", () => {
+  it("is never sent, and is not read as an Item already gone", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchMock = answer(400, { error_code: "INVALID_ACCESS_TOKEN", error_type: "INVALID_INPUT" });
+    const result = await removeItem(CONFIG, "access-production-abc");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: false, kind: "wrong_environment" });
+    expect(itemAlreadyGone(result as never)).toBe(false);
+    const production = { ...CONFIG, baseUrl: "https://production.plaid.com", environment: "production" as const };
+    expect(await getAccounts(production, "access-sandbox-abc")).toEqual({ ok: false, kind: "wrong_environment" });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("plaid_token_wrong_environment"));
+    error.mockRestore();
+  });
+
+  it("reads the environment from the token, and leaves tokens without one to Plaid", async () => {
+    expect(tokenEnvironment("access-sandbox-1")).toBe("sandbox");
+    expect(tokenEnvironment("access-production-1")).toBe("production");
+    expect(tokenEnvironment("access-development-1")).toBeNull();
+    const fetchMock = answer(200, { request_id: "r" });
+    expect((await removeItem(CONFIG, "access-sandbox-1")).ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+

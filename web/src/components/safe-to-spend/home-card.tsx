@@ -18,16 +18,24 @@ const NAVY_LINK =
 // Safe to spend on Home (US-12). Linked and answered: the designers' navy
 // hero as D1 draws it (Figma 709:1470), the same hero as Your money. Linked
 // but not answered: a prompt to finish. Not linked: an invitation to try the
-// sandbox preview.
+// preview, which says it is a sandbox bank when `sandbox` (PLAID_ENV sandbox).
 // Nothing at all when safe to spend is off (no Plaid settings).
 // `preview` false drops the Preview label from the invite and setup cards:
 // Home's approval celebration never says "Preview" (Ben, 2026-11-08).
-export function SafeToSpendHome({ safeToSpend, preview = true }: { safeToSpend: SafeToSpend | null; preview?: boolean }) {
+export function SafeToSpendHome({
+  safeToSpend,
+  preview = true,
+  sandbox = true,
+}: {
+  safeToSpend: SafeToSpend | null;
+  preview?: boolean;
+  sandbox?: boolean;
+}) {
   if (safeToSpend === null) {
     return (
       <QuietCard
         title={SAFE_TO_SPEND_COPY.inviteTitle}
-        body={SAFE_TO_SPEND_COPY.inviteBody}
+        body={sandbox ? SAFE_TO_SPEND_COPY.inviteBody : SAFE_TO_SPEND_COPY.inviteBodyLive}
         action={{ href: ROUTES.safeToSpendConnect, label: "Try it" }}
         preview={preview}
       />

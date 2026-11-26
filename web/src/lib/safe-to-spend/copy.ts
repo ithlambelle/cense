@@ -28,9 +28,12 @@ export const COVERED_BY_LABELS: Record<CoveredBy, string> = {
 
 export const SAFE_TO_SPEND_COPY = {
   preview: "Preview",
+  // Shown only where PLAID_ENV is sandbox (test banks). With real banks for
+  // the pilot, the note goes and the invitation says what it reads.
   sandboxNote: "Sandbox only, no live data",
   inviteTitle: "See what’s safe to spend",
   inviteBody: "A daily number from a sandbox bank. No real bank data.",
+  inviteBodyLive: "A daily number from your bank. Read only.",
   // "Link your bank" (Flow 5 C1, 821:9643; the same screen as Flow 1 E1,
   // 821:8502). Up to 2 years: D46, Nov 18.
   connectTitle: "Link your bank",
@@ -53,6 +56,11 @@ export const SAFE_TO_SPEND_COPY = {
   setAsideLabel: "Set aside each month",
   reconnect: "Your bank needs you to sign in again.",
   relink: "Your bank connection ended.",
+  // Production pilot, no room left for a new link (lib/plaid/offer.ts).
+  pilotNoRoom: "To connect a bank again, ask the Cense team for a new pilot spot.",
+  pilotLastLink: "You can’t connect a bank again without a new pilot spot.",
+  // Production pilot: the exchange failed after it used the student's spot.
+  pilotLinkFailed: "That didn’t connect. The Cense team will reset your spot.",
   lastNumbers: "Until then, these are the last numbers we read.",
   plaidCopy: "Plaid keeps its own copy of what it shared. Manage it at my.plaid.com.",
 } as const;

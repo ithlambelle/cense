@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { WelcomeFlow } from "@/components/first-login/welcome-flow";
 import { needsWelcome } from "@/lib/first-login";
-import { plaidConfig } from "@/lib/plaid/config";
+import { bankOffer } from "@/lib/plaid/offer";
 import { ROUTES } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
 
@@ -13,9 +13,12 @@ export const metadata: Metadata = { title: "Welcome | CENSE" };
 // (Flow 1). Only for a student who has not seen it: anyone else, including a
 // student who comes back here after "Let's go", goes on to their usual
 // screen through /start. "Let's go" opens Link your bank (E1), or Your next
-// step without a bank (N3) where safe to spend is off.
+// step without a bank (N3) where the student cannot link one: safe to spend
+// is off, or, in production, they are not in the bank pilot or have no room
+// left in it (or the pilot cannot be read).
 export default async function StartWelcomePage() {
   const student = await requireStudent(ROUTES.start);
   if (!(await needsWelcome(student))) redirect(ROUTES.start);
-  return <WelcomeFlow next={plaidConfig() ? ROUTES.startLinkBank : ROUTES.startNextStep} />;
+  const offer = await bankOffer(student);
+  return <WelcomeFlow next={offer?.canLink ? ROUTES.startLinkBank : ROUTES.startNextStep} />;
 }

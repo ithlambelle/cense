@@ -92,6 +92,13 @@ describe("W2, Let's make money make Cense", () => {
     expect(go.querySelector("svg")).toBeTruthy();
   });
 
+  it("never asks a student to link a bank when Let's go leads to Your next step instead", () => {
+    const { container } = render(<WelcomeFlow next="/start/next-step" />);
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(screen.getByText("First, let’s find your next step.")).toBeTruthy();
+    expect(container.textContent).not.toMatch(/link your bank/i);
+  });
+
   it("never moves on by itself", () => {
     openW2();
     act(() => vi.advanceTimersByTime(60_000));

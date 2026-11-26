@@ -10,7 +10,7 @@ import { runAccountCleanup, runAccountCleanupWithHeartbeat } from "./account-cle
 import type { PlaidConfig } from "./config";
 import { parseTokenKey, sealToken } from "./token-box";
 
-const config: PlaidConfig = { clientId: "fake", secret: "fake", baseUrl: "https://sandbox.plaid.com", tokenKey: parseTokenKey(Buffer.alloc(32, 1).toString("base64"))! };
+const config: PlaidConfig = { clientId: "fake", secret: "fake", baseUrl: "https://sandbox.plaid.com", environment: "sandbox" as const, tokenKey: parseTokenKey(Buffer.alloc(32, 1).toString("base64"))! };
 const binding = { studentId: "deleted-student", itemId: "item-test" };
 const claim = { id: "queue-test", student_id: binding.studentId, item_id: binding.itemId, claim_id: "lease-test", token_ciphertext: sealToken("access-test", config.tokenKey, binding) };
 function service(rows: Array<typeof claim & { gives_up_if_unreadable?: boolean }> = [claim]) {

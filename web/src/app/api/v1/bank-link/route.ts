@@ -4,7 +4,8 @@ import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { createBankLinkSchema } from "@/lib/api/safe-to-spend";
 import { exchangePublicToken, getAccounts, removeItem } from "@/lib/plaid/client";
 import { plaidConfig, type PlaidConfig } from "@/lib/plaid/config";
-import { alreadyLinked, bankUnreachable, NO_STORE, notLinked, safeToSpendOff } from "@/lib/plaid/responses";
+import { claimItemSlot, linkAccess } from "@/lib/plaid/pilot";
+import { alreadyLinked, bankUnreachable, itemBudgetFull, NO_STORE, notLinked, pilotLinkFailed, pilotOnly, safeToSpendOff } from "@/lib/plaid/responses";
 import { linkStatus, loadSafeToSpend, saveBalances, saveBankLink } from "@/lib/plaid/store";
 import { syncStudentTransactions } from "@/lib/plaid/transactions";
 import { removeBankLinksForStudent } from "@/lib/plaid/unlink";
@@ -27,7 +28,9 @@ async function discard(config: PlaidConfig, accessToken: string) {
 
 // Link a bank (US-12): exchanges the public token Plaid Link handed the
 // browser for an access token, seals it, and reads the balances once. The
-// access token never leaves the server.
+// access token never leaves the server. In production only pilot students
+// may link, and each exchange first takes one slot of their allowance and of
+// the pilot's Item budget (lib/plaid/pilot.ts).
 export async function POST(request: Request): Promise<Response> {
   const student = await authenticatedStudent();
   if (!student) return apiError(401, "unauthorized", "Sign in to continue.");
@@ -37,13 +40,24 @@ export async function POST(request: Request): Promise<Response> {
   const parsed = createBankLinkSchema.safeParse(await parseJson(request));
   if (!parsed.success) return validationError(parsed.error);
 
+  const access = await linkAccess(student, config);
+  if (!access.ok) return databaseError("plaid_pilot_read", access.error);
+  if (access.value === "none") return pilotOnly();
+
   // One bank per student: refused before Plaid makes a second Item.
   const status = await linkStatus(student);
   if (!status.ok) return databaseError("bank_link_read", status.error);
   if (status.value !== null) return alreadyLinked();
 
+  // Last step before Plaid makes an access token, which counts against the
+  // budget. A failed exchange keeps the slot taken (the safe mistake).
+  const slot = await claimItemSlot(student, config);
+  if (!slot.ok) return databaseError("plaid_item_slot_claim", slot.error);
+  if (!slot.value) return itemBudgetFull();
+
   const exchanged = await exchangePublicToken(config, parsed.data.publicToken);
   if (!exchanged.ok) {
+    if (config.environment === "production") return pilotLinkFailed();
     if (exchanged.kind === "plaid" && exchanged.code === "INVALID_PUBLIC_TOKEN") {
       return apiError(400, "link_expired", "That connection expired. Please connect again.");
     }

@@ -50,7 +50,7 @@ const loadStudentSnapshot = vi.fn(async () => snapshot);
 vi.mock("@/lib/student-data", () => ({ loadStudentSnapshot: () => loadStudentSnapshot() }));
 
 let plaidOn = true;
-vi.mock("@/lib/plaid/config", () => ({ plaidConfig: () => (plaidOn ? {} : null) }));
+vi.mock("@/lib/plaid/config", () => ({ plaidConfig: () => (plaidOn ? { environment: "sandbox" } : null) }));
 let bank: { answered: boolean } | null = null;
 vi.mock("@/lib/plaid/store", () => ({ loadSafeToSpend: async () => ({ ok: true, value: bank }) }));
 
@@ -166,7 +166,7 @@ describe("/start/link-bank (E1)", () => {
     profile = WELCOMED;
     const { screen } = await visit("/start/link-bank");
     expect(screen?.type).toBe(ConnectView);
-    expect(screen?.props).toEqual({ firstLogin: true });
+    expect(screen?.props).toEqual({ firstLogin: true, sandbox: true });
   });
 
   it("goes on to Your next step where safe to spend is off, so there is never a dead end", async () => {
