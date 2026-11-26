@@ -2,10 +2,10 @@
 // Created with Claude Code (2026-11-18). The top match's buttons on Your match
 // (M1, Figma 821:9205). Each tap must save and copy the click exactly as the
 // card page's IssuerActions does (issuer-actions.test.tsx).
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { HAND_OFF_LINE, PREAPPROVAL_LINE } from "@/lib/copy/issuer";
+import { HAND_OFF_LINE, NO_REFERRAL_DISCLOSURE, PREAPPROVAL_LINE } from "@/lib/copy/issuer";
 
 import { TopMatchActions } from "./top-match-actions";
 
@@ -106,17 +106,22 @@ describe("TopMatchActions", () => {
     expect(screen.getByText(HAND_OFF_LINE)).toBeTruthy();
   });
 
-  it("shows the card's referral disclosure above Apply, and nothing when it has none", () => {
-    const disclosure = "Cense may be paid if you are approved for this card.";
-    const { unmount } = renderActions({ card: { ...card, referralDisclosure: disclosure } });
-    const line = screen.getByText(disclosure);
-    const apply = screen.getByRole("button", { name: APPLY });
-    expect(line.compareDocumentPosition(apply) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByText(PREAPPROVAL_LINE).compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  it("puts the referral disclosure next to both buttons, and the card's own once a deal exists", () => {
+    const { unmount } = renderActions();
+    for (const name of [PREAPPROVAL, APPLY]) {
+      const box = screen.getByRole("button", { name }).parentElement as HTMLElement;
+      expect(within(box).getByText(NO_REFERRAL_DISCLOSURE)).toBeTruthy();
+    }
+    expect(screen.getAllByText(/./, { selector: "p" }).map((p) => p.textContent)).toEqual([
+      PREAPPROVAL_LINE,
+      NO_REFERRAL_DISCLOSURE,
+      HAND_OFF_LINE,
+    ]);
     unmount();
-    renderActions();
-    expect(screen.queryByText(disclosure)).toBeNull();
-    expect(screen.getAllByText(/./, { selector: "p" }).map((p) => p.textContent)).toEqual([PREAPPROVAL_LINE, HAND_OFF_LINE]);
+    const own = "Cense may be paid if you are approved for this card.";
+    renderActions({ card: { ...card, referralDisclosure: own }, hasPreapproval: false });
+    expect(within(screen.getByRole("button", { name: APPLY }).parentElement as HTMLElement).getByText(own)).toBeTruthy();
+    expect(screen.queryByText(NO_REFERRAL_DISCLOSURE)).toBeNull();
   });
 
   it("sits 10px under the fee chips, as drawn, where the card's gap is 16px", () => {

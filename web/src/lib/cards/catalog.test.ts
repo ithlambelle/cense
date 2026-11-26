@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { NO_REFERRAL_DISCLOSURE, referralDisclosure } from "../copy/issuer";
 import { evaluateFit } from "../rules/fit-tier";
 import { SECTION_7_CARDS, SECTION_7_STUDENTS } from "../rules/fit-tier.fixtures";
 import { catalogReady, findCard, listCards } from "./catalog";
@@ -22,6 +23,16 @@ describe("card catalog", () => {
   it("finds a card by ID", () => {
     expect(findCard("chase-freedom-rise")?.name).toBe("Chase Freedom Rise");
     expect(findCard("not-a-card")).toBeUndefined();
+  });
+
+  // NO_REFERRAL_DISCLOSURE says no issuer pays Cense. It is only true while no
+  // card carries a disclosure of its own: adding a deal means changing that
+  // line (lib/copy/issuer.ts) and this test together.
+  it("pays Cense for no card, so every card shows the no-deal disclosure", () => {
+    for (const card of listCards()) {
+      expect(card.referralDisclosure).toBeNull();
+      expect(referralDisclosure(card)).toBe(NO_REFERRAL_DISCLOSURE);
+    }
   });
 
   it("lists only cards with no annual fee that are open to new applicants", () => {
