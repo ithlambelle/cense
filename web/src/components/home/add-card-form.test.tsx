@@ -2,7 +2,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { AddCardScreen, matchingCards } from "./add-card-form";
+import { AddCardScreen } from "./add-card-form";
 
 const CATALOG = [
   { id: "discover-it-student-cash-back", name: "Discover it Student Cash Back" },
@@ -128,16 +128,6 @@ describe("AddCardScreen", () => {
     expect((screen.getByLabelText("Card name") as HTMLInputElement).value).toBe("Student Cash Card");
     expect(field.getAttribute("readonly")).toBeNull();
     expect(track).not.toHaveBeenCalled();
-  });
-});
-
-describe("matchingCards", () => {
-  it("finds catalog cards with every word typed, in any order, from the second letter", () => {
-    expect(matchingCards(CATALOG, "d")).toEqual([]);
-    expect(matchingCards(CATALOG, "di").map((card) => card.id)).toEqual(["discover-it-student-cash-back", "discover-it-student-chrome"]);
-    expect(matchingCards(CATALOG, "cash disc").map((card) => card.id)).toEqual(["discover-it-student-cash-back"]);
-    expect(matchingCards(CATALOG, "CHASE  freedom").map((card) => card.id)).toEqual(["chase-freedom-rise"]);
-    expect(matchingCards(CATALOG, "Student Cash Card")).toEqual([]);
   });
 });
 

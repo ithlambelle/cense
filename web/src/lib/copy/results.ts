@@ -20,6 +20,13 @@ export const RESULT_DISCLAIMER = "Recommendations are educational, not financial
 // Shown when no listed card fits and the rules gave no reason of their own.
 export const NO_CARD_FALLBACK = "None of the cards we list fits what you told us yet.";
 
+// A result with nothing left to offer because the student already has every
+// card that fits them.
+export const OWNS_EVERY_FIT = {
+  title: "You’re all set",
+  body: "You already have the cards that fit what you told us.",
+} as const;
+
 // The next step on a result with no card ("Not quite yet"). The first is the
 // authorized-user option from the denial plan's "Build credit another way",
 // the only one there that needs no income of the student's own; Capital One,

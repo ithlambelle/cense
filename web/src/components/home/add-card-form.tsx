@@ -13,11 +13,10 @@ import { previousScreenIs } from "@/lib/back-navigation";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import { ROUTES, signInPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
+import { catalogCardNamed, matchingCards, type CatalogChoice } from "@/lib/cards/match";
 import { cn } from "@/lib/utils";
 
-// A card in the catalog, as Add a card offers it: its id and the name
-// students know it by (cardDisplayName).
-export type CatalogChoice = { id: string; name: string };
+export type { CatalogChoice };
 
 type AddCardFormProps = {
   catalog: CatalogChoice[];
@@ -25,22 +24,6 @@ type AddCardFormProps = {
   onCancel: () => void;
   onSignedOut: () => void;
 };
-
-// The most catalog cards listed under the name field at once.
-const MAX_MATCHES = 5;
-
-const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-
-// Catalog cards whose name holds every word typed, in any order, from the
-// second letter on: "disc cash" finds Discover it Student Cash Back.
-export function matchingCards(catalog: CatalogChoice[], typed: string): CatalogChoice[] {
-  const words = normalize(typed).split(" ").filter(Boolean);
-  if (words.join("").length < 2) return [];
-  return catalog.filter((card) => {
-    const name = normalize(card.name);
-    return words.every((word) => name.includes(word));
-  }).slice(0, MAX_MATCHES);
-}
 
 // For a student who already has a card. They pick it from the catalog as they
 // type, so it gets its catalog id: its own card page, and the quiz never
@@ -74,8 +57,7 @@ function AddCardForm({ catalog, onAdded, onCancel, onSignedOut }: AddCardFormPro
     }
     setPending(true);
     setError(null);
-    const typed = normalize(cardName);
-    const card = picked ?? catalog.find((entry) => normalize(entry.name) === typed) ?? null;
+    const card = picked ?? catalogCardNamed(catalog, cardName);
     const result = await apiRequest("post", "/applications", {
       body: { cardId: card?.id ?? null, cardName: card?.name ?? cardName.trim(), status: "approved", creditLimitCents },
     });

@@ -48,11 +48,16 @@ export function cardDataVersion(cards: Card[], rewardsFor: RewardsLookup = cardR
 
 // What to save for these answers, or null when the quiz is not finished.
 // "No suitable card" saves no card, with the tier not_yet (every card was not
-// yet), and the income gate's reason when there is one.
+// yet), and the income gate's reason when there is one. `cards` is what was
+// ranked (the catalog without the student's own cards, cardsToOffer);
+// card_data_version always fingerprints the whole `catalog`, so it names the
+// catalog version (api/data-contract.md). The result snapshot holds which
+// cards were ranked.
 export function recommendationRecord(
   savedAnswers: unknown,
   cards: Card[],
   rewardsFor: RewardsLookup = cardRewards,
+  catalog: Card[] = cards,
 ): RecommendationRecord | null {
   const parsed = quizAnswersSchema.safeParse(savedAnswers ?? {});
   if (!parsed.success) return null;
@@ -68,7 +73,7 @@ export function recommendationRecord(
     p_fit_tier: fit ? fit.tier : "not_yet",
     p_reason: fit ? (fit.reasons[0] ?? null) : (result.noCardReason?.reason ?? null),
     p_rules_version: RULES_VERSION,
-    p_card_data_version: cardDataVersion(cards, rewardsFor),
+    p_card_data_version: cardDataVersion(catalog, rewardsFor),
     p_answer_snapshot: parsed.data,
     p_result_snapshot: result,
   };
@@ -76,6 +81,7 @@ export function recommendationRecord(
 
 type LatestSaved = {
   answer_snapshot: unknown;
+  result_snapshot?: unknown;
   rules_version: string | null;
   card_data_version: string | null;
 } | null;
@@ -87,29 +93,32 @@ export function alreadySaved(latest: LatestSaved, record: RecommendationRecord):
     latest !== null &&
     latest.rules_version === record.p_rules_version &&
     latest.card_data_version === record.p_card_data_version &&
-    stableStringify(latest.answer_snapshot) === stableStringify(record.p_answer_snapshot)
+    stableStringify(latest.answer_snapshot) === stableStringify(record.p_answer_snapshot) &&
+    // The same answers rank differently once the student has a card they
+    // were offered, so that result is saved too.
+    stableStringify(latest.result_snapshot) === stableStringify(record.p_result_snapshot)
   );
 }
 
 export type SaveOutcome = "saved" | "unchanged" | "skipped" | "failed";
 
 // Never throws: a failed save is logged and the result screen still shows.
-export async function saveRecommendation(student: Student, savedAnswers: unknown, cards: Card[]): Promise<SaveOutcome> {
+export async function saveRecommendation(student: Student, savedAnswers: unknown, cards: Card[], catalog: Card[] = cards): Promise<SaveOutcome> {
   try {
-    return await save(student, savedAnswers, cards);
+    return await save(student, savedAnswers, cards, catalog);
   } catch {
     console.warn(JSON.stringify({ event: "recommendation_save_failed", step: "unexpected" }));
     return "failed";
   }
 }
 
-async function save(student: Student, savedAnswers: unknown, cards: Card[]): Promise<SaveOutcome> {
-  const record = recommendationRecord(savedAnswers, cards);
+async function save(student: Student, savedAnswers: unknown, cards: Card[], catalog: Card[]): Promise<SaveOutcome> {
+  const record = recommendationRecord(savedAnswers, cards, cardRewards, catalog);
   if (!record) return "skipped";
 
   const latest = await student.supabase
     .from("recommendations")
-    .select("answer_snapshot, rules_version, card_data_version")
+    .select("answer_snapshot, result_snapshot, rules_version, card_data_version")
     .eq("student_id", student.studentId)
     .order("created_at", { ascending: false })
     .limit(1)

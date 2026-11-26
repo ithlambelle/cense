@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { listCards, type Card } from "../cards/catalog";
 import { evaluateFit } from "../rules/fit-tier";
-import { cardsToOffer, computeResult, RESULT_OPTIONS, type ResultView } from "./compute";
+import { OWNS_EVERY_FIT } from "../copy/results";
+import { cardsToOffer, computeOfferedResult, computeResult, RESULT_OPTIONS, type ResultView } from "./compute";
 import { fixtureRate, fixtureRewards, GROCERY_CHROME, lookup } from "./rewards.fixtures";
 
 const cards = listCards();
@@ -122,7 +123,7 @@ describe("cardsToOffer", () => {
   // Devon (persona walk, Nov 25): his own Discover it Student Cash Back was
   // listed "Likely fit" with Apply.
   const ESTABLISHED = { ...ALL_SIX, under21: false, incomeBand: "5k_to_15k", standing: "established" } as const;
-  const owns = (cardId: string | null, status = "approved") => ({ cardId, status });
+  const owns = (cardId: string | null, status = "approved", cardName = "") => ({ cardId, status, cardName });
 
   it("never offers a card the student already has", () => {
     const ids = (view: ResultView) => options(view).map((option) => option.card.id);
@@ -144,5 +145,34 @@ describe("cardsToOffer", () => {
     expect(offered).toHaveLength(cards.length - 1);
     expect(offered.map((card) => card.id)).not.toContain("discover-it-student-cash-back");
   });
+
+  it("counts a card added by its exact catalog name before Add a card offered the list", () => {
+    // Saved as free text: no catalog id, the name typed in full.
+    const typed = cardsToOffer(cards, [owns(null, "approved", "discover it student cashback card")]);
+    expect(typed.map((card) => card.id)).not.toContain("discover-it-student-cash-back");
+    expect(typed).toHaveLength(cards.length - 1);
+    // Part of a name, or a card that is not in the catalog, is not a match.
+    expect(cardsToOffer(cards, [owns(null, "approved", "Discover it Student")])).toBe(cards);
+    expect(cardsToOffer(cards, [owns(null, "approved", "Campus CU Visa")])).toBe(cards);
+    expect(cardsToOffer(cards, [owns(null, "applied", "Chase Freedom Rise")])).toBe(cards);
+  });
 });
 
+describe("computeOfferedResult", () => {
+  // Not a student, established credit: five cards fit.
+  const NON_STUDENT = { under21: false, incomeBand: "over_15k", student: false, standing: "established", recentDenial: false, canDeposit: true } as const;
+  const FITS = ["capital-one-platinum", "capital-one-platinum-secured", "discover-it-secured-cash-back", "chime-card", "chase-freedom-rise"];
+  const have = (ids: string[]) => ids.map((cardId) => ({ cardId, cardName: "", status: "approved" }));
+
+  it("says the student already has every card that fits, not that none fits", () => {
+    const view = computeOfferedResult(NON_STUDENT, cards, have(FITS));
+    expect(view).toEqual({ kind: "no_card", ruleId: null, reason: OWNS_EVERY_FIT.body, ownsEveryFit: true });
+  });
+
+  it("is the plain result otherwise", () => {
+    expect(computeOfferedResult(NON_STUDENT, cards, have(FITS.slice(1)))).toEqual(computeResult(NON_STUDENT, cardsToOffer(cards, have(FITS.slice(1)))));
+    const none = computeOfferedResult({ ...ALL_SIX, incomeBand: "none" }, cards, have(["chase-freedom-rise"]));
+    expect(none).toMatchObject({ kind: "no_card", ruleId: "G1" });
+    expect(computeOfferedResult(ALL_SIX, cards, [])).toEqual(computeResult(ALL_SIX, cards));
+  });
+});

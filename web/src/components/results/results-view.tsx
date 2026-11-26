@@ -19,6 +19,7 @@ import {
   ESTIMATE_DISCLAIMER,
   NO_CARD_FALLBACK,
   NOT_YET_NEXT_STEPS,
+  OWNS_EVERY_FIT,
   RESULT_DISCLAIMER,
   RESULT_HEADLINES,
   WHY_TITLE,
@@ -57,6 +58,19 @@ export function ResultsView({
           {progress.action}
           <ButtonChevron />
         </Link>
+      </ResultLayout>
+    );
+  }
+
+  if (view.kind === "no_card" && view.ownsEveryFit) {
+    // No frame: the "Not quite yet" layout with its own title and one line,
+    // and no next steps (they need none).
+    return (
+      <ResultLayout title={OWNS_EVERY_FIT.title} subtitle="Based on your answers" footer>
+        <TrackOnMount event="recommendation_viewed" props={{ tier: "not_yet", card_id: null, option_count: 0 }} />
+        <div className="rounded-card bg-off-white p-5">
+          <p className="text-body-m text-navy">{OWNS_EVERY_FIT.body}</p>
+        </div>
       </ResultLayout>
     );
   }

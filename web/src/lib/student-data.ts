@@ -26,7 +26,7 @@ import { findCard, listCards } from "@/lib/cards/catalog";
 import { comingUpCardNames, type ComingUpCard } from "@/lib/home/coming-up";
 import { firstStatementEmailUpcoming } from "@/lib/home/state";
 import { answeredCount } from "@/lib/quiz/progress";
-import { cardsToOffer, computeResult, type ResultView } from "@/lib/results/compute";
+import { computeOfferedResult, type ResultView } from "@/lib/results/compute";
 import { spendingProfile, type SpendingProfile } from "@/lib/results/value";
 import { evaluateFit, type CardFit } from "@/lib/rules/fit-tier";
 
@@ -46,7 +46,7 @@ export async function loadStudentSnapshot(student: Student): Promise<StudentSnap
   return {
     applications,
     // Never a card the student already has.
-    quiz: computeResult(answers, cardsToOffer(listCards(), applications)),
+    quiz: computeOfferedResult(answers, listCards(), applications),
     quizAnswered: answeredCount(answers),
   };
 }
@@ -67,7 +67,7 @@ export async function loadApplications(student: Student): Promise<Application[]>
 // cards (the Cards tab).
 export async function loadQuizResult(student: Student): Promise<ResultView> {
   const [applications, answers] = await Promise.all([loadApplications(student), readQuizAnswers(student, "result_read")]);
-  return computeResult(answers, cardsToOffer(listCards(), applications));
+  return computeOfferedResult(answers, listCards(), applications);
 }
 
 // What a card's page needs from the student's quiz, from one read: how that

@@ -8,7 +8,9 @@ import {
   APPROVAL_LINES,
   cardDisplayName,
   ESTIMATE_DISCLAIMER,
+  NO_CARD_FALLBACK,
   NOT_YET_NEXT_STEPS,
+  OWNS_EVERY_FIT,
   RESULT_DISCLAIMER,
   RESULT_HEADLINES,
   SEE_DETAILS,
@@ -65,6 +67,16 @@ describe("ResultsView", () => {
     // No income reason: more income is not the answer, so only the first.
     render(<ResultsView view={{ kind: "no_card", ruleId: null, reason: null }} />);
     expect(within(screen.getByRole("region", { name: NOT_YET_NEXT_STEPS.title })).getAllByRole("listitem")).toHaveLength(1);
+  });
+
+  it("tells a student who has every card that fits just that, with no not-yet advice", () => {
+    render(<ResultsView view={{ kind: "no_card", ruleId: null, reason: OWNS_EVERY_FIT.body, ownsEveryFit: true }} />);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(OWNS_EVERY_FIT.title);
+    expect(screen.getByText(OWNS_EVERY_FIT.body)).toBeTruthy();
+    expect(screen.queryByText(RESULT_HEADLINES.not_yet)).toBeNull();
+    expect(screen.queryByText(NO_CARD_FALLBACK)).toBeNull();
+    expect(screen.queryByRole("region", { name: NOT_YET_NEXT_STEPS.title })).toBeNull();
+    expect(screen.queryByText(NOT_YET_NEXT_STEPS.authorizedUser)).toBeNull();
   });
 
   it("goes back Home, never into the finished quiz", () => {

@@ -3,6 +3,9 @@ import { authenticatedStudent } from "@/lib/api/auth";
 import { databaseError } from "@/lib/api/database";
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { createApplicationSchema } from "@/lib/api/schemas";
+import { findCard } from "@/lib/cards/catalog";
+import { catalogCardNamed } from "@/lib/cards/match";
+import { cardDisplayName } from "@/lib/copy/results";
 
 export async function GET(): Promise<Response> {
   const student = await authenticatedStudent();
@@ -30,6 +33,23 @@ export async function POST(request: Request): Promise<Response> {
 
   const now = new Date().toISOString();
   const { cardId, cardName, status, creditLimitCents } = parsed.data;
+
+  // A catalog card the student already saved by its name, before Add a card
+  // offered the list (no catalog id), is the same card: no second record.
+  const catalogCard = cardId ? findCard(cardId) : undefined;
+  if (catalogCard) {
+    const named = await student.supabase
+      .from("card_applications")
+      .select("card_name")
+      .eq("student_id", student.studentId)
+      .is("card_id", null)
+      .in("status", ["applied", "approved"]);
+    if (named.error) return databaseError("applications_read", named.error);
+    const choice = [{ id: catalogCard.id, name: cardDisplayName(catalogCard) }];
+    if (((named.data ?? []) as { card_name: string | null }[]).some((row) => row.card_name && catalogCardNamed(choice, row.card_name))) {
+      return apiError(409, "already_exists", "An active record for this card already exists.");
+    }
+  }
   const { data, error } = await student.supabase
     .from("card_applications")
     .insert({

@@ -68,3 +68,36 @@ describe("POST /applications, the credit limit rule", () => {
   });
 });
 
+describe("POST /applications, a catalog card already saved by name", () => {
+  // The student's cards with no catalog id, then an insert that answers 201.
+  function studentWithNamedCards(names: string[]) {
+    const insert = vi.fn(() => insertQuery);
+    const insertQuery = {
+      select: () => insertQuery,
+      single: async () => ({
+        data: { id: "00000000-0000-4000-8000-000000000009", card_id: "chase-freedom-rise", card_name: "Chase Freedom Rise", status: "approved",
+          credit_limit_cents: null, applied_at: null, updated_at: "2026-11-26T00:00:00+00:00" },
+        error: null,
+      }),
+    };
+    const read = { eq: () => read, is: () => read, in: async () => ({ data: names.map((card_name) => ({ card_name })), error: null }) };
+    auth.authenticatedStudent.mockResolvedValue({ supabase: { from: () => ({ select: () => read, insert }) }, studentId: "student-1", email: null });
+    return insert;
+  }
+  const CHASE = { cardId: "chase-freedom-rise", cardName: "Chase Freedom Rise", status: "approved", creditLimitCents: null };
+
+  it("answers 409 already_exists instead of a second record", async () => {
+    const insert = studentWithNamedCards(["chase freedom rise card"]);
+    const response = await post(CHASE);
+    expect(response.status).toBe(409);
+    expect((await response.json()).error.code).toBe("already_exists");
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("adds it when no card saved by name is the same card", async () => {
+    const insert = studentWithNamedCards(["Campus CU Visa", "Chase Freedom"]);
+    expect((await post(CHASE)).status).toBe(201);
+    expect(insert).toHaveBeenCalledOnce();
+  });
+});
+
