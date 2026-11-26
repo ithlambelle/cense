@@ -1,6 +1,8 @@
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { z } from "zod";
 
+import { creditLimitCentsSchema } from "./credit-limit";
+
 extendZodWithOpenApi(z);
 
 // Where a card fact comes from (Fit Tier Rules v1.2, section 3).
@@ -138,7 +140,7 @@ export const applicationSchema = z.strictObject({
   cardId: z.string().nullable(),
   cardName: z.string(),
   status: applicationStatusSchema,
-  creditLimitCents: z.int().nonnegative().nullable(),
+  creditLimitCents: creditLimitCentsSchema.nullable(),
   appliedAt: z.iso.datetime({ offset: true }).nullable(),
   statusUpdatedAt: z.iso.datetime({ offset: true }),
 });
@@ -147,7 +149,8 @@ export const createApplicationSchema = z.strictObject({
   cardId: z.string().min(1).max(100).nullable(),
   cardName: z.string().trim().min(1).max(160),
   status: applicationStatusSchema,
-  creditLimitCents: z.int().nonnegative().nullable(),
+  // The same rule as every credit limit field: $1 to $100,000, or null.
+  creditLimitCents: creditLimitCentsSchema.nullable(),
 }).refine(
   ({ status, creditLimitCents }) => status === "approved" || creditLimitCents === null,
   { message: "Only approved cards can have a credit limit." },
@@ -183,7 +186,7 @@ export const applicationDetailSchema = applicationSchema.extend({
 // due days need an approved card, a denial reason and note a rejected one.
 export const updateApplicationSchema = z.strictObject({
   status: applicationStatusSchema.optional(),
-  creditLimitCents: z.int().nonnegative().nullable().optional(),
+  creditLimitCents: creditLimitCentsSchema.nullable().optional(),
   denialReason: denialReasonSchema.nullable().optional(),
   // Trimmed; an empty note is saved as no note.
   denialReasonNote: z.string().trim().max(200).nullable().optional(),

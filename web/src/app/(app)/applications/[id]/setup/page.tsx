@@ -7,6 +7,7 @@ import { applicationIdSchema } from "@/lib/api/schemas";
 import { cardSetupPath } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
 import { loadCardSetup } from "@/lib/setup/card-setup";
+import { addedByHand } from "@/lib/student-data";
 
 export const metadata: Metadata = { title: "Set up your card | CENSE" };
 
@@ -16,7 +17,7 @@ export default async function CardSetupPage({ params }: PageProps<"/applications
   const { id } = await params;
   if (!applicationIdSchema.safeParse(id).success) notFound();
   const student = await requireStudent(cardSetupPath(id));
-  const setup = await loadCardSetup(student, id);
+  const [setup, removable] = await Promise.all([loadCardSetup(student, id), addedByHand(student, id)]);
   if (!setup) notFound();
   return (
     <CardSetupList
@@ -25,6 +26,7 @@ export default async function CardSetupPage({ params }: PageProps<"/applications
       brand={setup.brand}
       creditLimitCents={setup.application.creditLimitCents}
       progress={setup.progress}
+      removable={removable}
     />
   );
 }

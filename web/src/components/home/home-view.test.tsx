@@ -159,9 +159,10 @@ describe("HomeView", () => {
     const older = app("approved", { id: "00000000-0000-4000-8000-000000000002", cardName: "Older Card", statusUpdatedAt: "2026-01-01T00:00:00Z" });
     render(<HomeView state={homeState([older, app("applied")], NONE, 1)} initial="M" />);
     expect(screen.getByRole("heading", { name: "Your other cards" })).toBeTruthy();
-    // Each approved card opens its own plan, not the newest approved card's.
+    // An approved card with no catalog page opens its own setup list (where it
+    // can be removed), not the newest approved card's.
     expect(screen.getByRole("link", { name: /Older Card/ }).getAttribute("href")).toBe(
-      "/plan?application=00000000-0000-4000-8000-000000000002",
+      "/applications/00000000-0000-4000-8000-000000000002/setup",
     );
   });
 

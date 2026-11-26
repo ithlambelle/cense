@@ -1,5 +1,6 @@
 import type { z } from "zod";
 
+import { savedCreditLimitCents } from "./credit-limit";
 import { applicationDetailSchema, applicationSchema } from "./schemas";
 
 // A tracked card as the app and the API see it.
@@ -26,7 +27,8 @@ export function applicationFromRow(row: ApplicationRow): Application {
     cardId: row.card_id,
     cardName: row.card_name ?? row.card_id,
     status: row.status,
-    creditLimitCents: row.credit_limit_cents,
+    // A limit saved outside the rule (a $0 from before Nov 26) reads as none.
+    creditLimitCents: savedCreditLimitCents(row.credit_limit_cents),
     appliedAt: row.applied_at,
     statusUpdatedAt: row.updated_at,
   });

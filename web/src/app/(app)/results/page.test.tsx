@@ -97,10 +97,24 @@ describe("ResultsPage", () => {
     expect((await propsFor(ALL_SIX)).topTracked).toBe(false);
     applications = { data: [applicationRow("another-card", "applied")], error: null };
     expect((await propsFor(ALL_SIX)).topTracked).toBe(false);
-    for (const status of ["applied", "approved", "rejected"] as const) {
+    for (const status of ["applied", "rejected"] as const) {
       applications = { data: [applicationRow(topId, status)], error: null };
       expect((await propsFor(ALL_SIX)).topTracked, status).toBe(true);
     }
+  });
+
+  it("never offers a card the student already has, and saves what it shows", async () => {
+    const top = await viewFor(ALL_SIX);
+    if (top.kind !== "match") throw new Error("expected a match");
+    const topId = top.options[0].card.id;
+    applications = { data: [applicationRow(topId, "approved")], error: null };
+    saveRecommendation.mockClear();
+    const props = await propsFor(ALL_SIX);
+    if (props.view.kind !== "match") throw new Error("expected a match");
+    expect(props.view.options.map((option) => option.card.id)).not.toContain(topId);
+    expect(props.topTracked).toBe(false);
+    const saved = (saveRecommendation.mock.calls[0] as unknown[])[2] as { id: string }[];
+    expect(saved.map((card) => card.id)).not.toContain(topId);
   });
 
   it("still shows the match, with the buttons, when the tracked cards cannot be read", async () => {

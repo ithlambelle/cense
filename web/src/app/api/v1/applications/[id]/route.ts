@@ -6,6 +6,7 @@ import {
   type ApplicationDetailRow,
 } from "@/lib/api/application";
 import { authenticatedStudent, type Student } from "@/lib/api/auth";
+import { savedCreditLimitCents } from "@/lib/api/credit-limit";
 import { databaseError } from "@/lib/api/database";
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { applicationIdSchema, updateApplicationSchema } from "@/lib/api/schemas";
@@ -57,11 +58,17 @@ function changes(body: Update, current: ApplicationDetailRow): Record<string, un
   } else if (status !== "approved" && current.credit_limit_cents !== null) {
     // Leaving approved drops the limit, which only an approved card can have.
     set.credit_limit_cents = null;
+  } else if (current.credit_limit_cents !== null && savedCreditLimitCents(current.credit_limit_cents) === null) {
+    // A $0 saved before the rule reads as no limit; saving the card makes it
+    // so, which the database's check (credit_limit_cents > 0) also needs.
+    set.credit_limit_cents = null;
   }
 
   // The spend limit (US-04) needs an approved card and fits under the credit
   // limit. Leaving approved, or a new credit limit below it, clears it.
-  const creditLimit = body.creditLimitCents !== undefined ? body.creditLimitCents : current.credit_limit_cents;
+  // The limit after this update: the one sent, or the saved one (null when
+  // an old $0 was cleared above).
+  const creditLimit = "credit_limit_cents" in set ? (set.credit_limit_cents as number | null) : current.credit_limit_cents;
   if (body.spendLimitCents !== undefined && body.spendLimitCents !== null) {
     if (status !== "approved") return "Only approved cards can have a spend limit.";
     if (creditLimit !== null && body.spendLimitCents > creditLimit) return "A spend limit can be at most the credit limit.";
@@ -157,4 +164,45 @@ export async function PATCH(request: Request, context: Params): Promise<Response
     if (step.error) console.error(JSON.stringify({ event: "database_error", operation: "spend_limit_step_delete", code: step.error.code }));
   }
   return detailResponse(data);
+}
+
+// Removes a card the student added themselves ("I already have a card"), with
+// everything hanging off it: its reminders (the scheduled emails) and its
+// setup steps go with it (foreign keys, on delete cascade). Only the
+// student's own row: someone else's id answers 404, the same as a missing
+// one. A card applied for through Cense is kept, because it is the record of
+// what the issuer decided (applied, approved, denied), the denial plan and
+// reapply reminder hang off it, and its status can be changed instead.
+export async function DELETE(_request: Request, context: Params): Promise<Response> {
+  const student = await authenticatedStudent();
+  if (!student) return apiError(401, "unauthorized", "Sign in to continue.");
+
+  const { id } = await context.params;
+  if (!applicationIdSchema.safeParse(id).success) return apiError(400, "invalid_request", "Invalid application ID.");
+
+  const current = await student.supabase
+    .from("card_applications")
+    .select("source")
+    .eq("id", id)
+    .eq("student_id", student.studentId)
+    .maybeSingle();
+  if (current.error) return databaseError("application_read", current.error);
+  if (!current.data) return apiError(404, "not_found", "Application not found.");
+  if ((current.data as { source: string }).source !== "added") {
+    return apiError(409, "not_removable", "Only a card you added yourself can be removed.");
+  }
+
+  // The database allows the same and no more (its delete policy): the
+  // student's own row, added by hand.
+  const { data, error } = await student.supabase
+    .from("card_applications")
+    .delete()
+    .eq("id", id)
+    .eq("student_id", student.studentId)
+    .eq("source", "added")
+    .select("id");
+  if (error) return databaseError("application_delete", error);
+  // Removed meanwhile (a second tap, another tab).
+  if (!data || data.length === 0) return apiError(404, "not_found", "Application not found.");
+  return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
 }

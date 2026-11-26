@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Student } from "../api/auth";
 import { listCards } from "../cards/catalog";
 import { RULES_VERSION } from "../rules/fit-tier";
-import { computeResult } from "./compute";
+import { cardsToOffer, computeResult } from "./compute";
 import { fixtureRate, fixtureRewards, GROCERY_CHROME, lookup } from "./rewards.fixtures";
 import { alreadySaved, cardDataVersion, recommendationRecord, saveRecommendation } from "./save";
 
@@ -83,7 +83,13 @@ describe("cardDataVersion", () => {
 
 describe("alreadySaved", () => {
   const record = recommendationRecord(ALL_SIX, cards)!;
-  const same = { answer_snapshot: { ...ALL_SIX }, rules_version: record.p_rules_version, card_data_version: record.p_card_data_version };
+  // As the database hands it back: jsonb, so through JSON.
+  const same = {
+    answer_snapshot: { ...ALL_SIX },
+    result_snapshot: JSON.parse(JSON.stringify(record.p_result_snapshot)),
+    rules_version: record.p_rules_version,
+    card_data_version: record.p_card_data_version,
+  };
 
   it("matches the same answers and versions, whatever the key order", () => {
     const reordered = Object.fromEntries(Object.entries(ALL_SIX).reverse());
@@ -96,6 +102,21 @@ describe("alreadySaved", () => {
     expect(alreadySaved({ ...same, card_data_version: "cards-000000000000" }, record)).toBe(false);
     expect(alreadySaved(null, record)).toBe(false);
   });
+
+  it("does not match the same answers once a card the student has is left out", () => {
+    const owned = cardsToOffer(cards, [{ cardId: record.p_card_id, cardName: "", status: "approved" }]);
+    const without = recommendationRecord(ALL_SIX, owned, undefined, cards)!;
+    expect(without.p_card_id).not.toBe(record.p_card_id);
+    expect(alreadySaved(same, without)).toBe(false);
+  });
+});
+
+describe("card_data_version", () => {
+  it("names the catalog version, whatever cards were left out for the student", () => {
+    const owned = cardsToOffer(cards, [{ cardId: "discover-it-student-cash-back", cardName: "", status: "approved" }]);
+    expect(owned.length).toBe(cards.length - 1);
+    expect(recommendationRecord(ALL_SIX, owned, undefined, cards)?.p_card_data_version).toBe(cardDataVersion(cards));
+  });
 });
 
 describe("saveRecommendation", () => {
@@ -107,7 +128,12 @@ describe("saveRecommendation", () => {
 
   it("does not save the same result twice", async () => {
     const record = recommendationRecord(ALL_SIX, cards)!;
-    const latest = { answer_snapshot: ALL_SIX, rules_version: record.p_rules_version, card_data_version: record.p_card_data_version };
+    const latest = {
+      answer_snapshot: ALL_SIX,
+      result_snapshot: JSON.parse(JSON.stringify(record.p_result_snapshot)),
+      rules_version: record.p_rules_version,
+      card_data_version: record.p_card_data_version,
+    };
     const { student, rpc } = fakeStudent({ data: latest, error: null });
     expect(await saveRecommendation(student, ALL_SIX, cards)).toBe("unchanged");
     expect(rpc).not.toHaveBeenCalled();

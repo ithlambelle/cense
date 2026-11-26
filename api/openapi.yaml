@@ -319,7 +319,8 @@ components:
           type:
             - integer
             - "null"
-          minimum: 0
+          minimum: 100
+          maximum: 10000000
         appliedAt:
           type:
             - string
@@ -359,7 +360,8 @@ components:
           type:
             - integer
             - "null"
-          minimum: 0
+          minimum: 100
+          maximum: 10000000
         appliedAt:
           type:
             - string
@@ -2085,7 +2087,8 @@ paths:
                   type:
                     - integer
                     - "null"
-                  minimum: 0
+                  minimum: 100
+                  maximum: 10000000
               required:
                 - cardId
                 - cardName
@@ -2156,7 +2159,8 @@ paths:
                   type:
                     - integer
                     - "null"
-                  minimum: 0
+                  minimum: 100
+                  maximum: 10000000
                 denialReason:
                   type:
                     - string
@@ -2278,6 +2282,56 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "404":
           description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteApplication
+      summary: Remove a card the student added themselves, with its reminders and
+        setup steps
+      description: "Only a card added with I already have a card (source added).
+        Someone else's card answers 404, the same as a missing one. A card
+        applied for through Cense answers 409 not_removable: it is the record of
+        what the issuer decided."
+      security:
+        - studentSession: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        "204":
+          description: Removed
+        "400":
+          description: Invalid application ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Application not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Applied for through Cense, so not removable
           content:
             application/json:
               schema:

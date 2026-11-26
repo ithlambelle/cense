@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const auth = vi.hoisted(() => ({ authenticatedStudent: vi.fn() }));
 vi.mock("@/lib/api/auth", () => auth);
 
-import { GET, PATCH } from "./route";
+import { DELETE, GET, PATCH } from "./route";
 
 const ID = "00000000-0000-4000-8000-000000000001";
 type Result = { data: unknown; error: { code?: string; message: string } | null };
@@ -229,3 +229,126 @@ describe("PATCH /applications/{id}", () => {
     expect((await patch({ autopayStatus: "off" })).status).toBe(503);
   });
 });
+
+describe("PATCH /applications/{id}, the credit limit rule", () => {
+  // The form refuses these ("Enter the limit in dollars, like 500 or 1,500"),
+  // so the API does too. A $0 limit used to be saved here.
+  it.each([0, 1, 99, 10_000_001, 50_000.5, -100])("refuses a credit limit of %s cents before reading", async (cents) => {
+    const writes = student({ data: row(), error: null });
+    const response = await patch({ creditLimitCents: cents });
+    expect(response.status).toBe(400);
+    expect((await response.json()).error.code).toBe("invalid_request");
+    expect(writes).toEqual([]);
+  });
+
+  it.each([100, 10_000_000])("saves the edges the form takes: %s cents", async (cents) => {
+    const writes = student({ data: row({ spend_limit_cents: null }), error: null });
+    expect((await patch({ creditLimitCents: cents })).status).toBe(200);
+    expect(writes).toEqual([{ credit_limit_cents: cents }]);
+  });
+
+  it("clears a $0 limit saved before the rule whenever it saves that card", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const writes = student({ data: row({ credit_limit_cents: 0 }), error: null });
+    expect((await patch({ autopayStatus: "on" })).status).toBe(200);
+    expect(writes).toEqual([{ autopay_status: "on", autopay_updated_at: expect.any(String), credit_limit_cents: null }]);
+  });
+
+  it("takes a spend limit on a card whose old $0 limit it clears", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const writes = student({ data: row({ credit_limit_cents: 0 }), error: null });
+    expect((await patch({ spendLimitCents: 5000 })).status).toBe(200);
+    expect(writes).toEqual([{ credit_limit_cents: null, spend_limit_cents: 5000 }]);
+  });
+
+  it("reads a $0 limit saved before the rule as no limit", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    student({ data: row({ credit_limit_cents: 0 }), error: null });
+    const response = await GET(new Request("http://test"), params());
+    expect(response.status).toBe(200);
+    expect((await response.json()).creditLimitCents).toBeNull();
+  });
+});
+
+describe("DELETE /applications/{id}", () => {
+  const OTHER = "00000000-0000-4000-8000-000000000002";
+  // The student's rows: id to source. The read and the delete both keep to
+  // the filters they are given, as row level security and the eq() filters do.
+  function studentWithCards(cards: Record<string, { student: string; source: string }>, deleteError: Result["error"] = null) {
+    const deletes: Record<string, unknown>[] = [];
+    const matches = (filters: Record<string, unknown>) =>
+      Object.entries(cards).filter(([id, card]) =>
+        (filters.id === undefined || filters.id === id) &&
+        (filters.student_id === undefined || filters.student_id === card.student) &&
+        (filters.source === undefined || filters.source === card.source));
+    const supabase = {
+      from: () => ({
+        select: () => {
+          const filters: Record<string, unknown> = {};
+          const query = {
+            eq: (column: string, value: unknown) => { filters[column] = value; return query; },
+            maybeSingle: async () => {
+              const [found] = matches(filters);
+              return { data: found ? { source: found[1].source } : null, error: null };
+            },
+          };
+          return query;
+        },
+        delete: () => {
+          const filters: Record<string, unknown> = {};
+          deletes.push(filters);
+          const query = {
+            eq: (column: string, value: unknown) => { filters[column] = value; return query; },
+            select: async () => {
+              if (deleteError) return { data: null, error: deleteError };
+              const gone = matches(filters).map(([id]) => id);
+              for (const id of gone) delete cards[id];
+              return { data: gone.map((id) => ({ id })), error: null };
+            },
+          };
+          return query;
+        },
+      }),
+    };
+    auth.authenticatedStudent.mockResolvedValue({ supabase, studentId: "student-1", email: null });
+    return deletes;
+  }
+  const remove = (id = ID) => DELETE(new Request("http://test", { method: "DELETE" }), params(id));
+
+  it("removes the student's own card added by hand, only that row", async () => {
+    const deletes = studentWithCards({ [ID]: { student: "student-1", source: "added" } });
+    const response = await remove();
+    expect(response.status).toBe(204);
+    expect(deletes).toEqual([{ id: ID, student_id: "student-1", source: "added" }]);
+    // A second tap finds nothing.
+    expect((await remove()).status).toBe(404);
+  });
+
+  it("answers someone else's card exactly as a missing one, and touches neither", async () => {
+    const deletes = studentWithCards({ [OTHER]: { student: "student-2", source: "added" } });
+    const foreign = await remove(OTHER);
+    const missing = await remove(ID);
+    expect(foreign.status).toBe(404);
+    expect(await foreign.json()).toEqual(await missing.json());
+    expect(deletes).toEqual([]);
+  });
+
+  it("keeps a card applied for through Cense", async () => {
+    const deletes = studentWithCards({ [ID]: { student: "student-1", source: "application" } });
+    const response = await remove();
+    expect(response.status).toBe(409);
+    expect((await response.json()).error.code).toBe("not_removable");
+    expect(deletes).toEqual([]);
+  });
+
+  it("answers 400 for a bad id, 401 signed out, 503 when the database fails", async () => {
+    studentWithCards({});
+    expect((await remove("nope")).status).toBe(400);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    studentWithCards({ [ID]: { student: "student-1", source: "added" } }, { code: "PGRST000", message: "down" });
+    expect((await remove()).status).toBe(503);
+    auth.authenticatedStudent.mockResolvedValue(null);
+    expect((await remove()).status).toBe(401);
+  });
+});
+

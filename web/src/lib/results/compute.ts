@@ -1,6 +1,8 @@
 import { quizAnswersSchema } from "../api/schemas";
 import type { Card } from "../cards/catalog";
+import { catalogCardNamed } from "../cards/match";
 import { cardRewards, type CardRewards } from "../cards/rewards";
+import { cardDisplayName, OWNS_EVERY_FIT } from "../copy/results";
 import type { QuizAnswers } from "../quiz/questions";
 import { evaluateFit, type CardFit, type FitResult, type IncomeGateId } from "../rules/fit-tier";
 import { estimateYearOne, spendingProfile, type YearOneEstimate } from "./value";
@@ -35,7 +37,8 @@ export type ResultOption = {
 
 export type ResultView =
   | { kind: "quiz_unfinished" }
-  | { kind: "no_card"; ruleId: IncomeGateId | null; reason: string | null }
+  // ownsEveryFit: cards fit, and the student already has every one of them.
+  | { kind: "no_card"; ruleId: IncomeGateId | null; reason: string | null; ownsEveryFit?: true }
   // Up to RESULT_OPTIONS.max cards, best first. The first is the rules' pick.
   | { kind: "match"; options: [ResultOption, ...ResultOption[]] };
 
@@ -57,8 +60,45 @@ export function rankedFit(answers: QuizAnswers, cards: Card[], rewardsFor: Rewar
   return { result: evaluateFit(answers, cards, values), estimates };
 }
 
+// The catalog without the cards the student already has, so no result offers
+// a card they own: an approved card with that catalog id (Mark result, or Add
+// a card from the list), or an approved card added by a name that is exactly
+// a catalog card's (typed before Add a card offered the list). Applied and
+// denied cards stay: the result screen shows those as tracked instead.
+export function cardsToOffer(
+  cards: Card[],
+  applications: { cardId: string | null; cardName: string; status: string }[],
+): Card[] {
+  const named = cards.map((card) => ({ id: card.id, name: cardDisplayName(card) }));
+  const owned = new Set(
+    applications.flatMap((application) => {
+      if (application.status !== "approved") return [];
+      const id = application.cardId ?? catalogCardNamed(named, application.cardName)?.id;
+      return id ? [id] : [];
+    }),
+  );
+  return owned.size === 0 ? cards : cards.filter((card) => !owned.has(card.id));
+}
+
+// The result for a signed-in student: computeResult over cardsToOffer's list.
+// When nothing is left only because they already have every card that fits,
+// it says so instead of "none of our cards fits you".
+export function computeOfferedResult(
+  savedAnswers: unknown,
+  catalog: Card[],
+  applications: { cardId: string | null; cardName: string; status: string }[],
+  rewardsFor: RewardsLookup = cardRewards,
+): ResultView {
+  const offered = cardsToOffer(catalog, applications);
+  const view = computeResult(savedAnswers, offered, rewardsFor);
+  if (view.kind !== "no_card" || offered.length === catalog.length) return view;
+  return computeResult(savedAnswers, catalog, rewardsFor).kind === "match"
+    ? { kind: "no_card", ruleId: null, reason: OWNS_EVERY_FIT.body, ownsEveryFit: true }
+    : view;
+}
+
 // Works out what the result screen shows from the saved quiz answers and the
-// catalog. Tiers, reasons and order come from evaluateFit; nothing here decides
+// catalog (cardsToOffer's list for a signed-in student). Tiers, reasons and order come from evaluateFit; nothing here decides
 // fit. The ranking lists likely fits before stretches, so a stretch is shown
 // only when fewer than three likely fits are left after the issuer limit.
 export function computeResult(savedAnswers: unknown, cards: Card[], rewardsFor: RewardsLookup = cardRewards): ResultView {

@@ -4,6 +4,7 @@ import type { ReactElement, ReactNode } from "react";
 
 import { CardArt } from "@/components/cards/card-art";
 import { IssuerActions } from "@/components/cards/issuer-actions";
+import { RemoveCard } from "@/components/cards/remove-card";
 import { Accordion, AccordionSection } from "@/components/ui/accordion";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
@@ -37,6 +38,7 @@ import {
   autopayStepsPath,
   cardBackLink,
   cardOrigin,
+  cardPath,
   paymentRemindersPath,
   spendLimitPath,
   type CardOrigin,
@@ -69,6 +71,7 @@ export function CardDetailView({
   rewards = null,
   estimate = null,
   fit = null,
+  removable = false,
 }: {
   card: Card;
   signedIn: boolean;
@@ -87,6 +90,8 @@ export function CardDetailView({
   // How the card fits the signed-in student's quiz answers (lib/rules), the
   // same tier and reasons Your match shows. Null without a finished quiz.
   fit?: CardFit | null;
+  // The student added this card themselves, so they can remove it here.
+  removable?: boolean;
 }) {
   const back = cardBackLink(from);
   const yours = signedIn ? tracked : null;
@@ -117,6 +122,9 @@ export function CardDetailView({
                 <Link key="update" href={applicationPath(yours.id, "card")} className={cn(TEXT_ACTION, "-mx-3 self-start")}>
                   Update status
                 </Link>,
+                removable ? (
+                  <RemoveCard key="remove" applicationId={yours.id} cardName={cardDisplayName(card)} signInNext={cardPath(card.id)} />
+                ) : null,
               ]
             : [
                 signedIn ? <FitRow key="fit" fit={fit} estimate={estimate} /> : null,

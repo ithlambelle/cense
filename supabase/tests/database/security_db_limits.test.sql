@@ -250,7 +250,9 @@ select set_eq(
         'welcomed_at'],
   'profiles: students change only the reminder settings, the Analytics switch and when they were welcomed');
 select ok(not has_table_privilege('authenticated', 'public.profiles', 'insert'), 'students cannot add a profile');
-select ok(not has_table_privilege('authenticated', 'public.card_applications', 'delete'), 'or delete a card record');
+-- 20261126150000_card_applications_remove.sql: students may delete, and its
+-- policy limits that to their own cards added by hand.
+select ok(has_table_privilege('authenticated', 'public.card_applications', 'delete'), 'students may remove a card record (policy-limited)');
 select ok(not has_table_privilege('anon', 'public.card_applications', 'select')
           and not has_table_privilege('anon', 'public.profiles', 'select'),
   'signed out, neither table can be read at all');
@@ -270,9 +272,9 @@ select throws_ok(
   $$ insert into public.card_applications (student_id, card_name, source, status, card_set_up_at)
      values (pg_temp.student('later'), 'x', 'added', 'approved', now()) $$,
   '42501', null, 'or add a card with a set-up time of its own');
-select throws_ok(
-  $$ delete from public.card_applications where student_id = pg_temp.student('later') $$,
-  '42501', null, 'or delete a card record');
+select is_empty(
+  $$ delete from public.card_applications where student_id = pg_temp.student('later') and source = 'application' returning id $$,
+  'or delete a card applied for through Cense');
 -- every column PATCH /applications/{id} writes, in one update
 select results_eq(
   $$ update public.card_applications

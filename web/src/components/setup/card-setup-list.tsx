@@ -7,7 +7,8 @@ import Link from "next/link";
 
 import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import type { SetupProgress } from "@/lib/setup/progress";
-import { autopayOnPath, autopayStepsPath, paymentRemindersPath, ROUTES, spendLimitPath } from "@/lib/routes";
+import { RemoveCard } from "@/components/cards/remove-card";
+import { autopayOnPath, autopayStepsPath, cardSetupPath, paymentRemindersPath, ROUTES, spendLimitPath } from "@/lib/routes";
 
 import { SetupHeading, SetupScreen, Spacer, StarRow, UpNextRow } from "./setup-parts";
 
@@ -17,6 +18,7 @@ export function CardSetupList({
   brand,
   creditLimitCents,
   progress,
+  removable = false,
 }: {
   applicationId: string;
   cardName: string;
@@ -25,6 +27,8 @@ export function CardSetupList({
   // "Discover", or null for a card added from outside the catalog.
   brand: string | null;
   progress: SetupProgress;
+  // A card the student added themselves, which they can remove from here.
+  removable?: boolean;
 }) {
   const reminders = paymentRemindersPath(applicationId, "setup");
   return (
@@ -72,6 +76,8 @@ export function CardSetupList({
           <StarRow title="Choose your reminders" subtitle="One email before each date" done={progress.reminders} href={reminders} />
         </li>
       </ul>
+
+      {removable ? <RemoveCard applicationId={applicationId} cardName={cardName} signInNext={cardSetupPath(applicationId)} /> : null}
 
       <Spacer />
       {progress.autopay ? (

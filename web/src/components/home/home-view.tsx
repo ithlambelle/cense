@@ -31,7 +31,7 @@ import { ALL_REMINDERS_ON, celebrating, paymentReminderOn, type CardDetail, type
 import { moneyAmount } from "@/lib/money";
 import { quizProgress } from "@/lib/quiz/progress";
 import { QUIZ_STEP_COUNT } from "@/lib/quiz/spending";
-import { applicationPath, cardPath, deniedPath, planPath, ROUTES, type ReminderKind } from "@/lib/routes";
+import { applicationPath, cardPath, cardSetupPath, deniedPath, ROUTES, type ReminderKind } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
@@ -465,7 +465,7 @@ function OtherCards({ applications }: { applications: Application[] }) {
                       // status). The old first-month page could not save autopay.
                       application.cardId
                       ? cardPath(application.cardId, "home")
-                      : planPath(application.id)
+                      : cardSetupPath(application.id)
               }
               className="flex items-center justify-between gap-3 rounded-card border border-hairline bg-white px-5 py-4 hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >

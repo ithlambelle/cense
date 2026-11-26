@@ -13,7 +13,8 @@ import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE, track } from "@/lib/analytics";
 import { apiRequest, failureMessage, isUnauthorized } from "@/lib/api-client/client";
 import type { Application } from "@/lib/api/application";
-import { centsToInput, dollarsToCents } from "@/lib/money";
+import { typedCreditLimitCents } from "@/lib/api/credit-limit";
+import { centsToInput } from "@/lib/money";
 import { applicationPath, celebratePath, deniedPath, ROUTES, signInPath, waitingPath, type ApplicationOrigin } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
 import { cn } from "@/lib/utils";
@@ -26,16 +27,11 @@ const CHOICES: { id: Choice; label: string }[] = [
   { id: "waiting", label: "I haven’t heard yet" },
 ];
 
-// The largest limit accepted, in whole dollars. Well above student card limits;
-// it only catches typing mistakes such as an extra zero run.
-const MAX_LIMIT_DOLLARS = 100_000;
-
 // Parses "$1,500", "1500" or "500.00" to cents. Null for empty; undefined when
-// it is not a limit (bad comma grouping, more than 2 decimals, under $1, too large).
-export function limitToCents(value: string): number | null | undefined {
-  if (/^\s*\$?\s*$/.test(value)) return null;
-  return dollarsToCents(value, { minCents: 100, maxCents: MAX_LIMIT_DOLLARS * 100 }) ?? undefined;
-}
+// it is not a limit (bad comma grouping, more than 2 decimals, under $1, too
+// large). The API's own rule (lib/api/credit-limit.ts), so the form never
+// refuses what the API takes or the other way round.
+export const limitToCents = typedCreditLimitCents;
 
 // Mark what the issuer decided for one tracked card (S18), from the Updates
 // card's Approved / Denied choice (Figma 416:409) and Home's "I was denied".

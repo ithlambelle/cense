@@ -58,3 +58,12 @@ export async function saveSpendLimit(applicationId: string, cents: number): Prom
   }
   return savePlanStep(applicationId, "first_month", "spend_limit", true);
 }
+
+// Removes a card the student added themselves (DELETE /applications/{id}),
+// with its reminders and setup steps. Already gone counts as removed.
+export async function removeCard(applicationId: string): Promise<ApplicationSave> {
+  const result = await apiRequest("delete", "/applications/{id}", { pathParams: { id: applicationId } });
+  if (result.ok || (result.kind === "api" && result.code === "not_found")) return { kind: "ok" };
+  if (isUnauthorized(result)) return { kind: "signed-out" };
+  return { kind: "failed", message: failureMessage(result) };
+}
