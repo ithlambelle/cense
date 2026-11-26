@@ -225,9 +225,21 @@ describe("fit tier rules: cautions and their reasons", () => {
     ]);
   });
 
-  it("C2 suggests waiting or a secured card", () => {
-    expect(fitOf({ ...CORE_STUDENT, recentDenial: true }, card("a")).reasons).toEqual([
+  it.each(["none", "not_sure"] as const)("C2 suggests waiting or a secured card to a student whose standing is %s", (standing) => {
+    expect(fitOf({ ...CORE_STUDENT, standing, recentDenial: true }, card("a")).reasons).toEqual([
       "You were turned down recently. Applications close together can count against you. Waiting a few months, or starting with a secured card, gives you better odds.",
+    ]);
+  });
+
+  it("C2 suggests a secured card to a damaged standing too, before C3", () => {
+    const fit = fitOf({ ...CORE_STUDENT, standing: "damaged", recentDenial: true }, card("a"));
+    expect(fit.reasons[0]).toContain("or starting with a secured card");
+  });
+
+  // v1.4: step 3 no longer steers these students to a secured card, so C2 does not either.
+  it.each(["limited", "established"] as const)("C2 suggests only waiting to a student whose standing is %s (v1.4)", (standing) => {
+    expect(fitOf({ ...CORE_STUDENT, standing, recentDenial: true }, card("a", standing)).reasons).toEqual([
+      "You were turned down recently. Applications close together can count against you. Waiting a few months gives you better odds.",
     ]);
   });
 
@@ -670,17 +682,22 @@ describe("fit tier rules: input that skipped the schema check", () => {
   });
 });
 
+// Every word a deal's field could plausibly be named with, matched against
+// every field of RuleCard (the only card fields the rules can read), in any case.
+type PartnerWord = "referral" | "partner" | "payout" | "affiliate" | "commission" | "bounty" | "sponsor" | "paid" | "apply";
+type PartnerFields = Extract<Lowercase<keyof RuleCard & string>, `${string}${PartnerWord}${string}`>;
+
 // D10 (rank-blind links): partner and payout data are kept apart from card
 // facts, and nothing a referral deal could set may change the order. Every
 // answer combination is ranked on the real catalog three ways: as it is, with
 // every referral field stripped, and with referral fields filled with random
 // values, plus made-up payout fields. The ranking must be the same each time.
 describe("fit tier rules: ranking is blind to referral and payout data (D10)", () => {
-  // Every field name a deal could plausibly add or use.
-  const PARTNER_FIELD = /referral|partner|payout|affiliate|commission|bounty|sponsor|paid|apply/i;
-
   it("reads no field whose name is about a referral, a partner or a payout", () => {
-    expect(Object.keys(card("any")).filter((key) => PARTNER_FIELD.test(key))).toEqual([]);
+    // Checked by the compiler on RuleCard itself (npm run check type-checks
+    // tests): a field named like this makes the line below a type error.
+    const none: PartnerFields extends never ? true : false = true;
+    expect(none).toBe(true);
   });
 
   // A small seeded generator, so a failure always replays the same way.
