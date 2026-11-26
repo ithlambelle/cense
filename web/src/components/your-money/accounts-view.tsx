@@ -53,7 +53,11 @@ function Chevron() {
   return <ChevronRight aria-hidden="true" width={16} height={16} className="shrink-0 text-indigo-black" />;
 }
 
-export function AccountsView({ data }: { data: SafeToSpendData }) {
+// canLink: a new link may be made (always in the sandbox; in the production
+// pilot only with room left). canUpdate: the student may sign in to the bank
+// again (Plaid's update mode). When neither fixes a broken link, Accounts says
+// who can, and offers Disconnect only.
+export function AccountsView({ data, canLink = true, canUpdate = true, sandbox = true }: { data: SafeToSpendData; canLink?: boolean; canUpdate?: boolean; sandbox?: boolean }) {
   const router = useRouter();
   const isMounted = useIsMounted();
   const now = useNow();
@@ -112,6 +116,7 @@ export function AccountsView({ data }: { data: SafeToSpendData }) {
 
   const reconnectNeeded = data.status === "reconnect_needed";
   const relinkNeeded = data.status === "relink_needed";
+  const canFix = reconnectNeeded ? canUpdate : canLink;
   const updated =
     now && data.refreshedAt
       ? `Updated ${new Date(data.refreshedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
@@ -133,9 +138,13 @@ export function AccountsView({ data }: { data: SafeToSpendData }) {
             {reconnectNeeded || relinkNeeded ? (
               <li className="flex flex-col gap-3 border-b border-off-white py-3.5">
                 <p className="text-body-m text-navy">{reconnectNeeded ? SAFE_TO_SPEND_COPY.reconnect : SAFE_TO_SPEND_COPY.relink}</p>
-                <Button type="button" pending={busy === "reconnect"} onClick={reconnectNeeded ? reconnect : connectAgain}>
-                  {reconnectNeeded ? "Reconnect your bank" : "Connect again"}
-                </Button>
+                {canFix ? (
+                  <Button type="button" pending={busy === "reconnect"} onClick={reconnectNeeded ? reconnect : connectAgain}>
+                    {reconnectNeeded ? "Reconnect your bank" : "Connect again"}
+                  </Button>
+                ) : (
+                  <p className="text-body-s text-indigo-black">{SAFE_TO_SPEND_COPY.pilotNoRoom}</p>
+                )}
               </li>
             ) : null}
             <li>
@@ -162,7 +171,7 @@ export function AccountsView({ data }: { data: SafeToSpendData }) {
             Disconnect bank
           </Button>
         </main>
-        <DisconnectSheet open={sheetOpen} onOpenChange={setSheetOpen} />
+        <DisconnectSheet open={sheetOpen} onOpenChange={setSheetOpen} lastLink={!sandbox && !canLink} />
       </div>
     </div>
   );

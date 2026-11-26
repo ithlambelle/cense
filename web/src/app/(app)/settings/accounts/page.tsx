@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { AccountsView } from "@/components/your-money/accounts-view";
 import { plaidConfig } from "@/lib/plaid/config";
+import { bankOffer } from "@/lib/plaid/offer";
 import { loadSafeToSpend } from "@/lib/plaid/store";
 import { ROUTES } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
@@ -17,5 +18,8 @@ export default async function AccountsPage() {
   const loaded = await loadSafeToSpend(student);
   if (!loaded.ok) throw new Error("Could not read the student's bank link.");
   if (!loaded.value) redirect(ROUTES.safeToSpendConnect);
-  return <AccountsView data={loaded.value} />;
+  // In the production pilot a student may have no room for a new link: then
+  // a broken link is never deleted in the hope of linking again.
+  const offer = await bankOffer(student);
+  return <AccountsView data={loaded.value} canLink={offer?.canLink ?? false} canUpdate={offer?.canUpdate ?? false} sandbox={offer?.sandbox ?? true} />;
 }

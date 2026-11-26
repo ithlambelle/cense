@@ -15,7 +15,7 @@ import {
 
 extendZodWithOpenApi(z);
 
-// Safe to spend on a Plaid sandbox bank (US-12). The bank is linked and read
+// Safe to spend on a linked bank, sandbox or the production pilot (US-12). The bank is linked and read
 // on the server; the browser never receives the access token or any Plaid
 // response, only these shapes.
 

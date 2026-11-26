@@ -3105,7 +3105,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "502":
-          description: Plaid unreachable
+          description: Plaid unreachable, or the pilot exchange failed (pilot_link_failed)
           content:
             application/json:
               schema:
@@ -3124,7 +3124,9 @@ paths:
       description: With PLAID_ENV production, only pilot students may link (403
         pilot_only), and each exchange first takes one slot of their allowance
         and of the pilot's Item budget, never given back (503 bank_link_full
-        when none is left; the public token is not exchanged).
+        when none is left; the public token is not exchanged). A failed exchange
+        after the slot was taken answers 502 pilot_link_failed, since trying
+        again would only meet bank_link_full.
       security:
         - studentSession: []
       requestBody:
@@ -3172,7 +3174,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "502":
-          description: Plaid unreachable
+          description: Plaid unreachable, or the pilot exchange failed (pilot_link_failed)
           content:
             application/json:
               schema:

@@ -46,6 +46,7 @@ import SafeToSpendConnectPage from "@/app/(app)/safe-to-spend/connect/page";
 import StartLinkBankPage from "@/app/(app)/start/link-bank/page";
 import StartNextStepPage from "@/app/(app)/start/next-step/page";
 import StartWelcomePage from "@/app/(app)/start/welcome/page";
+import AccountsPage from "@/app/(app)/settings/accounts/page";
 
 const SANDBOX = { clientId: "c", secret: "s", baseUrl: "https://sandbox.plaid.com", tokenKey: Buffer.alloc(32), environment: "sandbox" as const };
 const PRODUCTION = { ...SANDBOX, baseUrl: "https://production.plaid.com", environment: "production" as const };
@@ -117,6 +118,45 @@ describe("first sign-in with real banks", () => {
   });
 });
 
+describe("first sign-in when the pilot cannot be read", () => {
+  it("still welcomes the student and sends them to Your next step, never a server error", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    rpc.mockResolvedValue({ data: null, error: { code: "08006", message: "connection failure" } });
+    expect((await outcome(StartWelcomePage)).props?.next).toBe("/start/next-step");
+    expect((await outcome(StartNextStepPage)).props).toMatchObject({ canLinkLater: false });
+    expect(await outcome(StartLinkBankPage)).toEqual({ redirect: "/start/next-step" });
+  });
+});
+
+describe("Accounts with real banks", () => {
+  const linked = (status: string) => store.loadSafeToSpend.mockResolvedValue({ ok: true, value: { ...LINKED, status } });
+
+  it("lets a pilot student with room connect again", async () => {
+    linked("relink_needed");
+    access("open");
+    expect((await outcome(AccountsPage)).props).toMatchObject({ canLink: true, canUpdate: true, sandbox: false });
+  });
+
+  it("never offers Connect again to a student with no room, and says it is their last link", async () => {
+    linked("relink_needed");
+    access("full");
+    expect((await outcome(AccountsPage)).props).toMatchObject({ canLink: false, canUpdate: true, sandbox: false });
+  });
+
+  it("does not offer Reconnect to a student taken off the pilot", async () => {
+    linked("reconnect_needed");
+    access("none");
+    expect((await outcome(AccountsPage)).props).toMatchObject({ canLink: false, canUpdate: false });
+  });
+
+  it("offers everything in the sandbox without asking the pilot", async () => {
+    config.plaidConfig.mockReturnValue(SANDBOX);
+    linked("relink_needed");
+    expect((await outcome(AccountsPage)).props).toMatchObject({ canLink: true, canUpdate: true, sandbox: true });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
 describe("Connect with real banks", () => {
   it("sends a student outside the pilot Home instead of showing the consent screen", async () => {
     access("none");
@@ -138,9 +178,11 @@ describe("Connect with real banks", () => {
     expect(await outcome(SafeToSpendConnectPage)).toEqual({ notFound: true });
   });
 
-  it("fails loudly rather than guess when the pilot cannot be read", async () => {
+  it("offers nothing, and sends the student Home, when the pilot cannot be read", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
     rpc.mockResolvedValue({ data: null, error: { code: "08006", message: "connection failure" } });
-    await expect(SafeToSpendConnectPage()).rejects.toThrow("pilot");
+    expect(await outcome(SafeToSpendConnectPage)).toEqual({ redirect: "/home" });
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("plaid_pilot_read_failed"));
   });
 });
 

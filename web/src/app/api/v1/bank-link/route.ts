@@ -5,7 +5,7 @@ import { createBankLinkSchema } from "@/lib/api/safe-to-spend";
 import { exchangePublicToken, getAccounts, removeItem } from "@/lib/plaid/client";
 import { plaidConfig, type PlaidConfig } from "@/lib/plaid/config";
 import { claimItemSlot, linkAccess } from "@/lib/plaid/pilot";
-import { alreadyLinked, bankUnreachable, itemBudgetFull, NO_STORE, notLinked, pilotOnly, safeToSpendOff } from "@/lib/plaid/responses";
+import { alreadyLinked, bankUnreachable, itemBudgetFull, NO_STORE, notLinked, pilotLinkFailed, pilotOnly, safeToSpendOff } from "@/lib/plaid/responses";
 import { linkStatus, loadSafeToSpend, saveBalances, saveBankLink } from "@/lib/plaid/store";
 import { syncStudentTransactions } from "@/lib/plaid/transactions";
 import { removeBankLinksForStudent } from "@/lib/plaid/unlink";
@@ -57,6 +57,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const exchanged = await exchangePublicToken(config, parsed.data.publicToken);
   if (!exchanged.ok) {
+    if (config.environment === "production") return pilotLinkFailed();
     if (exchanged.kind === "plaid" && exchanged.code === "INVALID_PUBLIC_TOKEN") {
       return apiError(400, "link_expired", "That connection expired. Please connect again.");
     }

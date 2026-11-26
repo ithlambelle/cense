@@ -32,7 +32,7 @@ export const ROUTES = {
   // one in), then Set a new password.
   resetPasswordConfirm: "/reset-password/confirm",
   resetPassword: "/reset-password",
-  // Safe to spend on a Plaid sandbox bank (US-12): Your money (Today and This
+  // Safe to spend on a linked bank, sandbox or the production pilot (US-12): Your money (Today and This
   // month tabs, Figma 709:1520 and 709:1769), the consent screen before Link,
   // and who covers which bills.
   safeToSpend: "/safe-to-spend",

@@ -306,17 +306,19 @@ Locally and in CI the journey tests (`web/e2e/safe-to-spend.spec.ts`) never call
 `PLAID_ENV=production` talks to `https://production.plaid.com` with two limits, both enforced on the server (`web/src/lib/plaid/pilot.ts`) and both kept in the database, where only a team member in the SQL editor can change them (`supabase/migrations/20261125120000_plaid_pilot.sql`). The sandbox ignores both. `PLAID_BASE_URL` set in production turns the feature off: real keys only ever go to Plaid.
 
 - **Who may link.** Only students on the allowlist (`pilot.plaid_students`). Everyone else is never offered Link: Home shows no invitation, first sign-in skips Link your bank, Connect sends them Home, and the API answers 403 `pilot_only`. A student taken off the list keeps seeing, refreshing and disconnecting a bank they already linked, but cannot sign in to it again through Link.
-- **How many Items.** Plaid's Trial plan allows 10 production Items, ever: every access token counts, even after the Item is removed, so a disconnect and relink, a test link or a second try each spend one. Each pilot student has an `allowance` (1 by default) and the whole pilot a `budget` (0 until set). A slot of both is taken right before each public token exchange and never given back, even when the exchange fails. When either is used up, Link is not offered and new links are refused before any exchange (503 `bank_link_full`). Signing in again to a bank already linked (update mode) makes no Item and needs no slot.
+- **How many Items.** Plaid's Trial plan allows 10 production Items, ever: every access token counts, even after the Item is removed, so a disconnect and relink, a test link or a second try each spend one. Each pilot student has an `allowance` (1 by default) and the whole pilot a `budget` (0 until set). A slot of both is taken right before each public token exchange and never given back, even when the exchange fails: Plaid counts an Item when its public token is exchanged (not when Link finishes, for the products Cense uses; [Plaid billing](https://plaid.com/docs/account/billing/)), so a refused or abandoned exchange costs Plaid nothing, and a failed one may. After a failed exchange the student sees "The Cense team will reset your spot" (502 `pilot_link_failed`) and the logs say `plaid_pilot_slot_lost`: raise their allowance by one. When either is used up, Link is not offered and new links are refused before any exchange (503 `bank_link_full`). Signing in again to a bank already linked (update mode) makes no Item and needs no slot.
 
-Every number is in the database, so nothing a browser sends can change it: a pilot student calling `claim_plaid_item_slot()` directly can use up only their own allowance.
+Every number is in the database, so nothing a browser sends can change it: a pilot student calling `claim_plaid_item_slot()` directly can use up only their own allowance (each slot of it also spends one of the budget).
+
+A student with no room left whose link breaks is never offered Connect again (it would delete the link and then refuse a new one): Accounts says to ask the team for a new spot, and Disconnect says first that it is their last link.
 
 Run these in the Supabase SQL editor (it runs as the database owner; no API role, service role included, can read or write the `pilot` schema):
 
 ```sql
 -- set the budget once (10 or less on Plaid's Trial plan; leave room for a retry)
 update pilot.plaid_item_budget set budget = 9;
--- add a student (allowance 1: one bank, no relink)
-insert into pilot.plaid_students (student_id) select id from auth.users where email = 'student@bu.edu' on conflict do nothing;
+-- add a student (allowance 1: one bank, no relink); no row back means a mistyped email
+insert into pilot.plaid_students (student_id) select id from auth.users where email = 'student@bu.edu' on conflict do nothing returning student_id;
 -- let one student link again after a disconnect (spends another Item)
 update pilot.plaid_students set allowance = allowance + 1 where student_id = (select id from auth.users where email = 'student@bu.edu');
 -- take a student off
@@ -325,7 +327,12 @@ delete from pilot.plaid_students where student_id = (select id from auth.users w
 select budget, used from pilot.plaid_item_budget;
 ```
 
-Never lower `used` by hand: Plaid does not forget an Item. To stop new links at once, set `budget` to `used`; banks already linked keep working. Rolling back: set `PLAID_ENV` back to `sandbox` and redeploy, write down `used`, then run `supabase/rollbacks/20261125120000_plaid_pilot.down.sql`.
+Never lower `used` by hand: Plaid does not forget an Item. To stop new links at once, set `budget` to `used`; banks already linked keep working.
+
+Switching environments. Each access token names its environment (`access-sandbox-...`, `access-production-...`), and the app never sends a token to the other one (`web/src/lib/plaid/client.ts`): a link from the other environment shows as "Your bank connection ended", and Disconnect or account deletion queues its Item in `plaid.account_cleanup`, where it waits until the app is back in that environment. So nothing is dropped as "already gone" while it still exists at Plaid, but it is also not removed. Do it in order:
+
+1. Going to production: while still on `sandbox`, disconnect every sandbox link (`select count(*) from public.bank_links;` should be 0) and let the cleanup queue empty (`select count(*) from plaid.account_cleanup where gave_up_at is null;` 0). Then apply the migration, set the budget, add the students, and set `PLAID_ENV=production`.
+2. Rolling back: while still on `production`, have each pilot student disconnect (or disconnect them), and wait for the cleanup queue to empty, so every real Item is removed at Plaid. Then set `PLAID_ENV=sandbox`, redeploy, write down `used`, and run `supabase/rollbacks/20261125120000_plaid_pilot.down.sql`.
 
 Not in this change, and needed before banks that sign in on their own site (Chase, Bank of America, Wells Fargo) work in production: an OAuth redirect URI registered with Plaid and passed when the Link token is made.
 

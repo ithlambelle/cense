@@ -89,6 +89,12 @@ describe("POST /bank-link/refresh", () => {
     expect(store.saveBalances).not.toHaveBeenCalled();
   });
 
+  it("saves that the link must be made again when its token is from the other Plaid environment", async () => {
+    plaid.getAccounts.mockResolvedValue({ ok: false, kind: "wrong_environment" });
+    expect((await (await POST()).json()).error.code).toBe("relink_needed");
+    expect(store.markLinkStatus).toHaveBeenCalledWith(expect.anything(), "relink_needed");
+  });
+
   it("keeps the old numbers when the bank is down", async () => {
     plaid.getAccounts.mockResolvedValue({ ok: false, kind: "plaid", code: "INSTITUTION_DOWN" });
     expect((await POST()).status).toBe(502);

@@ -270,13 +270,19 @@ describe("POST /bank-link in production", () => {
     expect(rpc).not.toHaveBeenCalledWith("claim_plaid_item_slot");
   });
 
-  it("keeps the slot taken when the exchange fails (Plaid may still count it)", async () => {
+  it("keeps the slot taken when the exchange fails, and says so instead of 'try again', which would only meet bank_link_full", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
     pilot({ access: "open", claim: true });
-    plaid.exchangePublicToken.mockResolvedValue({ ok: false, kind: "network" });
-    const response = await post({ publicToken: "public-production-1" });
-    expect(response.status).toBe(502);
-    expect(rpc).toHaveBeenCalledWith("claim_plaid_item_slot");
-    expect(rpc).toHaveBeenCalledTimes(2);
+    for (const failure of [{ ok: false, kind: "network" }, { ok: false, kind: "plaid", code: "INVALID_PUBLIC_TOKEN" }]) {
+      plaid.exchangePublicToken.mockResolvedValueOnce(failure);
+      const response = await post({ publicToken: "public-production-1" });
+      expect(response.status).toBe(502);
+      const body = await response.json();
+      expect(body.error.code).toBe("pilot_link_failed");
+      expect(body.error.message).not.toMatch(/try again/i);
+    }
+    expect(rpc.mock.calls.filter(([name]) => name === "claim_plaid_item_slot")).toHaveLength(2);
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("plaid_pilot_slot_lost"));
   });
 
   it("refuses when the pilot cannot be read, before Plaid is called", async () => {

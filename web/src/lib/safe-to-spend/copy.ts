@@ -56,6 +56,11 @@ export const SAFE_TO_SPEND_COPY = {
   setAsideLabel: "Set aside each month",
   reconnect: "Your bank needs you to sign in again.",
   relink: "Your bank connection ended.",
+  // Production pilot, no room left for a new link (lib/plaid/offer.ts).
+  pilotNoRoom: "To connect a bank again, ask the Cense team for a new pilot spot.",
+  pilotLastLink: "You can’t connect a bank again without a new pilot spot.",
+  // Production pilot: the exchange failed after it used the student's spot.
+  pilotLinkFailed: "That didn’t connect. The Cense team will reset your spot.",
   lastNumbers: "Until then, these are the last numbers we read.",
   plaidCopy: "Plaid keeps its own copy of what it shared. Manage it at my.plaid.com.",
 } as const;

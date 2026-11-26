@@ -14,7 +14,8 @@ export const metadata: Metadata = { title: "Welcome | CENSE" };
 // student who comes back here after "Let's go", goes on to their usual
 // screen through /start. "Let's go" opens Link your bank (E1), or Your next
 // step without a bank (N3) where the student cannot link one: safe to spend
-// is off, or, in production, they are not in the bank pilot.
+// is off, or, in production, they are not in the bank pilot or have no room
+// left in it (or the pilot cannot be read).
 export default async function StartWelcomePage() {
   const student = await requireStudent(ROUTES.start);
   if (!(await needsWelcome(student))) redirect(ROUTES.start);
