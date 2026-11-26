@@ -352,7 +352,7 @@ export interface paths {
         put?: never;
         /**
          * Accept the goal's plan: its monthly amount becomes the set-aside
-         * @description Writes only bank_links.set_aside_cents (through accept_goal_plan()), never the bill answers. 404 not_found with no goal, 404 not_linked with no bank, 409 nothing_to_set_aside for a plan that sets nothing aside (Pay off my card), 400 too_much past $100,000 a month.
+         * @description Sends the monthly amount the screen showed. Writes only bank_links.set_aside_cents (through accept_goal_plan()), never the bill answers. 409 plan_changed when the goal was saved again since (the screen reloads the plan), 409 nothing_to_set_aside for a plan that sets nothing aside (Pay off my card), 404 not_found with no goal, 404 not_linked with no bank, 400 too_much past $100,000 a month.
          */
         post: operations["acceptGoalPlan"];
         delete?: never;
@@ -1150,6 +1150,7 @@ export interface components {
             amountCents: number;
             /** Format: date */
             targetDate: string;
+            dateChosen: boolean;
             monthlyCents: number;
             acceptedMonthlyCents: number | null;
             /** Format: date-time */
@@ -1162,6 +1163,9 @@ export interface components {
             amountCents: number;
             /** Format: date */
             targetDate?: string | null;
+        };
+        AcceptGoalPlan: {
+            monthlyCents: number;
         };
         RemovedGoal: {
             setAsideCleared: boolean;
@@ -2279,7 +2283,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AcceptGoalPlan"];
+            };
+        };
         responses: {
             /** @description Plan accepted */
             204: {
@@ -2288,7 +2296,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description More than a set-aside can be (too_much) */
+            /** @description Invalid amount, or more than a set-aside can be (too_much) */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -2315,7 +2323,7 @@ export interface operations {
                     "application/json": components["schemas"]["ApiError"];
                 };
             };
-            /** @description Nothing to set aside */
+            /** @description The plan changed, or there is nothing to set aside */
             409: {
                 headers: {
                     [name: string]: unknown;

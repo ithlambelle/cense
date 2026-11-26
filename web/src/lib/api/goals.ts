@@ -3,8 +3,7 @@
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { z } from "zod";
 
-import { GOAL_LABELS } from "@/lib/goals/copy";
-import { GOAL_PRESETS, MAX_GOAL_CENTS, type GoalPreset } from "@/lib/goals/presets";
+import { GOAL_PRESETS, MAX_GOAL_CENTS } from "@/lib/goals/presets";
 
 extendZodWithOpenApi(z);
 
@@ -31,6 +30,8 @@ export const goalSchema = z
     amountCents: z.int(),
     // Fixed when the goal is saved: the student's date, or 6 months from then.
     targetDate: z.iso.date(),
+    // True when the student picked the date; false for the 6-month default.
+    dateChosen: z.boolean(),
     // The plan, also fixed at the save and kept until the goal is edited: the
     // amount over the whole months left (at least 1), rounded up to the cent.
     monthlyCents: z.int(),
@@ -40,18 +41,9 @@ export const goalSchema = z
   })
   .openapi("Goal");
 
-// Zero-width and other invisible formatting characters (Unicode Cf), which a
-// pasted name can carry and which would otherwise pass as a name.
-const INVISIBLE = /\p{Cf}/gu;
-
-// The name saved with a goal: a preset's own, or what the student typed for
-// Something else without invisible characters or surrounding space. Null when
-// that leaves nothing, or more than 40 characters.
-export function goalName(preset: GoalPreset, typed: string | undefined): string | null {
-  if (preset !== "other") return GOAL_LABELS[preset];
-  const name = (typed ?? "").replace(INVISIBLE, "").trim();
-  return name.length >= 1 && name.length <= 40 ? name : null;
-}
+// Accept plan sends the monthly amount the screen showed; a goal saved again
+// since (another tab) answers 409 plan_changed instead of accepting it.
+export const acceptGoalPlanSchema = z.strictObject({ monthlyCents: z.int().min(0) }).openapi("AcceptGoalPlan");
 
 export const savedGoalSchema = z.strictObject({ goal: goalSchema }).openapi("SavedGoal");
 
@@ -62,12 +54,13 @@ export const removedGoalSchema = z.strictObject({ setAsideCleared: z.boolean() }
 export type Goal = z.infer<typeof goalSchema>;
 export type SaveGoalBody = z.infer<typeof saveGoalSchema>;
 
-export const GOAL_FIELDS = "preset, name, amount_cents, target_date, monthly_cents, accepted_monthly_cents, updated_at";
+export const GOAL_FIELDS = "preset, name, amount_cents, target_date, target_date_chosen, monthly_cents, accepted_monthly_cents, updated_at";
 export type GoalRow = {
   preset: string;
   name: string;
   amount_cents: number | string;
   target_date: string;
+  target_date_chosen: boolean;
   monthly_cents: number | string;
   accepted_monthly_cents: number | string | null;
   updated_at: string;
@@ -81,6 +74,7 @@ export function goalFromRow(row: GoalRow): Goal {
     name: row.name,
     amountCents: Number(row.amount_cents),
     targetDate: row.target_date,
+    dateChosen: row.target_date_chosen,
     monthlyCents: Number(row.monthly_cents),
     acceptedMonthlyCents: row.accepted_monthly_cents === null ? null : Number(row.accepted_monthly_cents),
     updatedAt: new Date(row.updated_at).toISOString(),

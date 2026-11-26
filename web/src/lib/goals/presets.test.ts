@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import type { BillAnswer } from "@/lib/safe-to-spend/compute";
 
-import { EMERGENCY_FLOOR_CENTS, essentialsCents, FIRST_PRESETS, GOAL_PRESETS, MAX_GOAL_CENTS, MORE_PRESETS, suggestedAmount } from "./presets";
+import { EMERGENCY_FLOOR_CENTS, essentialsCents, FIRST_PRESETS, GOAL_PRESETS, goalName, MAX_GOAL_CENTS, MORE_PRESETS, suggestedAmount } from "./presets";
 
 const answer = (bill: BillAnswer["bill"], coveredBy: BillAnswer["coveredBy"], monthlyCents: number | null): BillAnswer => ({
   bill,
@@ -66,5 +66,24 @@ describe("suggestedAmount", () => {
 
   it("never suggests more than a goal can be", () => {
     expect(suggestedAmount("pay_off_card", { bills: [], cardCents: MAX_GOAL_CENTS + 1 })?.amountCents).toBe(MAX_GOAL_CENTS);
+  });
+});
+
+describe("goalName", () => {
+  it("names a preset goal itself, whatever was typed", () => {
+    expect(goalName("trip", "Anything")).toBe("Trip");
+    expect(goalName("pay_off_card", undefined)).toBe("Pay off my card");
+  });
+
+  it("keeps a Something else name without invisible characters or surrounding space", () => {
+    expect(goalName("other", " \u200bLaptop\u200d ")).toBe("Laptop");
+    expect(goalName("other", "Café 2027")).toBe("Café 2027");
+    expect(goalName("other", "日本旅行")).toBe("日本旅行");
+  });
+
+  it("refuses a name that only looks blank, or is longer than 40", () => {
+    for (const typed of ["", "   ", "\u200b\u200c\u200d", "\u2060\ufeff", "\u00a0\u3000", "\u3164", "\u2800\u2800", "\uffa0", "\u115f\u1160", "\u0301", " \u0301\u0308 ", "x".repeat(41), undefined]) {
+      expect(goalName("other", typed), JSON.stringify(typed)).toBeNull();
+    }
   });
 });

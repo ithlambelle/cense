@@ -1046,6 +1046,8 @@ components:
         targetDate:
           type: string
           format: date
+        dateChosen:
+          type: boolean
         monthlyCents:
           type: integer
         acceptedMonthlyCents:
@@ -1060,6 +1062,7 @@ components:
         - name
         - amountCents
         - targetDate
+        - dateChosen
         - monthlyCents
         - acceptedMonthlyCents
         - updatedAt
@@ -1091,6 +1094,15 @@ components:
       required:
         - preset
         - amountCents
+      additionalProperties: false
+    AcceptGoalPlan:
+      type: object
+      properties:
+        monthlyCents:
+          type: integer
+          minimum: 0
+      required:
+        - monthlyCents
       additionalProperties: false
     RemovedGoal:
       type: object
@@ -2085,18 +2097,24 @@ paths:
     post:
       operationId: acceptGoalPlan
       summary: "Accept the goal's plan: its monthly amount becomes the set-aside"
-      description: Writes only bank_links.set_aside_cents (through
-        accept_goal_plan()), never the bill answers. 404 not_found with no goal,
-        404 not_linked with no bank, 409 nothing_to_set_aside for a plan that
-        sets nothing aside (Pay off my card), 400 too_much past $100,000 a
-        month.
+      description: Sends the monthly amount the screen showed. Writes only
+        bank_links.set_aside_cents (through accept_goal_plan()), never the bill
+        answers. 409 plan_changed when the goal was saved again since (the
+        screen reloads the plan), 409 nothing_to_set_aside for a plan that sets
+        nothing aside (Pay off my card), 404 not_found with no goal, 404
+        not_linked with no bank, 400 too_much past $100,000 a month.
       security:
         - studentSession: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptGoalPlan"
       responses:
         "204":
           description: Plan accepted
         "400":
-          description: More than a set-aside can be (too_much)
+          description: Invalid amount, or more than a set-aside can be (too_much)
           content:
             application/json:
               schema:
@@ -2114,7 +2132,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "409":
-          description: Nothing to set aside
+          description: The plan changed, or there is nothing to set aside
           content:
             application/json:
               schema:

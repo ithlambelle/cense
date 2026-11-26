@@ -62,7 +62,7 @@ export function YourPlan({
     if (pending || tooMuch) return;
     setPending(true);
     setError(null);
-    const result = await acceptGoalPlan();
+    const result = await acceptGoalPlan(monthlyCents);
     if (!isMounted()) return;
     if (result.kind === "ok") {
       track("goal_plan_saved", { preset: goal.preset });
@@ -74,6 +74,12 @@ export function YourPlan({
     }
     setPending(false);
     if (result.kind === "signed-out") return router.replace(signInPath(ROUTES.startPlan));
+    // Saved again in another tab: show that plan instead of accepting it unseen.
+    if (result.code === "plan_changed") {
+      setError(PLAN_COPY.changed);
+      router.refresh();
+      return;
+    }
     setError(result.message);
   }
 

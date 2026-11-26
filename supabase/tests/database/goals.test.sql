@@ -7,11 +7,13 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(39);
+select plan(46);
 
 insert into auth.users (id, email) values
   ('90a10000-0000-4000-8000-000000000001', 'goals-ana@example.com'),
   ('90a10000-0000-4000-8000-000000000002', 'goals-bo@example.com');
+
+select col_default_is('public', 'goals', 'target_date_chosen', 'false', 'a goal''s date counts as the student''s only when they picked it');
 
 -- What anon and students can reach.
 select ok((select relrowsecurity from pg_class where oid = 'public.goals'::regclass), 'row level security is on for goals');
@@ -67,9 +69,10 @@ select is_empty($$delete from public.goals where student_id = '90a10000-0000-400
   'or delete it');
 reset role;
 
--- Accept plan writes only the set-aside: bills stay as they are, even ones
--- changed since the plan was opened (accept_goal_plan()).
-select ok(not has_function_privilege('anon', 'public.accept_goal_plan()', 'execute'), 'signed out, no one accepts a plan');
+-- Accept plan writes only the set-aside, and only the plan the screen showed:
+-- bills stay as they are, even ones changed since the plan was opened
+-- (accept_goal_plan(p_monthly_cents)).
+select ok(not has_function_privilege('anon', 'public.accept_goal_plan(bigint)', 'execute'), 'signed out, no one accepts a plan');
 insert into plaid.items (student_id, item_id, token_ciphertext) values
   ('90a10000-0000-4000-8000-000000000001', 'item-goals-ana', 'v1.test');
 insert into public.bank_links (student_id, institution_name, set_aside_cents) values
@@ -78,17 +81,35 @@ insert into public.bill_coverage (student_id, bill, covered_by, monthly_cents, d
   ('90a10000-0000-4000-8000-000000000001', 'rent', 'me', 70000, 6);
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"90a10000-0000-4000-8000-000000000001","role":"authenticated"}';
-select is(public.accept_goal_plan(), 'accepted', 'a student accepts the plan for their goal');
+select is(public.accept_goal_plan(19999), 'changed', 'a plan saved again since the screen showed it is not accepted');
+select is((select set_aside_cents from public.bank_links), 5000::bigint, 'and the set-aside is left alone');
+select is(public.accept_goal_plan(20000), 'accepted', 'a student accepts the plan the screen showed');
 select is((select set_aside_cents from public.bank_links), 20000::bigint, 'the set-aside is the plan''s monthly amount');
 select is((select accepted_monthly_cents from public.goals), 20000::bigint, 'and the goal remembers what was set aside');
 select is((select monthly_cents::int || ':' || due_day from public.bill_coverage where bill = 'rent'), '70000:6', 'the bills are left exactly as they were');
-update public.goals set monthly_cents = 0;
-select is(public.accept_goal_plan(), 'nothing_to_set_aside', 'a plan that sets nothing aside changes nothing');
-select is((select set_aside_cents from public.bank_links), 20000::bigint, 'not even the set-aside');
 reset role;
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"90a10000-0000-4000-8000-000000000002","role":"authenticated"}';
-select is(public.accept_goal_plan(), 'no_bank', 'with no bank there is no set-aside to write');
+select is(public.accept_goal_plan(83334), 'no_bank', 'with no bank there is no set-aside to write');
+reset role;
+
+-- Switching an accepted goal to one that sets nothing aside (Pay off my card)
+-- releases the set-aside the old plan held, as removing it does
+-- (goals_release_set_aside).
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"90a10000-0000-4000-8000-000000000001","role":"authenticated"}';
+update public.goals set preset = 'pay_off_card', name = 'Pay off my card', amount_cents = 31000, monthly_cents = 0;
+select is((select set_aside_cents from public.bank_links), 0::bigint, 'switching to Pay off my card clears the set-aside the accepted plan held');
+select is((select accepted_monthly_cents from public.goals), null, 'and nothing is accepted any more');
+select is(public.accept_goal_plan(0), 'nothing_to_set_aside', 'a plan that sets nothing aside is never accepted');
+update public.goals set preset = 'trip', name = 'Trip', amount_cents = 60000, monthly_cents = 20000;
+select is(public.accept_goal_plan(20000), 'accepted', 'a new plan can be accepted');
+update public.bank_links set set_aside_cents = 7500;
+update public.goals set preset = 'pay_off_card', name = 'Pay off my card', amount_cents = 31000, monthly_cents = 0;
+select is((select set_aside_cents from public.bank_links), 7500::bigint, 'a set-aside the student changed since stays when they switch');
+update public.goals set preset = 'trip', name = 'Trip', amount_cents = 60000, monthly_cents = 20000;
+update public.bank_links set set_aside_cents = 5000;
+select is(public.accept_goal_plan(20000), 'accepted', 'and the trip''s plan is accepted again');
 reset role;
 
 -- Remove my goal clears the set-aside only when it is still the plan's

@@ -40,8 +40,10 @@ export const GOAL_COPY = {
   remove: "Remove my goal",
   // The one-line confirmation, by what happens to the set-aside.
   removeAsk: "Remove your goal?",
-  removeClears: (amount: string) => `Remove your goal? Your ${amount} a month set-aside stops too.`,
-  removeKeeps: (amount: string) => `Remove your goal? Your ${amount} a month set-aside stays; change it on Your money.`,
+  // What removing the goal, or switching it to Pay off my card, does to the
+  // set-aside its accepted plan wrote.
+  setAsideStops: (amount: string) => `Your ${amount} a month set-aside stops too.`,
+  setAsideStays: (amount: string) => `Your ${amount} a month set-aside stays; change it on Your money.`,
   removeConfirm: "Remove",
   removeKeep: "Keep my goal",
   pickError: "Pick a goal.",
@@ -73,6 +75,8 @@ export const PLAN_COPY = {
   cardStep: "Each month, pay the full statement balance.",
   cardAutopay: "Set up autopay",
   cardDone: "Got it",
+  // Accept found the goal saved again in another tab; the plan reloads.
+  changed: "Your plan changed in another tab. Here it is now.",
   accept: "Accept plan",
   edit: "Edit",
 } as const;

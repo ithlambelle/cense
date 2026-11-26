@@ -5,7 +5,8 @@
 import { authenticatedStudent } from "@/lib/api/auth";
 import { databaseError } from "@/lib/api/database";
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
-import { goalName, saveGoalSchema } from "@/lib/api/goals";
+import { saveGoalSchema } from "@/lib/api/goals";
+import { goalName } from "@/lib/goals/presets";
 import { addMonthsIso, easternToday, MAX_YEARS } from "@/lib/goals/plan";
 import { removeGoal, saveGoal } from "@/lib/goals/store";
 

@@ -14,7 +14,8 @@ export function deleteGoal() {
   return runOutcome(apiRequest("delete", "/me/goal"));
 }
 
-// Accept plan: the saved goal's monthly amount becomes the set-aside.
-export function acceptGoalPlan() {
-  return runOutcome(apiRequest("post", "/me/goal/accept"));
+// Accept plan: the monthly amount the screen showed becomes the set-aside,
+// unless the goal was saved again since (plan_changed).
+export function acceptGoalPlan(monthlyCents: number) {
+  return runOutcome(apiRequest("post", "/me/goal/accept", { body: { monthlyCents } }));
 }

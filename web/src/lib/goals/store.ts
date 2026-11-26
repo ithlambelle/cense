@@ -18,14 +18,26 @@ export async function loadGoal(student: Student): Promise<StoreResult<Goal | nul
 
 // Saves the student's one goal, replacing any they had. The date and monthly
 // amount are fixed here, from `today`. Saving the same goal, amount and date
-// again keeps the monthly amount already saved, so it never drifts as days pass.
+// again (or still no date) keeps the date and monthly amount already saved, so
+// they never drift as days pass. Switching an accepted goal to Pay off my card
+// releases its set-aside in the database (goals_release_set_aside).
 export async function saveGoal(student: Student, goal: SaveGoalBody & { name: string }, today: string): Promise<StoreResult<Goal>> {
-  const existing = await student.supabase.from("goals").select("preset, amount_cents, target_date, monthly_cents").eq("student_id", student.studentId).maybeSingle();
+  const existing = await student.supabase
+    .from("goals")
+    .select("preset, amount_cents, target_date, target_date_chosen, monthly_cents")
+    .eq("student_id", student.studentId)
+    .maybeSingle();
   if (existing.error) return { ok: false, error: existing.error };
-  const plan = planAtSave({ preset: goal.preset, amountCents: goal.amountCents, targetDate: goal.targetDate ?? null }, today);
-  const before = existing.data as { preset: string; amount_cents: number | string; target_date: string; monthly_cents: number | string } | null;
-  const unchanged =
-    before !== null && before.preset === goal.preset && Number(before.amount_cents) === goal.amountCents && before.target_date === plan.targetDate;
+  type Before = { preset: string; amount_cents: number | string; target_date: string; target_date_chosen: boolean; monthly_cents: number | string };
+  const before = existing.data as Before | null;
+  const chosen = goal.targetDate != null;
+  const same = before !== null && before.preset === goal.preset && Number(before.amount_cents) === goal.amountCents;
+  // Still no date: the 6-month default stays where it was fixed.
+  const keepDefault = same && !chosen && !before.target_date_chosen;
+  const plan = keepDefault
+    ? { targetDate: before.target_date, monthlyCents: Number(before.monthly_cents) }
+    : planAtSave({ preset: goal.preset, amountCents: goal.amountCents, targetDate: goal.targetDate ?? null }, today);
+  const unchanged = same && before.target_date === plan.targetDate;
   const { data, error } = await student.supabase
     .from("goals")
     .upsert(
@@ -35,6 +47,7 @@ export async function saveGoal(student: Student, goal: SaveGoalBody & { name: st
         name: goal.name,
         amount_cents: goal.amountCents,
         target_date: plan.targetDate,
+        target_date_chosen: chosen,
         monthly_cents: unchanged ? Number(before.monthly_cents) : plan.monthlyCents,
       },
       { onConflict: "student_id" },

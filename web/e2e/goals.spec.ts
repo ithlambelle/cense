@@ -215,17 +215,26 @@ test("a typed goal with a date, then changed and removed, at 320 wide with no si
   await fits("your plan");
   await checkA11y("your plan at 320");
 
-  // Change it to a trip, then remove it: Home, no goal, and the set-aside left alone.
+  // Change it to a trip and accept it, switch to the card, then remove it.
   await page.getByRole("link", { name: "Edit" }).click();
   await goals(page).getByRole("button", { name: "Trip" }).click();
   await expect(page.getByLabel("How much?")).toHaveValue("");
   await page.getByLabel("How much?").fill("600");
   await page.getByRole("button", { name: "See my plan" }).click();
   await expect(page.getByText(/^Trip: \$600 by /)).toBeVisible();
-
-  // Paying off the card sets nothing aside: safe to spend already holds it back.
+  // No date picked, so Edit shows none (the 6-month default is not the student's).
   await page.getByRole("link", { name: "Edit" }).click();
+  await expect(page.getByLabel("By when?")).toHaveValue("");
+  await page.getByRole("button", { name: "See my plan" }).click();
+  await page.getByRole("button", { name: "Accept plan" }).click();
+  await expect(page).toHaveURL(/\/home$/);
+  expect((await (await page.request.get("/api/v1/safe-to-spend")).json()).setAsideCents).toBe(10_000);
+
+  // Paying off the card sets nothing aside: safe to spend already holds it
+  // back. Switching to it stops the trip's set-aside, and says so first.
+  await page.goto("/start/goal");
   await goals(page).getByRole("button", { name: "Pay off my card" }).click();
+  await expect(page.getByText("Your $100 a month set-aside stops too.")).toBeVisible();
   await expect(page.getByLabel("By when?")).toHaveCount(0);
   await page.getByRole("button", { name: "See my plan" }).click();
   await expect(page.getByText("Pay off my card: $310")).toBeVisible();
@@ -233,7 +242,8 @@ test("a typed goal with a date, then changed and removed, at 320 wide with no si
   await expect(page.getByRole("button", { name: "Accept plan" })).toHaveCount(0);
   await fits("your plan, card");
   await checkA11y("your plan, card");
-  expect(await savedGoals(page)).toMatchObject([{ preset: "pay_off_card", amount_cents: 31_000, monthly_cents: 0 }]);
+  expect(await savedGoals(page)).toMatchObject([{ preset: "pay_off_card", amount_cents: 31_000, monthly_cents: 0, accepted_monthly_cents: null }]);
+  expect((await (await page.request.get("/api/v1/safe-to-spend")).json()).setAsideCents).toBe(0);
   await page.getByRole("link", { name: "Edit" }).click();
   await page.getByRole("button", { name: "Remove my goal" }).click();
   await expect(page.getByText("Remove your goal?", { exact: true })).toBeVisible();

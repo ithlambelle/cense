@@ -57,7 +57,7 @@ describe("PUT /me/goal", () => {
     auth.authenticatedStudent.mockResolvedValue(s.value);
     const response = await put({ preset: "trip", name: "  Trip ", amountCents: 60_000, targetDate: "2027-03-01" });
     expect(response.status).toBe(200);
-    expect(s.calls.upsert).toEqual({ student_id: "student-1", preset: "trip", name: "Trip", amount_cents: 60_000, target_date: "2027-03-01", monthly_cents: 20_000 });
+    expect(s.calls.upsert).toEqual({ student_id: "student-1", preset: "trip", name: "Trip", amount_cents: 60_000, target_date: "2027-03-01", target_date_chosen: true, monthly_cents: 20_000 });
     expect(s.calls.onConflict).toBe("student_id");
     expect(((await response.json()) as { goal: unknown }).goal).toMatchObject({ targetDate: "2027-03-01", monthlyCents: 20_000 });
   });
@@ -76,6 +76,26 @@ describe("PUT /me/goal", () => {
     auth.authenticatedStudent.mockResolvedValue(s.value);
     expect((await put({ preset: "pay_off_card", name: "Pay off my card", amountCents: 31_000 })).status).toBe(200);
     expect(s.calls.upsert).toMatchObject({ preset: "pay_off_card", monthly_cents: 0 });
+  });
+
+  it("records whether the student picked the date", async () => {
+    let s = student(saved());
+    auth.authenticatedStudent.mockResolvedValue(s.value);
+    await put({ ...BODY, targetDate: "2027-03-01" });
+    expect(s.calls.upsert).toMatchObject({ target_date: "2027-03-01", target_date_chosen: true });
+    s = student(saved());
+    auth.authenticatedStudent.mockResolvedValue(s.value);
+    await put(BODY);
+    expect(s.calls.upsert).toMatchObject({ target_date: "2027-05-26", target_date_chosen: false });
+  });
+
+  it("keeps a goal with no date where it was when it is saved again unchanged, and its monthly amount", async () => {
+    // Saved weeks ago with no date: 6 months from then, $200 a month.
+    const earlier = { data: { preset: "emergency_fund", amount_cents: "124000", target_date: "2027-04-20", monthly_cents: "20000", target_date_chosen: false }, error: null };
+    const s = student({ existing: earlier, ...saved() });
+    auth.authenticatedStudent.mockResolvedValue(s.value);
+    expect((await put(BODY)).status).toBe(200);
+    expect(s.calls.upsert).toMatchObject({ target_date: "2027-04-20", target_date_chosen: false, monthly_cents: 20_000 });
   });
 
   it("keeps the stored monthly amount when the amount and date are unchanged, and works it out again when they change", async () => {
@@ -105,7 +125,7 @@ describe("PUT /me/goal", () => {
     auth.authenticatedStudent.mockResolvedValue(s.value);
     expect((await put({ preset: "other", name: " \u200bLaptop\u200d ", amountCents: 90_000 })).status).toBe(200);
     expect(s.calls.upsert).toMatchObject({ preset: "other", name: "Laptop" });
-    for (const name of ["\u200b\u200c\u200d", "\u2060 \ufeff", "\u00a0\u3000", undefined]) {
+    for (const name of ["\u200b\u200c\u200d", "\u2060 \ufeff", "\u00a0\u3000", "\u3164", "\u2800", "\uffa0", "\u0301", undefined]) {
       s = student(saved());
       auth.authenticatedStudent.mockResolvedValue(s.value);
       expect((await put({ preset: "other", name, amountCents: 90_000 })).status, JSON.stringify(name)).toBe(400);

@@ -14,7 +14,7 @@ import type { Goal } from "@/lib/api/goals";
 import { deleteGoal, saveGoal } from "@/lib/api-client/goals";
 import { GOAL_COPY, GOAL_LABELS, suggestionHint } from "@/lib/goals/copy";
 import { addMonthsIso, MAX_YEARS } from "@/lib/goals/plan";
-import { FIRST_PRESETS, MAX_GOAL_CENTS, MORE_PRESETS, type GoalPreset, type Suggestion } from "@/lib/goals/presets";
+import { FIRST_PRESETS, goalName, MAX_GOAL_CENTS, MORE_PRESETS, type GoalPreset, type Suggestion } from "@/lib/goals/presets";
 import { centsToInput, dollarsToCents, moneyAmount } from "@/lib/money";
 import { ROUTES, signInPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
@@ -51,7 +51,9 @@ export function PickGoal({
   const [more, setMore] = useState<"closed" | "open" | "tapped">(saved !== null && MORE_PRESETS.includes(saved.preset) ? "open" : "closed");
   const [name, setName] = useState(saved?.preset === "other" ? saved.name : "");
   const [amount, setAmount] = useState(saved ? centsToInput(saved.amountCents) : "");
-  const [date, setDate] = useState(saved?.targetDate ?? "");
+  // Only a date the student picked: the 6-month default shows as no date.
+  const savedDate = saved?.dateChosen ? saved.targetDate : "";
+  const [date, setDate] = useState(savedDate);
   const [error, setError] = useState<FieldError | null>(null);
   const [pending, setPending] = useState<"save" | "remove" | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -68,7 +70,7 @@ export function PickGoal({
     if (saved?.preset === next) {
       setAmount(centsToInput(saved.amountCents));
       setName(next === "other" ? saved.name : "");
-      setDate(saved.targetDate);
+      setDate(savedDate);
       return;
     }
     const suggested = suggestions[next];
@@ -81,8 +83,9 @@ export function PickGoal({
     event.preventDefault();
     if (pending) return;
     if (!preset) return setError({ field: "pick", text: GOAL_COPY.pickError });
-    const goalName = preset === "other" ? name.trim() : GOAL_LABELS[preset];
-    if (!goalName) return setError({ field: "name", text: GOAL_COPY.nameError });
+    // The server's own rule, so a name that only looks filled in is caught here.
+    const goalTitle = goalName(preset, name);
+    if (!goalTitle) return setError({ field: "name", text: GOAL_COPY.nameError });
     const amountCents = dollarsToCents(amount, { minCents: 1, maxCents: Number.MAX_SAFE_INTEGER });
     if (amountCents === null) return setError({ field: "amount", text: GOAL_COPY.amountError });
     if (amountCents > MAX_GOAL_CENTS) return setError({ field: "amount", text: GOAL_COPY.amountTooBig });
@@ -94,7 +97,7 @@ export function PickGoal({
 
     setPending("save");
     setError(null);
-    const result = await saveGoal({ preset, name: goalName, amountCents, targetDate: targetDate || null });
+    const result = await saveGoal({ preset, name: goalTitle, amountCents, targetDate: targetDate || null });
     if (!isMounted()) return;
     if (result.kind === "ok") {
       track("goal_saved", { preset, amount: suggestion?.amountCents === amountCents ? "suggested" : "typed", dated: Boolean(targetDate) });
@@ -194,6 +197,10 @@ export function PickGoal({
                   error={error?.field === "amount" ? error.text : undefined}
                   disabled={pending !== null}
                 />
+                {/* Switching to Pay off my card, which sets nothing aside. */}
+                {preset === "pay_off_card" && saved && saved.preset !== "pay_off_card" && setAsideLine(saved, setAsideCents) ? (
+                  <p className="text-body-s text-indigo-black">{setAsideLine(saved, setAsideCents)}</p>
+                ) : null}
                 {/* Paying off a card has no date: nothing is set aside for it. */}
                 {preset === "pay_off_card" ? null : (
                   <TextField
@@ -248,13 +255,19 @@ export function PickGoal({
   );
 }
 
-// What Remove my goal will do, in one line: the set-aside goes with the goal
-// when it still holds what Accept plan wrote (remove_goal()); one the student
-// changed since stays.
+// What removing the goal, or switching it to Pay off my card, does to the
+// set-aside, in one line: it goes when it still holds what Accept plan wrote
+// (remove_goal(), goals_release_set_aside); one the student changed since
+// stays. Null when there is no set-aside.
+function setAsideLine(goal: Goal, setAsideCents: number): string | null {
+  if (setAsideCents === 0) return null;
+  const amount = moneyAmount(setAsideCents);
+  return goal.acceptedMonthlyCents === setAsideCents ? GOAL_COPY.setAsideStops(amount) : GOAL_COPY.setAsideStays(amount);
+}
+
 function removeLine(goal: Goal, setAsideCents: number): string {
-  if (setAsideCents === 0) return GOAL_COPY.removeAsk;
-  if (goal.acceptedMonthlyCents !== null && goal.acceptedMonthlyCents === setAsideCents) return GOAL_COPY.removeClears(moneyAmount(setAsideCents));
-  return GOAL_COPY.removeKeeps(moneyAmount(setAsideCents));
+  const line = setAsideLine(goal, setAsideCents);
+  return line ? `${GOAL_COPY.removeAsk} ${line}` : GOAL_COPY.removeAsk;
 }
 
 // The day after an ISO date.

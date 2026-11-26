@@ -5,7 +5,8 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const replace = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace, refresh: vi.fn() }) }));
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace, refresh }) }));
 const saveSafeToSpendAnswers = vi.fn();
 vi.mock("@/lib/api-client/safe-to-spend", () => ({ saveSafeToSpendAnswers: (...args: unknown[]) => saveSafeToSpendAnswers(...args) }));
 const acceptGoalPlan = vi.fn();
@@ -24,6 +25,7 @@ const GOAL: Goal = {
   name: "Emergency fund",
   amountCents: 124_000,
   targetDate: "2027-05-26",
+  dateChosen: false,
   monthlyCents: 20_667,
   acceptedMonthlyCents: null,
   updatedAt: "2026-11-26T15:00:00.000Z",
@@ -77,7 +79,7 @@ describe("YourPlan", () => {
     show();
     fireEvent.click(screen.getByRole("button", { name: "Accept plan" }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
-    expect(acceptGoalPlan).toHaveBeenCalledTimes(1);
+    expect(acceptGoalPlan).toHaveBeenCalledWith(20_667);
     expect(saveSafeToSpendAnswers).not.toHaveBeenCalled();
     expect(track).toHaveBeenCalledWith("goal_plan_saved", { preset: "emergency_fund" });
   });
@@ -99,6 +101,15 @@ describe("YourPlan", () => {
     show();
     fireEvent.click(screen.getByRole("button", { name: "Accept plan" }));
     expect(await screen.findByText("Your data is temporarily unavailable. Please try again.")).toBeTruthy();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("reloads the plan when it was saved again in another tab, and says so", async () => {
+    acceptGoalPlan.mockResolvedValue({ kind: "failed", code: "plan_changed", message: "x" });
+    show();
+    fireEvent.click(screen.getByRole("button", { name: "Accept plan" }));
+    expect(await screen.findByText("Your plan changed in another tab. Here it is now.")).toBeTruthy();
+    expect(refresh).toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
   });
 

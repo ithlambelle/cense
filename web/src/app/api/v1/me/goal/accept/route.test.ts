@@ -8,7 +8,10 @@ const auth = vi.hoisted(() => ({ authenticatedStudent: vi.fn() }));
 vi.mock("@/lib/api/auth", () => auth);
 vi.mock("@/lib/plaid/config", () => ({ plaidConfig: () => ({}) }));
 
-import { POST } from "./route";
+import { POST as post } from "./route";
+
+const POST = (body: unknown = { monthlyCents: 20_667 }) =>
+  post(new Request("http://localhost/api/v1/me/goal/accept", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }));
 
 function student(result: { data: unknown; error: unknown }) {
   const rpc = vi.fn(async () => result);
@@ -21,12 +24,26 @@ afterEach(() => {
 });
 
 describe("POST /me/goal/accept", () => {
-  it("calls accept_goal_plan with nothing from the browser, and answers 204", async () => {
+  it("accepts the monthly amount the screen showed, and answers 204", async () => {
     const s = student({ data: "accepted", error: null });
     auth.authenticatedStudent.mockResolvedValue(s.value);
     const response = await POST();
     expect(response.status).toBe(204);
-    expect(s.rpc).toHaveBeenCalledWith("accept_goal_plan");
+    expect(s.rpc).toHaveBeenCalledWith("accept_goal_plan", { p_monthly_cents: 20_667 });
+  });
+
+  it("answers 409 plan_changed when the goal was saved again since, so the screen reloads", async () => {
+    auth.authenticatedStudent.mockResolvedValue(student({ data: "changed", error: null }).value);
+    const response = await POST();
+    expect(response.status).toBe(409);
+    expect(((await response.json()) as { error: { code: string } }).error.code).toBe("plan_changed");
+  });
+
+  it("needs the amount the screen showed", async () => {
+    const s = student({ data: "accepted", error: null });
+    auth.authenticatedStudent.mockResolvedValue(s.value);
+    for (const body of [{}, { monthlyCents: -1 }, { monthlyCents: 1.5 }, { monthlyCents: "100" }]) expect((await POST(body)).status, JSON.stringify(body)).toBe(400);
+    expect(s.rpc).not.toHaveBeenCalled();
   });
 
   it("answers 404 with no goal or no bank, 409 for a goal with nothing to set aside", async () => {

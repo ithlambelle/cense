@@ -5,5 +5,6 @@
 -- on Your money. Safe to run again.
 
 drop function if exists public.remove_goal();
-drop function if exists public.accept_goal_plan();
+drop function if exists public.accept_goal_plan(bigint);
 drop table if exists public.goals;
+drop function if exists public.goals_release_set_aside();

@@ -7,6 +7,7 @@
 // behind More goals.
 
 import { MAX_AMOUNT_CENTS } from "@/lib/budget/amount";
+import { GOAL_LABELS } from "@/lib/goals/copy";
 import { SEMESTER_BILL, type BillAnswer } from "@/lib/safe-to-spend/compute";
 
 export const GOAL_PRESETS = ["emergency_fund", "pay_off_card", "trip", "car", "home", "other"] as const;
@@ -55,4 +56,21 @@ export function suggestedAmount(
     return { amountCents: Math.min(MAX_GOAL_CENTS, cardCents), source: "card_balance" };
   }
   return null;
+}
+
+// Characters that draw nothing: zero-width and other formatting characters
+// (Unicode Cf), the ones Unicode says to ignore (Hangul fillers among them),
+// and the blank braille pattern. A pasted name can carry them.
+const INVISIBLE = /[\p{Cf}\p{Default_Ignorable_Code_Point}\u2800]/gu;
+// A name needs at least one letter or number, so marks or spaces alone are not one.
+const VISIBLE = /[\p{L}\p{N}]/u;
+
+// The name saved with a goal: a preset's own, or what the student typed for
+// Something else without invisible characters or surrounding space. Null when
+// no letter or number is left, or it is longer than 40 characters. The screen
+// and the server both use it, so they agree on what counts as a name.
+export function goalName(preset: GoalPreset, typed: string | undefined): string | null {
+  if (preset !== "other") return GOAL_LABELS[preset];
+  const name = (typed ?? "").replace(INVISIBLE, "").trim();
+  return VISIBLE.test(name) && name.length <= 40 ? name : null;
 }

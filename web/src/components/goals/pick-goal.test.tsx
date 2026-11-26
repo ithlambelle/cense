@@ -98,6 +98,39 @@ describe("PickGoal", () => {
     expect(saveGoal).not.toHaveBeenCalled();
   });
 
+  it("asks what Something else is for when the name only looks blank, as the server would", () => {
+    render(<PickGoal saved={null} setAsideCents={0} today={TODAY} suggestions={SUGGESTIONS} />);
+    fireEvent.click(screen.getByRole("button", { name: "More goals" }));
+    choose("Something else");
+    fireEvent.change(screen.getByLabelText("What is it for?"), { target: { value: "\u200b\u3164" } });
+    fireEvent.change(amount(), { target: { value: "400" } });
+    submit();
+    expect(screen.getByText("Say what it’s for.")).toBeTruthy();
+    expect(saveGoal).not.toHaveBeenCalled();
+  });
+
+  it("says switching an accepted goal to Pay off my card stops its set-aside, or that a changed one stays", () => {
+    const trip: Goal = { preset: "trip", name: "Trip", amountCents: 120_000, targetDate: "2027-05-26", dateChosen: false, monthlyCents: 20_000, acceptedMonthlyCents: 20_000, updatedAt: "2026-11-26T15:00:00.000Z" };
+    const { unmount } = render(<PickGoal saved={trip} setAsideCents={20_000} today={TODAY} suggestions={SUGGESTIONS} />);
+    expect(screen.queryByText(/set-aside/)).toBeNull();
+    choose("Pay off my card");
+    expect(screen.getByText("Your $200 a month set-aside stops too.")).toBeTruthy();
+    unmount();
+    render(<PickGoal saved={trip} setAsideCents={7_500} today={TODAY} suggestions={SUGGESTIONS} />);
+    choose("Pay off my card");
+    expect(screen.getByText("Your $75 a month set-aside stays; change it on Your money.")).toBeTruthy();
+  });
+
+  it("shows no date for a goal saved without one, and saves it again without one", async () => {
+    saveGoal.mockResolvedValue({ kind: "ok", data: { goal: {} } });
+    const fund: Goal = { preset: "emergency_fund", name: "Emergency fund", amountCents: 100_000, targetDate: "2027-05-26", dateChosen: false, monthlyCents: 16_667, acceptedMonthlyCents: null, updatedAt: "2026-11-26T15:00:00.000Z" };
+    render(<PickGoal saved={fund} setAsideCents={0} today={TODAY} suggestions={SUGGESTIONS} />);
+    expect(date().value).toBe("");
+    submit();
+    await waitFor(() => expect(saveGoal).toHaveBeenCalledWith({ preset: "emergency_fund", name: "Emergency fund", amountCents: 100_000, targetDate: null }));
+    expect(track).toHaveBeenCalledWith("goal_saved", { preset: "emergency_fund", amount: "typed", dated: false });
+  });
+
   it("asks what Something else is for", () => {
     render(<PickGoal saved={null} setAsideCents={0} today={TODAY} suggestions={SUGGESTIONS} />);
     fireEvent.click(screen.getByRole("button", { name: "More goals" }));
@@ -167,6 +200,7 @@ describe("PickGoal", () => {
     name: "Laptop",
     amountCents: 90_050,
     targetDate: "2027-08-01",
+    dateChosen: true,
     monthlyCents: 11_257,
     acceptedMonthlyCents: 11_257,
     updatedAt: "2026-11-26T15:00:00.000Z",
