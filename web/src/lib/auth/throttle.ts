@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createHmac } from "node:crypto";
 import { isIP } from "node:net";
 
 import { apiError } from "@/lib/api/errors";
@@ -9,7 +10,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 //
 // App-level limits on the sign-in routes (external audit of a8fe7d4). Every
 // auth route calls Supabase from this server, so Supabase's own per-IP limits
-// see Vercel's addresses, shared by every student. claim_auth_attempt()
+// see Vercel's addresses, shared by every student. claim_auth_attempt_hashed()
 // (supabase/migrations/20261117120000_auth_throttle.sql, which has the full
 // table and the risk that is left) counts tries instead:
 //
@@ -22,6 +23,16 @@ import { createServiceClient } from "@/lib/supabase/service";
 // IP, so nobody can use up another student's tries from their own address;
 // looser per-email ceilings (and 50 code checks per email a day) stop a
 // guessing attack spread over many addresses.
+//
+// The database never sees the email or the IP (2026-11-21). This server sends
+// only HMAC-SHA256 keys made with AUTH_THROTTLE_KEY, a random secret kept in
+// Vercel's Sensitive settings and never in the database, to
+// claim_auth_attempt_hashed() (20261121210000_keyed_auth_throttle.sql). A copy
+// of the table is then useless without the secret: a plain hash of an email
+// could be matched by anyone who knows the email, and an IP's by trying every
+// address. Locally and in tests a fixed stand-in key is used; production
+// without the real one refuses code and password checks, like a missing
+// service role key.
 //
 // It uses the service role: the routes run before anyone is signed in, and a
 // function the anon key could call would let anyone burn another student's or
@@ -86,7 +97,30 @@ export function clientIp(headers: Headers, env: Record<string, string | undefine
   return null;
 }
 
+// Locally, in the journey tests and on previews without the real key. It is
+// in the repository, so it protects nothing: production never uses it.
+const STAND_IN_KEY = "cense-local-auth-throttle-key-not-secret";
+const MIN_KEY_LENGTH = 32;
+
+// The key for one limit: HMAC-SHA256 of a label and the value, in lowercase
+// hex. The label keeps an email, an email with an IP and an IP from ever
+// sharing a key.
+export function throttleKey(secret: string, label: "email_ip" | "email" | "ip", value: string): string {
+  return createHmac("sha256", secret).update(`${label}\n${value}`).digest("hex");
+}
+
+// The three keys a claim needs. The email + IP key uses an empty IP when the
+// IP is unknown, so those limits then apply to the email alone, as before.
+export function throttleKeys(secret: string, email: string | null, ip: string | null) {
+  return {
+    p_email_ip_hash: email ? throttleKey(secret, "email_ip", `${email}|${ip ?? ""}`) : null,
+    p_email_hash: email ? throttleKey(secret, "email", email) : null,
+    p_ip_hash: ip ? throttleKey(secret, "ip", ip) : null,
+  };
+}
+
 let warnedNotConfigured = false;
+let warnedNoKey = false;
 
 function waitMessage(seconds: number): string {
   if (seconds > 90 * 60) {
@@ -127,13 +161,22 @@ export async function authThrottle(
     return env.VERCEL_ENV === "production" ? unchecked(action) : null;
   }
 
+  const secret = env.AUTH_THROTTLE_KEY?.trim();
+  const keyed = secret && secret.length >= MIN_KEY_LENGTH ? secret : null;
+  if (!keyed && env.VERCEL_ENV && !warnedNoKey) {
+    warnedNoKey = true;
+    // Set but too short reads differently from not set, so a mistyped key is
+    // found quickly.
+    console.error(JSON.stringify(secret ? { event: "auth_throttle_not_configured", invalid: ["AUTH_THROTTLE_KEY"], reason: "too_short" } : { event: "auth_throttle_not_configured", missing: ["AUTH_THROTTLE_KEY"] }));
+  }
+  if (!keyed && env.VERCEL_ENV === "production") return unchecked(action);
+
   let wait: unknown;
   try {
     const { data, error } = await createServiceClient(serviceRoleKey)
-      .rpc("claim_auth_attempt", {
+      .rpc("claim_auth_attempt_hashed", {
         p_action: action,
-        p_email: throttleEmail(email),
-        p_ip: clientIp(request.headers, env),
+        ...throttleKeys(keyed ?? STAND_IN_KEY, throttleEmail(email), clientIp(request.headers, env)),
       })
       .abortSignal(AbortSignal.timeout(CLAIM_TIMEOUT_MS));
     if (error) {

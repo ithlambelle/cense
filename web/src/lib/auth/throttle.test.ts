@@ -11,9 +11,12 @@ const createServiceClient = vi.hoisted(() => vi.fn(() => ({ rpc })));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/service", () => ({ createServiceClient }));
 
-import { authThrottle, clientIp, ipv6Prefix64, throttleEmail } from "./throttle";
+import { createHmac } from "node:crypto";
 
-const VERCEL = { VERCEL: "1", VERCEL_ENV: "production", SUPABASE_SERVICE_ROLE_KEY: "service-key" };
+import { authThrottle, clientIp, ipv6Prefix64, throttleEmail, throttleKey, throttleKeys } from "./throttle";
+
+const SECRET = "a-random-secret-of-at-least-32-characters";
+const VERCEL = { VERCEL: "1", VERCEL_ENV: "production", SUPABASE_SERVICE_ROLE_KEY: "service-key", AUTH_THROTTLE_KEY: SECRET };
 const request = (headers: Record<string, string> = {}) => new Request("https://censefinance.com/api/v1/auth/email", { method: "POST", headers });
 
 // The database answers `answer` (or throws it) once the call is made.
@@ -82,12 +85,26 @@ describe("clientIp", () => {
 });
 
 describe("authThrottle", () => {
-  it("claims with the service role, the action, the counted email and the student's IP, with a time limit", async () => {
+  it("claims with the service role, the action and keys made from the counted email and the student's IP, with a time limit", async () => {
     database({ data: 0, error: null });
     expect(await authThrottle(request({ "x-forwarded-for": "203.0.113.7" }), "send", "Student+x@Example.com", VERCEL)).toBeNull();
     expect(createServiceClient).toHaveBeenCalledWith("service-key");
-    expect(claim).toHaveBeenCalledWith("claim_auth_attempt", { p_action: "send", p_email: "student@example.com", p_ip: "203.0.113.7" });
+    expect(claim).toHaveBeenCalledWith("claim_auth_attempt_hashed", {
+      p_action: "send",
+      ...throttleKeys(SECRET, "student@example.com", "203.0.113.7"),
+    });
     expect(abortSignal).toHaveBeenCalledWith(expect.any(AbortSignal));
+  });
+
+  it("never sends the email, the IP or a plain hash of either to the database", async () => {
+    database({ data: 0, error: null });
+    await authThrottle(request({ "x-forwarded-for": "203.0.113.7" }), "verify", "student@example.com", VERCEL);
+    const sent = JSON.stringify(claim.mock.calls);
+    expect(sent).not.toContain("student@example.com");
+    expect(sent).not.toContain("203.0.113.7");
+    expect(sent).not.toContain(SECRET);
+    const { createHash } = await import("node:crypto");
+    expect(sent).not.toContain(createHash("sha256").update("student@example.com").digest("hex"));
   });
 
   it("answers 429 in the API's error shape, with Retry-After and the wait in plain words", async () => {
@@ -144,8 +161,63 @@ describe("authThrottle", () => {
     log.mockRestore();
   });
 
+  it("without AUTH_THROTTLE_KEY (or one too short): checks refused on production, a stand-in key elsewhere", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    database({ data: 0, error: null });
+    const noKey = { ...VERCEL, AUTH_THROTTLE_KEY: undefined };
+    expect((await authThrottle(request(), "verify", "student@example.com", noKey))?.status).toBe(503);
+    expect((await authThrottle(request(), "password", "student@example.com", { ...VERCEL, AUTH_THROTTLE_KEY: "short" }))?.status).toBe(503);
+    expect(await authThrottle(request(), "send", "student@example.com", noKey)).toBeNull();
+    expect(claim).not.toHaveBeenCalled();
+    expect(JSON.stringify(log.mock.calls)).toContain("AUTH_THROTTLE_KEY");
+
+    // Locally and on previews the limits still count, under the stand-in key.
+    expect(await authThrottle(request(), "verify", "student@example.com", { SUPABASE_SERVICE_ROLE_KEY: "service-key" })).toBeNull();
+    expect(claim).toHaveBeenCalledWith("claim_auth_attempt_hashed", expect.objectContaining({ p_email_hash: expect.stringMatching(/^[0-9a-f]{64}$/) }));
+    log.mockRestore();
+  });
+
+  it("on a preview without the key, counts under the stand-in key, exactly", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    database({ data: 0, error: null });
+    const env = { VERCEL_ENV: "preview", SUPABASE_SERVICE_ROLE_KEY: "service-key" };
+    const req = request();
+    expect(await authThrottle(req, "verify", "Student@Example.com", env)).toBeNull();
+    const expected = throttleKeys("cense-local-auth-throttle-key-not-secret", throttleEmail("Student@Example.com"), clientIp(req.headers, env));
+    expect(claim).toHaveBeenCalledWith("claim_auth_attempt_hashed", expect.objectContaining(expected));
+  });
+
+  it("logs a key that is set but too short as invalid, not missing", async () => {
+    vi.resetModules();
+    const fresh = await import("./throttle");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    database({ data: 0, error: null });
+    await fresh.authThrottle(request(), "verify", "student@example.com", { ...VERCEL, AUTH_THROTTLE_KEY: "short" });
+    expect(JSON.parse(String(log.mock.calls[0][0]))).toEqual({ event: "auth_throttle_not_configured", invalid: ["AUTH_THROTTLE_KEY"], reason: "too_short" });
+    log.mockRestore();
+  });
+
   it("ignores an answer that is not a wait", async () => {
     database({ data: "0", error: null });
     expect(await authThrottle(request(), "link", null, VERCEL)).toBeNull();
+  });
+});
+
+describe("throttleKey", () => {
+  it("is an HMAC-SHA256 in hex, so the same email gives the same key only with the same secret", () => {
+    const key = throttleKey(SECRET, "email", "ana@example.com");
+    expect(key).toBe(createHmac("sha256", SECRET).update("email\nana@example.com").digest("hex"));
+    expect(key).toMatch(/^[0-9a-f]{64}$/);
+    expect(throttleKey("another-secret-of-at-least-32-characters", "email", "ana@example.com")).not.toBe(key);
+  });
+
+  it("keeps an email, an email with an IP and an IP apart, and treats no IP as an empty one", () => {
+    expect(throttleKey(SECRET, "email", "x")).not.toBe(throttleKey(SECRET, "ip", "x"));
+    expect(throttleKeys(SECRET, "ana@example.com", null)).toEqual({
+      p_email_ip_hash: throttleKey(SECRET, "email_ip", "ana@example.com|"),
+      p_email_hash: throttleKey(SECRET, "email", "ana@example.com"),
+      p_ip_hash: null,
+    });
+    expect(throttleKeys(SECRET, null, "203.0.113.7")).toEqual({ p_email_ip_hash: null, p_email_hash: null, p_ip_hash: throttleKey(SECRET, "ip", "203.0.113.7") });
   });
 });

@@ -211,7 +211,7 @@ If the Google client in step 3 is not the one Supabase uses, add its Client ID t
 Delete my account on Security and privacy deletes, at once: the student's PostHog person with its events and recordings (`DELETE_ANALYTICS_HISTORY` in `web/src/lib/account-deletion.ts`, decision S28; PostHog removes the person, usually within minutes, and the events later, in a batch it runs at quiet times, weekends on PostHog Cloud: https://posthog.com/docs/privacy/data-deletion), then their sign-in record, which deletes every row tied to them through `on delete cascade`, then their session. Three things outlive the account:
 
 - **Daily limit counts** for typed Penny questions and confirmation emails (`penny_asks`, `confirmation_email_sends`) keep only the student's id and a time, so deleting an account cannot reset a limit. A count is deleted once it is two days old, by the next claim or by the daily reminders job (`purge_old_quota_rows()`, `20261117110000_security_quotas.sql`), even when nobody asks or saves.
-- **Sign-in attempt records** (`auth_throttle_events`, for the sign-in limits) hold no student id: only a SHA-256 of the email, of the email and IP, or of the IP, with the time. The same daily job deletes them once they are a day old (`20261119090000_purge_auth_attempts.sql`).
+- **Sign-in attempt records** (`auth_throttle_events`, for the sign-in limits) hold no student id: only an HMAC-SHA256, keyed with `AUTH_THROTTLE_KEY` (which the database never holds), of the email, of the email and IP, or of the IP, with the time. The same daily job deletes them once they are a day old (`20261119090000_purge_auth_attempts.sql`).
 - **A linked bank's encrypted Plaid token.** A trigger on the sign-in record first copies it, with its Plaid item id and the student's id, into the private `plaid.account_cleanup` queue (no name, email or bank data). The daily reminders job removes the bank link at Plaid, then deletes that row, so deletion never waits on Plaid. Plaid errors and missing Plaid settings are retried every day, with no limit. A token that fails to open with the configured key five times in a row is given up: the row is kept, encrypted, with no end date, and never tried again until someone fixes the key and resets it (`20261117110000_security_quotas.sql`, part 2; steps in `api/data-contract.md`).
 
 The daily job runs once a day in the 13:00 UTC hour, at any point in that hour, so two runs can be up to 25 hours apart. On days it runs, a limit count is gone within 3 days and 1 hour (2 days plus up to 25 hours) and a sign-in attempt record within 2 days and 1 hour (1 day plus up to 25 hours).
@@ -233,7 +233,8 @@ Before it can run:
 
 | Variable | Where it comes from |
 | --- | --- |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase dashboard, Project Settings, API keys, service_role. Ben or Yunho pastes it in; never in Slack. Also turns on the sign-in limits (`claim_auth_attempt`): without it, Production refuses code and password sign-ins. Add it to Preview too, with the preview project's key, so the limits apply there. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase dashboard, Project Settings, API keys, service_role. Ben or Yunho pastes it in; never in Slack. Also turns on the sign-in limits (`claim_auth_attempt_hashed`, with `AUTH_THROTTLE_KEY`): without it, Production refuses code and password sign-ins. Add it to Preview too, with the preview project's key, so the limits apply there. |
+| `AUTH_THROTTLE_KEY` | `openssl rand -hex 32`, a different value for Production and Preview, marked Sensitive. Keys the sign-in limit records (HMAC-SHA256), so the database holds no email, IP or matchable hash (`claim_auth_attempt_hashed`). Production and Preview (unlike the rows above). Set it before the code that needs it deploys: without it, Production refuses code and password sign-ins and logs `auth_throttle_not_configured`. Rotating it restarts the counts and needs a redeploy, like any variable. Order: Sign-in limit key, below. |
 | `CRON_SECRET` | Any long random string (`openssl rand -hex 32`). Vercel sends it with each cron call. |
 | `RESEND_API_KEY` | Resend dashboard (Ben), API Keys, sending access for `send.censefinance.com`. |
 | `REMINDER_FROM_EMAIL` | `Cense <reminders@send.censefinance.com>` |
@@ -241,6 +242,14 @@ Before it can run:
 | `APP_BASE_URL` | The app's public address, for the links in the emails (reminders, and the password reset and sign-in emails): `https://censefinance.com`. On Production, without it no reset email is sent. |
 | `REMINDER_HEARTBEAT_URL` | Optional, the alert (below). The check's ping URL, `https://hc-ping.com/<uuid>`. |
 | `PLAID_CLEANUP_HEARTBEAT_URL` | Optional separate Healthchecks.io ping URL for Plaid cleanup. Create a daily check with grace time like the reminder check. Cleanup failures and a queue not drained within its request budget fail this check only; unset, no cleanup alert is sent. |
+
+### Sign-in limit key, in order
+
+1. Paste `supabase/migrations/20261121210000_keyed_auth_throttle.sql` (cense-preview, then production). Harmless on its own: the deployed code does not call it yet.
+2. Set `AUTH_THROTTLE_KEY` on Production and Preview, then deploy the code that calls `claim_auth_attempt_hashed`.
+3. Once that deploy is live, paste `supabase/migrations/20261121210100_retire_unkeyed_auth_throttle.sql`. On cense-preview, first rebase or merge every open branch onto this change: a preview still on the old code refuses code and password sign-ins once the retire step is in.
+
+Rolling back after step 3: run `supabase/rollbacks/20261121210100_retire_unkeyed_auth_throttle.down.sql` first, then roll back the app (Vercel Instant Rollback included), then `supabase/rollbacks/20261121210000_keyed_auth_throttle.down.sql`.
 
 To run it by hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/v1/cron/reminders`. It answers with counts only: `claimed`, `sent`, `failed`, `unconfirmed` (sent but not marked), `deferred` (out of time, sent next run) and `abandoned` (failed for the third time, never tried again). Running it again the same day does not retry a failed send; that waits for the next day.
 
