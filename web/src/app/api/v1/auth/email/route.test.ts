@@ -6,6 +6,7 @@ const throttle = vi.hoisted(() => ({
   authThrottle: vi.fn<(...args: unknown[]) => Promise<Response | null>>(async () => null),
   codeSent: vi.fn(async () => {}),
   codeCheckPassed: vi.fn(async () => {}),
+  codeCheckNotMade: vi.fn(async () => {}),
 }));
 vi.mock("@/lib/auth/throttle", () => throttle);
 

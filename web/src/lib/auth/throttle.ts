@@ -255,7 +255,25 @@ export async function codeCheckPassed(request: Request, env: Record<string, stri
   if (!ip) return;
   const ready = counter("verify", env);
   if ("answer" in ready) return;
-  await count(ready.client, "auth_code_check", { p_step: "passed", p_email_hash: null, p_ip_hash: throttleKey(ready.secret, "ip", ip), p_send_ms: null }, "verify", "auth_code_passed");
+  await count(ready.client, "auth_code_check", { p_step: "give_back", p_email_hash: null, p_ip_hash: throttleKey(ready.secret, "ip", ip), p_send_ms: null }, "verify", "auth_code_passed");
+}
+
+// After Supabase refused a code check with its own rate limit, so the code
+// was never checked: gives back both the email's place and the IP's, so it
+// uses up none of the student's 5 tries. A failure is logged and the places
+// stay taken.
+export async function codeCheckNotMade(request: Request, email: string, env: Record<string, string | undefined> = process.env): Promise<void> {
+  const counted = codeEmail(email);
+  const ip = clientIp(request.headers, env);
+  if (!counted && !ip) return;
+  const ready = counter("verify", env);
+  if ("answer" in ready) return;
+  await count(ready.client, "auth_code_check", {
+    p_step: "give_back",
+    p_email_hash: counted ? throttleKey(ready.secret, "code_email", counted) : null,
+    p_ip_hash: ip ? throttleKey(ready.secret, "ip", ip) : null,
+    p_send_ms: null,
+  }, "verify", "auth_code_not_made");
 }
 
 // The email as the code count keys it: lowercased and trimmed, +tag KEPT.

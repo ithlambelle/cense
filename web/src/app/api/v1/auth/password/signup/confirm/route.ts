@@ -1,7 +1,8 @@
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { confirmedByThisCode } from "@/lib/api/confirmation";
 import { passwordSignUpConfirmSchema } from "@/lib/api/password";
-import { authThrottle, codeCheckPassed } from "@/lib/auth/throttle";
+import { CODE_CHECK_BUSY_MESSAGE } from "@/lib/auth/email-code";
+import { authThrottle, codeCheckNotMade, codeCheckPassed } from "@/lib/auth/throttle";
 import { createStudentClient } from "@/lib/supabase/server";
 
 // Confirms a password sign-up with the emailed code. When this code is what
@@ -24,6 +25,13 @@ export async function POST(request: Request): Promise<Response> {
 
   const supabase = await createStudentClient();
   const { data, error } = await supabase.auth.verifyOtp({ email, token: code, type: "email" });
+  if (error?.status === 429) {
+    // Supabase's own limit: the code was never checked, so no try is used.
+    await codeCheckNotMade(request, email);
+    const busy = apiError(429, "rate_limited", CODE_CHECK_BUSY_MESSAGE);
+    busy.headers.set("Retry-After", "60");
+    return busy;
+  }
   if (error) return apiError(401, "invalid_code", "The code is wrong or expired. Request a new one.");
   // Only wrong codes count against the student's address.
   await codeCheckPassed(request);

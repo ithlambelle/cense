@@ -48,7 +48,11 @@ test("after 5 wrong codes the student is told to get a new one, and the new code
   await page.getByRole("button", { name: "Resend email" }).click();
   await expect(page.getByText("We sent a new code.")).toBeVisible();
   const second = await codeFromMailpit(email, seen);
-  await codeField.fill(second);
+  // Pasted with separators, as some mail apps copy it; the box keeps the digits.
+  await codeField.fill("");
+  await codeField.focus();
+  await page.keyboard.insertText(`${second.slice(0, 3)} - ${second.slice(3)}`);
+  await expect(codeField).toHaveValue(second);
   await page.getByRole("button", { name: "Verify" }).click();
   await page.waitForURL((url) => url.pathname !== "/sign-in");
 });

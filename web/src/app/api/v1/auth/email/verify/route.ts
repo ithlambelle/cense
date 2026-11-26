@@ -2,8 +2,8 @@ import { z } from "zod";
 
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { confirmedByThisCode, unusablePassword } from "@/lib/api/confirmation";
-import { EMAIL_CODE_PATTERN } from "@/lib/auth/email-code";
-import { authThrottle, codeCheckPassed } from "@/lib/auth/throttle";
+import { CODE_CHECK_BUSY_MESSAGE, EMAIL_CODE_PATTERN } from "@/lib/auth/email-code";
+import { authThrottle, codeCheckNotMade, codeCheckPassed } from "@/lib/auth/throttle";
 import { createStudentClient } from "@/lib/supabase/server";
 
 const requestSchema = z.strictObject({
@@ -25,6 +25,13 @@ export async function POST(request: Request): Promise<Response> {
     type: "email",
   });
 
+  if (error?.status === 429) {
+    // Supabase's own limit: the code was never checked, so no try is used.
+    await codeCheckNotMade(request, parsed.data.email);
+    const busy = apiError(429, "rate_limited", CODE_CHECK_BUSY_MESSAGE);
+    busy.headers.set("Retry-After", "60");
+    return busy;
+  }
   if (error) {
     return apiError(401, "invalid_code", "The code is wrong or expired. Request a new one.");
   }

@@ -12,6 +12,7 @@ const throttle = vi.hoisted(() => ({
   authThrottle: vi.fn<(...args: unknown[]) => Promise<Response | null>>(async () => null),
   codeSent: vi.fn(async () => {}),
   codeCheckPassed: vi.fn(async () => {}),
+  codeCheckNotMade: vi.fn(async () => {}),
 }));
 vi.mock("@/lib/auth/throttle", () => throttle);
 
@@ -96,6 +97,15 @@ describe("verifying an email code", () => {
       expect((await verify(request({ email: "student@example.com", code }))).status, code).toBe(400);
     }
     expect(auth.verifyOtp.mock.calls.map(([args]) => args.token)).toEqual(["123456", "12345678"]);
+  });
+
+  it("answers Supabase's own rate limit as a short wait, and gives the check's places back", async () => {
+    auth.verifyOtp.mockResolvedValue({ data: { user: null }, error: new AuthApiError("Request rate limit reached", 429, "over_request_rate_limit") });
+    const response = await verify(request(BODY));
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual({ error: { code: "rate_limited", message: "Too many sign-ins right now. Try again in a minute." } });
+    expect(throttle.codeCheckNotMade).toHaveBeenCalledWith(expect.any(Request), "student@example.com");
+    expect(throttle.codeCheckPassed).not.toHaveBeenCalled();
   });
 
   it("checks the request before calling the provider", async () => {

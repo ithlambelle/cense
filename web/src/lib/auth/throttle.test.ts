@@ -13,7 +13,7 @@ vi.mock("@/lib/supabase/service", () => ({ createServiceClient }));
 
 import { createHmac } from "node:crypto";
 
-import { authThrottle, clientIp, codeCheckPassed, codeSent, ipv6Prefix64, throttleEmail, throttleKey, throttleKeys } from "./throttle";
+import { authThrottle, clientIp, codeCheckNotMade, codeCheckPassed, codeSent, ipv6Prefix64, throttleEmail, throttleKey, throttleKeys } from "./throttle";
 
 const SECRET = "a-random-secret-of-at-least-32-characters";
 const VERCEL = { VERCEL: "1", VERCEL_ENV: "production", SUPABASE_SERVICE_ROLE_KEY: "service-key", AUTH_THROTTLE_KEY: SECRET };
@@ -292,10 +292,21 @@ describe("the code limit", () => {
   it("gives the IP's place back after a right code, and calls nothing when the IP is unknown", async () => {
     databaseAnswers(ok);
     await codeCheckPassed(request({ "x-forwarded-for": "203.0.113.7" }), VERCEL);
-    expect(claim).toHaveBeenCalledWith("auth_code_check", { p_step: "passed", p_email_hash: null, p_ip_hash: throttleKey(SECRET, "ip", "203.0.113.7"), p_send_ms: null });
+    expect(claim).toHaveBeenCalledWith("auth_code_check", { p_step: "give_back", p_email_hash: null, p_ip_hash: throttleKey(SECRET, "ip", "203.0.113.7"), p_send_ms: null });
     claim.mockClear();
     await codeCheckPassed(request({ "x-forwarded-for": "203.0.113.7" }), { SUPABASE_SERVICE_ROLE_KEY: "service-key" });
     expect(claim).not.toHaveBeenCalled();
+  });
+
+  it("gives back both the email's and the IP's place for a check Supabase never made", async () => {
+    databaseAnswers(ok);
+    await codeCheckNotMade(request({ "x-forwarded-for": "203.0.113.7" }), "Student+x@Example.com", VERCEL);
+    expect(claim).toHaveBeenCalledWith("auth_code_check", {
+      p_step: "give_back",
+      p_email_hash: throttleKey(SECRET, "code_email", "student+x@example.com"),
+      p_ip_hash: throttleKey(SECRET, "ip", "203.0.113.7"),
+      p_send_ms: null,
+    });
   });
 
   it("never throws when giving back or restarting fails, and logs no email or IP", async () => {

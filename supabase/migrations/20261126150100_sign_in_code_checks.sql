@@ -50,9 +50,14 @@
 --   'claim'     before a code check: 0 go ahead (place taken), -1 this code
 --               has had 5 tries (ask for a new one), or the seconds to wait
 --               when the IP is over its limit. A refused check takes no place.
---   'passed'    after a right code: gives that check's IP place back.
+--   'give_back' gives a check's places back: the IP's after a right code
+--               (pass the IP key only), the email's and the IP's when
+--               Supabase refused the check with its own rate limit, so it
+--               never used one of the student's 5 tries.
 --   'new_code'  after a new code is sent: clears the email's checks claimed
---               before the send began, send_ms milliseconds ago.
+--               more than a second before the send began (send_ms
+--               milliseconds ago); the second is margin for clocks and
+--               network time.
 -- Rows live in auth_throttle_events like every other sign-in count, so the
 -- daily purge deletes them after a day. Only the service role may call it.
 --
@@ -61,6 +66,10 @@
 -- code checks with 503 sign_in_busy. Safe to run again.
 -- Rollback: supabase/rollbacks/20261126150100_sign_in_code_checks.down.sql,
 -- after rolling back the app.
+
+-- A three-argument version from an earlier draft of this change, if it was
+-- ever pasted, goes: only this one is called.
+drop function if exists public.auth_code_check(text, text, text);
 
 create or replace function public.auth_code_check(p_step text, p_email_hash text, p_ip_hash text, p_send_ms integer)
 returns integer
@@ -81,7 +90,7 @@ declare
   v_oldest timestamptz;
   v_wait integer := 0;
 begin
-  if p_step is null or p_step not in ('claim', 'passed', 'new_code') then
+  if p_step is null or p_step not in ('claim', 'give_back', 'new_code') then
     raise exception 'auth_code_check: unknown step' using errcode = '22023';
   end if;
   if p_email_hash !~ '^[0-9a-f]{64}$' or p_ip_hash !~ '^[0-9a-f]{64}$' then
@@ -90,11 +99,11 @@ begin
   v_email := decode(p_email_hash, 'hex');
   v_ip := decode(p_ip_hash, 'hex');
 
-  if v_email is not null and p_step in ('claim', 'new_code') then
+  if v_email is not null then
     v_buckets := v_buckets || 'code:email:day'::text;
     v_keys := v_keys || v_email;
   end if;
-  if v_ip is not null and p_step in ('claim', 'passed') then
+  if v_ip is not null and p_step in ('claim', 'give_back') then
     v_buckets := v_buckets || 'code:ip'::text;
     v_keys := v_keys || v_ip;
   end if;
@@ -116,15 +125,18 @@ begin
     -- Checks claimed since the send began may already have met the new code.
     delete from public.auth_throttle_events
       where bucket = 'code:email:day' and key_hash = v_email
-        and at < now() - make_interval(secs => greatest(coalesce(p_send_ms, 0), 0) / 1000.0);
+        and at < now() - make_interval(secs => (greatest(coalesce(p_send_ms, 0), 0) + 1000) / 1000.0);
     return 0;
   end if;
 
-  if p_step = 'passed' then
-    delete from public.auth_throttle_events where id = (
-      select id from public.auth_throttle_events
-      where bucket = 'code:ip' and key_hash = v_ip
-      order by at desc, id desc limit 1
+  if p_step = 'give_back' then
+    -- The newest place under each key given; places hold no identity, so
+    -- any one of the same key is the same count.
+    delete from public.auth_throttle_events where id in (
+      select (select e.id from public.auth_throttle_events e
+              where e.bucket = t.b and e.key_hash = t.k
+              order by e.at desc, e.id desc limit 1)
+      from unnest(v_buckets, v_keys) as t(b, k)
     );
     return 0;
   end if;

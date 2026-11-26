@@ -73,7 +73,7 @@ screen shows "This link has expired" with a way to ask for a new one.
 
 The Supabase project needs Google OAuth enabled, the app origin and callback
 URL allowed in Auth redirect settings, and an email template using
-`{{ .Token }}` to send a six-digit code rather than a magic link. Set up custom
+`{{ .Token }}` to send a code (6 digits, or 8; the app takes either) rather than a magic link. Set up custom
 SMTP to send codes to addresses outside the Supabase project team.
 Email requests now pass the requesting deployment's callback URL so any
 remaining magic links return to that deployment; allowlist preview callback

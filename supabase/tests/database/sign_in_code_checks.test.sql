@@ -7,7 +7,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(23);
+select plan(29);
 
 -- Earlier local sign-ins leave records; this test counts only its own.
 delete from public.auth_throttle_events;
@@ -32,7 +32,7 @@ begin
   for n in 1 .. p_students loop
     if public.auth_code_check('claim', pg_temp.k('room' || n), pg_temp.k(p_ip), null) = 0 then
       v_in := v_in + 1;
-      perform public.auth_code_check('passed', null, pg_temp.k(p_ip), null);
+      perform public.auth_code_check('give_back', null, pg_temp.k(p_ip), null);
     end if;
   end loop;
   return v_in;
@@ -72,15 +72,16 @@ select is((select array_agg(public.auth_code_check('claim', pg_temp.k('ana'), nu
 select is(public.auth_code_check('claim', pg_temp.k('ana'), null, null), -1, 'and then dies too');
 select is(pg_temp.rows('code:email:day', pg_temp.k('ben')), 1, 'the other email kept its count');
 
--- Checks made after the send began stay counted against the new code.
+-- Checks made after the send began, or up to a second before it, stay
+-- counted against the new code.
 reset role;
 insert into public.auth_throttle_events (bucket, key_hash, at)
   select 'code:email:day', decode(pg_temp.k('cara'), 'hex'), now() - interval '10 seconds' from generate_series(1, 3)
   union all
-  select 'code:email:day', decode(pg_temp.k('cara'), 'hex'), now() - interval '1 second' from generate_series(1, 2);
+  select 'code:email:day', decode(pg_temp.k('cara'), 'hex'), now() - interval '5.5 seconds' from generate_series(1, 2);
 set local role service_role;
 select is(public.auth_code_check('new_code', pg_temp.k('cara'), null, 5000), 0, 'a code whose send began 5 seconds ago');
-select is(pg_temp.rows('code:email:day', pg_temp.k('cara')), 2, 'clears the 3 older checks and keeps the 2 made since');
+select is(pg_temp.rows('code:email:day', pg_temp.k('cara')), 2, 'clears the 3 older checks and keeps the 2 made half a second before the send');
 select is((select array_agg(public.auth_code_check('claim', pg_temp.k('cara'), null, null)) from generate_series(1, 4)),
   array[0, 0, 0, -1], 'so the new code has 3 checks left, not 5');
 
@@ -94,6 +95,15 @@ select is(pg_temp.rows('code:ip:day', null), 0, 'and nothing is counted by the d
 select is(pg_temp.room('192.0.2.9', 80), 80, 'eighty students on one address, each with the right code, all go ahead');
 select is(pg_temp.rows('code:ip%', pg_temp.k('192.0.2.9')), 0, 'and leave no wrong-code count on that address');
 
+-- A check Supabase never made (its own rate limit) gives back both places.
+select is(public.auth_code_check('claim', pg_temp.k('dev'), pg_temp.k('198.51.100.9'), null), 0, 'a check takes a place');
+select is(public.auth_code_check('give_back', pg_temp.k('dev'), pg_temp.k('198.51.100.9'), null), 0, 'and gives it back');
+select is(pg_temp.rows('code:email:day', pg_temp.k('dev')) + pg_temp.rows('code:ip', pg_temp.k('198.51.100.9')), 0, 'leaving no email or IP place taken');
+select throws_ok($$ select public.auth_code_check('passed', null, pg_temp.k('198.51.100.9'), null) $$, '22023', null, 'the old step name is gone');
+
 reset role;
+-- Round 1's three-argument function is dropped, not left beside this one.
+select is(to_regprocedure('public.auth_code_check(text, text, text)'), null, 'no three-argument auth_code_check is left');
+select ok(to_regprocedure('public.auth_code_check(text, text, text, integer)') is not null, 'the four-argument one is there');
 select * from finish();
 rollback;

@@ -5,3 +5,4 @@
 -- until the daily purge deletes them (within about 2 days). Safe to run again.
 
 drop function if exists public.auth_code_check(text, text, text, integer);
+drop function if exists public.auth_code_check(text, text, text);

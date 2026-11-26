@@ -25,13 +25,16 @@ const db = vi.hoisted(() => {
     const { p_step: step, p_email_hash: email, p_ip_hash: ip } = args as Record<string, string | null>;
     if (step === "new_code") {
       // Only checks claimed before the send started (p_send_ms ago) are cleared.
-      const cutoff = Date.now() - Number(args.p_send_ms);
+      const cutoff = Date.now() - Number(args.p_send_ms) - 1000;
       for (let i = rows.length - 1; i >= 0; i--) if (rows[i].bucket === "code:email:day" && rows[i].key === email && rows[i].at < cutoff) rows.splice(i, 1);
       return { data: 0, error: null };
     }
-    if (step === "passed") {
-      const at = rows.map((row) => row.bucket === "code:ip" && row.key === ip).lastIndexOf(true);
-      if (at >= 0) rows.splice(at, 1);
+    if (step === "give_back") {
+      for (const [bucket, key] of [["code:ip", ip], ["code:email:day", email]] as const) {
+        if (!key) continue;
+        const at = rows.map((row) => row.bucket === bucket && row.key === key).lastIndexOf(true);
+        if (at >= 0) rows.splice(at, 1);
+      }
       return { data: 0, error: null };
     }
     if (ip && countOf("code:ip", ip) >= 60) return { data: 540, error: null };
@@ -60,6 +63,9 @@ function post(path: string, body: unknown, ip = "203.0.113.7"): Request {
     body: JSON.stringify(body),
   });
 }
+// Moves every check so far `ms` into the past: the database keeps checks
+// made within a second before a new code's send began.
+const earlier = (ms: number) => db.rows.forEach((row) => (row.at -= ms));
 const check = (email: string, ip?: string) => verify(post("/auth/email/verify", { email, code: "000000" }, ip));
 
 beforeEach(() => {
@@ -108,6 +114,7 @@ describe("the sign-in code limit", () => {
 
   it("gives a new code 5 tries again once it is sent, and the right code then signs in", async () => {
     for (let i = 0; i < 6; i++) await check("ana@example.com");
+    earlier(5_000);
     expect((await sendCode(post("/auth/email", { email: "ana@example.com" }))).status).toBe(200);
     for (let i = 0; i < 4; i++) expect((await check("ana@example.com")).status).toBe(401);
     auth.verifyOtp.mockResolvedValue(RIGHT);
@@ -124,6 +131,7 @@ describe("the sign-in code limit", () => {
 
   it("keeps the guesses made while the new code was being sent counted against it", async () => {
     for (let i = 0; i < 5; i++) await check("ana@example.com");
+    earlier(5_000);
     // Supabase takes a while to send; two guesses land in between.
     auth.signInWithOtp.mockImplementation(async () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
@@ -134,6 +142,21 @@ describe("the sign-in code limit", () => {
     const answers = [];
     for (let i = 0; i < 4; i++) answers.push((await (await check("ana@example.com")).json()).error.code);
     expect(answers).toEqual(["invalid_code", "invalid_code", "invalid_code", "code_used_up"]);
+  });
+
+  it("never spends a try or the address's place on a check Supabase refused with its own rate limit", async () => {
+    const busy = { data: { user: null }, error: new AuthApiError("Request rate limit reached", 429, "over_request_rate_limit") };
+    auth.verifyOtp.mockResolvedValue(busy);
+    for (let i = 0; i < 3; i++) {
+      const response = await check("ana@example.com");
+      expect(response.status).toBe(429);
+      expect((await response.json()).error).toEqual({ code: "rate_limited", message: "Too many sign-ins right now. Try again in a minute." });
+    }
+    expect(db.rows).toEqual([]);
+    auth.verifyOtp.mockResolvedValue(WRONG);
+    const answers = [];
+    for (let i = 0; i < 6; i++) answers.push((await (await check("ana@example.com")).json()).error.code);
+    expect(answers).toEqual([...Array(5).fill("invalid_code"), "code_used_up"]);
   });
 
   it("keeps the dead code dead when Supabase refuses to send a new one", async () => {

@@ -137,7 +137,8 @@ describe("SignInFlow", () => {
     render(<SignInFlow mode="sign-in" next="/quiz" initialError={null} />);
     await reachCodeStep();
     const field = screen.getByLabelText("Verification code");
-    expect(field.getAttribute("maxLength")).toBe("8");
+    // No maxLength: a pasted "9999 9999" would be cut before the spaces go.
+    expect(field.hasAttribute("maxLength")).toBe(false);
     expect(field.getAttribute("inputMode")).toBe("numeric");
     expect(field.getAttribute("autoComplete")).toBe("one-time-code");
     expect(field.getAttribute("placeholder")).not.toMatch(/6/);

@@ -39,6 +39,9 @@ describe("CodeInput", () => {
   it("keeps up to eight digits from whatever is typed or pasted", () => {
     expect(digitsOnly("482 916")).toBe("482916");
     expect(digitsOnly("482-916-777")).toBe("48291677");
+    // Pasted with separators: the box must not cut them short first.
+    expect(digitsOnly("9999 9999")).toBe("99999999");
+    expect(digitsOnly("999 - 999")).toBe("999999");
     expect(digitsOnly("abc")).toBe("");
   });
 

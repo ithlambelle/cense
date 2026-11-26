@@ -9,3 +9,8 @@ export const EMAIL_CODE_PATTERN = /^(?:\d{6}|\d{8})$/;
 export function isEmailCode(value: string): boolean {
   return EMAIL_CODE_PATTERN.test(value);
 }
+
+// Supabase's own rate limit on code checks counts by IP, and the app calls it
+// from Vercel's addresses, shared by every student: a refusal there is a busy
+// moment, not this student's guessing, and costs them no try.
+export const CODE_CHECK_BUSY_MESSAGE = "Too many sign-ins right now. Try again in a minute.";
