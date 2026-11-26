@@ -113,7 +113,10 @@ const CASH_SUBTYPES = new Set(["checking", "prepaid", "cash management", "paypal
 
 // Which part of the sum an account is, or null for one Cense never stores
 // (loans, investments, anything else).
+// EBT holds food benefits: not everyday cash to spend, and not savings, so it
+// is not stored (Home's next step adds up "other" as savings).
 export function accountKind(type: string, subtype: string | null): AccountKind | null {
+  if (type === "depository" && subtype === "ebt") return null;
   if (type === "depository") return subtype !== null && CASH_SUBTYPES.has(subtype) ? "cash" : "other";
   if (type === "credit") return "card";
   return null;

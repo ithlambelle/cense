@@ -1,5 +1,7 @@
 // Every screen address in one place, and the only places a visitor may be
 // sent after signing in.
+import type { GoalPreset } from "./goals/presets";
+
 export const ROUTES = {
   welcome: "/",
   cards: "/cards",
@@ -61,6 +63,14 @@ export const ROUTES = {
   learn: "/learn",
   penny: "/learn/penny",
 } as const;
+
+// Pick a goal with one goal already picked and its suggestion filled in
+// (?preset=), as Home's next step "Start your emergency fund" opens it.
+export const PRESET_PARAM = "preset";
+
+export function startGoalPath(preset?: GoalPreset): string {
+  return preset ? `${ROUTES.startGoal}?${PRESET_PARAM}=${preset}` : ROUTES.startGoal;
+}
 
 // Your money's tabs: Today (how safe to spend adds up) or This month (the budget).
 export type YourMoneyTab = "today" | "month";

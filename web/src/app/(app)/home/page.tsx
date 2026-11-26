@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 
 import { HomeView } from "@/components/home/home-view";
 import { comingUpRows } from "@/lib/home/coming-up";
+import { nextStep, nextStepInputs } from "@/lib/home/next-step";
 import { ALL_REMINDERS_ON, homeState, needsDetail, profileInitial } from "@/lib/home/state";
 import { plaidConfig } from "@/lib/plaid/config";
 import { loadSafeToSpend } from "@/lib/plaid/store";
 import { CELEBRATE_PARAM, REMINDER_PARAM, reminderKindParam, ROUTES } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
-import { loadApplicationDetail, loadComingUpCards, loadReminderSettings, loadStudentSnapshot } from "@/lib/student-data";
+import { loadApplicationDetail, loadComingUpCards, loadNextStepData, loadReminderSettings, loadStudentSnapshot } from "@/lib/student-data";
 
 export const metadata: Metadata = { title: "Home | CENSE" };
 
@@ -20,6 +21,15 @@ export default async function HomePage({ searchParams }: PageProps<"/home">) {
   const student = await requireStudent(fromReminder ? `${ROUTES.home}?${REMINDER_PARAM}=${fromReminder}` : ROUTES.home);
   const { applications, quiz, quizAnswered } = await loadStudentSnapshot(student);
   const state = homeState(applications, quiz, quizAnswered);
+  // The next step's own reads (confirmed budget, last month, goal) start now
+  // and run alongside the reads below. Only with safe to spend on: every step
+  // starts from the bank.
+  const nextStepData = plaidConfig()
+    ? loadNextStepData(student).catch(() => {
+        console.warn(JSON.stringify({ event: "next_step_read_failed" }));
+        return null;
+      })
+    : null;
   // The leading card's denial reason and autopay, read the same way as
   // GET /applications/{id}. Only those fields reach the page. An approved
   // card's reminder star also needs the student's reminder settings.
@@ -44,6 +54,24 @@ export default async function HomePage({ searchParams }: PageProps<"/home">) {
   // with none, its default (COMING_UP_DAYS).
   const linked = safeToSpend?.ok && safeToSpend.value ? safeToSpend.value : null;
   const comingUp = comingUpCards ? comingUpRows({ ...comingUpCards, bills: linked?.bills ?? [], days: linked?.days }) : [];
+  // Home's one next step (priority rules). Left out when any of its reads
+  // failed, so it never guesses from missing data.
+  const stepData = await nextStepData;
+  const step =
+    stepData && safeToSpend?.ok && comingUpCards
+      ? nextStep(
+          nextStepInputs({
+            safeToSpend: safeToSpend.value,
+            budgetChecked: stepData.budgetChecked,
+            lastMonth: stepData.lastMonth,
+            applications,
+            approvedCards: comingUpCards.cards,
+            leadingCardId: state.kind === "tracking" && state.primary.status === "approved" ? state.primary.id : null,
+            quiz: quiz.kind === "quiz_unfinished" ? "unfinished" : quiz.kind,
+            goal: stepData.goal,
+          }),
+        )
+      : null;
   return (
     <HomeView
       state={state}
@@ -62,6 +90,7 @@ export default async function HomePage({ searchParams }: PageProps<"/home">) {
       reminderSettings={{ paymentDue: settings.paymentDue, statementClosing: settings.statementClosing, emailsOn: settings.emailsOn }}
       celebrateId={typeof celebrateId === "string" ? celebrateId : null}
       fromReminder={fromReminder}
+      nextStep={step}
       safeToSpend={safeToSpend?.ok ? safeToSpend.value : undefined}
       comingUp={comingUp}
     />

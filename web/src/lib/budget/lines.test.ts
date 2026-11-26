@@ -1,7 +1,7 @@
 // Created with Claude Code (2026-11-13).
 import { describe, expect, it } from "vitest";
 
-import { buildBudgetLines, lastFullMonth, monthName, summarize } from "./lines";
+import { buildBudgetLines, coversMonth, lastFullMonth, monthName, summarize } from "./lines";
 
 const row = (category: string | null, categoryDetailed: string | null, outCents: number, inCents = 0) => ({ category, categoryDetailed, outCents, inCents });
 
@@ -92,5 +92,14 @@ describe("months", () => {
 
   it("writes a month by name", () => {
     expect(monthName("2026-10-01")).toBe("October");
+  });
+});
+
+describe("coversMonth", () => {
+  it("is a whole month only when the history starts in its first week", () => {
+    expect(coversMonth("2026-10-01", "2026-09-12")).toBe(true);
+    expect(coversMonth("2026-10-01", "2026-10-08")).toBe(true);
+    expect(coversMonth("2026-10-01", "2026-10-09")).toBe(false);
+    expect(coversMonth("2026-10-01", null)).toBe(false);
   });
 });

@@ -108,8 +108,8 @@ test("a new student is welcomed once: W1, W2, Let's go, Link your bank, Skip for
   // usual screen, never the welcome again.
   await page.goto("/start");
   await expect(page).toHaveURL(/\/home$/);
-  // N3's promise holds: Home offers linking a bank (Try it opens Link your bank).
-  await expect(page.getByRole("region", { name: "See what’s safe to spend" }).getByRole("link", { name: "Try it" })).toHaveAttribute("href", "/safe-to-spend/connect");
+  // N3's promise holds: Home offers linking a bank (its next step opens Link your bank).
+  await expect(page.getByRole("region", { name: "Link your bank", exact: true }).getByRole("link", { name: "Link your bank" })).toHaveAttribute("href", "/safe-to-spend/connect");
   await page.goto("/start/welcome");
   await expect(page).toHaveURL(/\/home$/);
 

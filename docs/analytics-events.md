@@ -2,7 +2,7 @@
 
 # Analytics events
 
-Tracking plan version 7. Every event Cense sends to PostHog, the question it answers and the only properties it may carry. `track()` in `web/src/lib/analytics.ts` (the browser) and `captureServer()` in `web/src/lib/analytics-server.ts` (the server, for moments with no browser open) reject anything not listed here, and a lint rule stops code from calling PostHog any other way.
+Tracking plan version 8. Every event Cense sends to PostHog, the question it answers and the only properties it may carry. `track()` in `web/src/lib/analytics.ts` (the browser) and `captureServer()` in `web/src/lib/analytics-server.ts` (the server, for moments with no browser open) reject anything not listed here, and a lint rule stops code from calling PostHog any other way.
 
 Sent with every event: `plan_version`, `platform`, `app_version`, `environment`, `is_internal`, `$geoip_disable`. PostHog adds its own (`$current_url` and the like), with everything after "?" or "#" removed before sending. Events marked with a ledger copy a Postgres row; the falsifiers and the D24 numbers are counted from Postgres, and PostHog is checked against it.
 
@@ -30,3 +30,5 @@ Sent with every event: `plan_version`, `platform`, `app_version`, `environment`,
 | `money_amount_saved` | US-12: do students correct the numbers on Your money, and which kind of line? Never the amount or the category. | `tab`: `today`, `this_month`<br>`line`: `bill`, `set_aside`, `income`, `need`, `want` | browser | bill_coverage and bank_links (Today), budget_amounts (This month) | Ben | 5 |
 | `goal_saved` | US-17: after Looks right, do students pick a goal, which one, and do they keep the amount Cense suggested? Never the amount or the name. | `preset`: `emergency_fund`, `pay_off_card`, `trip`, `car`, `home`, `other`<br>`amount`: `suggested`, `typed`<br>`dated`: boolean | browser | goals | Ben | 7 |
 | `goal_plan_saved` | US-17: do students who pick a goal accept its plan (Accept plan on Your plan), so the set-aside changes safe to spend? | `preset`: `emergency_fund`, `pay_off_card`, `trip`, `car`, `home`, `other` | browser | bank_links.set_aside_cents | Ben | 7 |
+| `next_step_viewed` | Demo Day step 9: which next step does Home show students, and does it change as they act (the persona walk found Home never changed after setup)? The rule's id only. | `step`: `link_bank`, `check_budget`, `cover_essentials`, `turn_on_autopay`, `start_emergency_fund`, `find_a_card`, `your_goals` | browser | PostHog only | Ben | 8 |
+| `next_step_clicked` | Demo Day step 9: do students tap the next step Home shows, and which ones? The rule's id only. | `step`: `link_bank`, `check_budget`, `cover_essentials`, `turn_on_autopay`, `start_emergency_fund`, `find_a_card`, `your_goals` | browser | PostHog only | Ben | 8 |

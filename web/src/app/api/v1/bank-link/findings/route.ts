@@ -4,6 +4,7 @@ import { authenticatedStudent } from "@/lib/api/auth";
 import { databaseError } from "@/lib/api/database";
 import { apiError } from "@/lib/api/errors";
 import type { BankFindings } from "@/lib/api/safe-to-spend";
+import { coversMonth } from "@/lib/budget/lines";
 import { loadBudget } from "@/lib/budget/store";
 import { plaidConfig } from "@/lib/plaid/config";
 import { NO_STORE, notLinked, safeToSpendOff } from "@/lib/plaid/responses";
@@ -19,9 +20,6 @@ const READ_DAYS = 124;
 // bill as "none": rent never reserved, and the answers never asked again. The
 // stand-in bank's sample month is always at least 24 days old.
 const MIN_HISTORY_DAYS = 21;
-// Last month is shown for "Looks right?" only when the history starts in its
-// first week, so a half month is never confirmed as the whole month.
-const MONTH_START_SLACK_DAYS = 7;
 const DAY_MS = 86_400_000;
 
 const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS);
@@ -79,7 +77,9 @@ export async function POST(): Promise<Response> {
   // does not cover the month, leaves it out and the findings still show.
   const budget = await loadBudget(student, after.value.setAsideCents);
   if (!budget.ok) console.warn(JSON.stringify({ event: "bank_findings_budget_read_failed" }));
-  const covered = budget.ok && oldest !== null && daysBetween(budget.value.month, oldest) <= MONTH_START_SLACK_DAYS;
+  // Shown for "Looks right?" only as a whole month (coversMonth), so a half
+  // month is never confirmed as the whole month.
+  const covered = budget.ok && coversMonth(budget.value.month, oldest);
   const body: BankFindings = { findings, answeredFromBank, enoughHistory, safeToSpend: after.value, lastMonth: budget.ok && covered ? budget.value : null };
   return Response.json(body, { headers: NO_STORE });
 }

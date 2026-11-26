@@ -95,6 +95,8 @@ describe("accountKind", () => {
     ["depository", "money market", "other"],
     ["depository", "cd", "other"],
     ["depository", "hsa", "other"],
+    // Food benefits: neither everyday cash nor savings.
+    ["depository", "ebt", null],
     ["depository", null, "other"],
     ["credit", "credit card", "card"],
     ["credit", null, "card"],

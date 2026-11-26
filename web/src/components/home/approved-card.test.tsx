@@ -302,6 +302,24 @@ describe("Home approved card", () => {
     expect(JSON.parse(String(init?.body))).toEqual({ creditLimitCents: 125000 });
   });
 
+  // CI, Nov 26: Edit tapped before the saved stars arrived closed again when
+  // they did, taking the typed limit with it.
+  it("keeps the limit being edited open when the saved stars arrive after Edit", async () => {
+    let answer: (response: Response) => void = () => {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() => new Promise<Response>((resolve) => (answer = resolve))),
+    );
+    render(<HomeView state={state} initial="M" detail={DAYS_SAVED} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit credit limit" }));
+    fireEvent.change(screen.getByLabelText("Credit limit"), { target: { value: "750" } });
+    await act(async () => answer(Response.json(plan("payment_reminder"))));
+    await screen.findByText("1 of 3 lit");
+    const field = screen.getByLabelText("Credit limit") as HTMLInputElement;
+    expect(field.value).toBe("750");
+    expect(document.activeElement).toBe(field);
+  });
+
   it("offers to add a limit when none is saved, and Cancel leaves it", async () => {
     server([{ status: 200, body: plan() }]);
     const noLimit = homeState([{ ...approved, creditLimitCents: null }], computeResult(undefined, listCards()), 0);
