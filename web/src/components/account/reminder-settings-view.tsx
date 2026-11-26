@@ -18,9 +18,11 @@ import { cn } from "@/lib/utils";
 
 type Kind = "statementClosing" | "paymentDue" | "checkAutopay";
 
-// The three emails, in the frame's order and words (Figma 222:2344).
+// The three emails, in the frame's order and words (Figma 222:2344). The
+// first detail says what the frame's "pay-down target" is, which a student
+// could not tell (comprehension check, 2026-11-25): schedule.ts sets it at 30%.
 const KINDS: { key: Kind; setting: "statement_closing" | "payment_due" | "check_autopay"; title: string; detail: string }[] = [
-  { key: "statementClosing", setting: "statement_closing", title: "Statement closes soon", detail: "With your pay-down target" },
+  { key: "statementClosing", setting: "statement_closing", title: "Statement closes soon", detail: "With the balance to aim for: 30% of your limit or less" },
   { key: "paymentDue", setting: "payment_due", title: "Payment due", detail: "Before it’s due" },
   { key: "checkAutopay", setting: "check_autopay", title: "Check autopay", detail: "Once, after your first statement" },
 ];

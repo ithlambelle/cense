@@ -41,8 +41,10 @@ export function FixableView({ applicationId }: { applicationId: string | null })
         <NumberedSteps steps={SCRIPT_STEPS} />
         <CopyScript steps={SCRIPT_STEPS} />
       </section>
+      {/* What a hard credit check is, in one line (CFPB, "What is a credit
+          inquiry?": applying triggers one, and it can affect your score). */}
       <Notice icon={Shield} title="A second look isn’t a new application">
-        Ask if it needs another hard credit check first.
+        Ask if it needs another hard credit check first. That’s the check an application runs, and it can affect your score.
       </Notice>
       <Link href={deniedPath("secondLook", applicationId)} className={buttonVariants()}>
         I requested a second look

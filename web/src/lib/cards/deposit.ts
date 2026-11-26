@@ -60,9 +60,15 @@ export const DEPOSIT_NOT_CALLED_REFUNDABLE = [
   "bofa-travel-rewards-secured",
 ] as const;
 
+// A secured card that asks for a deposit to open. The Chime Card is secured
+// with no deposit (money moved in is the limit), so it is not one.
+export function hasDeposit(card: Pick<Card, "secured" | "depositMinCents">): boolean {
+  return card.secured && card.depositMinCents > 0;
+}
+
 // The line for a card's page, or null for a card with no deposit.
 export function depositLine(card: Pick<Card, "id" | "secured" | "depositMinCents" | "conditions">): string | null {
-  if (!card.secured || card.depositMinCents <= 0) return null;
+  if (!hasDeposit(card)) return null;
   const refund = DEPOSIT_REFUNDS[card.id];
   if (refund) return `A refundable deposit backs the card. ${refund.whenBack}`;
   const review = card.conditions.find((condition) => condition.kind === "graduation_review");

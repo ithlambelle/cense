@@ -43,6 +43,13 @@ export const NOT_YET_NEXT_STEPS = {
   ownIncomeLink: "take the quiz again",
 } as const;
 
+// The page the authorized-user line is from, cited above. The denial plan's
+// "Build credit another way" links to it.
+export const AUTHORIZED_USER_SOURCE = {
+  href: "https://www.capitalone.com/learn-grow/money-management/do-authorized-users-build-credit/",
+  label: "How it works, from Capital One",
+} as const;
+
 // Source: Notion "Fit Tier Rules v1.2", section 1.
 export const TIER_LABELS: Record<FitTier, string> = {
   likely_fit: "Likely fit",
@@ -64,6 +71,15 @@ export const RESULT_HEADLINES: Record<FitTier, string> = {
 export function cardDisplayName(card: { brand: string; name: string }): string {
   return card.name.toLowerCase().startsWith(card.brand.toLowerCase()) ? card.name : `${card.brand} ${card.name}`;
 }
+
+// One line on what a secured card is, beside every secured card on Your match
+// and on its page (Mikhaela, 2026-11-09: she had no idea what one was; persona
+// check 2026-11-25: "Secured" and "$49 deposit" unexplained on a card page).
+// Said as Penny's checked answer says it (lib/penny/answers.ts, "secured-card",
+// FTC). Not "refundable": some issuers do not say so (lib/cards/deposit.ts).
+export const SECURED_LINE = "Secured means you put down a deposit to open it. It works like any credit card and can help build credit.";
+// The link to that answer in Ask Penny.
+export const SECURED_LINK = { answerId: "secured-card", label: "What is a secured card?" } as const;
 
 // The small line above the card name on the result frame ("Secured credit card").
 export function cardTypeLabel(card: { secured: boolean; studentsOnly: boolean }): string {
