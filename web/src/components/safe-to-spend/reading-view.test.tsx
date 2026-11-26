@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // Created with Claude Code (2026-11-25). Penny reading the bank (step L1),
 // then "Looks right?" (step 3): last month in totals, Looks right saved before
-// Home, Fix something to the questions.
+// Pick a goal, Fix something to the questions.
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -79,22 +79,22 @@ describe("ReadingView, Looks right?", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Looks right?" })).toBeTruthy();
   });
 
-  it("saves the check before going Home", async () => {
+  it("saves the check before going on to Pick a goal", async () => {
     found();
     markBudgetChecked.mockResolvedValue({ kind: "ok", data: undefined });
     render(<ReadingView />);
     fireEvent.click(await finished());
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/start/goal"));
     expect(markBudgetChecked).toHaveBeenCalledTimes(1);
   });
 
-  it("still goes Home when the check cannot be saved: it is only a note for Home, and it is logged", async () => {
+  it("still goes on to Pick a goal when the check cannot be saved: it is only a note for Home, and it is logged", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     found();
     markBudgetChecked.mockResolvedValue({ kind: "failed", code: "data_unavailable", message: "Something went wrong. Please try again." });
     render(<ReadingView />);
     fireEvent.click(await finished());
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/start/goal"));
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("budget_check_save_failed"));
     warn.mockRestore();
   });

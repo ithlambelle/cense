@@ -69,6 +69,8 @@ const SCREEN_NAMES: Record<string, string> = {
   [ROUTES.updates]: "Updates",
   [ROUTES.startLinkBank]: "Link your bank",
   [ROUTES.startNextStep]: "Your next step",
+  [ROUTES.startGoal]: "Pick a goal",
+  [ROUTES.startPlan]: "Your plan",
 };
 
 // One approved card's setup screens (US-10), by the names their own back

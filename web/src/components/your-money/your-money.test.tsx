@@ -121,11 +121,12 @@ describe("Your money, Today (709:1520)", () => {
     expect(screen.getByText("Due the 15th")).toBeTruthy();
     expect(screen.queryByText(/You cover it/)).toBeNull();
     expect((screen.getByLabelText("Rent each month") as HTMLInputElement).value).toBe("650");
-    // The set-aside is the savings goal, with no line under it.
+    // The set-aside is the savings goal; the only line under it is the way
+    // to the goal it is for (goal-link.test.tsx).
     const goal = screen.getByLabelText("Savings goal") as HTMLInputElement;
     expect(goal.value).toBe("100");
     // The row's words, the field's value aside.
-    expect(goal.closest("li")!.textContent).toBe("Savings goal$");
+    expect(goal.closest("li")!.textContent).toBe("Savings goalSet a goal$");
     expect(screen.queryByText(/Each month|Set aside/i)).toBeNull();
     expect(screen.getByText("Left for 30 days · $35.66 a day").parentElement!.textContent).toContain("$1,070");
     expect(track).toHaveBeenCalledWith("your_money_viewed", { tab: "today" });

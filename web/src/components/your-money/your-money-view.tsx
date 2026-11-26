@@ -24,6 +24,7 @@ export function YourMoneyView({
   data,
   budget,
   today,
+  hasGoal = false,
 }: {
   tab: YourMoneyTab;
   data: SafeToSpendData;
@@ -32,6 +33,9 @@ export function YourMoneyView({
   budget: Budget | null;
   // Today's day of the month on the app's calendar, for which bills are still to come.
   today: number;
+  // Whether the student has a goal (Pick a goal): the savings goal line says
+  // Change goal or Set a goal.
+  hasGoal?: boolean;
 }) {
   const [tab, setTab] = useState<YourMoneyTab>(initialTab);
   // The tab the student came from, so the open pill slides from its side.
@@ -92,7 +96,7 @@ export function YourMoneyView({
               {tab === "month" && budget ? (
                 <MonthTab budget={budget} shared={shared} />
               ) : (
-                <TodayTab data={data} today={today} shared={shared} />
+                <TodayTab data={data} today={today} shared={shared} hasGoal={hasGoal} />
               )}
             </div>
           </MoneyTabsContext.Provider>

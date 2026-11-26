@@ -15,7 +15,7 @@ import { accessToken, axeChecker, blockExternalRequests, signUp, uniqueEmail } f
 const DISCOVER = { cardId: "discover-it-student-cash-back", cardName: "Discover it Student Cash Back" };
 const CHIME = { cardId: "chime-card", cardName: "Chime Card" };
 const MATCH = { under21: true, incomeBand: "under_5k", student: true, standing: "none", recentDenial: false, canDeposit: true };
-const TABLES = ["card_applications", "profiles", "quiz_drafts", "recommendations", "issuer_clicks", "reminders", "plan_steps"] as const;
+const TABLES = ["card_applications", "profiles", "quiz_drafts", "recommendations", "issuer_clicks", "reminders", "plan_steps", "goals"] as const;
 const SIZES = [
   { width: 320, height: 568 },
   { width: 390, height: 844 },
@@ -54,7 +54,7 @@ async function rowsPerTable(token: string): Promise<Record<string, number>> {
 
 // A student with a row in every table: a saved quiz and its match, an approved
 // card with its days (which schedules reminders) and a first-month step, a
-// denied card with a reapply reminder, and an issuer link opened.
+// denied card with a reapply reminder, an issuer link opened and a goal.
 async function studentWithData(page: Page, journey: string) {
   const email = uniqueEmail(journey);
   await signUp(page, email, async () => {});
@@ -73,6 +73,7 @@ async function studentWithData(page: Page, journey: string) {
   const remindOn = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
   expect((await page.request.post("/api/v1/reminders", { data: { applicationId: rejected, remindOn } })).status()).toBe(201);
   expect((await page.request.post("/api/v1/issuer-clicks", { data: { cardId: DISCOVER.cardId, kind: "apply" } })).status()).toBe(201);
+  expect((await page.request.put("/api/v1/me/goal", { data: { preset: "trip", name: "Trip", amountCents: 60_000, targetDate: null } })).status()).toBe(200);
   const me = (await (await page.request.get("/api/v1/me")).json()) as { id: string };
   return { email, id: me.id };
 }

@@ -7,7 +7,7 @@
 // (PUT /safe-to-spend/answers). Disconnect lives on Accounts (E4), not here.
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { minusMoney, signedMoney } from "@/components/safe-to-spend/parts";
 import { Button } from "@/components/ui/button";
@@ -54,7 +54,7 @@ function initialValues(answers: SavedAnswers): Record<FieldKey, string> {
 
 // `shared` holds the bills and savings goal for both tabs (YourMoneyView), so
 // a save finished after the student switched tabs is never lost.
-export function TodayTab({ data, today, shared }: { data: SafeToSpendData; today: number; shared: SharedAnswers }) {
+export function TodayTab({ data, today, shared, hasGoal = false }: { data: SafeToSpendData; today: number; shared: SharedAnswers; hasGoal?: boolean }) {
   const router = useRouter();
   const isMounted = useIsMounted();
   const now = useNow();
@@ -146,7 +146,7 @@ export function TodayTab({ data, today, shared }: { data: SafeToSpendData; today
   const broken = data.status !== "active";
   const time = (options: Intl.DateTimeFormatOptions) =>
     now && data.refreshedAt ? new Date(data.refreshedAt).toLocaleString("en-US", options) : "";
-  const field = (key: FieldKey, label: string, sub: string | null, fieldLabel: string) => (
+  const field = (key: FieldKey, label: string, sub: ReactNode, fieldLabel: string) => (
     <EditRow
       key={key}
       id={`your-money-${key}`}
@@ -191,7 +191,15 @@ export function TodayTab({ data, today, shared }: { data: SafeToSpendData; today
           {paidBills(bills).map((answer) =>
             field(answer.bill, BILL_COPY[answer.bill].label, billLine(answer, today), `${BILL_COPY[answer.bill].label} each month`),
           )}
-          {field(SET_ASIDE, YOUR_MONEY_COPY.setAside, null, YOUR_MONEY_COPY.setAside)}
+          {field(
+            SET_ASIDE,
+            YOUR_MONEY_COPY.setAside,
+            // The way back to the goal behind the set-aside (Pick a goal).
+            <Link href={ROUTES.startGoal} className="font-semibold text-violet underline underline-offset-2 hover:text-violet-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+              {hasGoal ? YOUR_MONEY_COPY.changeGoal : YOUR_MONEY_COPY.setGoal}
+            </Link>,
+            YOUR_MONEY_COPY.setAside,
+          )}
           {/* No line break inside "$4.33 a day" at 320. */}
           <TotalRow label={`Left for ${sum.days} days · ${moneyAmount(sum.dailyCents)}\u00a0a\u00a0day`} value={signedMoney(sum.leftCents)} />
         </ul>

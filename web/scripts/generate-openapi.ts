@@ -33,6 +33,7 @@ import {
   updateReminderSettingsSchema,
 } from "../src/lib/api/reminders";
 import { privacySettingsSchema, updatePrivacySettingsSchema } from "../src/lib/api/privacy";
+import { acceptGoalPlanSchema, removedGoalSchema, savedGoalSchema, saveGoalSchema } from "../src/lib/api/goals";
 import {
   createBankLinkSchema,
   linkTokenSchema,
@@ -193,6 +194,26 @@ registry.registerPath({
   description: "Saves when the student tapped Looks right after Penny read their bank (profiles.budget_checked_at), for Home's next step. Each tap saves the latest time.",
   security: [{ studentSession: [] }],
   responses: { 204: { description: "Budget marked as checked" }, 404: failure("Profile not found"), ...protectedResponses },
+});
+registry.registerPath({
+  method: "put", path: "/me/goal", operationId: "saveGoal", summary: "Save the student's goal, replacing any they had",
+  description: "The date is optional, from today to 30 years out; left out or null, it is fixed at 6 months from the save. The monthly amount (the amount over the whole months left, rounded up to the cent) is fixed at the save too, and kept when the same amount and date are saved again.",
+  security: [{ studentSession: [] }],
+  request: { body: body(saveGoalSchema) },
+  responses: { 200: ok(savedGoalSchema), 400: failure("Invalid goal"), ...protectedResponses },
+});
+registry.registerPath({
+  method: "post", path: "/me/goal/accept", operationId: "acceptGoalPlan", summary: "Accept the goal's plan: its monthly amount becomes the set-aside",
+  description: "Sends the monthly amount the screen showed. Writes only bank_links.set_aside_cents (through accept_goal_plan()), never the bill answers. 409 plan_changed when the goal was saved again since (the screen reloads the plan), 409 nothing_to_set_aside for a plan that sets nothing aside (Pay off my card), 404 not_found with no goal, 404 not_linked with no bank, 400 too_much past $100,000 a month.",
+  security: [{ studentSession: [] }],
+  request: { body: body(acceptGoalPlanSchema) },
+  responses: { 204: { description: "Plan accepted" }, 400: failure("Invalid amount, or more than a set-aside can be (too_much)"), 404: failure("No goal or no bank linked"), 409: failure("The plan changed, or there is nothing to set aside"), ...protectedResponses },
+});
+registry.registerPath({
+  method: "delete", path: "/me/goal", operationId: "deleteGoal", summary: "Remove the student's goal",
+  description: "Answers 200 whether or not there was one. The set-aside is cleared with it only when it still holds what Accept plan wrote (remove_goal()); one the student changed since stays.",
+  security: [{ studentSession: [] }],
+  responses: { 200: ok(removedGoalSchema), ...protectedResponses },
 });
 registry.registerPath({
   method: "get", path: "/cards", operationId: "listCards", summary: "List curated student cards",

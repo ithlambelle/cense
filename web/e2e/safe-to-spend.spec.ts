@@ -497,7 +497,7 @@ test("Link cancelled, a bank error and an expired connection leave nothing linke
   expect(removedAccessTokens).not.toContain(linked);
 });
 
-test("right after linking, Cense reads the bank, answers the questions itself and shows last month, and Looks right goes Home", async ({ page }) => {
+test("right after linking, Cense reads the bank, answers the questions itself and shows last month, and Looks right goes on to Pick a goal", async ({ page }) => {
   const checkA11y = axeChecker(page);
   await signUp(page, uniqueEmail("sts-reading"), checkA11y);
   await page.goto("/safe-to-spend/connect");
@@ -527,8 +527,11 @@ test("right after linking, Cense reads the bank, answers the questions itself an
   await expect(page.getByRole("heading", { level: 2, name: "Looks right?" })).toBeVisible();
   await checkA11y("safe to spend: looks right");
 
-  // Looks right saves the check, then Home; Back never returns to the reading.
+  // Looks right saves the check, then Pick a goal (goals.spec.ts), whose Not
+  // now goes Home; Back never returns to the reading.
   await page.getByRole("button", { name: "Looks right" }).click();
+  await expect(page).toHaveURL(/\/start\/goal$/);
+  await page.getByRole("link", { name: "Not now" }).click();
   await expect(page).toHaveURL(/\/home$/);
   await expect(safeToSpendCard(page)).toContainText("Safe to spend today");
   await page.goBack();

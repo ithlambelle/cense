@@ -20,6 +20,10 @@ export const ROUTES = {
   startWelcome: "/start/welcome",
   startLinkBank: "/start/link-bank",
   startNextStep: "/start/next-step",
+  // After "Looks right?" (US-17, Demo Day steps 4 and 5): Pick a goal, then
+  // Your plan, then Home. No Figma frames yet.
+  startGoal: "/start/goal",
+  startPlan: "/start/plan",
   // The rejection guide (Figma Denial Overview frames).
   denied: "/denied",
   // The first-month plan for an approved card.
@@ -374,6 +378,8 @@ const NEXT_ALLOW_LIST: readonly string[] = [
   ROUTES.safeToSpendConnect,
   ROUTES.safeToSpendSetup,
   ROUTES.safeToSpendReading,
+  ROUTES.startGoal,
+  ROUTES.startPlan,
   ROUTES.settings,
   ROUTES.reminderSettings,
   ROUTES.accounts,
