@@ -2,7 +2,7 @@ import { findCard } from "@/lib/cards/catalog";
 import { moneyAmount } from "@/lib/money";
 import { reminderArrivalPath, ROUTES } from "@/lib/routes";
 
-import { addDays, nextOnDay, payDownTargetCents } from "./schedule";
+import { addDays, nextOnDay, payDownTargetFor } from "./schedule";
 
 // The reminder emails, one per kind, from the reminder copy (draft 2, Oct 24).
 // Short on purpose. No live balance anywhere: Cense does not have one yet.
@@ -22,6 +22,8 @@ export type ReminderEmailInput = {
   cardId: string | null;
   cardName: string | null;
   creditLimitCents: number | null;
+  // The monthly spend limit the student saved: the pay-down target when set.
+  spendLimitCents?: number | null;
   autopayStatus: string;
   paymentDueDay: number | null;
 };
@@ -83,7 +85,8 @@ function content(input: ReminderEmailInput): Content {
 
   switch (input.kind) {
     case "statement_closing": {
-      const target = input.creditLimitCents ? moneyAmount(payDownTargetCents(input.creditLimitCents)) : null;
+      const targetCents = payDownTargetFor(input.creditLimitCents, input.spendLimitCents ?? null);
+      const target = targetCents === null ? null : moneyAmount(targetCents);
       const tail = "Bureaus love a low number like a retriever loves a tennis ball.";
       return {
         subject: `Your statement closes ${day}. Quick move?`,
