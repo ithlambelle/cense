@@ -4,8 +4,16 @@ import type { cardSchema, quizAnswersSchema, recommendationSchema } from "../api
 import { moneyAmount } from "../money";
 
 // Fit Tier Rules. Every rule ID, reason and note below is quoted from the
-// team's Notion page "Fit Tier Rules v1.3 (Credit Card Recommender)". Change
+// team's Notion page "Fit Tier Rules v1.4 (Credit Card Recommender)". Change
 // this file only when the rules change, and bump RULES_VERSION with it.
+//
+// v1.4 (Ben, 2026-11-26) changes one step of the v1.3 pick order (section 6,
+// step 3): after a recent denial, secured and rebuilding cards go first only
+// when the student's standing (Q4) is none, damaged or not sure. A student who
+// already has a card or a loan is no longer steered to a secured card. For
+// the same reason C2's reason drops "or starting with a secured card" for a
+// student with limited or established credit. Gates, cautions, notes, tiers
+// and every other reason are unchanged.
 //
 // v1.3 (Ben, 2026-11-07) keeps the v1.2 pick order (section 6) and adds one
 // step at the very end, just before card ID: the higher estimated year-one
@@ -29,7 +37,7 @@ import { moneyAmount } from "../money";
 //   the build_credit goal favours a stated upgrade path.
 // It also removes note N3 (tax ID), counts "not sure" as no history, and
 // always asks Q6.
-export const RULES_VERSION = "fit-rules v1.3";
+export const RULES_VERSION = "fit-rules v1.4";
 
 type Card = z.infer<typeof cardSchema>;
 type QuizAnswers = z.infer<typeof quizAnswersSchema>;
@@ -108,6 +116,9 @@ const C1_PREAPPROVAL_REASON =
   "The issuer says this card is for people with a bit more credit history. It may still work, so check preapproval first.";
 const C2_REASON =
   "You were turned down recently. Applications close together can count against you. Waiting a few months, or starting with a secured card, gives you better odds.";
+// v1.4: C2 for a student a recent denial does not steer to a secured card.
+const C2_NO_SECURED_REASON =
+  "You were turned down recently. Applications close together can count against you. Waiting a few months gives you better odds.";
 const C3_REASON = "This card is not aimed at rebuilding credit.";
 const C3_UNSECURED_REASON = "This card is not aimed at rebuilding credit. A secured card is the more reliable next step.";
 
@@ -234,9 +245,20 @@ function failedGate(answers: CompleteAnswers, card: RuleCard): GateResult | null
   return null;
 }
 
-const CAUTION_REASONS: Record<CautionId, (card: RuleCard) => string> = {
+// v1.4: the standings (Q4) for which a recent denial puts secured and
+// rebuilding cards first
+// (pick order step 3), and C2 suggests one. Written as a record so the compiler flags a new standing.
+const DENIAL_PREFERS_SECURED: Record<CompleteAnswers["standing"], boolean> = {
+  none: true,
+  damaged: true,
+  not_sure: true,
+  limited: false,
+  established: false,
+};
+
+const CAUTION_REASONS: Record<CautionId, (card: RuleCard, answers: CompleteAnswers) => string> = {
   C1: (card) => (card.preapprovalUrl === null ? C1_REASON : C1_PREAPPROVAL_REASON),
-  C2: () => C2_REASON,
+  C2: (_card, answers) => (DENIAL_PREFERS_SECURED[answers.standing] ? C2_REASON : C2_NO_SECURED_REASON),
   C3: (card) => (card.secured ? C3_REASON : C3_UNSECURED_REASON),
 };
 
@@ -351,7 +373,7 @@ function fitForCard(answers: CompleteAnswers, card: RuleCard): CardFit {
   }
   const found = cautions(answers, card);
   if (found.length > 0) {
-    return { ...base, tier: "stretch", ruleIds: found, reasons: found.map((id) => CAUTION_REASONS[id](card)) };
+    return { ...base, tier: "stretch", ruleIds: found, reasons: found.map((id) => CAUTION_REASONS[id](card, answers)) };
   }
   return { ...base, tier: "likely_fit", ruleIds: [], reasons: likelyFitReasons(answers, card) };
 }
@@ -369,6 +391,13 @@ function preferTrue(a: boolean, b: boolean): number {
   return a ? -1 : 1;
 }
 
+// Whether a turned-down student with this standing is pointed to a secured
+// card (v1.4). The denial plan asks the same, so it never offers a secured card
+// the student's result would not show first.
+export function denialPrefersSecured(standing: CompleteAnswers["standing"]): boolean {
+  return DENIAL_PREFERS_SECURED[standing];
+}
+
 function suitsRecentDenial(card: RuleCard): boolean {
   return card.secured || card.okForRebuilding;
 }
@@ -382,7 +411,7 @@ function statesUpgradePath(card: RuleCard): boolean {
 // plays no part in the order. A card missing from it counts as 0.
 export type YearOneValues = Readonly<Record<string, number>> | null;
 
-// Rules, section 6 (v1.3). A students-only card can only be a candidate for a
+// Rules, section 6 (v1.4). A students-only card can only be a candidate for a
 // student: gate G3 removes it for anyone else. Value, then card ID, break the
 // last ties.
 function compareForPick(answers: CompleteAnswers, values: YearOneValues) {
@@ -391,7 +420,8 @@ function compareForPick(answers: CompleteAnswers, values: YearOneValues) {
     // decides anything the cautions step would not. It stays to mirror the rules.
     if (a.fit.tier !== b.fit.tier) return TIER_RANK[a.fit.tier] - TIER_RANK[b.fit.tier];
     if (a.fit.ruleIds.length !== b.fit.ruleIds.length) return a.fit.ruleIds.length - b.fit.ruleIds.length;
-    if (answers.recentDenial) {
+    // v1.4: only for a student with no credit, damaged credit or not sure.
+    if (answers.recentDenial && DENIAL_PREFERS_SECURED[answers.standing]) {
       const denial = preferTrue(suitsRecentDenial(a.card), suitsRecentDenial(b.card));
       if (denial !== 0) return denial;
     }

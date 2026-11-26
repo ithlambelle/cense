@@ -12,6 +12,7 @@ import {
 } from "@/lib/api/application";
 import { validAnswers } from "@/lib/api/quiz-answers";
 import { quizAnswersSchema } from "@/lib/api/schemas";
+import type { QuizAnswers } from "@/lib/quiz/questions";
 import {
   calendarDate,
   REMINDER_SETTINGS_FIELDS,
@@ -81,6 +82,13 @@ export async function loadCardQuiz(student: Student, card: Card): Promise<{ fit:
   const result = parsed.success ? evaluateFit(parsed.data, [card]) : null;
   const fit = result?.status === "complete" ? (result.cards.find((entry) => entry.cardId === card.id) ?? null) : null;
   return { fit, profile: spendingProfile(answers) };
+}
+
+// The student's answer to "Do you have credit in your own name?", or null
+// before they give one (the denial plan words its first option by it).
+export async function loadQuizStanding(student: Student): Promise<NonNullable<QuizAnswers["standing"]> | null> {
+  const parsed = quizAnswersSchema.safeParse(await readQuizAnswers(student, "standing_read"));
+  return parsed.success ? (parsed.data.standing ?? null) : null;
 }
 
 // Read the same way as GET /quiz: a draft the schema now rejects (an old

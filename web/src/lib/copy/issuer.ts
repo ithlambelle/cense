@@ -7,6 +7,21 @@ export const HAND_OFF_LINE =
   "Cense doesn’t submit applications or see your credit report. Preapproval is not a guarantee of approval.";
 export const DID_YOU_APPLY = "Did you finish applying?";
 
+// The referral disclosure, shown next to every link to an issuer: both
+// buttons, inside both sheets, on Your match and the card page (Ben,
+// 2026-11-26; decisions D10 and D11, story US-06). The FTC asks for it next
+// to the link, not in a footer (16 CFR 255.5). This wording is true only
+// while no issuer pays Cense: every card's referralDisclosure in the catalog
+// is null, and catalog.test.ts fails if one is set while this line is shown.
+export const NO_REFERRAL_DISCLOSURE =
+  "Cense isn’t paid by card issuers. If that changes, we’ll say so here, and it won’t change the order.";
+
+// The line next to a card's issuer links: the card's own disclosure once a
+// deal exists, else NO_REFERRAL_DISCLOSURE.
+export function referralDisclosure(card: { referralDisclosure: string | null }): string {
+  return card.referralDisclosure ?? NO_REFERRAL_DISCLOSURE;
+}
+
 export function applyLabel(issuer: string): string {
   return `Apply on ${issuer}’s site`;
 }

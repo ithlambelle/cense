@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { CardArt } from "@/components/cards/card-art";
+import { SecuredNote } from "@/components/cards/secured-note";
 import { SeeDetailsLink } from "@/components/results/see-details-link";
 import { TopMatchActions } from "@/components/results/top-match-actions";
 import { BackLink } from "@/components/ui/app-header";
@@ -26,6 +27,8 @@ import {
   whyLines,
 } from "@/lib/copy/results";
 import { SENSITIVE } from "@/lib/analytics";
+import { hasDeposit } from "@/lib/cards/deposit";
+import { PENNY_FROM_RESULTS } from "@/lib/penny/navigation";
 import { moneyAmount } from "@/lib/money";
 import { quizProgress } from "@/lib/quiz/progress";
 import type { ResultOption, ResultView } from "@/lib/results/compute";
@@ -215,10 +218,10 @@ function OptionCard({ option, top = false, tracked = false }: { option: ResultOp
 
       <dl className="flex flex-wrap items-start gap-3">
         <FactChip label="Annual fee" value={moneyAmount(card.annualFeeCents)} />
-        {card.secured && card.depositMinCents > 0 ? (
-          <FactChip label="Deposit" value={`From ${moneyAmount(card.depositMinCents)}`} />
-        ) : null}
+        {hasDeposit(card) ? <FactChip label="Deposit" value={`From ${moneyAmount(card.depositMinCents)}`} /> : null}
       </dl>
+      {/* What "Secured" and the deposit mean, beside them (Mikhaela, Nov 9). */}
+      <SecuredNote card={card} from={PENNY_FROM_RESULTS} raised className="-mt-2" />
 
       {top ? (
         <TopMatchActions

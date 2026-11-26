@@ -157,7 +157,7 @@ test("a student deletes their account: confirm, signed out, and nothing of their
   await page.getByRole("link", { name: "Back to Cense" }).click();
   await expect(page).toHaveURL(/\/$/);
   await signUp(page, email, async () => {});
-  await expect(page.getByRole("heading", { name: /^\d+ questions to your first card$/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^\d+ questions to a card that fits$/ })).toBeVisible();
   const again = (await (await page.request.get("/api/v1/me")).json()) as { id: string };
   expect(again.id).not.toBe(id);
   expect(((await (await page.request.get("/api/v1/applications")).json()) as { applications: unknown[] }).applications).toEqual([]);

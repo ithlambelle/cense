@@ -11,15 +11,15 @@
 // logs the click); the card page's explaining sheet is not on this screen.
 // The click is saved and copied to analytics exactly as on the card page
 // (issuer-hand-off.tsx), with source "results". The card page's lines under
-// its buttons, and a referral disclosure, are kept here too: the frame does not
-// draw them (left for Ben and design to confirm).
+// its buttons, and the referral disclosure under both buttons, are kept here
+// too: the frame does not draw them (left for Ben and design to confirm).
 
 import { BlockedTabLink, DidYouApply, HandOffDone, useIssuerHandOff } from "@/components/cards/issuer-hand-off";
 import { SeeDetailsLink } from "@/components/results/see-details-link";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { NoteLine } from "@/components/ui/note";
-import { applyAtLabel, HAND_OFF_LINE, PREAPPROVAL_LABEL, PREAPPROVAL_LINE } from "@/lib/copy/issuer";
+import { applyAtLabel, HAND_OFF_LINE, PREAPPROVAL_LABEL, PREAPPROVAL_LINE, referralDisclosure } from "@/lib/copy/issuer";
 import { cardDisplayName } from "@/lib/copy/results";
 import { ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -86,8 +86,6 @@ export function TopMatchActions({ card, hasPreapproval, tracked, detailsHref }: 
           <NoteLine className="text-center">{PREAPPROVAL_LINE}</NoteLine>
         </>
       ) : null}
-      {/* Shown before Apply, as the card page's apply sheet does. */}
-      {card.referralDisclosure !== null ? <NoteLine>{card.referralDisclosure}</NoteLine> : null}
       <Button
         aria-label={`${applyAtLabel(card.brand)}: ${name}, ${NEW_TAB}`}
         variant={hasPreapproval ? "outline" : "default"}
@@ -100,6 +98,8 @@ export function TopMatchActions({ card, hasPreapproval, tracked, detailsHref }: 
       </Button>
       <BlockedTabLink handOff={handOff} />
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
+      {/* Next to both buttons, as on the card page. */}
+      <NoteLine>{referralDisclosure(card)}</NoteLine>
       <NoteLine>{HAND_OFF_LINE}</NoteLine>
     </div>
   );

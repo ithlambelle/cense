@@ -13,6 +13,9 @@ import {
   OWNS_EVERY_FIT,
   RESULT_DISCLAIMER,
   RESULT_HEADLINES,
+  SECURED_LINE,
+  SECURED_LINK,
+  SECURED_NO_DEPOSIT_LINE,
   SEE_DETAILS,
   TIER_LABELS,
   WHY_TITLE,
@@ -86,6 +89,27 @@ describe("ResultsView", () => {
     // G6: the arrow alone on screen; the destination is for screen readers only.
     expect(back.textContent).toBe("");
     expect(screen.queryByRole("link", { name: "Back to the questions" })).toBeNull();
+  });
+
+  it("says what a secured card is beside each one, with Penny's answer one tap away, and Back returns here", () => {
+    // Case 6 (no history, turned down): the secured cards come first (rules v1.4).
+    const view = match({ ...ALL_SIX, recentDenial: true });
+    render(<ResultsView view={view} />);
+    const secured = view.options.filter((option) => option.card.secured && option.card.depositMinCents > 0);
+    expect(secured.length).toBeGreaterThan(0);
+    expect(screen.getAllByText(SECURED_LINE, { exact: false })).toHaveLength(secured.length);
+    for (const link of screen.getAllByRole("link", { name: SECURED_LINK.label })) {
+      expect(link.getAttribute("href")).toBe("/learn/penny?answer=secured-card&from=results");
+    }
+    // The Chime Card (secured, no deposit) is among them, with its own line.
+    expect(view.options.map((option) => option.card.id)).toContain("chime-card");
+    expect(screen.getAllByText(SECURED_NO_DEPOSIT_LINE)).toHaveLength(1);
+  });
+
+  it("leaves the secured line off a result with no secured card", () => {
+    render(<ResultsView view={match(ALL_SIX)} />);
+    expect(match(ALL_SIX).options.some((option) => option.card.secured && option.card.depositMinCents > 0)).toBe(false);
+    expect(screen.queryByText(SECURED_LINE, { exact: false })).toBeNull();
   });
 
   it("shows the deposit only for a secured card that asks for one", () => {

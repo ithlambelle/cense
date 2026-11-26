@@ -49,7 +49,7 @@ async function tapHeight(target: Locator): Promise<number> {
 // Home's quiz card: how many questions it says are left, and how many stars
 // are lit. "N questions" before starting, "N more questions" once started.
 async function homePrompt(page: Page): Promise<{ left: number; lit: number; stars: number }> {
-  const heading = page.getByRole("heading", { name: /^\d+ (more )?questions? to your first card$/ });
+  const heading = page.getByRole("heading", { name: /^\d+ (more )?questions? to a card that fits$/ });
   await expect(heading).toBeVisible();
   const card = page.getByRole("region", { name: (await heading.textContent())!.trim() });
   return {
@@ -83,7 +83,7 @@ test("Home counts the questions the quiz has left, for a new student and one pic
   }
   await page.goto("/home");
   const resumed = await homePrompt(page);
-  await expect(page.getByRole("heading", { name: `${start.of - 2} more questions to your first card` })).toBeVisible();
+  await expect(page.getByRole("heading", { name: `${start.of - 2} more questions to a card that fits` })).toBeVisible();
   // Results, before a match, says the same as Home: what is left, and Continue.
   await page.goto("/results");
   await expect(page.getByText(`Answer ${start.of - 2} more questions to see one`)).toBeVisible();

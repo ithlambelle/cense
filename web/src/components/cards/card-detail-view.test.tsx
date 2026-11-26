@@ -6,7 +6,7 @@ import type { Application, ApplicationDetail } from "@/lib/api/application";
 import { SENSITIVE } from "@/lib/analytics";
 import { findCard } from "@/lib/cards/catalog";
 import { cardRewards } from "@/lib/cards/rewards";
-import { ESTIMATE_DISCLAIMER } from "@/lib/copy/results";
+import { ESTIMATE_DISCLAIMER, SECURED_LINE, SECURED_LINK, SECURED_NO_DEPOSIT_LINE } from "@/lib/copy/results";
 import { estimateYearOne } from "@/lib/results/value";
 import type { CardFit } from "@/lib/rules/fit-tier";
 
@@ -221,6 +221,32 @@ describe("CardDetailView, a card the student does not have (K2)", () => {
       "Credit check · Yes",
     ]);
     expect(box.getByText(/refundable deposit/i)).toBeTruthy();
+  });
+
+  it("says what a secured card and its deposit are under the name, linking Penny's answer when signed in", () => {
+    const { unmount } = render(<CardDetailView card={catalogCard("discover-it-secured-cash-back")} signedIn />);
+    expect(screen.getByText(SECURED_LINE, { exact: false })).toBeTruthy();
+    expect(screen.getByRole("link", { name: SECURED_LINK.label }).getAttribute("href")).toBe(
+      "/learn/penny?answer=secured-card&from=discover-it-secured-cash-back",
+    );
+    unmount();
+    // Signed out: the line, but no link to Ask Penny, which needs an account.
+    render(<CardDetailView card={catalogCard("discover-it-secured-cash-back")} signedIn={false} />);
+    expect(screen.getByText(SECURED_LINE, { exact: false })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: SECURED_LINK.label })).toBeNull();
+  });
+
+  it("has no secured line on a card that is not secured", () => {
+    render(<CardDetailView card={catalogCard(DISCOVER)} signedIn />);
+    expect(screen.queryByText(SECURED_LINE, { exact: false })).toBeNull();
+    expect(screen.queryByText(SECURED_NO_DEPOSIT_LINE)).toBeNull();
+  });
+
+  it("says what secured means on the Chime Card, which has no deposit, without the deposit line or Penny's link", () => {
+    render(<CardDetailView card={catalogCard("chime-card")} signedIn />);
+    expect(screen.getByText(SECURED_NO_DEPOSIT_LINE)).toBeTruthy();
+    expect(screen.queryByText(SECURED_LINE, { exact: false })).toBeNull();
+    expect(screen.queryByRole("link", { name: SECURED_LINK.label })).toBeNull();
   });
 
   it("keeps “Saved as applied” on screen when the save turns the page into the student's card (K1)", async () => {

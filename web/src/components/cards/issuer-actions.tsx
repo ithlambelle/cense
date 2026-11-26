@@ -15,7 +15,7 @@ import { ErrorMessage } from "@/components/ui/error-message";
 import { NoteLine } from "@/components/ui/note";
 import { Sheet } from "@/components/ui/sheet";
 import type { ApiData } from "@/lib/api-client/client";
-import { applyAtLabel, PREAPPROVAL_LABEL, PREAPPROVAL_LINE } from "@/lib/copy/issuer";
+import { applyAtLabel, PREAPPROVAL_LABEL, PREAPPROVAL_LINE, referralDisclosure } from "@/lib/copy/issuer";
 import { cardDisplayName } from "@/lib/copy/results";
 import { cardPath, signInPath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -103,6 +103,8 @@ export function IssuerActions({ card, signedIn, tracked = false }: IssuerActions
       </Button>
       <BlockedTabLink handOff={handOff} />
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
+      {/* Next to both buttons, and again inside each sheet. */}
+      <NoteLine>{referralDisclosure(card)}</NoteLine>
 
       <Sheet
         open={sheetKind === "preapproval"}
@@ -124,6 +126,7 @@ export function IssuerActions({ card, signedIn, tracked = false }: IssuerActions
           <ArrowUpRightFromSquare aria-hidden="true" width={18} height={18} />
         </Button>
         <NoteLine className="text-center">Opens {card.brand}’s site in a new tab.</NoteLine>
+        <NoteLine>{referralDisclosure(card)}</NoteLine>
       </Sheet>
 
       <Sheet
@@ -140,12 +143,12 @@ export function IssuerActions({ card, signedIn, tracked = false }: IssuerActions
             Cense doesn’t fill in or submit your application, or see your credit report. Review the issuer’s terms before you submit.
           </p>
         </div>
-        {card.referralDisclosure !== null ? <NoteLine>{card.referralDisclosure}</NoteLine> : null}
         <WhatHappensNext brand={card.brand} form="application" />
         <Button chevron={false} pending={opening === "apply"} onClick={() => openIssuer("apply")}>
           Open {card.brand} application
           <ArrowUpRightFromSquare aria-hidden="true" width={18} height={18} />
         </Button>
+        <NoteLine>{referralDisclosure(card)}</NoteLine>
         <Button variant="secondary" disabled={opening === "apply"} onClick={() => setStage({ name: "idle" })}>
           Not ready yet
         </Button>

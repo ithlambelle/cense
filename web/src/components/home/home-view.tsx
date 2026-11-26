@@ -143,7 +143,7 @@ function HomeContent({
     return (
       <>
         <div className="flex items-end justify-between gap-3">
-          <Greeting subtitle="Let’s find your first card." />
+          <Greeting subtitle="Let’s find a card that fits." />
           <MascotStill pose="idle" size={72} className="shrink-0" />
         </div>
         {top}
@@ -254,7 +254,7 @@ function HomeContent({
   }
   return (
     <>
-      <Greeting subtitle="Here’s the latest on your first card application." />
+      <Greeting subtitle="Here’s the latest on your card application." />
       {top}
       <TrackedCard application={primary} />
       <TrackedNextStep application={primary} />
@@ -407,16 +407,18 @@ function NextStep({
   );
 }
 
-// "N questions to your first card" (Figma 407:442, drawn as a pop-up over the
+// "N questions to a card that fits" (Figma 407:442, drawn as a pop-up over the
 // MVP2 home). Shown inline on the MVP1 home with the system's type. The count
 // and the stars are the quiz's own (QUIZ_STEP_COUNT): the frame's 6 predates
 // the spending question, and the quiz says "Question 1 of 7". Once started it
 // counts what is left, as the quiz reopens on "Question 3 of 7" after two
 // answers ("5 more questions"), and one star is lit per answer; before that,
 // the first star is lit, as drawn. Words from quizProgress, as on Results.
+// Not "your first card", as drawn: it may not be the student's first
+// (Mikhaela, 2026-11-09), and Home cannot know before the quiz.
 function QuizPrompt({ answered }: { answered: number }) {
   const progress = quizProgress(answered);
-  const heading = `${progress.questions} to your first card`;
+  const heading = `${progress.questions} to a card that fits`;
   const lit = (index: number) => (answered === 0 ? index === 0 : index < answered);
   return (
     <section aria-labelledby="quiz-prompt" className="flex flex-col rounded-card bg-off-white p-5">

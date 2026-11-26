@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { NO_REFERRAL_DISCLOSURE } from "@/lib/copy/issuer";
 
 import { IssuerActions } from "./issuer-actions";
 
@@ -132,10 +134,35 @@ describe("IssuerActions", () => {
     }
   });
 
-  it("shows the referral disclosure in the apply sheet, before the student leaves", async () => {
-    render(<IssuerActions signedIn card={{ ...card, referralDisclosure: "Cense may be paid if you apply." }} />);
+  // The referral disclosure (D10, D11): every control that leads to the
+  // issuer has it in the same box, so it sits next to the link.
+  function expectDisclosureBeside(control: HTMLElement, text = NO_REFERRAL_DISCLOSURE) {
+    expect(within(control.parentElement as HTMLElement).getByText(text)).toBeTruthy();
+  }
+
+  it("puts the referral disclosure next to both buttons and inside both sheets", async () => {
+    render(<IssuerActions signedIn card={card} />);
+    expectDisclosureBeside(screen.getByRole("button", { name: PREAPPROVAL }));
+    expectDisclosureBeside(screen.getByRole("button", { name: APPLY }));
+    fireEvent.click(screen.getByRole("button", { name: PREAPPROVAL }));
+    expectDisclosureBeside(await screen.findByRole("button", { name: "Go to preapproval check" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(await screen.findByRole("button", { name: APPLY }));
+    expectDisclosureBeside(await screen.findByRole("button", { name: "Open Sample Bank application" }));
+  });
+
+  it("puts it next to Apply when Apply is the only button", async () => {
+    render(<IssuerActions signedIn card={{ ...card, preapprovalUrl: null }} />);
+    expectDisclosureBeside(screen.getByRole("button", { name: APPLY }));
+  });
+
+  it("shows a card's own disclosure in its place once a deal exists", async () => {
+    const own = "Cense may be paid if you apply.";
+    render(<IssuerActions signedIn card={{ ...card, referralDisclosure: own }} />);
+    expectDisclosureBeside(screen.getByRole("button", { name: APPLY }), own);
+    expect(screen.queryByText(NO_REFERRAL_DISCLOSURE)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: APPLY }));
-    expect(await screen.findByText("Cense may be paid if you apply.")).toBeTruthy();
+    expectDisclosureBeside(await screen.findByRole("button", { name: "Open Sample Bank application" }), own);
   });
 
   it("saves the click, then sends the new tab to the address the API returned", async () => {

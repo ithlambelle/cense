@@ -84,4 +84,52 @@ export const SECTION_7_STUDENTS: { name: string; answers: RuleAnswers }[] = [
   { name: "6. Case 1, turned down last month", answers: { ...CORE_STUDENT, recentDenial: true } },
   { name: "7. Age 20, part-time pay, student, missed payments", answers: { ...CORE_STUDENT, standing: "damaged" } },
   { name: "8. Case 1, cannot put down a deposit", answers: { ...CORE_STUDENT, canDeposit: false } },
+  // v1.4 (Notion "Fit Tier Rules v1.4", case 9): case 4 turned down last month.
+  {
+    name: "9. Case 4, authorized user, turned down last month",
+    answers: { ...CORE_STUDENT, standing: "limited", recentDenial: true },
+  },
 ];
+
+// Every combination of the rules' answers, goal included: 1,600 in all.
+export const ALL_RULE_ANSWERS: RuleAnswers[] = (() => {
+  const bools = [true, false] as const;
+  const all: RuleAnswers[] = [];
+  for (const under21 of bools)
+    for (const incomeBand of ["none", "savings_only", "under_5k", "5k_to_15k", "over_15k"] as const)
+      for (const student of bools)
+        for (const standing of ["none", "limited", "established", "damaged", "not_sure"] as const)
+          for (const recentDenial of bools)
+            for (const canDeposit of bools)
+              for (const goal of [undefined, "build_credit", "learn", "other"] as const)
+                all.push({ under21, incomeBand, student, standing, recentDenial, canDeposit, goal });
+  return all;
+})();
+
+// D10's rank-blind tests: the catalog as a deal could change it. Stripped:
+// no card carries a disclosure. Randomised (seeded, so a failure replays the
+// same way): half the cards carry a disclosure, every link is a tracking
+// link (whether a card has a preapproval link never changes), and each card
+// gets made-up payout fields.
+type ReferralFields = { id: string; referralDisclosure: string | null; applyUrl: string; preapprovalUrl: string | null };
+
+export function withoutReferralData<C extends ReferralFields>(cards: readonly C[]): C[] {
+  return cards.map((entry) => ({ ...entry, referralDisclosure: null }));
+}
+
+export function withRandomReferralData<C extends ReferralFields>(cards: readonly C[], seed = 20261126): C[] {
+  let state = seed;
+  const random = () => {
+    state = (state * 1_103_515_245 + 12_345) % 2_147_483_648;
+    return state / 2_147_483_648;
+  };
+  return cards.map((entry) => ({
+    ...entry,
+    referralDisclosure: random() < 0.5 ? null : `Cense is paid ${Math.floor(random() * 500)} dollars if you are approved.`,
+    applyUrl: `https://partner.example/track?card=${entry.id}&payout=${Math.floor(random() * 50_000)}`,
+    preapprovalUrl: entry.preapprovalUrl === null ? null : `https://partner.example/pre?r=${Math.floor(random() * 1e6)}`,
+    payoutCents: Math.floor(random() * 50_000),
+    partner: random() < 0.5,
+    commissionPercent: random() * 10,
+  }));
+}

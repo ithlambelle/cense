@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DeniedPlanView } from "./plan-view";
@@ -111,6 +111,48 @@ describe("DeniedPlanView", () => {
     expect(fetchFn.mock.calls[2][0]).toBe(`${PLAN_URL}/steps/read_letter`);
     expect(fetchFn.mock.calls[2][1]?.method).toBe("DELETE");
     await waitFor(() => expect(screen.getByText("2 of 5 done")).toBeTruthy());
+  });
+
+  async function buildCreditOptions(securedFirst?: boolean) {
+    server([{ status: 200, body: plan() }]);
+    render(<DeniedPlanView applicationId={ID} securedFirst={securedFirst} />);
+    await screen.findByText("0 of 5 done");
+    const row = screen.getByRole("button", { name: /^Build credit another way/ });
+    fireEvent.click(row);
+    const detail = screen.getByText("When you’re ready, no rush:").parentElement as HTMLElement;
+    const options = within(detail).getAllByRole("listitem");
+    const links = options.map((option) => within(option).getByRole("link"));
+    return { row, options, links };
+  }
+
+  const CFPB = "https://files.consumerfinance.gov/f/documents/cfpb_ymyg_want-credit-to-work-for-you_booklet_print.pdf";
+
+  it("Build credit another way offers a secured card, with three linked options, when the rules point the student to one", async () => {
+    const { row, options, links } = await buildCreditOptions(true);
+    expect(row.textContent).toContain("A secured card or being an authorized user.");
+    expect(options).toHaveLength(3);
+    expect(options[0].textContent).toContain("A secured card.");
+    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/results", CFPB, "/learn/penny?answer=secured-card"]);
+    // Only the other site opens in a new tab.
+    expect(links.map((link) => link.getAttribute("target"))).toEqual([null, "_blank", null]);
+    expect(options[1].textContent).toContain("authorized user");
+  });
+
+  // v1.4: a student with credit (or no quiz answer) is not shown a secured card on Your match.
+  it("offers cards that fit, never a secured card, to any other student", async () => {
+    const { row, options, links } = await buildCreditOptions();
+    expect(row.textContent).toContain("A card that fits you or being an authorized user.");
+    expect(options).toHaveLength(3);
+    expect(options.map((option) => option.textContent).join(" ")).not.toMatch(/secured/i);
+    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/results", CFPB, "/learn/credit"]);
+  });
+
+  it("sends the authorized-user option to the CFPB, never to an issuer whose cards Cense ranks", async () => {
+    for (const securedFirst of [true, false]) {
+      const { links } = await buildCreditOptions(securedFirst);
+      expect(new URL(links[1].getAttribute("href") as string).hostname).toBe("files.consumerfinance.gov");
+      cleanup();
+    }
   });
 
   it("tapping a row opens its detail, without marking it", async () => {

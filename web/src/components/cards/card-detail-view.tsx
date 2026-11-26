@@ -5,6 +5,7 @@ import type { ReactElement, ReactNode } from "react";
 import { CardArt } from "@/components/cards/card-art";
 import { IssuerActions } from "@/components/cards/issuer-actions";
 import { RemoveCard } from "@/components/cards/remove-card";
+import { SecuredNote } from "@/components/cards/secured-note";
 import { Accordion, AccordionSection } from "@/components/ui/accordion";
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
@@ -106,6 +107,9 @@ export function CardDetailView({
           <h1 key="name" className="font-heading text-h2 font-medium text-navy">
             {cardDisplayName(card)}
           </h1>
+          {/* What "Secured" in the name and the deposit below mean. Ask Penny
+              needs an account, so its link shows only when signed in. */}
+          <SecuredNote key="secured" card={card} from={signedIn ? card.id : null} />
           {yours
             ? [
                 <StatusRow key="status" application={yours} image={rewards?.image ?? null} />,

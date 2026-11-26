@@ -43,6 +43,17 @@ export const NOT_YET_NEXT_STEPS = {
   ownIncomeLink: "take the quiz again",
 } as const;
 
+// Where the denial plan's "Build credit another way" sends a student to read
+// about authorized users: a neutral government source, not an issuer whose
+// cards Cense ranks. The CFPB's "Want credit to work for you?" (Your Money,
+// Your Goals), page 11, lists becoming an authorized user as a way to build
+// credit and says payment activity "typically appears" on the authorized
+// user's credit report, and to check that it will (read 2026-11-26).
+export const AUTHORIZED_USER_SOURCE = {
+  href: "https://files.consumerfinance.gov/f/documents/cfpb_ymyg_want-credit-to-work-for-you_booklet_print.pdf",
+  label: "How it works, from the CFPB (PDF)",
+} as const;
+
 // Source: Notion "Fit Tier Rules v1.2", section 1.
 export const TIER_LABELS: Record<FitTier, string> = {
   likely_fit: "Likely fit",
@@ -64,6 +75,20 @@ export const RESULT_HEADLINES: Record<FitTier, string> = {
 export function cardDisplayName(card: { brand: string; name: string }): string {
   return card.name.toLowerCase().startsWith(card.brand.toLowerCase()) ? card.name : `${card.brand} ${card.name}`;
 }
+
+// One line on what a secured card is, beside every secured card on Your match
+// and on its page (Mikhaela, 2026-11-09: she had no idea what one was; persona
+// check 2026-11-25: "Secured" and "$49 deposit" unexplained on a card page).
+// Said as Penny's checked answer says it (lib/penny/answers.ts, "secured-card",
+// FTC). Not "refundable": some issuers do not say so (lib/cards/deposit.ts).
+export const SECURED_LINE = "Secured means you put down a deposit to open it. It works like any credit card and can help build credit.";
+// A secured card with no deposit, which is only the Chime Card today: the
+// money moved onto it is what can be spent (its limit_equals_money_moved
+// condition). SECURED_LINE's deposit would be wrong for it, and Penny's
+// answer starts with a deposit, so it has no link.
+export const SECURED_NO_DEPOSIT_LINE = "Secured, with no deposit: the money you move onto the card sets how much you can spend.";
+// The link to that answer in Ask Penny.
+export const SECURED_LINK = { answerId: "secured-card", label: "What is a secured card?" } as const;
 
 // The small line above the card name on the result frame ("Secured credit card").
 export function cardTypeLabel(card: { secured: boolean; studentsOnly: boolean }): string {
