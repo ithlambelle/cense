@@ -5,7 +5,16 @@ import { moneyAmount } from "../money";
 import { QUESTIONS } from "../quiz/questions";
 import { evaluateFit, QUIZ_DEPOSIT_LIMIT_CENTS, RULES_VERSION } from "./fit-tier";
 import type { FitResult, RuleAnswers, RuleCard, YearOneValues } from "./fit-tier";
-import { card, CORE_STUDENT, PREAPPROVAL, SECTION_7_CARDS, SECTION_7_STUDENTS } from "./fit-tier.fixtures";
+import {
+  ALL_RULE_ANSWERS,
+  card,
+  CORE_STUDENT,
+  PREAPPROVAL,
+  SECTION_7_CARDS,
+  SECTION_7_STUDENTS,
+  withoutReferralData,
+  withRandomReferralData,
+} from "./fit-tier.fixtures";
 
 type CompleteResult = Extract<FitResult, { status: "complete" }>;
 
@@ -692,6 +701,7 @@ type PartnerFields = Extract<Lowercase<keyof RuleCard & string>, `${string}${Par
 // answer combination is ranked on the real catalog three ways: as it is, with
 // every referral field stripped, and with referral fields filled with random
 // values, plus made-up payout fields. The ranking must be the same each time.
+// lib/results/rank-blind.test.ts runs the same through the screen and the save.
 describe("fit tier rules: ranking is blind to referral and payout data (D10)", () => {
   it("reads no field whose name is about a referral, a partner or a payout", () => {
     // Checked by the compiler on RuleCard itself (npm run check type-checks
@@ -700,45 +710,14 @@ describe("fit tier rules: ranking is blind to referral and payout data (D10)", (
     expect(none).toBe(true);
   });
 
-  // A small seeded generator, so a failure always replays the same way.
-  function seeded(seed: number) {
-    let state = seed;
-    return () => {
-      state = (state * 1_103_515_245 + 12_345) % 2_147_483_648;
-      return state / 2_147_483_648;
-    };
-  }
-
   const catalog = listCards();
-  const stripped = catalog.map((entry) => ({ ...entry, referralDisclosure: null }));
-  const random = seeded(20261126);
-  const randomised = catalog.map((entry) => ({
-    ...entry,
-    // Some cards with a deal and some without, so a rule that favoured either would show.
-    referralDisclosure: random() < 0.5 ? null : `Cense is paid ${moneyAmount(Math.floor(random() * 50_000))} if you are approved.`,
-    // A tracking link in place of the issuer's own: the value changes, never whether there is one.
-    applyUrl: `https://partner.example/track?card=${entry.id}&payout=${Math.floor(random() * 50_000)}`,
-    preapprovalUrl: entry.preapprovalUrl === null ? null : `https://partner.example/pre?r=${Math.floor(random() * 1e6)}`,
-    payoutCents: Math.floor(random() * 50_000),
-    partner: random() < 0.5,
-    commissionPercent: random() * 10,
-  }));
-
-  const bools = [true, false] as const;
-  const answerSets: RuleAnswers[] = [];
-  for (const under21 of bools)
-    for (const incomeBand of ["none", "savings_only", "under_5k", "5k_to_15k", "over_15k"] as const)
-      for (const student of bools)
-        for (const standing of ["none", "limited", "established", "damaged", "not_sure"] as const)
-          for (const recentDenial of bools)
-            for (const canDeposit of bools)
-              for (const goal of [undefined, "build_credit", "learn", "other"] as const)
-                answerSets.push({ under21, incomeBand, student, standing, recentDenial, canDeposit, goal });
+  const stripped = withoutReferralData(catalog);
+  const randomised = withRandomReferralData(catalog);
 
   it("ranks every answer combination the same with referral data stripped or randomised", () => {
     const values = Object.fromEntries(catalog.map((entry, index) => [entry.id, (index * 7_919) % 20_000]));
-    expect(answerSets).toHaveLength(1_600);
-    for (const answers of answerSets) {
+    expect(ALL_RULE_ANSWERS).toHaveLength(1_600);
+    for (const answers of ALL_RULE_ANSWERS) {
       for (const given of [null, values]) {
         const base = complete(evaluateFit(answers, catalog, given));
         for (const variant of [stripped, randomised]) {
