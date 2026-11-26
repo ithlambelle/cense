@@ -10,8 +10,13 @@
 --
 -- preset is the card the student picked (web/src/lib/goals/presets.ts);
 -- "other" is "Something else", with the student's own name. "Start investing"
--- is left out for the demo (investing is education only). target_date is
--- optional: without one the plan uses 6 months.
+-- is left out for the demo (investing is education only).
+--
+-- The plan is fixed when the goal is saved and kept until the student edits
+-- it, so the monthly amount never drifts as days pass: target_date is the
+-- student's date, or 6 months from the day it was saved, and monthly_cents is
+-- the amount over the whole months left then, rounded up to the cent
+-- (web/src/lib/goals/plan.ts).
 --
 -- Students read, add, change and delete only their own row (row level
 -- security). Deleting the account deletes it (auth.users cascade).
@@ -33,7 +38,8 @@ create table if not exists public.goals (
   -- More than nothing, and at most $1,000,000 (the budget's largest amount,
   -- web/src/lib/budget/amount.ts).
   amount_cents bigint not null check (amount_cents > 0 and amount_cents <= 100000000),
-  target_date date,
+  target_date date not null,
+  monthly_cents bigint not null check (monthly_cents >= 0 and monthly_cents <= amount_cents),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -50,8 +56,8 @@ create trigger goals_set_updated_at
 -- column it sends; row level security keeps it the student's own id.
 revoke all on table public.goals from public, anon, authenticated;
 grant select, delete on public.goals to authenticated;
-grant insert (student_id, preset, name, amount_cents, target_date) on public.goals to authenticated;
-grant update (student_id, preset, name, amount_cents, target_date) on public.goals to authenticated;
+grant insert (student_id, preset, name, amount_cents, target_date, monthly_cents) on public.goals to authenticated;
+grant update (student_id, preset, name, amount_cents, target_date, monthly_cents) on public.goals to authenticated;
 
 alter table public.goals enable row level security;
 

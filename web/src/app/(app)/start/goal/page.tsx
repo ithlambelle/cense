@@ -21,7 +21,7 @@ export default async function StartGoalPage() {
   const student = await requireStudent(ROUTES.startGoal);
   if (!plaidConfig()) notFound();
   const today = easternToday();
-  const [money, goal] = await Promise.all([loadSafeToSpend(student), loadGoal(student, today)]);
+  const [money, goal] = await Promise.all([loadSafeToSpend(student), loadGoal(student)]);
   if (!money.ok) throw new Error("Could not read the student's bank link.");
   if (!goal.ok) throw new Error("Could not read the student's goal.");
   if (!money.value) redirect(ROUTES.safeToSpendConnect);

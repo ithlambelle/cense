@@ -1019,13 +1019,11 @@ components:
         - typed
         - recurrence
       additionalProperties: false
-    GoalResponse:
+    SavedGoal:
       type: object
       properties:
         goal:
-          anyOf:
-            - $ref: "#/components/schemas/Goal"
-            - type: "null"
+          $ref: "#/components/schemas/Goal"
       required:
         - goal
       additionalProperties: false
@@ -1046,25 +1044,10 @@ components:
         amountCents:
           type: integer
         targetDate:
-          type:
-            - string
-            - "null"
+          type: string
           format: date
-        plan:
-          type: object
-          properties:
-            months:
-              type: integer
-            monthlyCents:
-              type: integer
-            byDate:
-              type: string
-              format: date
-          required:
-            - months
-            - monthlyCents
-            - byDate
-          additionalProperties: false
+        monthlyCents:
+          type: integer
         updatedAt:
           type: string
           format: date-time
@@ -1073,7 +1056,7 @@ components:
         - name
         - amountCents
         - targetDate
-        - plan
+        - monthlyCents
         - updatedAt
       additionalProperties: false
     SaveGoal:
@@ -1105,7 +1088,6 @@ components:
         - preset
         - name
         - amountCents
-        - targetDate
       additionalProperties: false
     BankFindings:
       type: object
@@ -2022,38 +2004,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
   /me/goal:
-    get:
-      operationId: getGoal
-      summary: Read the student's goal and its plan
-      description: "One goal per student. `goal` is null when they have none. The plan
-        is worked out on the app's calendar today: whole months left (6 with no
-        date, at least 1) and the amount over them, rounded up to the cent."
-      security:
-        - studentSession: []
-      responses:
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GoalResponse"
-        "401":
-          description: Sign-in required
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-        "503":
-          description: Data unavailable
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
     put:
       operationId: saveGoal
       summary: Save the student's goal, replacing any they had
-      description: The date is optional, from today to 30 years out. Accepting the
-        plan is a separate save of the set-aside (PUT /safe-to-spend/answers).
+      description: The date is optional, from today to 30 years out; left out or null,
+        it is fixed at 6 months from the save. The monthly amount (the amount
+        over the whole months left, rounded up to the cent) is fixed at the save
+        too, and kept when the same amount and date are saved again.
       security:
         - studentSession: []
       requestBody:
@@ -2067,7 +2024,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GoalResponse"
+                $ref: "#/components/schemas/SavedGoal"
         "400":
           description: Invalid goal
           content:

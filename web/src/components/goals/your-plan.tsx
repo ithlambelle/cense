@@ -45,7 +45,7 @@ export function YourPlan({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { monthlyCents, byDate } = goal.plan;
+  const { monthlyCents, targetDate } = goal;
   const tooMuch = monthlyCents > MAX_MONTHLY_CENTS;
   const replaces = previousSetAsideCents > 0 && previousSetAsideCents !== monthlyCents;
   const short = summary.leftCents !== null && summary.leftCents < 0;
@@ -83,7 +83,7 @@ export function YourPlan({
           <div className="flex flex-col gap-2">
             <h1 className="font-heading text-h3 font-medium text-navy">{PLAN_COPY.title}</h1>
             <p className={cn(SENSITIVE, "text-body-m text-indigo-black")}>
-              {PLAN_COPY.goalLine(goal.name, moneyAmount(goal.amountCents), formatIsoDate(byDate) ?? byDate)}
+              {PLAN_COPY.goalLine(goal.name, moneyAmount(goal.amountCents), formatIsoDate(targetDate) ?? targetDate)}
             </p>
           </div>
 

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import type { BillAnswer } from "@/lib/safe-to-spend/compute";
 
-import { addMonthsIso, DEFAULT_MONTHS, easternToday, goalPlan, monthlySetAside, monthsLeft, planSummary } from "./plan";
+import { addMonthsIso, DEFAULT_MONTHS, easternToday, monthlySetAside, monthsLeft, planAtSave, planSummary } from "./plan";
 
 describe("monthsLeft", () => {
   it("uses 6 months when the goal has no date", () => {
@@ -65,17 +65,17 @@ describe("monthlySetAside", () => {
   });
 });
 
-describe("goalPlan", () => {
-  it("plans 6 months from today with no date, ending on the same day", () => {
-    expect(goalPlan({ amountCents: 124_000, targetDate: null }, "2026-11-26")).toEqual({ months: 6, monthlyCents: 20_667, byDate: "2027-05-26" });
+describe("planAtSave", () => {
+  it("fixes a goal with no date at 6 months from the day it is saved, so it never moves", () => {
+    expect(planAtSave({ amountCents: 124_000, targetDate: null }, "2026-11-26")).toEqual({ targetDate: "2027-05-26", monthlyCents: 20_667 });
   });
 
   it("ends on the month's last day when 6 months on is shorter", () => {
-    expect(goalPlan({ amountCents: 60_000, targetDate: null }, "2026-08-31").byDate).toBe("2027-02-28");
+    expect(planAtSave({ amountCents: 60_000, targetDate: null }, "2026-08-31").targetDate).toBe("2027-02-28");
   });
 
-  it("keeps the goal's own date", () => {
-    expect(goalPlan({ amountCents: 60_000, targetDate: "2027-03-01" }, "2026-11-26")).toEqual({ months: 3, monthlyCents: 20_000, byDate: "2027-03-01" });
+  it("keeps the goal's own date and spreads the amount over the months left", () => {
+    expect(planAtSave({ amountCents: 60_000, targetDate: "2027-03-01" }, "2026-11-26")).toEqual({ targetDate: "2027-03-01", monthlyCents: 20_000 });
   });
 });
 

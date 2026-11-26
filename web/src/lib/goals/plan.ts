@@ -54,16 +54,16 @@ export function monthlySetAside(amountCents: number, months: number): number {
   return Math.ceil(amountCents / months);
 }
 
-export type GoalPlan = {
-  months: number;
-  monthlyCents: number;
-  // The goal's date, or 6 months from today when it has none.
-  byDate: string;
-};
-
-export function goalPlan({ amountCents, targetDate }: { amountCents: number; targetDate: string | null }, today: string): GoalPlan {
-  const months = monthsLeft(today, targetDate);
-  return { months, monthlyCents: monthlySetAside(amountCents, months), byDate: targetDate ?? addMonthsIso(today, DEFAULT_MONTHS) };
+// The plan, fixed when the goal is saved and kept until the student edits it,
+// so the monthly amount never drifts as days pass: the date (the student's,
+// or 6 months from the day it is saved) and the amount over the whole months
+// left until then.
+export function planAtSave(
+  { amountCents, targetDate }: { amountCents: number; targetDate: string | null },
+  today: string,
+): { targetDate: string; monthlyCents: number } {
+  const date = targetDate ?? addMonthsIso(today, DEFAULT_MONTHS);
+  return { targetDate: date, monthlyCents: monthlySetAside(amountCents, monthsLeft(today, date)) };
 }
 
 export type PlanSummary = {

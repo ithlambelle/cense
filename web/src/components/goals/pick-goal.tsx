@@ -57,11 +57,13 @@ export function PickGoal({ saved, today, suggestions }: { saved: Goal | null; to
     if (saved?.preset === next) {
       setAmount(centsToInput(saved.amountCents));
       setName(next === "other" ? saved.name : "");
+      setDate(saved.targetDate);
       return;
     }
     const suggested = suggestions[next];
     setAmount(suggested ? centsToInput(suggested.amountCents) : "");
     setName("");
+    setDate("");
   }
 
   async function submit(event: FormEvent) {

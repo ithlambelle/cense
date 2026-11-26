@@ -8,9 +8,10 @@ import type { Server } from "node:http";
 import { expect, test, type Page } from "@playwright/test";
 
 import { formatIsoDate } from "../src/lib/dates";
-import { addMonthsIso, easternToday, goalPlan } from "../src/lib/goals/plan";
+import { addMonthsIso, easternToday, planAtSave } from "../src/lib/goals/plan";
 import { moneyAmount } from "../src/lib/money";
 import { axeChecker, blockExternalRequests, signUp, uniqueEmail } from "./helpers";
+import { asStudent } from "./support/data-api";
 import { installFakeLink, resetFakePlaid, startFakePlaid } from "./support/fake-plaid";
 
 let plaid: Server;
@@ -35,6 +36,9 @@ const safeToSpendCard = (page: Page) => page.getByRole("region", { name: "Safe t
 const goals = (page: Page) => page.getByRole("group", { name: "Pick a goal" });
 const pickGoalHeading = (page: Page) => page.getByRole("heading", { level: 1, name: "Pick a goal" });
 const planHeading = (page: Page) => page.getByRole("heading", { level: 1, name: "Your plan" });
+// The student's goal rows, read as them through the Data API (none or one).
+type GoalRow = { preset: string; amount_cents: number; target_date: string; monthly_cents: number };
+const savedGoals = async (page: Page) => (await asStudent(page.context(), { table: "goals" })).body as GoalRow[];
 
 // A new student who linked the stand-in bank and tapped Looks right.
 async function throughLooksRight(page: Page, journey: string, checkA11y: (screen: string) => Promise<void>) {
@@ -78,16 +82,16 @@ test("a student picks Emergency fund with the suggestion, accepts the plan, and 
   await page.reload();
   await expect(pickGoalHeading(page)).toBeVisible();
   await expect(goals(page).getByRole("button", { pressed: true })).toHaveCount(0);
-  expect(((await (await page.request.get("/api/v1/me/goal")).json()) as { goal: unknown }).goal).toBeNull();
+  expect(await savedGoals(page)).toEqual([]);
 
   // Pick it again with the suggestion and no date: 6 months.
   await goals(page).getByRole("button", { name: "Emergency fund" }).click();
   await page.getByRole("button", { name: "See my plan" }).click();
   await expect(page).toHaveURL(/\/start\/plan$/);
   await expect(planHeading(page)).toBeVisible();
-  const plan = goalPlan({ amountCents: 100_000, targetDate: null }, easternToday());
-  expect(plan.monthlyCents).toBe(16_667);
-  await expect(page.getByText(`Emergency fund: $1,000 by ${formatIsoDate(plan.byDate)}`)).toBeVisible();
+  const plan = planAtSave({ amountCents: 100_000, targetDate: null }, easternToday());
+  expect(plan).toEqual({ targetDate: addMonthsIso(easternToday(), 6), monthlyCents: 16_667 });
+  await expect(page.getByText(`Emergency fund: $1,000 by ${formatIsoDate(plan.targetDate)}`)).toBeVisible();
   const month = page.getByRole("region", { name: "Each month" });
   // Money in is last month's $1,800; bills $925; $1,800 - $925 - $166.67.
   await expect(month.getByRole("listitem")).toHaveText(["Money in$1,800", "Bills$925", "Set aside for your goal$166.67", "Left for everything else$708.33"]);
@@ -128,8 +132,8 @@ test("a student picks Emergency fund with the suggestion, accepts the plan, and 
   await expect(page.getByLabel("Savings goal")).toHaveValue("166.67");
 
   // The goal is saved, and Back from Home never reopens the plan.
-  const saved = (await (await page.request.get("/api/v1/me/goal")).json()) as { goal: { preset: string; amountCents: number; targetDate: string | null } };
-  expect(saved.goal).toMatchObject({ preset: "emergency_fund", amountCents: 100_000, targetDate: null });
+  // Saved with its date and monthly amount fixed, so the plan never drifts.
+  expect(await savedGoals(page)).toMatchObject([{ preset: "emergency_fund", amount_cents: 100_000, target_date: plan.targetDate, monthly_cents: 16_667 }]);
   await page.goto("/home");
   await page.goBack();
   await expect(page).not.toHaveURL(/\/start\/plan$/);
@@ -141,7 +145,7 @@ test("Not now goes Home with no goal and nothing set aside, and the screens need
   await page.getByRole("link", { name: "Not now" }).click();
   await expect(page).toHaveURL(/\/home$/);
   await expect(safeToSpendCard(page)).toContainText(moneyAmount(before.dailyCents));
-  expect(((await (await page.request.get("/api/v1/me/goal")).json()) as { goal: unknown }).goal).toBeNull();
+  expect(await savedGoals(page)).toEqual([]);
   expect((await safeToSpend(page)).setAsideCents).toBe(0);
 
   // Your plan with no goal opens Pick a goal.
@@ -153,7 +157,7 @@ test("Not now goes Home with no goal and nothing set aside, and the screens need
   await expect(page).toHaveURL(/\/sign-in\?next=%2Fstart%2Fgoal$/);
   await page.goto("/start/plan");
   await expect(page).toHaveURL(/\/sign-in\?next=%2Fstart%2Fplan$/);
-  expect((await page.request.get("/api/v1/me/goal")).status()).toBe(401);
+  expect((await page.request.put("/api/v1/me/goal", { data: { preset: "trip", name: "Trip", amountCents: 100 } })).status()).toBe(401);
 });
 
 test("a typed goal with a date, then changed and removed, at 320 wide with no sideways scroll", async ({ page }) => {
@@ -183,7 +187,7 @@ test("a typed goal with a date, then changed and removed, at 320 wide with no si
   await fits("pick a goal, filled in");
   await page.getByRole("button", { name: "See my plan" }).click();
   await expect(planHeading(page)).toBeVisible();
-  const plan = goalPlan({ amountCents: 120_000, targetDate: by }, easternToday());
+  const plan = planAtSave({ amountCents: 120_000, targetDate: by }, easternToday());
   await expect(page.getByText(`Laptop: $1,200 by ${formatIsoDate(by)}`)).toBeVisible();
   await expect(page.getByRole("region", { name: "Each month" }).getByRole("listitem").nth(2)).toHaveText(`Set aside for your goal${moneyAmount(plan.monthlyCents)}`);
   await fits("your plan");
@@ -199,5 +203,5 @@ test("a typed goal with a date, then changed and removed, at 320 wide with no si
   await page.getByRole("link", { name: "Edit" }).click();
   await page.getByRole("button", { name: "Remove my goal" }).click();
   await expect(page).toHaveURL(/\/home$/);
-  expect(((await (await page.request.get("/api/v1/me/goal")).json()) as { goal: unknown }).goal).toBeNull();
+  expect(await savedGoals(page)).toEqual([]);
 });

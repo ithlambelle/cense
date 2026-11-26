@@ -149,7 +149,7 @@ describe("PickGoal", () => {
       name: "Laptop",
       amountCents: 90_050,
       targetDate: "2027-08-01",
-      plan: { months: 8, monthlyCents: 11_257, byDate: "2027-08-01" },
+      monthlyCents: 11_257,
       updatedAt: "2026-11-26T15:00:00.000Z",
     };
     deleteGoal.mockResolvedValue({ kind: "ok", data: null });

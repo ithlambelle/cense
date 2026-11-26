@@ -324,14 +324,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Read the student's goal and its plan
-         * @description One goal per student. `goal` is null when they have none. The plan is worked out on the app's calendar today: whole months left (6 with no date, at least 1) and the amount over them, rounded up to the cent.
-         */
-        get: operations["getGoal"];
+        get?: never;
         /**
          * Save the student's goal, replacing any they had
-         * @description The date is optional, from today to 30 years out. Accepting the plan is a separate save of the set-aside (PUT /safe-to-spend/answers).
+         * @description The date is optional, from today to 30 years out; left out or null, it is fixed at 6 months from the save. The monthly amount (the amount over the whole months left, rounded up to the cent) is fixed at the save too, and kept when the same amount and date are saved again.
          */
         put: operations["saveGoal"];
         post?: never;
@@ -1124,8 +1120,8 @@ export interface components {
             /** @enum {string|null} */
             recurrence: "recurring" | "variable" | null;
         };
-        GoalResponse: {
-            goal: components["schemas"]["Goal"] | null;
+        SavedGoal: {
+            goal: components["schemas"]["Goal"];
         };
         Goal: {
             /** @enum {string} */
@@ -1133,13 +1129,8 @@ export interface components {
             name: string;
             amountCents: number;
             /** Format: date */
-            targetDate: string | null;
-            plan: {
-                months: number;
-                monthlyCents: number;
-                /** Format: date */
-                byDate: string;
-            };
+            targetDate: string;
+            monthlyCents: number;
             /** Format: date-time */
             updatedAt: string;
         };
@@ -1149,7 +1140,7 @@ export interface components {
             name: string;
             amountCents: number;
             /** Format: date */
-            targetDate: string | null;
+            targetDate?: string | null;
         };
         BankFindings: {
             findings: components["schemas"]["BankFinding"][];
@@ -2168,44 +2159,6 @@ export interface operations {
             };
         };
     };
-    getGoal: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GoalResponse"];
-                };
-            };
-            /** @description Sign-in required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-            /** @description Data unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiError"];
-                };
-            };
-        };
-    };
     saveGoal: {
         parameters: {
             query?: never;
@@ -2225,7 +2178,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GoalResponse"];
+                    "application/json": components["schemas"]["SavedGoal"];
                 };
             };
             /** @description Invalid goal */

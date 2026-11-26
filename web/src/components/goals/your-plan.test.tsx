@@ -21,8 +21,8 @@ const GOAL: Goal = {
   preset: "emergency_fund",
   name: "Emergency fund",
   amountCents: 124_000,
-  targetDate: null,
-  plan: { months: 6, monthlyCents: 20_667, byDate: "2027-05-26" },
+  targetDate: "2027-05-26",
+  monthlyCents: 20_667,
   updatedAt: "2026-11-26T15:00:00.000Z",
 };
 const BILLS: BillAnswer[] = [
@@ -39,7 +39,7 @@ function show({ goal = GOAL, income = 210_000 as number | null, previous = 0 } =
       goal={goal}
       bills={BILLS}
       previousSetAsideCents={previous}
-      summary={planSummary({ incomeCents: income, bills: BILLS, setAsideCents: goal.plan.monthlyCents })}
+      summary={planSummary({ incomeCents: income, bills: BILLS, setAsideCents: goal.monthlyCents })}
     />,
   );
 }
@@ -100,7 +100,7 @@ describe("YourPlan", () => {
   });
 
   it("will not accept a set-aside over $100,000 a month", () => {
-    show({ goal: { ...GOAL, amountCents: 100_000_000, targetDate: "2026-12-26", plan: { months: 1, monthlyCents: 100_000_000, byDate: "2026-12-26" } } });
+    show({ goal: { ...GOAL, amountCents: 100_000_000, targetDate: "2026-12-26", monthlyCents: 100_000_000 } });
     expect(screen.getByText(/more than you can set aside in a month/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Accept plan" }));
     expect(saveSafeToSpendAnswers).not.toHaveBeenCalled();
