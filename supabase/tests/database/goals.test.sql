@@ -7,7 +7,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(24);
+select plan(32);
 
 insert into auth.users (id, email) values
   ('90a10000-0000-4000-8000-000000000001', 'goals-ana@example.com'),
@@ -65,6 +65,30 @@ select is_empty($$update public.goals set amount_cents = 1 where student_id = '9
   'and cannot change another student''s');
 select is_empty($$delete from public.goals where student_id = '90a10000-0000-4000-8000-000000000002' returning 1$$,
   'or delete it');
+reset role;
+
+-- Accept plan writes only the set-aside: bills stay as they are, even ones
+-- changed since the plan was opened (accept_goal_plan()).
+select ok(not has_function_privilege('anon', 'public.accept_goal_plan()', 'execute'), 'signed out, no one accepts a plan');
+insert into plaid.items (student_id, item_id, token_ciphertext) values
+  ('90a10000-0000-4000-8000-000000000001', 'item-goals-ana', 'v1.test');
+insert into public.bank_links (student_id, institution_name, set_aside_cents) values
+  ('90a10000-0000-4000-8000-000000000001', 'First Platypus Bank', 5000);
+insert into public.bill_coverage (student_id, bill, covered_by, monthly_cents, due_day) values
+  ('90a10000-0000-4000-8000-000000000001', 'rent', 'me', 70000, 6);
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"90a10000-0000-4000-8000-000000000001","role":"authenticated"}';
+select is(public.accept_goal_plan(), 'accepted', 'a student accepts the plan for their goal');
+select is((select set_aside_cents from public.bank_links), 20000::bigint, 'the set-aside is the plan''s monthly amount');
+select is((select accepted_monthly_cents from public.goals), 20000::bigint, 'and the goal remembers what was set aside');
+select is((select monthly_cents::int || ':' || due_day from public.bill_coverage where bill = 'rent'), '70000:6', 'the bills are left exactly as they were');
+update public.goals set monthly_cents = 0;
+select is(public.accept_goal_plan(), 'nothing_to_set_aside', 'a plan that sets nothing aside changes nothing');
+select is((select set_aside_cents from public.bank_links), 20000::bigint, 'not even the set-aside');
+reset role;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"90a10000-0000-4000-8000-000000000002","role":"authenticated"}';
+select is(public.accept_goal_plan(), 'no_bank', 'with no bank there is no set-aside to write');
 reset role;
 
 -- Deleting the account deletes the goal.

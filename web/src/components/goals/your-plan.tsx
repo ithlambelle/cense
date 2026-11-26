@@ -11,7 +11,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { SENSITIVE, track } from "@/lib/analytics";
 import type { Goal } from "@/lib/api/goals";
-import { saveSafeToSpendAnswers, type BillAnswer } from "@/lib/api-client/safe-to-spend";
+import { acceptGoalPlan } from "@/lib/api-client/goals";
 import { formatIsoDate } from "@/lib/dates";
 import { PLAN_COPY } from "@/lib/goals/copy";
 import type { PlanSummary } from "@/lib/goals/plan";
@@ -24,19 +24,15 @@ import { cn } from "@/lib/utils";
 // Created with Claude Code (2026-11-26). Your plan (US-17, Demo Day step 5,
 // Gap Plan slice 6): the goal, then a month in four lines (money in, bills,
 // the set-aside, what is left), with Accept plan and Edit. Accept saves the
-// set-aside as the student's monthly savings goal (D40), the same save Your
-// money makes, so safe to spend on Home and This month change with it, then
-// Home. Per month, not per paycheck: pay frequency is not saved anywhere yet.
+// set-aside as the student's monthly savings goal (D40) and nothing else, so
+// safe to spend on Home and This month change with it, then Home. Per month, not per paycheck: pay frequency is not saved anywhere yet.
 // No Figma frame exists for it; the rows are Looks right?'s and This month's.
 export function YourPlan({
   goal,
-  bills,
   previousSetAsideCents,
   summary,
 }: {
   goal: Goal;
-  // The student's saved answers, sent back unchanged with the new set-aside.
-  bills: BillAnswer[];
   previousSetAsideCents: number;
   summary: PlanSummary;
 }) {
@@ -54,7 +50,7 @@ export function YourPlan({
     if (pending || tooMuch) return;
     setPending(true);
     setError(null);
-    const result = await saveSafeToSpendAnswers({ bills, setAsideCents: monthlyCents });
+    const result = await acceptGoalPlan();
     if (!isMounted()) return;
     if (result.kind === "ok") {
       track("goal_plan_saved", { preset: goal.preset });

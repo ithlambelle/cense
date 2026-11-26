@@ -36,7 +36,6 @@ export default async function StartPlanPage() {
   return (
     <YourPlan
       goal={goal.value}
-      bills={money.value.bills}
       previousSetAsideCents={money.value.setAsideCents}
       summary={planSummary({ incomeCents: income, bills: money.value.bills, setAsideCents: goal.value.monthlyCents })}
     />

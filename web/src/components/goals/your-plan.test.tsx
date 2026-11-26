@@ -8,6 +8,8 @@ const replace = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace, refresh: vi.fn() }) }));
 const saveSafeToSpendAnswers = vi.fn();
 vi.mock("@/lib/api-client/safe-to-spend", () => ({ saveSafeToSpendAnswers: (...args: unknown[]) => saveSafeToSpendAnswers(...args) }));
+const acceptGoalPlan = vi.fn();
+vi.mock("@/lib/api-client/goals", () => ({ acceptGoalPlan: (...args: unknown[]) => acceptGoalPlan(...args) }));
 const track = vi.fn();
 vi.mock("@/lib/analytics", () => ({ SENSITIVE: "ph-sensitive", track: (...args: unknown[]) => track(...args) }));
 
@@ -37,7 +39,6 @@ function show({ goal = GOAL, income = 210_000 as number | null, previous = 0 } =
   render(
     <YourPlan
       goal={goal}
-      bills={BILLS}
       previousSetAsideCents={previous}
       summary={planSummary({ incomeCents: income, bills: BILLS, setAsideCents: goal.monthlyCents })}
     />,
@@ -70,29 +71,30 @@ describe("YourPlan", () => {
     expect(screen.getByText("This replaces the $50 you set aside before.")).toBeTruthy();
   });
 
-  it("saves the set-aside with the bills unchanged, then goes Home", async () => {
-    saveSafeToSpendAnswers.mockResolvedValue({ kind: "ok", data: {} });
+  it("saves only the set-aside, never the bills loaded with the page, then goes Home", async () => {
+    acceptGoalPlan.mockResolvedValue({ kind: "ok", data: null });
     show();
     fireEvent.click(screen.getByRole("button", { name: "Accept plan" }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
-    expect(saveSafeToSpendAnswers).toHaveBeenCalledWith({ bills: BILLS, setAsideCents: 20_667 });
+    expect(acceptGoalPlan).toHaveBeenCalledTimes(1);
+    expect(saveSafeToSpendAnswers).not.toHaveBeenCalled();
     expect(track).toHaveBeenCalledWith("goal_plan_saved", { preset: "emergency_fund" });
   });
 
   it("saves once on a double tap", async () => {
     let finish: (value: unknown) => void = () => {};
-    saveSafeToSpendAnswers.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    acceptGoalPlan.mockReturnValue(new Promise((resolve) => (finish = resolve)));
     show();
     const accept = screen.getByRole("button", { name: "Accept plan" });
     fireEvent.click(accept);
     fireEvent.click(accept);
-    finish({ kind: "ok", data: {} });
+    finish({ kind: "ok", data: null });
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
-    expect(saveSafeToSpendAnswers).toHaveBeenCalledTimes(1);
+    expect(acceptGoalPlan).toHaveBeenCalledTimes(1);
   });
 
   it("says why a save failed and stays", async () => {
-    saveSafeToSpendAnswers.mockResolvedValue({ kind: "failed", code: "data_unavailable", message: "Your data is temporarily unavailable. Please try again." });
+    acceptGoalPlan.mockResolvedValue({ kind: "failed", code: "data_unavailable", message: "Your data is temporarily unavailable. Please try again." });
     show();
     fireEvent.click(screen.getByRole("button", { name: "Accept plan" }));
     expect(await screen.findByText("Your data is temporarily unavailable. Please try again.")).toBeTruthy();
@@ -103,7 +105,7 @@ describe("YourPlan", () => {
     show({ goal: { ...GOAL, amountCents: 100_000_000, targetDate: "2026-12-26", monthlyCents: 100_000_000 } });
     expect(screen.getByText(/more than you can set aside in a month/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Accept plan" }));
-    expect(saveSafeToSpendAnswers).not.toHaveBeenCalled();
+    expect(acceptGoalPlan).not.toHaveBeenCalled();
   });
 
   it("goes back to Pick a goal from Edit and from the back arrow", () => {

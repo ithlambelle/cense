@@ -26,9 +26,17 @@
 -- production, BEFORE the app change that reads it is deployed. Safe to run
 -- again. To back it out: supabase/rollbacks/20261126150200_goals.down.sql.
 --
+-- accept_goal_plan(): Accept plan on Your plan. Writes the goal's monthly
+-- amount to the caller's set-aside and nothing else (never the bill answers,
+-- which another tab may have changed), and records it on the goal. Runs as
+-- the caller, so row level security and the grants apply. Answers
+-- 'accepted', 'no_goal', 'no_bank', or 'nothing_to_set_aside' for a goal
+-- whose plan sets nothing aside (Pay off my card).
+--
 -- Check after applying:
 --   select relrowsecurity from pg_class where oid = 'public.goals'::regclass;  -- true
 --   select count(*) from pg_policies where tablename = 'goals';                  -- 4
+--   select has_function_privilege('anon', 'public.accept_goal_plan()', 'execute');  -- false
 
 create table if not exists public.goals (
   student_id uuid primary key references auth.users (id) on delete cascade,
@@ -40,6 +48,8 @@ create table if not exists public.goals (
   amount_cents bigint not null check (amount_cents > 0 and amount_cents <= 100000000),
   target_date date not null,
   monthly_cents bigint not null check (monthly_cents >= 0 and monthly_cents <= amount_cents),
+  -- What Accept plan last wrote to the set-aside; null until a plan is accepted.
+  accepted_monthly_cents bigint check (accepted_monthly_cents >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -57,7 +67,7 @@ create trigger goals_set_updated_at
 revoke all on table public.goals from public, anon, authenticated;
 grant select, delete on public.goals to authenticated;
 grant insert (student_id, preset, name, amount_cents, target_date, monthly_cents) on public.goals to authenticated;
-grant update (student_id, preset, name, amount_cents, target_date, monthly_cents) on public.goals to authenticated;
+grant update (student_id, preset, name, amount_cents, target_date, monthly_cents, accepted_monthly_cents) on public.goals to authenticated;
 
 alter table public.goals enable row level security;
 
@@ -78,3 +88,32 @@ drop policy if exists "Students can delete their own goal" on public.goals;
 create policy "Students can delete their own goal"
   on public.goals for delete to authenticated
   using ((select auth.uid()) = student_id);
+
+create or replace function public.accept_goal_plan()
+returns text
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_student uuid := auth.uid();
+  v_monthly bigint;
+begin
+  select monthly_cents into v_monthly from public.goals where student_id = v_student for update;
+  if not found then
+    return 'no_goal';
+  end if;
+  if v_monthly = 0 then
+    return 'nothing_to_set_aside';
+  end if;
+  update public.bank_links set set_aside_cents = v_monthly where student_id = v_student;
+  if not found then
+    return 'no_bank';
+  end if;
+  update public.goals set accepted_monthly_cents = v_monthly where student_id = v_student;
+  return 'accepted';
+end;
+$$;
+
+revoke execute on function public.accept_goal_plan() from public, anon;
+grant execute on function public.accept_goal_plan() to authenticated;

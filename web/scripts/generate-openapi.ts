@@ -203,6 +203,12 @@ registry.registerPath({
   responses: { 200: ok(savedGoalSchema), 400: failure("Invalid goal"), ...protectedResponses },
 });
 registry.registerPath({
+  method: "post", path: "/me/goal/accept", operationId: "acceptGoalPlan", summary: "Accept the goal's plan: its monthly amount becomes the set-aside",
+  description: "Writes only bank_links.set_aside_cents (through accept_goal_plan()), never the bill answers. 404 not_found with no goal, 404 not_linked with no bank, 409 nothing_to_set_aside for a plan that sets nothing aside (Pay off my card), 400 too_much past $100,000 a month.",
+  security: [{ studentSession: [] }],
+  responses: { 204: { description: "Plan accepted" }, 400: failure("More than a set-aside can be (too_much)"), 404: failure("No goal or no bank linked"), 409: failure("Nothing to set aside"), ...protectedResponses },
+});
+registry.registerPath({
   method: "delete", path: "/me/goal", operationId: "deleteGoal", summary: "Remove the student's goal",
   description: "Answers 204 whether or not there was one. The set-aside stays as it is.",
   security: [{ studentSession: [] }],

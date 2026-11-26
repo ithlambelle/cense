@@ -30,7 +30,8 @@ test.beforeEach(async ({ context }) => {
   await installFakeLink(context);
 });
 
-type SafeToSpend = { setAsideCents: number; leftCents: number; dailyCents: number; bills: unknown[] };
+type Bill = { bill: string; coveredBy: string; monthlyCents: number | null; dueDay: number | null };
+type SafeToSpend = { setAsideCents: number; leftCents: number; dailyCents: number; bills: Bill[] };
 const safeToSpend = async (page: Page) => (await (await page.request.get("/api/v1/safe-to-spend")).json()) as SafeToSpend;
 const safeToSpendCard = (page: Page) => page.getByRole("region", { name: "Safe to spend", exact: true });
 const goals = (page: Page) => page.getByRole("group", { name: "Pick a goal" });
@@ -115,17 +116,22 @@ test("a student picks Emergency fund with the suggestion, accepts the plan, and 
   // Nothing changes safe to spend until the plan is accepted.
   expect((await safeToSpend(page)).setAsideCents).toBe(0);
 
-  // Accept: the set-aside is the plan's, the bills are unchanged, and Home's
-  // number is the new one.
+  // Rent changes in another tab while Your plan is open.
+  const edited = before.bills.map((bill) => (bill.bill === "rent" ? { ...bill, monthlyCents: 70_000 } : bill));
+  expect((await page.request.put("/api/v1/safe-to-spend/answers", { data: { bills: edited, setAsideCents: 0 } })).status()).toBe(200);
+  const mid = await safeToSpend(page);
+
+  // Accept: only the set-aside is written, so the rent saved in the other tab
+  // stays, and Home's number is the new one.
   await page.getByRole("button", { name: "Accept plan" }).click();
   await expect(page).toHaveURL(/\/home$/);
   const after = await safeToSpend(page);
   expect(after.setAsideCents).toBe(16_667);
-  expect(after.bills).toEqual(before.bills);
-  expect(after.leftCents).toBe(before.leftCents - 16_667);
-  expect(after.dailyCents).toBeLessThan(before.dailyCents);
+  expect(after.bills).toEqual(edited);
+  expect(after.leftCents).toBe(mid.leftCents - 16_667);
+  expect(after.dailyCents).toBeLessThan(mid.dailyCents);
   await expect(safeToSpendCard(page)).toContainText(moneyAmount(after.dailyCents));
-  await expect(safeToSpendCard(page)).not.toContainText(moneyAmount(before.dailyCents));
+  await expect(safeToSpendCard(page)).not.toContainText(moneyAmount(mid.dailyCents));
 
   // This month shows it as saving.
   await page.goto("/safe-to-spend?tab=month");

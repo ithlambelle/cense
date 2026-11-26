@@ -2064,6 +2064,50 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /me/goal/accept:
+    post:
+      operationId: acceptGoalPlan
+      summary: "Accept the goal's plan: its monthly amount becomes the set-aside"
+      description: Writes only bank_links.set_aside_cents (through
+        accept_goal_plan()), never the bill answers. 404 not_found with no goal,
+        404 not_linked with no bank, 409 nothing_to_set_aside for a plan that
+        sets nothing aside (Pay off my card), 400 too_much past $100,000 a
+        month.
+      security:
+        - studentSession: []
+      responses:
+        "204":
+          description: Plan accepted
+        "400":
+          description: More than a set-aside can be (too_much)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No goal or no bank linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Nothing to set aside
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /cards:
     get:
       operationId: listCards
