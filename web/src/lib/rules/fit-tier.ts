@@ -391,6 +391,13 @@ function preferTrue(a: boolean, b: boolean): number {
   return a ? -1 : 1;
 }
 
+// Whether a turned-down student with this standing is pointed to a secured
+// card (v1.4). The denial plan asks the same, so it never offers a secured card
+// the student's result would not show first.
+export function denialPrefersSecured(standing: CompleteAnswers["standing"]): boolean {
+  return DENIAL_PREFERS_SECURED[standing];
+}
+
 function suitsRecentDenial(card: RuleCard): boolean {
   return card.secured || card.okForRebuilding;
 }

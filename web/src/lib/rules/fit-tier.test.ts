@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { listCards } from "../cards/catalog";
 import { moneyAmount } from "../money";
 import { QUESTIONS } from "../quiz/questions";
-import { evaluateFit, QUIZ_DEPOSIT_LIMIT_CENTS, RULES_VERSION } from "./fit-tier";
+import { denialPrefersSecured, evaluateFit, QUIZ_DEPOSIT_LIMIT_CENTS, RULES_VERSION } from "./fit-tier";
 import type { FitResult, RuleAnswers, RuleCard, YearOneValues } from "./fit-tier";
 import {
   ALL_RULE_ANSWERS,
@@ -528,6 +528,14 @@ describe("fit tier rules: picking the recommended card (section 6)", () => {
     // Step 9 (unsecured first) decides instead, so the secured card is not first.
     expect(pick(answers, [card("a-secured", "none", { secured: true, okForRebuilding: true }), card("b-plain")])).toBe("b-plain");
     expect(pick(answers, [card("a-rebuild", "none", { okForRebuilding: true }), card("b-plain", "none", { studentsOnly: true })])).toBe("b-plain");
+  });
+
+  it("3 (v1.4). denialPrefersSecured, which the denial plan reads, is the same rule", () => {
+    for (const standing of ["none", "limited", "established", "damaged", "not_sure"] as const) {
+      const answers = { ...CORE_STUDENT, standing, recentDenial: true };
+      const securedFirst = pick(answers, [card("a-plain"), card("b-secured", "none", { secured: true })]) === "b-secured";
+      expect(denialPrefersSecured(standing), standing).toBe(securedFirst);
+    }
   });
 
   it("3 (v1.4). on the real cards, a denied student who already has credit is not picked a secured card", () => {

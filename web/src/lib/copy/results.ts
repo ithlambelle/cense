@@ -43,11 +43,15 @@ export const NOT_YET_NEXT_STEPS = {
   ownIncomeLink: "take the quiz again",
 } as const;
 
-// The page the authorized-user line is from, cited above. The denial plan's
-// "Build credit another way" links to it.
+// Where the denial plan's "Build credit another way" sends a student to read
+// about authorized users: a neutral government source, not an issuer whose
+// cards Cense ranks. The CFPB's "Want credit to work for you?" (Your Money,
+// Your Goals), page 11, lists becoming an authorized user as a way to build
+// credit and says payment activity "typically appears" on the authorized
+// user's credit report, and to check that it will (read 2026-11-26).
 export const AUTHORIZED_USER_SOURCE = {
-  href: "https://www.capitalone.com/learn-grow/money-management/do-authorized-users-build-credit/",
-  label: "How it works, from Capital One",
+  href: "https://files.consumerfinance.gov/f/documents/cfpb_ymyg_want-credit-to-work-for-you_booklet_print.pdf",
+  label: "How it works, from the CFPB (PDF)",
 } as const;
 
 // Source: Notion "Fit Tier Rules v1.2", section 1.
