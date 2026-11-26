@@ -6,7 +6,7 @@ import type { Application, ApplicationDetail } from "@/lib/api/application";
 import { SENSITIVE } from "@/lib/analytics";
 import { findCard } from "@/lib/cards/catalog";
 import { cardRewards } from "@/lib/cards/rewards";
-import { ESTIMATE_DISCLAIMER, SECURED_LINE, SECURED_LINK } from "@/lib/copy/results";
+import { ESTIMATE_DISCLAIMER, SECURED_LINE, SECURED_LINK, SECURED_NO_DEPOSIT_LINE } from "@/lib/copy/results";
 import { estimateYearOne } from "@/lib/results/value";
 import type { CardFit } from "@/lib/rules/fit-tier";
 
@@ -236,9 +236,17 @@ describe("CardDetailView, a card the student does not have (K2)", () => {
     expect(screen.queryByRole("link", { name: SECURED_LINK.label })).toBeNull();
   });
 
-  it("has no secured line on a card with no deposit", () => {
+  it("has no secured line on a card that is not secured", () => {
     render(<CardDetailView card={catalogCard(DISCOVER)} signedIn />);
     expect(screen.queryByText(SECURED_LINE, { exact: false })).toBeNull();
+    expect(screen.queryByText(SECURED_NO_DEPOSIT_LINE)).toBeNull();
+  });
+
+  it("says what secured means on the Chime Card, which has no deposit, without the deposit line or Penny's link", () => {
+    render(<CardDetailView card={catalogCard("chime-card")} signedIn />);
+    expect(screen.getByText(SECURED_NO_DEPOSIT_LINE)).toBeTruthy();
+    expect(screen.queryByText(SECURED_LINE, { exact: false })).toBeNull();
+    expect(screen.queryByRole("link", { name: SECURED_LINK.label })).toBeNull();
   });
 
   it("keeps “Saved as applied” on screen when the save turns the page into the student's card (K1)", async () => {

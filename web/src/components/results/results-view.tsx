@@ -221,7 +221,7 @@ function OptionCard({ option, top = false, tracked = false }: { option: ResultOp
         {hasDeposit(card) ? <FactChip label="Deposit" value={`From ${moneyAmount(card.depositMinCents)}`} /> : null}
       </dl>
       {/* What "Secured" and the deposit mean, beside them (Mikhaela, Nov 9). */}
-      {hasDeposit(card) ? <SecuredNote from={PENNY_FROM_RESULTS} raised className="-mt-2" /> : null}
+      <SecuredNote card={card} from={PENNY_FROM_RESULTS} raised className="-mt-2" />
 
       {top ? (
         <TopMatchActions

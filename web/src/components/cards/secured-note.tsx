@@ -2,11 +2,13 @@
 // card is, with "What is a secured card?" opening Penny's checked answer. Shown
 // beside a secured card on Your match and on its page. No frame draws it: the
 // Design System's Note line and text link. The link shows only to a signed-in
-// student, since Ask Penny needs an account.
+// student, since Ask Penny needs an account. A secured card with no deposit
+// (the Chime Card) gets its own line and no link.
 import Link from "next/link";
 
 import { NoteLine } from "@/components/ui/note";
-import { SECURED_LINE, SECURED_LINK } from "@/lib/copy/results";
+import { hasDeposit } from "@/lib/cards/deposit";
+import { SECURED_LINE, SECURED_LINK, SECURED_NO_DEPOSIT_LINE } from "@/lib/copy/results";
 import { pennyPath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +16,19 @@ import { cn } from "@/lib/utils";
 // null leaves the link out. `raised` lifts the link above a card-wide
 // stretched link (Your match); elsewhere it stays unraised, so a sheet's
 // backdrop still covers it.
-export function SecuredNote({ from, raised = false, className }: { from: string | null; raised?: boolean; className?: string }) {
+export function SecuredNote({
+  card,
+  from,
+  raised = false,
+  className,
+}: {
+  card: { secured: boolean; depositMinCents: number };
+  from: string | null;
+  raised?: boolean;
+  className?: string;
+}) {
+  if (!card.secured) return null;
+  if (!hasDeposit(card)) return <NoteLine className={className}>{SECURED_NO_DEPOSIT_LINE}</NoteLine>;
   return (
     <NoteLine className={className}>
       {SECURED_LINE}

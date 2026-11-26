@@ -15,7 +15,7 @@ import { SENSITIVE } from "@/lib/analytics";
 import type { Application, ApplicationDetail } from "@/lib/api/application";
 import type { Card } from "@/lib/cards/catalog";
 import type { CardRewards } from "@/lib/cards/rewards";
-import { depositLine, hasDeposit } from "@/lib/cards/deposit";
+import { depositLine } from "@/lib/cards/deposit";
 import {
   autopayLines,
   autopaySummary,
@@ -109,7 +109,7 @@ export function CardDetailView({
           </h1>
           {/* What "Secured" in the name and the deposit below mean. Ask Penny
               needs an account, so its link shows only when signed in. */}
-          {hasDeposit(card) ? <SecuredNote key="secured" from={signedIn ? card.id : null} /> : null}
+          <SecuredNote key="secured" card={card} from={signedIn ? card.id : null} />
           {yours
             ? [
                 <StatusRow key="status" application={yours} image={rewards?.image ?? null} />,

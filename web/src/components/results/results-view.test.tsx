@@ -15,6 +15,7 @@ import {
   RESULT_HEADLINES,
   SECURED_LINE,
   SECURED_LINK,
+  SECURED_NO_DEPOSIT_LINE,
   SEE_DETAILS,
   TIER_LABELS,
   WHY_TITLE,
@@ -100,6 +101,9 @@ describe("ResultsView", () => {
     for (const link of screen.getAllByRole("link", { name: SECURED_LINK.label })) {
       expect(link.getAttribute("href")).toBe("/learn/penny?answer=secured-card&from=results");
     }
+    // The Chime Card (secured, no deposit) is among them, with its own line.
+    expect(view.options.map((option) => option.card.id)).toContain("chime-card");
+    expect(screen.getAllByText(SECURED_NO_DEPOSIT_LINE)).toHaveLength(1);
   });
 
   it("leaves the secured line off a result with no secured card", () => {

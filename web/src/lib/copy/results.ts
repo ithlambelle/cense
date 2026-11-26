@@ -78,6 +78,11 @@ export function cardDisplayName(card: { brand: string; name: string }): string {
 // Said as Penny's checked answer says it (lib/penny/answers.ts, "secured-card",
 // FTC). Not "refundable": some issuers do not say so (lib/cards/deposit.ts).
 export const SECURED_LINE = "Secured means you put down a deposit to open it. It works like any credit card and can help build credit.";
+// A secured card with no deposit, which is only the Chime Card today: the
+// money moved onto it is what can be spent (its limit_equals_money_moved
+// condition). SECURED_LINE's deposit would be wrong for it, and Penny's
+// answer starts with a deposit, so it has no link.
+export const SECURED_NO_DEPOSIT_LINE = "Secured, with no deposit: the money you move onto the card sets how much you can spend.";
 // The link to that answer in Ask Penny.
 export const SECURED_LINK = { answerId: "secured-card", label: "What is a secured card?" } as const;
 
