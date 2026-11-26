@@ -44,7 +44,12 @@ async function expectStep(page: Page, title: string, why: string | RegExp, butto
   await expect(link).toHaveAttribute("href", href);
 }
 
-const shot = async (page: Page, name: string) => test.info().attach(name, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+// Attached to the report; also saved to E2E_SHOTS_DIR when set, for a walk-through.
+const shot = async (page: Page, name: string) => {
+  const dir = process.env.E2E_SHOTS_DIR;
+  const body = await page.screenshot({ fullPage: true, ...(dir ? { path: `${dir}/${name}.png` } : {}) });
+  await test.info().attach(name, { body, contentType: "image/png" });
+};
 
 test("a student links a bank, checks it, picks an emergency fund, then turning on autopay moves Home's next step on", async ({ page }) => {
   const checkA11y = axeChecker(page);

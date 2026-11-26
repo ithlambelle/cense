@@ -138,7 +138,7 @@ function lastMonth(): string {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 15)).toISOString().slice(0, 10);
 }
 
-// Exact: the invite's region is "See what’s safe to spend".
+// Exact: with no bank, Home's next step region is "Link your bank".
 const safeToSpendCard = (page: Page) => page.getByRole("region", { name: "Safe to spend", exact: true });
 
 async function apiStatus(page: Page) {
@@ -165,13 +165,14 @@ test("a student links the sandbox bank, says who covers what, and sees safe to s
   const checkA11y = axeChecker(page);
   await signUp(page, uniqueEmail("sts-link"), checkA11y);
 
-  // Home invites; nothing is linked yet.
+  // Home's next step is to link a bank (it stands in for the invite); nothing is linked yet.
   await page.goto("/home");
-  const invite = page.getByRole("region", { name: "See what’s safe to spend" });
-  await expect(invite).toContainText("Preview");
-  await checkA11y("home: safe to spend invite");
+  const invite = page.getByRole("region", { name: "Link your bank", exact: true });
+  await expect(invite).toContainText("Your next step");
+  await expect(page.getByRole("region", { name: "See what’s safe to spend" })).toHaveCount(0);
+  await checkA11y("home: link your bank");
   expect(await apiStatus(page)).toBe(404);
-  await invite.getByRole("link", { name: "Try it" }).click();
+  await invite.getByRole("link", { name: "Link your bank" }).click();
 
   // Link your bank (Flow 5 C1, 821:9643), then the stand-in Link connects.
   await expect(page).toHaveURL(/\/safe-to-spend\/connect$/);
@@ -273,7 +274,7 @@ test("Link your bank: the three rows survive a reload, and Skip for now goes Hom
   const checkA11y = axeChecker(page);
   await signUp(page, uniqueEmail("sts-connect"), checkA11y);
   await page.goto("/home");
-  await page.getByRole("region", { name: "See what’s safe to spend" }).getByRole("link", { name: "Try it" }).click();
+  await page.getByRole("region", { name: "Link your bank", exact: true }).getByRole("link", { name: "Link your bank" }).click();
   await expect(page).toHaveURL(/\/safe-to-spend\/connect$/);
 
   // The frame's words (821:9643). No Privacy Policy line until the policy
@@ -324,7 +325,7 @@ test("Link your bank: the three rows survive a reload, and Skip for now goes Hom
   // Skip for now: Home, still inviting, nothing linked. Back returns here.
   await page.getByRole("link", { name: "Skip for now" }).click();
   await expect(page).toHaveURL(/\/home$/);
-  await expect(page.getByRole("region", { name: "See what’s safe to spend" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Link your bank", exact: true })).toBeVisible();
   expect(await apiStatus(page)).toBe(404);
   expect(received).toEqual([]);
   await page.goBack();
@@ -679,14 +680,14 @@ test("disconnecting removes the bank at Plaid and deletes every balance and answ
   await checkA11y("accounts: disconnect sheet");
   await sheet.getByRole("button", { name: "Disconnect" }).click();
   await expect(page).toHaveURL(/\/home$/);
-  await expect(page.getByRole("region", { name: "See what’s safe to spend" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Link your bank", exact: true })).toBeVisible();
   await expect(safeToSpendCard(page)).toHaveCount(0);
   expect(removedAccessTokens).toContain(token);
   await expectNothingLeft(page, context);
 
   // A reload does not bring anything back, and the student can link again.
   await page.reload();
-  await expect(page.getByRole("region", { name: "See what’s safe to spend" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Link your bank", exact: true })).toBeVisible();
 });
 
 // Figma E3 (Ben, Nov 18): deletion is never blocked by Plaid.
@@ -703,13 +704,13 @@ test("disconnecting while Plaid is down deletes everything now, and the daily jo
   const sheet = page.getByRole("dialog", { name: "Disconnect your bank?" });
   await sheet.getByRole("button", { name: "Disconnect" }).click();
   await expect(page).toHaveURL(/\/home$/);
-  await expect(page.getByRole("region", { name: "See what’s safe to spend" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Link your bank", exact: true })).toBeVisible();
   await expect(safeToSpendCard(page)).toHaveCount(0);
   expect(received.filter((request) => request.path === "/item/remove").map((request) => request.body.access_token)).toContain(token);
   expect(removedAccessTokens).not.toContain(token);
   await expectNothingLeft(page, context);
   await page.reload();
-  await expect(page.getByRole("region", { name: "See what’s safe to spend" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Link your bank", exact: true })).toBeVisible();
   await expect(safeToSpendCard(page)).toHaveCount(0);
 
   // Plaid is back: the daily job removes the queued Item.
@@ -741,13 +742,13 @@ test("disconnecting while Plaid hangs still lands on Home with nothing left, and
   await expect(page).toHaveURL(/\/home$/, { timeout: 40_000 });
   // It really waited on Plaid: the app's timeout, not a quick failure.
   expect(Date.now() - started).toBeGreaterThanOrEqual(9_000);
-  await expect(page.getByRole("region", { name: "See what’s safe to spend" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Link your bank", exact: true })).toBeVisible();
   await expect(safeToSpendCard(page)).toHaveCount(0);
   expect(received.filter((request) => request.path === "/item/remove").map((request) => request.body.access_token)).toContain(token);
   expect(removedAccessTokens).not.toContain(token);
   await expectNothingLeft(page, context);
   await page.reload();
-  await expect(page.getByRole("region", { name: "See what’s safe to spend" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Link your bank", exact: true })).toBeVisible();
   await expect(safeToSpendCard(page)).toHaveCount(0);
 
   // Plaid answers again: the daily job removes the queued Item.
@@ -788,7 +789,7 @@ test("another student sees none of the first student's bank data, in the app or 
   const other = await otherContext.newPage();
   await signUp(other, uniqueEmail("sts-other"), axeChecker(other));
   await other.goto("/home");
-  await expect(other.getByRole("region", { name: "See what’s safe to spend" })).toBeVisible();
+  await expect(other.getByRole("region", { name: "Link your bank", exact: true })).toBeVisible();
   await expect(other.getByText(DAILY)).toHaveCount(0);
   expect(await apiStatus(other)).toBe(404);
   // Refresh and disconnect act only on the caller's own link.
@@ -836,7 +837,7 @@ for (const size of [
       expect(overflow, `${what}: horizontal scroll`).toBeLessThanOrEqual(0);
     };
     await page.goto("/home");
-    await expect(page.getByRole("region", { name: "See what’s safe to spend" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Link your bank", exact: true })).toBeVisible();
     await fits("home invite");
     await page.goto("/safe-to-spend/connect");
     await fits("connect");

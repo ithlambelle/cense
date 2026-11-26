@@ -88,7 +88,8 @@ test("a student's whole first visit, through Plaid Link, breaks no rule of the p
   await expect(page.getByRole("log", { name: "Conversation with Penny" }).getByRole("article", { name: "Penny" }).last()).not.toBeEmpty();
 
   await page.goto("/home");
-  await page.getByRole("region", { name: "See what’s safe to spend" }).getByRole("link", { name: "Try it" }).click();
+  // Home's next step, Link your bank, stands in for the safe-to-spend invite.
+  await page.getByRole("region", { name: "Link your bank", exact: true }).getByRole("link", { name: "Link your bank" }).click();
   await expect(page).toHaveURL(/\/safe-to-spend\/connect$/);
   await page.getByRole("button", { name: "Link your bank" }).click();
   // Linking opens step L1, which reads the bank (Ben, Nov 21).
