@@ -11,20 +11,22 @@ import { pennyPath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 // `from` is where Ask Penny's back arrow returns (lib/penny/navigation.ts):
-// null leaves the link out.
-export function SecuredNote({ from, className }: { from: string | null; className?: string }) {
+// null leaves the link out. `raised` lifts the link above a card-wide
+// stretched link (Your match); elsewhere it stays unraised, so a sheet's
+// backdrop still covers it.
+export function SecuredNote({ from, raised = false, className }: { from: string | null; raised?: boolean; className?: string }) {
   return (
     <NoteLine className={className}>
       {SECURED_LINE}
       {from !== null ? (
         <>
           {" "}
-          {/* relative z-1: above a card-wide stretched link. A 44px tap area
-              around the line (after:-inset-3.5). */}
+          {/* A 44px tap area around the line (after:-inset-3.5). */}
           <Link
             href={pennyPath(SECURED_LINK.answerId, from)}
             className={cn(
-              "relative z-1 whitespace-nowrap text-violet underline underline-offset-2 hover:text-violet-deep",
+              "relative whitespace-nowrap text-violet underline underline-offset-2 hover:text-violet-deep",
+              raised && "z-1",
               "after:absolute after:-inset-3.5 focus-visible:outline-2 focus-visible:outline-ring",
             )}
           >
