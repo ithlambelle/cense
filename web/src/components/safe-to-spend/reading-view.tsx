@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { Constellation, STAR } from "@/components/home/constellation";
 import { GroupHeading, ReadRow, TotalRow } from "@/components/your-money/parts";
@@ -31,7 +31,13 @@ import { cn } from "@/lib/utils";
 // working through the bank, not a list dumped at once.
 const STEP_MS = 550;
 // A student who asked for less motion gets every row at once.
-const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+const REDUCE = "(prefers-reduced-motion: reduce)";
+function subscribeReducedMotion(onChange: () => void) {
+  const query = window.matchMedia?.(REDUCE);
+  query?.addEventListener?.("change", onChange);
+  return () => query?.removeEventListener?.("change", onChange);
+}
+const reducedMotionNow = () => Boolean(window.matchMedia?.(REDUCE).matches);
 const STARS = 5;
 
 type Findings = BankFindingsData["findings"];
@@ -117,17 +123,15 @@ export function ReadingView() {
   }, [router, attempt]);
 
   const total = state.kind === "found" ? rows(state.findings).length : 0;
+  const instant = useSyncExternalStore(subscribeReducedMotion, reducedMotionNow, () => false);
+  const landed = instant ? total : shown;
   useEffect(() => {
-    if (state.kind !== "found" || shown >= total) return;
-    if (reducedMotion()) {
-      setShown(total);
-      return;
-    }
+    if (state.kind !== "found" || instant || shown >= total) return;
     const timer = setTimeout(() => setShown((n) => n + 1), STEP_MS);
     return () => clearTimeout(timer);
-  }, [state.kind, shown, total]);
+  }, [state.kind, instant, shown, total]);
 
-  const done = state.kind === "found" && shown >= total;
+  const done = state.kind === "found" && landed >= total;
 
   // Saved, then Home, and stays pending while Home loads. The check is a note
   // for Home's next step, not something the student is waiting on, so a failed
@@ -143,7 +147,7 @@ export function ReadingView() {
     router.replace(ROUTES.home);
   }
   // One star per fifth of the rows, the last one when everything has landed.
-  const lit = done ? STARS : total ? Math.min(STARS - 1, Math.floor((shown / total) * STARS)) : 0;
+  const lit = done ? STARS : total ? Math.min(STARS - 1, Math.floor((landed / total) * STARS)) : 0;
 
   return (
     <div className="flex min-h-dvh justify-center bg-background">
@@ -179,7 +183,7 @@ export function ReadingView() {
           // Every row is read from the bank (payees, amounts, days), so session
           // replay masks the whole list (Data Policy section 5).
           <ul aria-label="What we found" aria-live="polite" className={cn(SENSITIVE, "flex w-full flex-col")}>
-            {rows(state.findings).slice(0, shown).map((row) => (
+            {rows(state.findings).slice(0, landed).map((row) => (
               <li key={row.key} className="flex items-center gap-3 border-b border-off-white py-3.5 motion-safe:animate-fade-up">
                 {row.found ? <DoneStar /> : <EmptyLead />}
                 <ListRowText title={row.title} subtitle={row.detail} />
