@@ -137,13 +137,13 @@ test("Yes, I have one opens Add a card, whose back arrow returns to N3, and the 
   await expect(page.getByText("Discover it Student Cash Back").first()).toBeVisible();
 });
 
-test("linking a bank on first sign-in goes where linking leads today: who covers your bills", async ({ page }) => {
+test("linking a bank on first sign-in goes where linking leads today: Penny reads the bank", async ({ page }) => {
   await signUp(page, uniqueEmail("first-login-link"), async () => {}, { welcome: true });
   await page.getByRole("button", { name: "Continue" }).click();
   await letsGo(page);
   await page.getByRole("button", { name: "Link your bank" }).click();
-  await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
-  await expect(heading(page, "Who covers your rent?")).toBeVisible();
+  await expect(page).toHaveURL(/\/safe-to-spend\/reading$/);
+  await expect(heading(page, "Here’s what we found")).toBeVisible();
   // The welcome stays done.
   await page.goto("/start");
   await expect(page).toHaveURL(/\/home$/);

@@ -36,6 +36,18 @@ export function linkBank(publicToken: string) {
   return runOutcome(apiRequest("post", "/bank-link", { body: { publicToken } }));
 }
 
+export type BankFindingsData = ApiData<"/bank-link/findings", "post">;
+
+export function readBankFindings() {
+  return runOutcome(apiRequest("post", "/bank-link/findings"));
+}
+
+// "Looks right" on the reading screen (step 3): the student checked last
+// month's budget.
+export function markBudgetChecked() {
+  return runOutcome(apiRequest("put", "/me/budget-check"));
+}
+
 export function refreshBank() {
   return runOutcome(apiRequest("post", "/bank-link/refresh"));
 }

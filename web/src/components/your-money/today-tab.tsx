@@ -38,6 +38,9 @@ function paidBills(bills: BillAnswer[]): BillAnswer[] {
 function billLine(answer: BillAnswer, today: number): string | null {
   const share = answer.coveredBy === "split" ? "Your share" : null;
   if (answer.dueDay === null) return share;
+  // Groceries have no due day: Penny's reading keeps them reserved all month
+  // with day 31 (lib/safe-to-spend/infer.ts), which is not a date to show.
+  if (answer.bill === "groceries" && answer.dueDay === 31) return share ? `${share} · through the month` : "Through the month";
   const day = ordinalDay(answer.dueDay);
   const done = billCents(answer, today) === 0 ? ", done this month" : "";
   return share ? `${share} · due ${day}${done}` : `Due ${day}${done}`;

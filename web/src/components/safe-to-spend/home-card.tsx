@@ -8,7 +8,7 @@ import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import { MoneyHero } from "@/components/your-money/parts";
 import type { SafeToSpend } from "@/lib/api/safe-to-spend";
 import { moneyAmount } from "@/lib/money";
-import { ROUTES, safeToSpendSetupPath } from "@/lib/routes";
+import { ROUTES } from "@/lib/routes";
 import { SAFE_TO_SPEND_COPY } from "@/lib/safe-to-spend/copy";
 
 // The link under a broken bank's notice: 44px tall to tap.
@@ -37,8 +37,8 @@ export function SafeToSpendHome({ safeToSpend, preview = true }: { safeToSpend: 
     return (
       <QuietCard
         title="Finish safe to spend"
-        body="Say who covers your bills, then see your number."
-        action={{ href: safeToSpendSetupPath(), label: "Continue" }}
+        body="Penny reads your bank, then you see your number."
+        action={{ href: ROUTES.safeToSpendReading, label: "Continue" }}
         preview={preview}
       />
     );

@@ -1019,6 +1019,58 @@ components:
         - typed
         - recurrence
       additionalProperties: false
+    BankFindings:
+      type: object
+      properties:
+        findings:
+          type: array
+          items:
+            $ref: "#/components/schemas/BankFinding"
+        answeredFromBank:
+          type: boolean
+        enoughHistory:
+          type: boolean
+        safeToSpend:
+          $ref: "#/components/schemas/SafeToSpend"
+        lastMonth:
+          anyOf:
+            - $ref: "#/components/schemas/Budget"
+            - type: "null"
+      required:
+        - findings
+        - answeredFromBank
+        - enoughHistory
+        - safeToSpend
+        - lastMonth
+      additionalProperties: false
+    BankFinding:
+      type: object
+      properties:
+        key:
+          type: string
+        kind:
+          type: string
+          enum:
+            - income
+            - family
+            - rent
+            - phone
+            - tuition
+            - groceries
+            - car
+        title:
+          type: string
+        detail:
+          type: string
+        found:
+          type: boolean
+      required:
+        - key
+        - kind
+        - title
+        - detail
+        - found
+      additionalProperties: false
   parameters: {}
   securitySchemes:
     studentSession:
@@ -1833,6 +1885,36 @@ paths:
       responses:
         "204":
           description: Welcome marked as seen
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /me/budget-check:
+    put:
+      operationId: markBudgetChecked
+      summary: Mark last month's budget as checked
+      description: Saves when the student tapped Looks right after Penny read their
+        bank (profiles.budget_checked_at), for Home's next step. Each tap saves
+        the latest time.
+      security:
+        - studentSession: []
+      responses:
+        "204":
+          description: Budget marked as checked
         "401":
           description: Sign-in required
           content:
@@ -3238,6 +3320,38 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "502":
           description: Plaid unreachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable or safe to spend off
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /bank-link/findings:
+    post:
+      operationId: readBankFindings
+      summary: "What the linked bank already shows: pay, family money and bills,
+        filling the setup answers the first time, and last month's budget"
+      security:
+        - studentSession: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BankFindings"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No bank linked
           content:
             application/json:
               schema:

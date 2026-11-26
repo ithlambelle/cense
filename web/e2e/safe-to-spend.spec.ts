@@ -61,7 +61,9 @@ async function answerWhoCovers(page: Page, checkA11y?: (screen: string) => Promi
     // Progress is the card quiz's bar; screen readers hear the step (Ben, Nov 15).
     await expect(page.getByText(`Question ${index + 1} of 6`)).toHaveCount(1);
     await expect(page.getByText(/· \d of 5|^Next:|^Preview$/)).toHaveCount(0);
-    if (index === 0 && checkA11y) {
+    // Answers arrive filled in from the bank (step L1); a blank one still asks.
+    const prefilled = (await page.getByRole("group", { name: step.title }).getByRole("button", { pressed: true }).count()) > 0;
+    if (index === 0 && checkA11y && !prefilled) {
       // Continue with nothing picked asks for a pick and stays.
       await page.getByRole("button", { name: "Continue" }).click();
       await expect(page.getByRole("main").getByRole("alert")).toContainText("Pick who covers your rent.");
@@ -72,6 +74,7 @@ async function answerWhoCovers(page: Page, checkA11y?: (screen: string) => Promi
       const field = page.getByLabel(step.amount.label);
       if (index === 0) {
         // An amount is needed for "Me": empty is refused.
+        await field.fill("");
         await page.getByRole("button", { name: "Continue" }).click();
         await expect(page.getByRole("main").getByRole("alert")).toContainText("Enter an amount");
       }
@@ -79,6 +82,7 @@ async function answerWhoCovers(page: Page, checkA11y?: (screen: string) => Promi
       // Due on the 31st, so the bill is always still to come this month and
       // the number does not depend on the day the test runs.
       if (index === 0) {
+        await page.getByLabel("Due on day").fill("");
         await page.getByRole("button", { name: "Continue" }).click();
         await expect(page.getByRole("main").getByRole("alert")).toContainText("Enter a day from 1 to 31.");
       }
@@ -97,13 +101,31 @@ async function answerWhoCovers(page: Page, checkA11y?: (screen: string) => Promi
   await expect(page).toHaveURL(/\/home$/);
 }
 
+// Right after linking, Cense reads the bank and answers the questions itself
+// (step L1, Ben Nov 21). These journeys check the questions, so they take
+// "Fix something" from the finished reading screen. A bank that has sent no
+// history yet is not answered from: the reading says so and offers the
+// questions instead (thin).
+async function throughReadingToQuestions(page: Page, { thin = false } = {}) {
+  await expect(page).toHaveURL(/\/safe-to-spend\/reading$/);
+  if (thin) {
+    await expect(page.getByRole("heading", { level: 1, name: "Your bank is still catching up" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Looks right" })).toHaveCount(0);
+    await page.getByRole("link", { name: "Answer a few questions" }).click();
+  } else {
+    await expect(page.getByRole("heading", { level: 1, name: "Here’s what we found" })).toBeVisible();
+    await page.getByRole("link", { name: "Fix something" }).click();
+  }
+  await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
+}
+
 // A new student who has linked the stand-in bank and answered, on Home.
-async function linkedStudent(page: Page, journey: string) {
+async function linkedStudent(page: Page, journey: string, options: { thin?: boolean } = {}) {
   const checkA11y = axeChecker(page);
   await signUp(page, uniqueEmail(journey), checkA11y);
   await page.goto("/safe-to-spend/connect");
   await page.getByRole("button", { name: "Link your bank" }).click();
-  await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
+  await throughReadingToQuestions(page, options);
   await answerWhoCovers(page);
   await expect(safeToSpendCard(page)).toContainText(DAILY);
   return checkA11y;
@@ -158,7 +180,7 @@ test("a student links the sandbox bank, says who covers what, and sees safe to s
   await expect(page.getByText("We never see your bank login.")).toBeVisible();
   await checkA11y("safe to spend: connect");
   await page.getByRole("button", { name: "Link your bank" }).click();
-  await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
+  await throughReadingToQuestions(page);
 
   // Who covers what (222:2090), then the set-aside, then Home.
   await answerWhoCovers(page, checkA11y);
@@ -412,7 +434,9 @@ test("Your money: a student edits a bill on Today, reads This month from their o
 
 test("This month waits for the bank's transactions, then shows them after Refresh now", async ({ page }) => {
   behavior.transactions = "none";
-  await linkedStudent(page, "sts-month-waits");
+  // No history yet: nothing is answered from the bank (#137 review), so the
+  // student gets the questions.
+  await linkedStudent(page, "sts-month-waits", { thin: true });
   await page.goto("/safe-to-spend?tab=month");
   const hero = page.getByRole("region", { name: /each month/ });
   await expect(hero).toContainText("Not yet");
@@ -452,23 +476,71 @@ test("Link cancelled, a bank error and an expired connection leave nothing linke
 
   await setLinkOutcome(page, "success");
   await connect.click();
-  await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
-  // Linked now; the questions are not answered yet, so Home asks for them.
+  await expect(page).toHaveURL(/\/safe-to-spend\/reading$/);
+  // Linked now, and the reading screen answered the questions from the bank,
+  // so Home shows the number instead of asking.
+  await expect(page.getByRole("heading", { level: 1, name: "Here’s what we found" })).toBeVisible();
   expect(await apiStatus(page)).toBe(200);
   await page.goto("/home");
-  await expect(page.getByRole("region", { name: "Finish safe to spend" })).toBeVisible();
+  await expect(safeToSpendCard(page)).toContainText("Safe to spend today");
 
   // A second link is refused while one exists: the connect screen sends on to
-  // the questions, and the API refuses before Plaid makes a second Item.
+  // Your money, and the API refuses before Plaid makes a second Item.
   const linked = issuedAccessTokens.at(-1)!;
   const issued = issuedAccessTokens.length;
   await page.goto("/safe-to-spend/connect");
-  await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
+  await expect(page).not.toHaveURL(/\/safe-to-spend\/connect$/);
   const again = await page.request.post("/api/v1/bank-link", { data: { publicToken: "public-sandbox-good" } });
   expect(again.status()).toBe(409);
   expect((await page.request.post("/api/v1/bank-link/link-token")).status()).toBe(409);
   expect(issuedAccessTokens.length).toBe(issued);
   expect(removedAccessTokens).not.toContain(linked);
+});
+
+test("right after linking, Cense reads the bank, answers the questions itself and shows last month, and Looks right goes Home", async ({ page }) => {
+  const checkA11y = axeChecker(page);
+  await signUp(page, uniqueEmail("sts-reading"), checkA11y);
+  await page.goto("/safe-to-spend/connect");
+  await page.getByRole("button", { name: "Link your bank" }).click();
+
+  // Step L1: Penny reads; each thing found lands as a row.
+  await expect(page).toHaveURL(/\/safe-to-spend\/reading$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Here’s what we found" })).toBeVisible();
+  const found = page.getByRole("list", { name: "What we found" });
+  // Payees and amounts read from the bank never reach session replay.
+  await expect(found).toHaveClass(/\bph-sensitive\b/);
+  await expect(found.getByRole("listitem").filter({ hasText: "Rent" })).toContainText("$650 on the 6th");
+  await expect(found.getByRole("listitem").filter({ hasText: "Groceries" })).toContainText("About $275 a month");
+  await expect(found.getByRole("listitem").filter({ hasText: "Not in your bank" })).toContainText("Phone, Tuition, Car");
+  await checkA11y("safe to spend: reading your bank");
+
+  // The questions were answered from the bank, never asked.
+  const answers = (await (await page.request.get("/api/v1/safe-to-spend")).json()) as { answered: boolean; bills: { bill: string; coveredBy: string; monthlyCents: number | null; dueDay: number | null }[] };
+  expect(answers.answered).toBe(true);
+  expect(answers.bills.find((b) => b.bill === "rent")).toEqual({ bill: "rent", coveredBy: "me", monthlyCents: 65_000, dueDay: 6 });
+  expect(answers.bills.find((b) => b.bill === "phone")).toEqual({ bill: "phone", coveredBy: "none", monthlyCents: null, dueDay: null });
+
+  // Step 3, Looks right?: last month in totals, masked like the findings.
+  const lastMonth = page.getByRole("region", { name: /^Here’s / });
+  await expect(lastMonth).toBeVisible();
+  await expect(lastMonth.getByRole("listitem")).toHaveText([/^Money in\$/, /^Needs\$/, /^Wants\$/, /^(Left over|Short)\$/]);
+  await expect(page.getByRole("heading", { level: 2, name: "Looks right?" })).toBeVisible();
+  await checkA11y("safe to spend: looks right");
+
+  // Looks right saves the check, then Home; Back never returns to the reading.
+  await page.getByRole("button", { name: "Looks right" }).click();
+  await expect(page).toHaveURL(/\/home$/);
+  await expect(safeToSpendCard(page)).toContainText("Safe to spend today");
+  await page.goBack();
+  await expect(page).not.toHaveURL(/\/safe-to-spend\/reading$/);
+  await page.goto("/home");
+
+  // A second reading never replaces saved answers.
+  const before = (await (await page.request.get("/api/v1/safe-to-spend")).json()) as { bills: unknown };
+  const again = await page.request.post("/api/v1/bank-link/findings");
+  expect(again.status()).toBe(200);
+  expect(((await again.json()) as { answeredFromBank: boolean }).answeredFromBank).toBe(false);
+  expect(((await (await page.request.get("/api/v1/safe-to-spend")).json()) as { bills: unknown }).bills).toEqual(before.bills);
 });
 
 test("when the bank needs a new sign-in, the student reconnects and safe to spend comes back", async ({ page }) => {
@@ -513,7 +585,7 @@ test("when the bank link is gone at Plaid, Home stops showing the number and the
   await expect(page).toHaveURL(/\/safe-to-spend\/connect$/);
   behavior.accounts = "ok";
   await page.getByRole("button", { name: "Link your bank" }).click();
-  await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
+  await throughReadingToQuestions(page);
   await answerWhoCovers(page);
   await expect(safeToSpendCard(page)).toContainText(DAILY);
 });
@@ -546,7 +618,7 @@ test("the safe-to-spend links show a focus ring from the keyboard", async ({ pag
   const rings: Record<string, Awaited<ReturnType<typeof tabTo>>> = {};
   rings["Skip for now"] = await tabTo(page, "Skip for now");
   await page.getByRole("button", { name: "Link your bank" }).click();
-  await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
+  await throughReadingToQuestions(page);
   await answerWhoCovers(page);
   rings["Your money"] = await tabTo(page, "Your money");
   await safeToSpendCard(page).getByRole("link", { name: "Your money" }).click();
@@ -768,6 +840,14 @@ for (const size of [
     const connect = page.getByRole("button", { name: "Link your bank" });
     await expect(connect).toBeInViewport();
     await connect.click();
+    await expect(page.getByRole("heading", { level: 1, name: "Here’s what we found" })).toBeVisible();
+    await fits("reading your bank");
+    // Last month sits above the question, so the student scrolls to it, and
+    // it comes fully into view at every size.
+    const looksRight = page.getByRole("button", { name: "Looks right" });
+    await looksRight.scrollIntoViewIfNeeded();
+    await expect(looksRight).toBeInViewport({ ratio: 1 });
+    await page.getByRole("link", { name: "Fix something" }).click();
     await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
     await fits("who covers");
     await answerWhoCovers(page);

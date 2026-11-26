@@ -102,6 +102,13 @@ afterEach(() => {
 });
 
 describe("Your money, Today (709:1520)", () => {
+  it("shows groceries Penny reserved all month as through the month, not due on the 31st", () => {
+    const bills = DATA.bills.map((answer) => (answer.bill === "groceries" ? { ...answer, coveredBy: "me" as const, monthlyCents: 27_500, dueDay: 31 } : answer));
+    render(<YourMoneyView tab="today" data={{ ...DATA, bills }} budget={null} today={5} />);
+    expect(screen.getByText("Through the month")).toBeTruthy();
+    expect(screen.queryByText(/31st/)).toBeNull();
+  });
+
   it("shows how the daily number adds up, from the bank and from the student", () => {
     render(<YourMoneyView tab="today" data={DATA} budget={null} today={5} />);
     expect(hero().textContent).toContain("Safe to spend today:");

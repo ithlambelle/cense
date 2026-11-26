@@ -297,6 +297,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/budget-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Mark last month's budget as checked
+         * @description Saves when the student tapped Looks right after Penny read their bank (profiles.budget_checked_at), for Home's next step. Each tap saves the latest time.
+         */
+        put: operations["markBudgetChecked"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/cards": {
         parameters: {
             query?: never;
@@ -662,6 +682,23 @@ export interface paths {
         put?: never;
         /** Read the balances from Plaid again */
         post: operations["refreshBankLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bank-link/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** What the linked bank already shows: pay, family money and bills, filling the setup answers the first time, and last month's budget */
+        post: operations["readBankFindings"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1058,6 +1095,21 @@ export interface components {
             typed: boolean;
             /** @enum {string|null} */
             recurrence: "recurring" | "variable" | null;
+        };
+        BankFindings: {
+            findings: components["schemas"]["BankFinding"][];
+            answeredFromBank: boolean;
+            enoughHistory: boolean;
+            safeToSpend: components["schemas"]["SafeToSpend"];
+            lastMonth: components["schemas"]["Budget"] | null;
+        };
+        BankFinding: {
+            key: string;
+            /** @enum {string} */
+            kind: "income" | "family" | "rent" | "phone" | "tuition" | "groceries" | "car";
+            title: string;
+            detail: string;
+            found: boolean;
         };
     };
     responses: never;
@@ -1981,6 +2033,51 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Welcome marked as seen */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Profile not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    markBudgetChecked: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Budget marked as checked */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -3595,6 +3692,53 @@ export interface operations {
             };
             /** @description Plaid unreachable */
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable or safe to spend off */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    readBankFindings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankFindings"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description No bank linked */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

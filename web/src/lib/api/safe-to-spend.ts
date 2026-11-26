@@ -1,6 +1,8 @@
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { z } from "zod";
 
+import { budgetSchema } from "./budget";
+
 import {
   BILLS,
   computeSafeToSpend,
@@ -106,6 +108,41 @@ export const safeToSpendSchema = z
   .openapi("SafeToSpend");
 
 export type SafeToSpend = z.infer<typeof safeToSpendSchema>;
+
+// What Cense learned from the bank right after linking (Ben, Nov 21): each
+// finding is one line of the "Reading your bank" screen. Names, amounts and
+// dates only; never a transaction id, account id or the bank's raw line.
+export const bankFindingSchema = z
+  .strictObject({
+    key: z.string(),
+    kind: z.enum(["income", "family", ...BILLS]),
+    title: z.string(),
+    detail: z.string(),
+    // False for a bill the bank never shows: answered "none", nothing asked.
+    found: z.boolean(),
+  })
+  .openapi("BankFinding");
+
+export const bankFindingsSchema = z
+  .strictObject({
+    findings: z.array(bankFindingSchema),
+    // True when this call filled in the setup answers; false when the student
+    // had already answered, so nothing they chose was replaced.
+    answeredFromBank: z.boolean(),
+    // False when the bank has sent less than three weeks of history: nothing
+    // was answered from it, and findings is empty for a student who has not
+    // answered yet (they get the questions instead).
+    enoughHistory: z.boolean(),
+    safeToSpend: safeToSpendSchema,
+    // Last month from the bank, for "Looks right?" (step 3): the This month
+    // budget. Null when it could not be read or the bank's history does not
+    // reach back to the start of that month; the findings still show.
+    lastMonth: z.union([budgetSchema, z.null()]),
+  })
+  .openapi("BankFindings");
+
+export type BankFindings = z.infer<typeof bankFindingsSchema>;
+
 export type BillAnswerBody = z.infer<typeof billAnswerSchema>;
 
 export const BANK_LINK_FIELDS = "institution_name, status, linked_at, refreshed_at, set_aside_cents, answered_at";

@@ -37,6 +37,7 @@ import {
   createBankLinkSchema,
   linkTokenSchema,
   safeToSpendSchema,
+  bankFindingsSchema,
   saveSafeToSpendAnswersSchema,
 } from "../src/lib/api/safe-to-spend";
 import {
@@ -186,6 +187,12 @@ registry.registerPath({
   description: "Saves when the student tapped Let's go on the welcome (profiles.welcomed_at), so sign-in never shows it again. Keeps the first time; a repeat changes nothing.",
   security: [{ studentSession: [] }],
   responses: { 204: { description: "Welcome marked as seen" }, 404: failure("Profile not found"), ...protectedResponses },
+});
+registry.registerPath({
+  method: "put", path: "/me/budget-check", operationId: "markBudgetChecked", summary: "Mark last month's budget as checked",
+  description: "Saves when the student tapped Looks right after Penny read their bank (profiles.budget_checked_at), for Home's next step. Each tap saves the latest time.",
+  security: [{ studentSession: [] }],
+  responses: { 204: { description: "Budget marked as checked" }, 404: failure("Profile not found"), ...protectedResponses },
 });
 registry.registerPath({
   method: "get", path: "/cards", operationId: "listCards", summary: "List curated student cards",
@@ -406,6 +413,12 @@ registry.registerPath({
   summary: "Read the balances from Plaid again",
   security: [{ studentSession: [] }],
   responses: { 200: ok(safeToSpendContract), 404: failure("No bank linked"), 409: failure("Reconnect or link again"), 502: failure("Plaid unreachable"), ...safeToSpendResponses },
+});
+registry.registerPath({
+  method: "post", path: "/bank-link/findings", operationId: "readBankFindings",
+  summary: "What the linked bank already shows: pay, family money and bills, filling the setup answers the first time, and last month's budget",
+  security: [{ studentSession: [] }],
+  responses: { 200: ok(bankFindingsSchema), 404: failure("No bank linked"), ...safeToSpendResponses },
 });
 registry.registerPath({
   method: "get", path: "/safe-to-spend", operationId: "getSafeToSpend",

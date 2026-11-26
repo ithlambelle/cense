@@ -11,6 +11,7 @@ import {
   type BillCoverageRow,
   type SafeToSpend,
 } from "@/lib/api/safe-to-spend";
+import type { RecurringTransaction } from "@/lib/budget/recurring";
 import type { BalanceRow } from "@/lib/safe-to-spend/compute";
 
 import type { PlaidConfig } from "./config";
@@ -158,4 +159,14 @@ export async function saveAnswers(
   });
   if (error) return { ok: false, error };
   return { ok: true, value: data === true };
+}
+
+// The student's own transactions from the last p_days, in the detector's shape
+// (my_recent_transactions(), 20261121120000). bigint amounts may arrive as
+// strings, so each goes through Number().
+export async function recentTransactions(student: Student, days: number): Promise<StoreResult<RecurringTransaction[]>> {
+  const { data, error } = await student.supabase.rpc("my_recent_transactions", { p_days: days });
+  if (error) return { ok: false, error };
+  const rows = (data ?? []) as (Omit<RecurringTransaction, "amount_cents"> & { amount_cents: number | string })[];
+  return { ok: true, value: rows.map((row) => ({ ...row, amount_cents: Number(row.amount_cents) })) };
 }

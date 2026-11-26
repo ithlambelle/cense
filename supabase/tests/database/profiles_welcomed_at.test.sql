@@ -58,8 +58,8 @@ select set_eq(
   $$ select column_name::text from information_schema.column_privileges
      where table_schema = 'public' and table_name = 'profiles' and grantee = 'authenticated' and privilege_type = 'UPDATE' $$,
   array['remind_statement_closing', 'remind_payment_due', 'remind_check_autopay', 'reminders_unsubscribed_at',
-        'analytics_opted_out_at', 'welcomed_at'],
-  'and otherwise only the reminder settings and the Analytics switch, as before');
+        'analytics_opted_out_at', 'welcomed_at', 'budget_checked_at'],
+  'and otherwise only the reminder settings, the Analytics switch and the budget check (20261125130000_profiles_budget_checked_at.sql)');
 select ok(not has_column_privilege('anon', 'public.profiles', 'welcomed_at', 'UPDATE'),
   'signed out, no one can change it');
 
