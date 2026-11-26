@@ -144,13 +144,12 @@ function SavedCard({
     [application.id, autopayOn, spendLimitSet, paymentReminderOn],
   );
   const { loaded, retry } = useLoaded(load, signInPath(ROUTES.home));
-  // A key per load state, so the stars start again from what was loaded.
-  // The arrival effects sit outside it, so they run once.
+  // No key per load state: the stars follow `start`, and a remount when they
+  // arrive would close a limit the student is already editing.
   return (
     <>
       {celebrate ? <ArrivalEffects /> : null}
       <CardModule
-        key={loaded.status}
         application={application}
         autopayPaymentType={autopayPaymentType}
         celebrate={celebrate}
