@@ -148,14 +148,46 @@ test("two cards: pick one from the catalog, type one, refuse a $0 limit, then re
   await other.close();
   expect((await cards(page)).map((card) => card.id)).toEqual([campus.id]);
 
-  // 7. The hand-typed card has no catalog page: it is removed from its setup list.
-  await page.goto(`/applications/${campus.id}/setup`);
+  // 7. The hand-typed card has no catalog page. With a newer card leading
+  // Home, it is under "Your other cards", and tapping it opens its setup list,
+  // where it is removed.
+  const chrome = await page.request.post("/api/v1/applications", {
+    data: { cardId: "discover-it-student-chrome", cardName: "Discover it Student Chrome", status: "applied", creditLimitCents: null },
+  });
+  expect(chrome.status()).toBe(201);
+  await page.goto("/home");
+  const others = page.getByRole("region", { name: "Your other cards" });
+  await others.getByRole("link", { name: /Campus Credit Union Visa/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/applications/${campus.id}/setup$`));
   await page.getByRole("button", { name: "Remove this card" }).click();
   await page.getByRole("dialog", { name: "Remove this card?" }).getByRole("button", { name: "Remove card" }).click();
   await expect(page).toHaveURL(/\/home$/);
-  expect(await cards(page)).toHaveLength(0);
+  expect((await cards(page)).map((card) => card.cardName)).toEqual(["Discover it Student Chrome"]);
   expect(await hanging(page, campus.id)).toBe(0);
-  // Back returns to a card that is gone: the not-found page, never a stale card.
+  // Its address again: the not-found page, never a stale card.
   await page.goto(`/applications/${campus.id}/setup`);
   await expect(page.getByText("Remove this card")).toHaveCount(0);
+});
+
+test("a card saved by name before the list counts as the catalog card", async ({ page }) => {
+  await signUp(page, uniqueEmail("remove-card-named"), async () => {});
+  expect((await page.request.put("/api/v1/quiz", { data: { answers: ESTABLISHED } })).status()).toBeLessThan(300);
+  // As Add a card saved it before: free text, no catalog id.
+  const saved = await page.request.post("/api/v1/applications", {
+    data: { cardId: null, cardName: "discover it student cashback card", status: "approved", creditLimitCents: null },
+  });
+  expect(saved.status()).toBe(201);
+
+  // The quiz does not offer it back.
+  await page.goto("/results");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Discover it Student Cash Back" })).toHaveCount(0);
+
+  // Picking it from the list says it is already there, and adds nothing.
+  await page.goto("/home/add-card");
+  await page.getByLabel("Card name").fill("discover cashback");
+  await page.getByRole("list", { name: "Cards that match" }).getByRole("button", { name: "Discover it Student Cash Back" }).click();
+  await page.getByRole("button", { name: "Add card", exact: true }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "This card is already on your list." })).toBeVisible();
+  expect(await cards(page)).toHaveLength(1);
 });
