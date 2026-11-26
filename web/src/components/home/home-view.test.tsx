@@ -41,7 +41,10 @@ const link = (name: string) => screen.getByRole("link", { name }).getAttribute("
 describe("HomeView", () => {
   it("offers the quiz when nothing is saved, and to continue it when started", () => {
     const { unmount } = render(<HomeView state={homeState([], NONE, 0)} initial="M" />);
-    expect(screen.getByRole("heading", { name: `${QUIZ_STEP_COUNT} questions to your first card` })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: `${QUIZ_STEP_COUNT} questions to a card that fits` })).toBeTruthy();
+    // Never "your first card": it may not be the student's first (Mikhaela, Nov 9).
+    expect(screen.getByText("Let’s find a card that fits.")).toBeTruthy();
+    expect(screen.queryByText(/first card/)).toBeNull();
     expect(link("Start the quiz")).toBe("/quiz");
     unmount();
     render(<HomeView state={homeState([], computeResult({ under21: true }, cards), 1)} initial="M" />);
@@ -55,7 +58,7 @@ describe("HomeView", () => {
     expect(stars(fresh.container)).toEqual([true, ...Array(QUIZ_STEP_COUNT - 1).fill(false)]);
     fresh.unmount();
     const resumed = render(<HomeView state={homeState([], computeResult({ under21: true, incomeBand: "under_5k" }, cards), 2)} initial="M" />);
-    expect(screen.getByRole("heading", { name: `${QUIZ_STEP_COUNT - 2} more questions to your first card` })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: `${QUIZ_STEP_COUNT - 2} more questions to a card that fits` })).toBeTruthy();
     expect(stars(resumed.container)).toEqual([true, true, ...Array(QUIZ_STEP_COUNT - 2).fill(false)]);
   });
 
@@ -94,6 +97,7 @@ describe("HomeView", () => {
   it("asks an applied student what the issuer decided", () => {
     render(<HomeView state={homeState([app("applied")], NONE, 1)} initial="M" />);
     expect(screen.getByText("APPLIED")).toBeTruthy();
+    expect(screen.getByText("Here’s the latest on your card application.")).toBeTruthy();
     expect(link("Update my status")).toBe(`/applications/${ID}`);
   });
 
