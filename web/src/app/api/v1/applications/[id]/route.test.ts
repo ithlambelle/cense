@@ -254,6 +254,13 @@ describe("PATCH /applications/{id}, the credit limit rule", () => {
     expect(writes).toEqual([{ autopay_status: "on", autopay_updated_at: expect.any(String), credit_limit_cents: null }]);
   });
 
+  it("takes a spend limit on a card whose old $0 limit it clears", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const writes = student({ data: row({ credit_limit_cents: 0 }), error: null });
+    expect((await patch({ spendLimitCents: 5000 })).status).toBe(200);
+    expect(writes).toEqual([{ credit_limit_cents: null, spend_limit_cents: 5000 }]);
+  });
+
   it("reads a $0 limit saved before the rule as no limit", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     student({ data: row({ credit_limit_cents: 0 }), error: null });

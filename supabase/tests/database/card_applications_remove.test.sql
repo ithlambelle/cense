@@ -7,7 +7,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(17);
+select plan(20);
 
 create temp table students (name text primary key, id uuid);
 insert into students values
@@ -121,6 +121,23 @@ select lives_ok(
 select lives_ok(
   $$ update public.card_applications set credit_limit_cents = null, autopay_status = 'on' where id = pg_temp.card_id('applied') $$,
   'and saving that card with its limit cleared, as PATCH does, works');
+
+-- Any other write to a card still holding an old $0 (the Plaid due-day fill
+-- writes only the days) clears it instead of being refused.
+alter table public.card_applications drop constraint card_applications_credit_limit_positive;
+update public.card_applications set credit_limit_cents = 0, statement_closing_day = null, payment_due_day = null where id = pg_temp.card_id('applied');
+alter table public.card_applications
+  add constraint card_applications_credit_limit_positive
+  check (credit_limit_cents is null or credit_limit_cents > 0) not valid;
+select lives_ok(
+  $$ update public.card_applications set statement_closing_day = 18, payment_due_day = 12
+     where id = pg_temp.card_id('applied') and statement_closing_day is null $$,
+  'filling the days of a card with an old $0 limit works');
+select is((select credit_limit_cents from public.card_applications where id = pg_temp.card_id('applied')), null::bigint,
+  'and its old $0 is now no limit');
+select throws_ok(
+  $$ update public.card_applications set credit_limit_cents = 0 where id = pg_temp.card_id('applied') $$,
+  '23514', null, 'a limit is still never set to $0');
 
 select * from finish();
 rollback;

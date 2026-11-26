@@ -28,15 +28,16 @@ export function normalizeCardName(value: string): string {
 // The most catalog cards listed under the name field at once.
 const MAX_MATCHES = 5;
 
-// Catalog cards whose name holds every word typed, in any order, from the
-// second letter on: "disc cash" finds Discover it Student Cash Back.
+// Catalog cards where every word typed starts a word of the name, in any
+// order, from the second letter on: "disc cash" finds Discover it Student
+// Cash Back, and "us" never matches inside "customized".
 export function matchingCards(catalog: CatalogChoice[], typed: string): CatalogChoice[] {
   const words = normalizeCardName(typed).split(" ").filter(Boolean);
   if (words.join("").length < 2) return [];
   return catalog
     .filter((card) => {
-      const name = normalizeCardName(card.name);
-      return words.every((word) => name.includes(word));
+      const name = normalizeCardName(card.name).split(" ");
+      return words.every((word) => name.some((part) => part.startsWith(word)));
     })
     .slice(0, MAX_MATCHES);
 }

@@ -17,10 +17,12 @@
 --
 -- Also: a credit limit is null (not known) or above zero. The API keeps to
 -- $1 to $100,000 since this change; this stops a $0 written straight through
--- the Data API. NOT VALID, so limits of $0 saved before it do not block it;
--- the app reads those as no limit, and PATCH /applications/{id} clears one
--- whenever it saves that card, so the check never refuses the student's own
--- edit. Once none are left, VALIDATE it (the check query is in the PR).
+-- the Data API. NOT VALID, so limits of $0 saved before it do not block it.
+-- Postgres still checks every row an update writes, so any write to a card
+-- that still holds an old $0 (a PATCH, the Plaid due-day fill, the backfill)
+-- would be refused: a trigger turns that untouched old $0 into null (no
+-- limit, as the app already reads it) as the row is written. Setting a limit
+-- to $0 is still refused. Once none are left, VALIDATE it (SQL in the PR).
 --
 -- Applied by hand in the Supabase SQL editor: cense-preview first, then
 -- production, before or with the app change (without it, "Remove card" answers
@@ -39,3 +41,24 @@ alter table public.card_applications drop constraint if exists card_applications
 alter table public.card_applications
   add constraint card_applications_credit_limit_positive
   check (credit_limit_cents is null or credit_limit_cents > 0) not valid;
+
+-- An old $0 limit left as it was becomes null whenever its row is written.
+create or replace function public.card_applications_clear_old_zero_limit()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if old.credit_limit_cents <= 0 and new.credit_limit_cents is not distinct from old.credit_limit_cents then
+    new.credit_limit_cents := null;
+  end if;
+  return new;
+end;
+$$;
+
+revoke execute on function public.card_applications_clear_old_zero_limit() from public, anon, authenticated;
+
+drop trigger if exists card_applications_clear_old_zero_limit on public.card_applications;
+create trigger card_applications_clear_old_zero_limit
+  before update on public.card_applications
+  for each row execute function public.card_applications_clear_old_zero_limit();

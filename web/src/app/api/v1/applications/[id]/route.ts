@@ -66,7 +66,9 @@ function changes(body: Update, current: ApplicationDetailRow): Record<string, un
 
   // The spend limit (US-04) needs an approved card and fits under the credit
   // limit. Leaving approved, or a new credit limit below it, clears it.
-  const creditLimit = body.creditLimitCents !== undefined ? body.creditLimitCents : current.credit_limit_cents;
+  // The limit after this update: the one sent, or the saved one (null when
+  // an old $0 was cleared above).
+  const creditLimit = "credit_limit_cents" in set ? (set.credit_limit_cents as number | null) : current.credit_limit_cents;
   if (body.spendLimitCents !== undefined && body.spendLimitCents !== null) {
     if (status !== "approved") return "Only approved cards can have a spend limit.";
     if (creditLimit !== null && body.spendLimitCents > creditLimit) return "A spend limit can be at most the credit limit.";

@@ -28,6 +28,9 @@ describe("matchingCards", () => {
     expect(matchingCards(CATALOG, "cap one quicksilver").every((card) => card.name.startsWith("Capital One"))).toBe(true);
     expect(matchingCards(CATALOG, "cap one quicksilver").length).toBeGreaterThan(0);
     expect(matchingCards(CATALOG, "us bank cash").length).toBeGreaterThan(0);
+    // Words start words: "us" is not inside "customized".
+    expect(matchingCards(CATALOG, "us bank cash+").every((card) => card.name.startsWith("U.S. Bank"))).toBe(true);
+    expect(matchingCards(CATALOG, "us bank cash+")[0]?.id).toBe("us-bank-cash-plus");
   });
 });
 
