@@ -154,7 +154,7 @@ test("the job emails a due reminder once, and the email's button, settings link 
   await page.getByRole("button", { name: "Turn reminders back on" }).click();
   await expect(page.getByRole("switch", { name: "Payment due" })).toHaveAttribute("aria-checked", "true");
   const settings = await page.request.get("/api/v1/me/reminder-settings");
-  expect(await settings.json()).toEqual({ emailsOn: true, statementClosing: true, paymentDue: true, checkAutopay: true });
+  expect(await settings.json()).toEqual({ emailsOn: true, statementClosing: true, paymentDue: true, checkAutopay: true, applicationUpdates: true });
 });
 
 test("a failed send is tried once a day, not on every run, and the heartbeat reports the failure", async ({ page, request }) => {

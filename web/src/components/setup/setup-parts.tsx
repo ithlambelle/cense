@@ -10,6 +10,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { AppHeader } from "@/components/ui/app-header";
+import { SENSITIVE } from "@/lib/analytics";
+import { moneyAmount } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
 // Every setup screen: the one back arrow, then the content column with 24px
@@ -28,6 +30,21 @@ export function SetupScreen({ back, children }: { back: { href: string; label: s
 // The big heading (Sora 32/40, navy). Sora is loaded at Medium only (G5).
 export function SetupHeading({ children, size = "h1" }: { children: ReactNode; size?: "h1" | "h3" }) {
   return <h1 className={cn("font-heading font-medium text-navy", size === "h1" ? "text-h1" : "text-h3")}>{children}</h1>;
+}
+
+// A saved spend limit is said for a moment before the screen moves on, the
+// way the payment reminders say "We emailed you a confirmation." (persona
+// walk, Nov 25: "Save my limit" went Home with no word, so students reloaded
+// to check). Always in the page, so a screen reader hears the line when it
+// appears; out of the layout while empty.
+export const SAVED_PAUSE_MS = 1500;
+
+export function SavedLimitStatus({ cents }: { cents: number | null }) {
+  return (
+    <p role="status" className={cn(SENSITIVE, "text-center text-body-s text-indigo-black empty:absolute")}>
+      {cents === null ? "" : `Saved: ${moneyAmount(cents)} a month.`}
+    </p>
+  );
 }
 
 // Pushes what follows to the bottom of the screen (the frames' Spacer).

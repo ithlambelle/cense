@@ -2,17 +2,22 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { MarkResult } from "@/components/applications/mark-result";
+import { ReminderArrival } from "@/components/home/reminder-arrival";
 import { applicationIdSchema } from "@/lib/api/schemas";
 import { findCard } from "@/lib/cards/catalog";
-import { applicationBackLink, applicationPath, deniedPath } from "@/lib/routes";
+import { applicationBackLink, applicationPath, deniedPath, REMINDER_PARAM, reminderKindParam } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
 import { loadApplication } from "@/lib/student-data";
 
 export const metadata: Metadata = { title: "Update your card | CENSE" };
 
+// Opened from the "Heard back yet?" email's "I was approved" or "I was
+// denied" (?choice=approved|denied&reminder=heard_back), that answer starts
+// picked and the visit is counted.
 export default async function ApplicationPage({ params, searchParams }: PageProps<"/applications/[id]">) {
   const { id } = await params;
-  const { from } = await searchParams;
+  const query = await searchParams;
+  const { from, choice } = query;
   if (!applicationIdSchema.safeParse(id).success) notFound();
   const student = await requireStudent(applicationPath(id));
   const application = await loadApplication(student, id);
@@ -22,5 +27,16 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
   if (application.status === "rejected") redirect(deniedPath("options", id));
   // A card added by hand that is not in the catalog has no page to return to.
   const cardId = application.cardId && findCard(application.cardId) ? application.cardId : null;
-  return <MarkResult application={application} back={applicationBackLink(from, cardId)} from={from === "card" && cardId ? "card" : undefined} />;
+  const fromReminder = reminderKindParam(query[REMINDER_PARAM]);
+  return (
+    <>
+      {fromReminder ? <ReminderArrival kind={fromReminder} /> : null}
+      <MarkResult
+        application={application}
+        back={applicationBackLink(from, cardId)}
+        from={from === "card" && cardId ? "card" : undefined}
+        initialChoice={choice === "approved" || choice === "denied" ? choice : null}
+      />
+    </>
+  );
 }

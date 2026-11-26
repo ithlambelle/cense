@@ -44,4 +44,10 @@ describe("UpdatesView", () => {
     render(<UpdatesView groups={groups([item({ group: "earlier", action: null, dismissable: false })])} />);
     expect(screen.queryByRole("button", { name: /^Dismiss|^Snooze/ })).toBeNull();
   });
+
+  it("says what will show up here when there is nothing yet", () => {
+    render(<UpdatesView groups={groups([])} />);
+    expect(screen.getByText("Nothing yet. Reminders we email you show up here too.")).toBeTruthy();
+    expect(screen.queryByText(/No updates yet/)).toBeNull();
+  });
 });

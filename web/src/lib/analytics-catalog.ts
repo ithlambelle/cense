@@ -26,7 +26,7 @@ export const TRACKING_PLAN_VERSION = 6;
 const cardId = z.string().regex(/^[a-z0-9-]{1,100}$/);
 const fitTier = z.enum(["likely_fit", "stretch", "not_yet"]);
 // The kinds of reminder email (reminders.kind).
-const reminderKind = z.enum(["statement_closing", "payment_due", "check_autopay", "reapply"]);
+const reminderKind = z.enum(["statement_closing", "payment_due", "check_autopay", "reapply", "heard_back", "letter_check"]);
 
 // The answer fields the quiz asks about, in order (a test keeps this in step
 // with lib/quiz/questions.ts).
@@ -193,7 +193,7 @@ export const EVENTS = {
     ledger: "profiles (the settings)",
     sentFrom: "browser and server",
     properties: z.strictObject({
-      setting: z.enum(["emails", "statement_closing", "payment_due", "check_autopay"]),
+      setting: z.enum(["emails", "statement_closing", "payment_due", "check_autopay", "application_updates"]),
       on: z.boolean(),
       source: z.enum(["settings", "email_link"]),
     }),

@@ -16,13 +16,22 @@ import { saveReminderSetting, type ReminderSettings } from "@/lib/api-client/rem
 import { ROUTES, signInPath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
-type Kind = "statementClosing" | "paymentDue" | "checkAutopay";
+type Kind = "statementClosing" | "paymentDue" | "checkAutopay" | "applicationUpdates";
 
-// The three emails, in the frame's order and words (Figma 222:2344).
-const KINDS: { key: Kind; setting: "statement_closing" | "payment_due" | "check_autopay"; title: string; detail: string }[] = [
+// The three emails, in the frame's order and words (Figma 222:2344), then
+// Application updates, which the frame does not have: the check-ins while a
+// student waits on an issuer ("Heard back yet?", "Has your letter come?"),
+// in the same row style.
+const KINDS: {
+  key: Kind;
+  setting: "statement_closing" | "payment_due" | "check_autopay" | "application_updates";
+  title: string;
+  detail: string;
+}[] = [
   { key: "statementClosing", setting: "statement_closing", title: "Statement closes soon", detail: "With your pay-down target" },
   { key: "paymentDue", setting: "payment_due", title: "Payment due", detail: "Before it’s due" },
   { key: "checkAutopay", setting: "check_autopay", title: "Check autopay", detail: "Once, after your first statement" },
+  { key: "applicationUpdates", setting: "application_updates", title: "Application updates", detail: "While you wait to hear from an issuer" },
 ];
 
 // "Payment due" says which cards it skips: no due-date email goes out for a
@@ -58,6 +67,9 @@ export function ReminderSettingsView({ settings: initial, email, cards = [], sav
   // Settings whose save is in flight; each is locked until its answer arrives.
   const [saving, setSaving] = useState<ReadonlySet<keyof ReminderSettings>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  // The last change was saved: said under the toggles, so a student does not
+  // reload to check (persona walk, Nov 25). Cleared when the next one starts.
+  const [saved, setSaved] = useState(false);
 
   function setPending(key: keyof ReminderSettings, pending: boolean) {
     setSaving((current) => {
@@ -71,6 +83,7 @@ export function ReminderSettingsView({ settings: initial, email, cards = [], sav
   async function change(key: keyof ReminderSettings, value: boolean, optimistic: boolean) {
     if (saving.has(key)) return;
     setError(null);
+    setSaved(false);
     // A toggle moves at once and moves back if the save fails; the emails
     // button waits for the answer, as it changes the whole screen.
     if (optimistic) setSettings((current) => ({ ...current, [key]: value }));
@@ -80,6 +93,7 @@ export function ReminderSettingsView({ settings: initial, email, cards = [], sav
     if (result.kind === "ok") {
       // Only this setting: another one may still be saving.
       setSettings((current) => ({ ...current, [key]: result.settings[key] }));
+      setSaved(true);
       const kind = KINDS.find((entry) => entry.key === key);
       track("reminder_settings_changed", { setting: kind ? kind.setting : "emails", on: value, source: "settings" });
       // Home and the plan read these on the server (the reminder star):
@@ -117,6 +131,11 @@ export function ReminderSettingsView({ settings: initial, email, cards = [], sav
                   </li>
                 ))}
               </ul>
+              {/* Always here while the toggles are, so a screen reader hears it
+                  when it appears; out of the layout while empty. */}
+              <p role="status" className="-mt-2 text-body-s text-indigo-black/75 empty:hidden">
+                {saved ? "Saved." : ""}
+              </p>
               {email ? (
                 <InfoRow icon={Envelope}>
                   To <span className={SENSITIVE}>{email}</span>

@@ -13,7 +13,10 @@ const KINDS: ReminderEmailInput[] = [
   { ...base, kind: "payment_due", occurrence: "2026-12-09", autopayStatus: "on" },
   { ...base, kind: "check_autopay" },
   { ...base, kind: "reapply", occurrence: "2027-04-16" },
+  { ...base, kind: "heard_back", occurrence: "2026-11-19", applicationId: "00000000-0000-4000-8000-000000000001" },
+  { ...base, kind: "letter_check", occurrence: "2026-11-22", applicationId: "00000000-0000-4000-8000-000000000001" },
 ];
+const APP = "00000000-0000-4000-8000-000000000001";
 
 describe("buildReminderEmail", () => {
   it("every email has the unsubscribe and settings links, and no em dash, en dash or tilde", () => {
@@ -46,7 +49,8 @@ describe("buildReminderEmail", () => {
   });
 
   it("has one button, Open Cense, to Home marked with the email's kind, and promises nothing it cannot do", () => {
-    for (const input of KINDS) {
+    // The card reminders; the check-ins have their own buttons (below).
+    for (const input of KINDS.filter((k) => k.kind !== "heard_back" && k.kind !== "letter_check")) {
       const email = buildReminderEmail(input, LINKS);
       const link = `https://app.test/updates?reminder=${input.kind}`;
       expect(email.text).toContain(`Open Cense: ${link}`);
@@ -80,5 +84,35 @@ describe("buildReminderEmail", () => {
     const email = buildReminderEmail({ ...base, cardId: null, cardName: "<b>Evil</b> & Co" }, LINKS);
     expect(email.html).toContain("&lt;b&gt;Evil&lt;/b&gt; &amp; Co");
     expect(email.html).not.toContain("<b>Evil");
+  });
+
+  it("heard back: three buttons that answer on the application's own screens, each counted", () => {
+    const email = buildReminderEmail(KINDS[5], LINKS);
+    expect(email.subject).toBe("Heard back yet?");
+    // There is still a confirm step after the tap, so no "One tap".
+    expect(email.html).toContain(">Tell us what the issuer decided.</div>");
+    expect(email.text).toContain("Has the issuer decided on your Savor Rewards for Students application?");
+    const buttons = [...email.html.matchAll(/<a href="([^"]+)" style="display:inline-block[^"]*">([^<]+)<\/a>/g)].map(([, href, label]) => [label, href]);
+    expect(buttons).toEqual([
+      ["I was approved", `https://app.test/applications/${APP}?choice=approved&amp;reminder=heard_back`],
+      ["I was denied", `https://app.test/applications/${APP}?choice=denied&amp;reminder=heard_back`],
+      ["I haven&#39;t heard yet", `https://app.test/applications/${APP}/waiting?reminder=heard_back`],
+    ]);
+    expect(email.text).toContain(`I was approved: https://app.test/applications/${APP}?choice=approved&reminder=heard_back`);
+    expect(email.text).toContain("You're getting this because application updates are on.");
+    expect(email.text).not.toContain("Open Cense");
+  });
+
+  it("letter check: one button to the step that records the letter", () => {
+    const email = buildReminderEmail(KINDS[6], LINKS);
+    expect(email.subject).toBe("Has your letter come?");
+    expect(email.text).toContain(`I got my letter: https://app.test/denied?application=${APP}&reminder=letter_check`);
+    expect(email.text).toContain("Letters can take up to 30 days.");
+  });
+
+  it("a check-in without its application opens Updates instead", () => {
+    const email = buildReminderEmail({ ...KINDS[5], applicationId: null }, LINKS);
+    expect(email.text).toContain("Open Cense: https://app.test/updates?reminder=heard_back");
+    expect(email.html).not.toContain("/applications/");
   });
 });

@@ -83,6 +83,8 @@ export type ClaimedReminderRow = {
   autopay_status: string;
   payment_due_day: number | null;
   time_zone: string;
+  // For the check-ins' buttons (20261126160000_application_check_ins.sql).
+  card_application_id?: string | null;
 };
 
 function log(event: string, fields: Record<string, unknown>, level: "log" | "error" = "log"): void {
@@ -141,6 +143,7 @@ async function sendEmail(
       spendLimitCents,
       autopayStatus: row.autopay_status,
       paymentDueDay: row.payment_due_day,
+      applicationId: row.card_application_id ?? null,
     },
     { appUrl: config.appUrl, unsubscribeUrl },
   );

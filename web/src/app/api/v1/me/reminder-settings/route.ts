@@ -31,12 +31,13 @@ export async function PATCH(request: Request): Promise<Response> {
 
   const parsed = updateReminderSettingsSchema.safeParse(await parseJson(request));
   if (!parsed.success) return validationError(parsed.error);
-  const { emailsOn, statementClosing, paymentDue, checkAutopay } = parsed.data;
+  const { emailsOn, statementClosing, paymentDue, checkAutopay, applicationUpdates } = parsed.data;
 
   const set: Record<string, unknown> = {};
   if (statementClosing !== undefined) set.remind_statement_closing = statementClosing;
   if (paymentDue !== undefined) set.remind_payment_due = paymentDue;
   if (checkAutopay !== undefined) set.remind_check_autopay = checkAutopay;
+  if (applicationUpdates !== undefined) set.remind_application_updates = applicationUpdates;
 
   if (emailsOn !== undefined) {
     // Keep the first unsubscribe time: only change it when the answer changes.

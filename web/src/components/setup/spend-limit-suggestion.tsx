@@ -23,9 +23,10 @@ import {
   type CardOrigin,
   type SpendLimitOrigin,
 } from "@/lib/routes";
+import { useIsMounted } from "@/lib/use-is-mounted";
 import { cn } from "@/lib/utils";
 
-import { InfoCallout, SetupHeading, SetupScreen, Spacer } from "./setup-parts";
+import { InfoCallout, SAVED_PAUSE_MS, SavedLimitStatus, SetupHeading, SetupScreen, Spacer } from "./setup-parts";
 
 export function SpendLimitSuggestion({
   applicationId,
@@ -45,6 +46,9 @@ export function SpendLimitSuggestion({
   cardFrom?: CardOrigin;
 }) {
   const router = useRouter();
+  const isMounted = useIsMounted();
+  // The limit just saved, said before the screen moves on.
+  const [justSaved, setJustSaved] = useState<number | null>(null);
   const back = spendLimitBackLink(applicationId, from, cardId, cardFrom);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -54,7 +58,11 @@ export function SpendLimitSuggestion({
     setError(null);
     setSaving(true);
     const result = await saveSpendLimit(applicationId, suggestedCents);
+    if (!isMounted()) return;
     if (result.kind === "ok") {
+      setJustSaved(suggestedCents);
+      await new Promise((resolve) => setTimeout(resolve, SAVED_PAUSE_MS));
+      if (!isMounted()) return;
       // Back where the student started, with the star lit, in place of this
       // screen so Back does not reopen it. Stays pending while that screen
       // loads, so the button cannot go twice.
@@ -91,6 +99,7 @@ export function SpendLimitSuggestion({
 
       <Spacer />
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
+      <SavedLimitStatus cents={justSaved} />
       <Button pending={saving} onClick={use} className={SENSITIVE}>
         Use {suggested}
       </Button>

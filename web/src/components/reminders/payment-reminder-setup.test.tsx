@@ -200,4 +200,29 @@ describe("PaymentReminderSetup", () => {
     );
     expect(replace).not.toHaveBeenCalledWith("/home");
   });
+
+  it("says where to find the days, and offers a way on without them before any are saved", () => {
+    renderSetup(undefined, { doneHref: "/applications/x/setup" });
+    expect(closingField().getAttribute("aria-describedby")).toBeTruthy();
+    expect(screen.getByText("Find both days in your card’s app or on a statement.")).toBeTruthy();
+    const skip = screen.getByRole("link", { name: "I don’t know yet" });
+    expect(skip.getAttribute("href")).toBe("/applications/x/setup");
+    cleanup();
+    renderSetup({ closing: 12, due: 9 });
+    expect(screen.queryByRole("link", { name: "I don’t know yet" })).toBeNull();
+  });
+
+  it("keeps I don't know yet from leaving while a save is in flight", () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(() => new Promise<Response>(() => {})));
+    renderSetup();
+    fireEvent.change(closingField(), { target: { value: "14" } });
+    fireEvent.change(dueField(), { target: { value: "9" } });
+    const skip = screen.getByRole("link", { name: "I don’t know yet" });
+    expect(fireEvent.click(skip)).toBe(true);
+    fireEvent.click(saveButton());
+    expect(skip.getAttribute("aria-disabled")).toBe("true");
+    // Cancelled: the click is prevented, so nothing navigates.
+    expect(fireEvent.click(skip)).toBe(false);
+  });
 });
+

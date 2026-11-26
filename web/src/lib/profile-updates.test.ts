@@ -9,7 +9,7 @@ import { profileUpdates } from "./profile-updates";
 const NOW = new Date("2026-11-08T18:00:00Z");
 const NY = "America/New_York";
 const APP = "00000000-0000-4000-8000-000000000001";
-const CARDS = new Map<string, ReminderCard>([[APP, { cardName: "Discover it", creditLimitCents: 50_000, spendLimitCents: null, paymentDueDay: 6, autopayStatus: "off", autopayPaymentType: null }]]);
+const CARDS = new Map<string, ReminderCard>([[APP, { cardName: "Discover it", creditLimitCents: 50_000, spendLimitCents: null, paymentDueDay: 6, autopayStatus: "off", autopayPaymentType: null, status: "approved", denialReason: null }]]);
 
 let next = 0;
 const sent = (kind: Reminder["kind"], occurrence: string, sentAt: string, over: Partial<Reminder> = {}): Reminder => ({

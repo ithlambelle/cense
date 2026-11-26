@@ -9,7 +9,7 @@ import { paymentDueDetail, ReminderSettingsView } from "./reminder-settings-view
 const router = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/settings/reminders", useRouter: () => router }));
 
-const ALL_ON: ReminderSettings = { emailsOn: true, statementClosing: true, paymentDue: true, checkAutopay: true };
+const ALL_ON: ReminderSettings = { emailsOn: true, statementClosing: true, paymentDue: true, checkAutopay: true, applicationUpdates: true };
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -88,6 +88,24 @@ describe("ReminderSettingsView", () => {
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Turn reminders back on" })));
     expect(save).toHaveBeenLastCalledWith({ emailsOn: true });
     expect(toggle("Check autopay").getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("says Saved. once a toggle's change is saved, and clears it when the next one starts", async () => {
+    let answer: (value: ReminderSettingsSave) => void = () => {};
+    const save = vi.fn(() => new Promise<ReminderSettingsSave>((resolve) => (answer = resolve)));
+    render(<ReminderSettingsView settings={ALL_ON} email={null} save={save} />);
+    expect(screen.getByRole("status").textContent).toBe("");
+
+    fireEvent.click(toggle("Application updates"));
+    expect(save).toHaveBeenCalledWith({ applicationUpdates: false });
+    expect(screen.getByRole("status").textContent).toBe("");
+    await act(async () => answer({ kind: "ok", settings: { ...ALL_ON, applicationUpdates: false } }));
+    expect(screen.getByRole("status").textContent).toBe("Saved.");
+
+    fireEvent.click(toggle("Payment due"));
+    expect(screen.getByRole("status").textContent).toBe("");
+    await act(async () => answer({ kind: "failed", message: "Check your connection and try again." }));
+    expect(screen.getByRole("status").textContent).toBe("");
   });
 
   it("sends a signed-out student to sign in, coming back here", async () => {

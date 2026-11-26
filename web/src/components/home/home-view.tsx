@@ -314,12 +314,24 @@ function TrackedCard({ application }: { application: Application }) {
   );
 }
 
+// While the student waits (persona walk, Nov 25): what to expect and what
+// not to do. The catalog has no decision times, so the first line is the
+// legal limit, in the waiting screen's words (Regulation B, 12 CFR
+// 1002.9(a)(1), https://www.consumerfinance.gov/rules-policy/regulations/1002/9/).
+// A new application usually means a hard credit check, which can lower a
+// score a little (myFICO, https://www.myfico.com/credit-education/credit-reports/credit-checks-and-inquiries).
+export const WHILE_YOU_WAIT = [
+  "By law, an issuer has to tell you its decision within 30 days of getting your completed application.",
+  "Don’t apply for other cards while you wait. Each application can lower your score a little.",
+];
+
 function TrackedNextStep({ application }: { application: Application }) {
   return (
     <NextStep
       icon={Hourglass}
       title="Did you hear back?"
       body="Tell us what the issuer decided and we’ll guide your next step."
+      notes={WHILE_YOU_WAIT}
       action={{ href: applicationPath(application.id), label: "Update my status" }}
     />
   );
@@ -399,11 +411,14 @@ function NextStep({
   icon: IconComponent,
   title,
   body,
+  notes,
   action,
 }: {
   icon: Icon;
   title: string;
   body: string;
+  // A few short lines under the body, as the waiting screen's list.
+  notes?: string[];
   action: { href: string; label: string };
 }) {
   return (
@@ -416,6 +431,13 @@ function NextStep({
           <p className={cn(SENSITIVE, "text-body-s")}>{body}</p>
         </div>
       </div>
+      {notes ? (
+        <ul className="flex list-disc flex-col gap-1 pl-5 text-body-s text-indigo-black marker:text-violet">
+          {notes.map((note) => (
+            <li key={note}>{note}</li>
+          ))}
+        </ul>
+      ) : null}
       <Link href={action.href} className={buttonVariants()}>
         {action.label}
         <ButtonChevron />

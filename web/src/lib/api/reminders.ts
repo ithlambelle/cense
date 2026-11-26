@@ -10,13 +10,17 @@ extendZodWithOpenApi(z);
 // marked read, snoozed or dismissed for its billing cycle, and a statement
 // reminder gets one follow-up 2 days after the close if it was not marked paid.
 
-export const reminderKindSchema = z.enum(["statement_closing", "payment_due", "check_autopay", "reapply"]);
+// heard_back and letter_check are the check-ins while a student waits on an
+// issuer: "Heard back yet?" 7 and 21 days after applying, and "Has your
+// letter come?" 10 days after a denial with the letter still to come.
+export const reminderKindSchema = z.enum(["statement_closing", "payment_due", "check_autopay", "reapply", "heard_back", "letter_check"]);
 
 export const reminderSchema = z.strictObject({
   id: z.uuid(),
   applicationId: z.uuid(),
   kind: reminderKindSchema,
-  // The date the reminder is about: the closing, due or reapply date.
+  // The date the reminder is about: the closing, due or reapply date, or the
+  // day a check-in is for.
   occurrence: z.iso.date(),
   // The day the email goes out, on the student's calendar.
   remindOn: z.iso.date(),
@@ -133,6 +137,8 @@ export const reminderSettingsSchema = z.strictObject({
   statementClosing: z.boolean(),
   paymentDue: z.boolean(),
   checkAutopay: z.boolean(),
+  // The check-ins while waiting on an issuer (heard_back, letter_check).
+  applicationUpdates: z.boolean(),
 }).openapi("ReminderSettings");
 
 export const updateReminderSettingsSchema = z.strictObject({
@@ -140,6 +146,7 @@ export const updateReminderSettingsSchema = z.strictObject({
   statementClosing: z.boolean().optional(),
   paymentDue: z.boolean().optional(),
   checkAutopay: z.boolean().optional(),
+  applicationUpdates: z.boolean().optional(),
 }).refine((body) => Object.values(body).some((value) => value !== undefined), {
   message: "Send at least one setting to change.",
 });
@@ -147,13 +154,14 @@ export const updateReminderSettingsSchema = z.strictObject({
 export type ReminderSettings = z.infer<typeof reminderSettingsSchema>;
 
 export const REMINDER_SETTINGS_FIELDS =
-  "reminders_unsubscribed_at, remind_statement_closing, remind_payment_due, remind_check_autopay";
+  "reminders_unsubscribed_at, remind_statement_closing, remind_payment_due, remind_check_autopay, remind_application_updates";
 
 export type ReminderSettingsRow = {
   reminders_unsubscribed_at: string | null;
   remind_statement_closing: boolean;
   remind_payment_due: boolean;
   remind_check_autopay: boolean;
+  remind_application_updates: boolean;
 };
 
 export function reminderSettingsFromRow(row: ReminderSettingsRow): ReminderSettings {
@@ -162,5 +170,6 @@ export function reminderSettingsFromRow(row: ReminderSettingsRow): ReminderSetti
     statementClosing: row.remind_statement_closing,
     paymentDue: row.remind_payment_due,
     checkAutopay: row.remind_check_autopay,
+    applicationUpdates: row.remind_application_updates,
   };
 }

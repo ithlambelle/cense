@@ -97,6 +97,15 @@ describe("HomeView", () => {
     expect(link("Update my status")).toBe(`/applications/${ID}`);
   });
 
+  it("says what to expect while an applied student waits, in two short lines", () => {
+    render(<HomeView state={homeState([app("applied")], NONE, 1)} initial="M" />);
+    const lines = within(screen.getByRole("region", { name: "Did you hear back?" })).getAllByRole("listitem");
+    expect(lines.map((line) => line.textContent)).toEqual([
+      "By law, an issuer has to tell you its decision within 30 days of getting your completed application.",
+      "Don’t apply for other cards while you wait. Each application can lower your score a little.",
+    ]);
+  });
+
   it("makes a catalog card on Home one link to its card page, and leaves a hand-added card to its next step", () => {
     const { unmount } = render(<HomeView state={homeState([app("applied", { cardId: "discover-it-student-cash-back" })], NONE, 1)} initial="M" />);
     expect(link("View card details")).toBe("/cards/discover-it-student-cash-back?from=home");

@@ -10,7 +10,7 @@ const APP = "00000000-0000-4000-8000-000000000001";
 const NOW = new Date("2026-11-08T23:00:00Z");
 
 const card = (over: Partial<ReminderCard> = {}): ReminderCard => ({
-  cardName: "Discover it Student Cash Back", creditLimitCents: 50_000, spendLimitCents: null, paymentDueDay: 6, autopayStatus: "off", autopayPaymentType: null, ...over,
+  cardName: "Discover it Student Cash Back", creditLimitCents: 50_000, spendLimitCents: null, paymentDueDay: 6, autopayStatus: "off", autopayPaymentType: null, status: "approved", denialReason: null, ...over,
 });
 
 const reminder = (over: Partial<Reminder> = {}): Reminder => ({
@@ -213,3 +213,40 @@ describe("snoozedView", () => {
     });
   });
 });
+
+describe("check-ins while waiting on an issuer", () => {
+  const applied = card({ status: "applied", creditLimitCents: null, paymentDueDay: null });
+  const heardBack = reminder({ kind: "heard_back", occurrence: "2026-11-08" });
+
+  it("asks \"Heard back yet?\" with a link to Mark result, and Snooze up to 2 days", () => {
+    const item = updateItem(heardBack, applied, NOW, NY)!;
+    expect(item).toMatchObject({
+      group: "new",
+      title: "Heard back yet?",
+      description: "Discover it Student Cash Back: tell us what the issuer decided.",
+      action: { type: "link", label: "Tell us", href: `/applications/${APP}` },
+      dismissable: true,
+    });
+    expect(item.snooze.map((o) => o.choice)).toEqual(["tomorrow", "in_2_days"]);
+  });
+
+  it("closes once a decision is saved, and says so", () => {
+    for (const status of ["approved", "rejected"]) {
+      const item = updateItem(heardBack, card({ status }), NOW, NY)!;
+      expect(item).toMatchObject({ group: "earlier", action: null, dismissable: false, description: "You told us what they decided." });
+    }
+  });
+
+  it("asks \"Has your letter come?\" while the student waits on it, and closes once its reason is saved", () => {
+    const letter = reminder({ kind: "letter_check", occurrence: "2026-11-08" });
+    const waiting = updateItem(letter, card({ status: "rejected", denialReason: "no_letter_yet" }), NOW, NY)!;
+    expect(waiting).toMatchObject({
+      group: "new",
+      title: "Has your letter come?",
+      action: { type: "link", label: "I got my letter", href: `/denied?application=${APP}` },
+    });
+    const got = updateItem(letter, card({ status: "rejected", denialReason: "income" }), NOW, NY)!;
+    expect(got).toMatchObject({ group: "earlier", action: null, description: "You told us your letter came." });
+  });
+});
+
