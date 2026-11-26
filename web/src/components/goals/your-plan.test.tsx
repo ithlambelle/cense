@@ -109,6 +109,27 @@ describe("YourPlan", () => {
     expect(acceptGoalPlan).not.toHaveBeenCalled();
   });
 
+  it("for Pay off my card, sets nothing aside: safe to spend already holds the balance back, and the step is the full statement balance", async () => {
+    const card: Goal = { ...GOAL, preset: "pay_off_card", name: "Pay off my card", amountCents: 31_000, monthlyCents: 0 };
+    render(<YourPlan goal={card} previousSetAsideCents={0} summary={planSummary({ incomeCents: 180_000, bills: BILLS, setAsideCents: 0 })} autopayHref="/applications/a1/setup/autopay" />);
+    expect(screen.getByText("Pay off my card: $310")).toBeTruthy();
+    expect(screen.getByText("Safe to spend already holds your card balance back, so nothing more is set aside.")).toBeTruthy();
+    expect(screen.getByText("Each month, pay the full statement balance.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Set up autopay" }).getAttribute("href")).toBe("/applications/a1/setup/autopay");
+    expect(screen.queryByRole("region", { name: "Each month" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Accept plan" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
+    expect(acceptGoalPlan).not.toHaveBeenCalled();
+    expect(track).toHaveBeenCalledWith("goal_plan_saved", { preset: "pay_off_card" });
+  });
+
+  it("leaves autopay out when there is no card to set it up on", () => {
+    const card: Goal = { ...GOAL, preset: "pay_off_card", name: "Pay off my card", amountCents: 31_000, monthlyCents: 0 };
+    render(<YourPlan goal={card} previousSetAsideCents={0} summary={planSummary({ incomeCents: null, bills: BILLS, setAsideCents: 0 })} autopayHref={null} />);
+    expect(screen.queryByRole("link", { name: "Set up autopay" })).toBeNull();
+  });
+
   it("goes back to Pick a goal from Edit and from the back arrow", () => {
     show();
     expect(screen.getByRole("link", { name: "Edit" }).getAttribute("href")).toBe("/start/goal");

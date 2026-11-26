@@ -17,14 +17,15 @@ export async function loadGoal(student: Student): Promise<StoreResult<Goal | nul
 }
 
 // Saves the student's one goal, replacing any they had. The date and monthly
-// amount are fixed here, from `today`. Saving the same amount and date again
-// keeps the monthly amount already saved, so it never drifts as days pass.
+// amount are fixed here, from `today`. Saving the same goal, amount and date
+// again keeps the monthly amount already saved, so it never drifts as days pass.
 export async function saveGoal(student: Student, goal: SaveGoalBody & { name: string }, today: string): Promise<StoreResult<Goal>> {
-  const existing = await student.supabase.from("goals").select("amount_cents, target_date, monthly_cents").eq("student_id", student.studentId).maybeSingle();
+  const existing = await student.supabase.from("goals").select("preset, amount_cents, target_date, monthly_cents").eq("student_id", student.studentId).maybeSingle();
   if (existing.error) return { ok: false, error: existing.error };
-  const plan = planAtSave({ amountCents: goal.amountCents, targetDate: goal.targetDate ?? null }, today);
-  const before = existing.data as { amount_cents: number | string; target_date: string; monthly_cents: number | string } | null;
-  const unchanged = before !== null && Number(before.amount_cents) === goal.amountCents && before.target_date === plan.targetDate;
+  const plan = planAtSave({ preset: goal.preset, amountCents: goal.amountCents, targetDate: goal.targetDate ?? null }, today);
+  const before = existing.data as { preset: string; amount_cents: number | string; target_date: string; monthly_cents: number | string } | null;
+  const unchanged =
+    before !== null && before.preset === goal.preset && Number(before.amount_cents) === goal.amountCents && before.target_date === plan.targetDate;
   const { data, error } = await student.supabase
     .from("goals")
     .upsert(
@@ -42,6 +43,22 @@ export async function saveGoal(student: Student, goal: SaveGoalBody & { name: st
     .single();
   if (error) return { ok: false, error };
   return { ok: true, value: goalFromRow(data as GoalRow) };
+}
+
+// The step Your plan links for Pay off my card: autopay on the most recently
+// changed approved card whose autopay is not on yet, or null when there is none.
+export async function autopayApplicationId(student: Student): Promise<StoreResult<string | null>> {
+  const { data, error } = await student.supabase
+    .from("card_applications")
+    .select("id")
+    .eq("student_id", student.studentId)
+    .eq("status", "approved")
+    .neq("autopay_status", "on")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return { ok: false, error };
+  return { ok: true, value: data ? (data as { id: string }).id : null };
 }
 
 // Deletes the student's goal through remove_goal(), which also clears the

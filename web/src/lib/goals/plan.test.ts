@@ -67,15 +67,19 @@ describe("monthlySetAside", () => {
 
 describe("planAtSave", () => {
   it("fixes a goal with no date at 6 months from the day it is saved, so it never moves", () => {
-    expect(planAtSave({ amountCents: 124_000, targetDate: null }, "2026-11-26")).toEqual({ targetDate: "2027-05-26", monthlyCents: 20_667 });
+    expect(planAtSave({ preset: "trip", amountCents: 124_000, targetDate: null }, "2026-11-26")).toEqual({ targetDate: "2027-05-26", monthlyCents: 20_667 });
   });
 
   it("ends on the month's last day when 6 months on is shorter", () => {
-    expect(planAtSave({ amountCents: 60_000, targetDate: null }, "2026-08-31").targetDate).toBe("2027-02-28");
+    expect(planAtSave({ preset: "trip", amountCents: 60_000, targetDate: null }, "2026-08-31").targetDate).toBe("2027-02-28");
+  });
+
+  it("sets nothing aside to pay off a card: safe to spend already holds its whole balance back", () => {
+    expect(planAtSave({ preset: "pay_off_card", amountCents: 31_000, targetDate: null }, "2026-11-26")).toEqual({ targetDate: "2027-05-26", monthlyCents: 0 });
   });
 
   it("keeps the goal's own date and spreads the amount over the months left", () => {
-    expect(planAtSave({ amountCents: 60_000, targetDate: "2027-03-01" }, "2026-11-26")).toEqual({ targetDate: "2027-03-01", monthlyCents: 20_000 });
+    expect(planAtSave({ preset: "trip", amountCents: 60_000, targetDate: "2027-03-01" }, "2026-11-26")).toEqual({ targetDate: "2027-03-01", monthlyCents: 20_000 });
   });
 });
 

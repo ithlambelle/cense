@@ -71,9 +71,16 @@ describe("PUT /me/goal", () => {
     }
   });
 
+  it("sets nothing aside for Pay off my card", async () => {
+    const s = student(saved({ ...ROW, preset: "pay_off_card", name: "Pay off my card", amount_cents: 31_000, monthly_cents: 0 }));
+    auth.authenticatedStudent.mockResolvedValue(s.value);
+    expect((await put({ preset: "pay_off_card", name: "Pay off my card", amountCents: 31_000 })).status).toBe(200);
+    expect(s.calls.upsert).toMatchObject({ preset: "pay_off_card", monthly_cents: 0 });
+  });
+
   it("keeps the stored monthly amount when the amount and date are unchanged, and works it out again when they change", async () => {
     // Saved weeks ago at $200 a month; today there are fewer months left.
-    const earlier = { data: { amount_cents: "124000", target_date: "2027-05-26", monthly_cents: "20000" }, error: null };
+    const earlier = { data: { preset: "emergency_fund", amount_cents: "124000", target_date: "2027-05-26", monthly_cents: "20000" }, error: null };
     let s = student({ existing: earlier, ...saved() });
     auth.authenticatedStudent.mockResolvedValue(s.value);
     expect((await put({ ...BODY, targetDate: "2027-05-26" })).status).toBe(200);

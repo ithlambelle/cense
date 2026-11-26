@@ -7,6 +7,8 @@
 
 import type { BillAnswer } from "@/lib/safe-to-spend/compute";
 
+import type { GoalPreset } from "./presets";
+
 // A goal with no date is planned over this many months (Gap Plan, cut item 1).
 export const DEFAULT_MONTHS = 6;
 // The latest date a goal can have, in years from today.
@@ -57,13 +59,15 @@ export function monthlySetAside(amountCents: number, months: number): number {
 // The plan, fixed when the goal is saved and kept until the student edits it,
 // so the monthly amount never drifts as days pass: the date (the student's,
 // or 6 months from the day it is saved) and the amount over the whole months
-// left until then.
+// left until then. Paying off a card sets nothing aside: safe to spend
+// already holds the card's whole balance back (compute.ts), so a set-aside on
+// top would count it twice. The step there is paying the statement in full.
 export function planAtSave(
-  { amountCents, targetDate }: { amountCents: number; targetDate: string | null },
+  { preset, amountCents, targetDate }: { preset: GoalPreset; amountCents: number; targetDate: string | null },
   today: string,
 ): { targetDate: string; monthlyCents: number } {
   const date = targetDate ?? addMonthsIso(today, DEFAULT_MONTHS);
-  return { targetDate: date, monthlyCents: monthlySetAside(amountCents, monthsLeft(today, date)) };
+  return { targetDate: date, monthlyCents: preset === "pay_off_card" ? 0 : monthlySetAside(amountCents, monthsLeft(today, date)) };
 }
 
 export type PlanSummary = {

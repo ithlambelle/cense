@@ -25,14 +25,20 @@ import { cn } from "@/lib/utils";
 // Gap Plan slice 6): the goal, then a month in four lines (money in, bills,
 // the set-aside, what is left), with Accept plan and Edit. Accept saves the
 // set-aside as the student's monthly savings goal (D40) and nothing else, so
-// safe to spend on Home and This month change with it, then Home. Per month, not per paycheck: pay frequency is not saved anywhere yet.
+// safe to spend on Home and This month change with it, then Home. Pay off my
+// card sets nothing aside (safe to spend already holds the card balance back)
+// and says the step instead. Per month, not per paycheck: pay frequency is not
+// saved anywhere yet.
 // No Figma frame exists for it; the rows are Looks right?'s and This month's.
 export function YourPlan({
   goal,
   previousSetAsideCents,
   summary,
+  autopayHref = null,
 }: {
   goal: Goal;
+  // Pay off my card's step: autopay setup for an approved card without it.
+  autopayHref?: string | null;
   previousSetAsideCents: number;
   summary: PlanSummary;
 }) {
@@ -45,6 +51,12 @@ export function YourPlan({
   const tooMuch = monthlyCents > MAX_MONTHLY_CENTS;
   const replaces = previousSetAsideCents > 0 && previousSetAsideCents !== monthlyCents;
   const short = summary.leftCents !== null && summary.leftCents < 0;
+  const card = goal.preset === "pay_off_card";
+
+  function done() {
+    track("goal_plan_saved", { preset: goal.preset });
+    router.replace(ROUTES.home);
+  }
 
   async function accept() {
     if (pending || tooMuch) return;
@@ -79,35 +91,62 @@ export function YourPlan({
           <div className="flex flex-col gap-2">
             <h1 className="font-heading text-h3 font-medium text-navy">{PLAN_COPY.title}</h1>
             <p className={cn(SENSITIVE, "text-body-m text-indigo-black")}>
-              {PLAN_COPY.goalLine(goal.name, moneyAmount(goal.amountCents), formatIsoDate(targetDate) ?? targetDate)}
+              {card
+                ? PLAN_COPY.cardLine(goal.name, moneyAmount(goal.amountCents))
+                : PLAN_COPY.goalLine(goal.name, moneyAmount(goal.amountCents), formatIsoDate(targetDate) ?? targetDate)}
             </p>
           </div>
 
-          <section aria-labelledby="plan-month" className="flex flex-col gap-1">
-            <GroupHeading id="plan-month">{PLAN_COPY.monthHeading}</GroupHeading>
-            <ul className="flex flex-col">
-              {summary.incomeCents !== null ? <ReadRow label={PLAN_COPY.income} value={moneyAmount(summary.incomeCents)} /> : null}
-              <ReadRow label={PLAN_COPY.bills} value={moneyAmount(summary.billsCents)} />
-              <ReadRow label={PLAN_COPY.setAside} value={moneyAmount(summary.setAsideCents)} />
-              {summary.leftCents !== null ? (
-                <TotalRow label={short ? PLAN_COPY.short : PLAN_COPY.left} value={moneyAmount(Math.abs(summary.leftCents))} />
+          {card ? (
+            <>
+              <ul className="flex list-disc flex-col gap-2 pl-5 text-body-m text-indigo-black">
+                <li>{PLAN_COPY.cardHeld}</li>
+                <li>{PLAN_COPY.cardStep}</li>
+              </ul>
+              {autopayHref ? (
+                <Link href={autopayHref} className={cn(buttonVariants({ variant: "secondary" }), "self-start px-0")}>
+                  {PLAN_COPY.cardAutopay}
+                </Link>
               ) : null}
-            </ul>
-          </section>
+              <div className="flex-1" />
+              <div className="flex flex-col gap-2">
+                <Button type="button" onClick={done}>
+                  {PLAN_COPY.cardDone}
+                </Button>
+                <Link href={ROUTES.startGoal} replace className={buttonVariants({ variant: "secondary" })}>
+                  {PLAN_COPY.edit}
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <section aria-labelledby="plan-month" className="flex flex-col gap-1">
+                <GroupHeading id="plan-month">{PLAN_COPY.monthHeading}</GroupHeading>
+                <ul className="flex flex-col">
+                  {summary.incomeCents !== null ? <ReadRow label={PLAN_COPY.income} value={moneyAmount(summary.incomeCents)} /> : null}
+                  <ReadRow label={PLAN_COPY.bills} value={moneyAmount(summary.billsCents)} />
+                  <ReadRow label={PLAN_COPY.setAside} value={moneyAmount(summary.setAsideCents)} />
+                  {summary.leftCents !== null ? (
+                    <TotalRow label={short ? PLAN_COPY.short : PLAN_COPY.left} value={moneyAmount(Math.abs(summary.leftCents))} />
+                  ) : null}
+                </ul>
+              </section>
 
-          {replaces ? <p className={cn(SENSITIVE, "text-body-s text-indigo-black/70")}>{PLAN_COPY.replaces(moneyAmount(previousSetAsideCents))}</p> : null}
-          {tooMuch ? <ErrorMessage>{PLAN_COPY.tooMuch}</ErrorMessage> : null}
+              {replaces ? <p className={cn(SENSITIVE, "text-body-s text-indigo-black/70")}>{PLAN_COPY.replaces(moneyAmount(previousSetAsideCents))}</p> : null}
+              {tooMuch ? <ErrorMessage>{PLAN_COPY.tooMuch}</ErrorMessage> : null}
 
-          <div className="flex-1" />
-          {error ? <ErrorMessage>{error}</ErrorMessage> : null}
-          <div className="flex flex-col gap-2">
-            <Button type="button" pending={pending} disabled={tooMuch} onClick={accept}>
-              {PLAN_COPY.accept}
-            </Button>
-            <Link href={ROUTES.startGoal} replace className={buttonVariants({ variant: "secondary" })}>
-              {PLAN_COPY.edit}
-            </Link>
-          </div>
+              <div className="flex-1" />
+              {error ? <ErrorMessage>{error}</ErrorMessage> : null}
+              <div className="flex flex-col gap-2">
+                <Button type="button" pending={pending} disabled={tooMuch} onClick={accept}>
+                  {PLAN_COPY.accept}
+                </Button>
+                <Link href={ROUTES.startGoal} replace className={buttonVariants({ variant: "secondary" })}>
+                  {PLAN_COPY.edit}
+                </Link>
+              </div>
+            </>
+          )}
         </main>
       </div>
     </div>

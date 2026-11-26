@@ -4,10 +4,10 @@ import { notFound, redirect } from "next/navigation";
 import { YourPlan } from "@/components/goals/your-plan";
 import { loadBudget } from "@/lib/budget/store";
 import { planSummary } from "@/lib/goals/plan";
-import { loadGoal } from "@/lib/goals/store";
+import { autopayApplicationId, loadGoal } from "@/lib/goals/store";
 import { plaidConfig } from "@/lib/plaid/config";
 import { loadSafeToSpend } from "@/lib/plaid/store";
-import { ROUTES, safeToSpendSetupPath } from "@/lib/routes";
+import { autopayStepsPath, ROUTES, safeToSpendSetupPath } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Your plan | CENSE" };
@@ -33,8 +33,18 @@ export default async function StartPlanPage() {
   if (!budget.ok) console.warn(JSON.stringify({ event: "goal_plan_budget_read_failed" }));
   const income = budget.ok && (budget.value.hasBankData || budget.value.income.typed) ? budget.value.income.amountCents : null;
 
+  // Pay off my card links autopay on a card that has none yet. Extra: a failed
+  // read leaves the link out.
+  let autopayHref: string | null = null;
+  if (goal.value.preset === "pay_off_card") {
+    const autopay = await autopayApplicationId(student);
+    if (!autopay.ok) console.warn(JSON.stringify({ event: "goal_plan_autopay_read_failed" }));
+    else if (autopay.value) autopayHref = autopayStepsPath(autopay.value);
+  }
+
   return (
     <YourPlan
+      autopayHref={autopayHref}
       goal={goal.value}
       previousSetAsideCents={money.value.setAsideCents}
       summary={planSummary({ incomeCents: income, bills: money.value.bills, setAsideCents: goal.value.monthlyCents })}

@@ -65,6 +65,13 @@ export const PLAN_COPY = {
   replaces: (amount: string) => `This replaces the ${amount} you set aside before.`,
   // The monthly amount is more than a set-aside can be ($100,000).
   tooMuch: "That’s more than you can set aside in a month. Pick a later date or a smaller amount.",
+  // Pay off my card: nothing is set aside (safe to spend already holds the
+  // card balance back); the step is paying the statement in full.
+  cardLine: (name: string, amount: string) => `${name}: ${amount}`,
+  cardHeld: "Safe to spend already holds your card balance back, so nothing more is set aside.",
+  cardStep: "Each month, pay the full statement balance.",
+  cardAutopay: "Set up autopay",
+  cardDone: "Got it",
   accept: "Accept plan",
   edit: "Edit",
 } as const;

@@ -88,15 +88,16 @@ export function PickGoal({
     if (amountCents === null || amountCents === 0) return setError({ field: "amount", text: GOAL_COPY.amountError });
     // The picker's min and max only guide it; a typed date can pass them.
     // ISO dates compare as text.
-    if (date && date <= today) return setError({ field: "date", text: GOAL_COPY.dateAfterToday });
-    if (date && date > latest) return setError({ field: "date", text: GOAL_COPY.dateTooLate });
+    const targetDate = preset === "pay_off_card" ? "" : date;
+    if (targetDate && targetDate <= today) return setError({ field: "date", text: GOAL_COPY.dateAfterToday });
+    if (targetDate && targetDate > latest) return setError({ field: "date", text: GOAL_COPY.dateTooLate });
 
     setPending("save");
     setError(null);
-    const result = await saveGoal({ preset, name: goalName, amountCents, targetDate: date || null });
+    const result = await saveGoal({ preset, name: goalName, amountCents, targetDate: targetDate || null });
     if (!isMounted()) return;
     if (result.kind === "ok") {
-      track("goal_saved", { preset, amount: suggestion?.amountCents === amountCents ? "suggested" : "typed", dated: Boolean(date) });
+      track("goal_saved", { preset, amount: suggestion?.amountCents === amountCents ? "suggested" : "typed", dated: Boolean(targetDate) });
       // Replace, as the setup questions do: Back from the plan's own arrow
       // returns here, and the browser's Back never stacks the steps.
       router.replace(ROUTES.startPlan);
@@ -193,20 +194,23 @@ export function PickGoal({
                   error={error?.field === "amount" ? error.text : undefined}
                   disabled={pending !== null}
                 />
-                <TextField
-                  label={GOAL_COPY.dateLabel}
-                  hint={GOAL_COPY.dateHint}
-                  type="date"
-                  min={tomorrow}
-                  max={latest}
-                  value={date}
-                  onChange={(event) => {
-                    setError(null);
-                    setDate(event.target.value);
-                  }}
-                  error={error?.field === "date" ? error.text : undefined}
-                  disabled={pending !== null}
-                />
+                {/* Paying off a card has no date: nothing is set aside for it. */}
+                {preset === "pay_off_card" ? null : (
+                  <TextField
+                    label={GOAL_COPY.dateLabel}
+                    hint={GOAL_COPY.dateHint}
+                    type="date"
+                    min={tomorrow}
+                    max={latest}
+                    value={date}
+                    onChange={(event) => {
+                      setError(null);
+                      setDate(event.target.value);
+                    }}
+                    error={error?.field === "date" ? error.text : undefined}
+                    disabled={pending !== null}
+                  />
+                )}
               </div>
             ) : null}
 

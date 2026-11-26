@@ -90,7 +90,7 @@ test("a student picks Emergency fund with the suggestion, accepts the plan, and 
   await page.getByRole("button", { name: "See my plan" }).click();
   await expect(page).toHaveURL(/\/start\/plan$/);
   await expect(planHeading(page)).toBeVisible();
-  const plan = planAtSave({ amountCents: 100_000, targetDate: null }, easternToday());
+  const plan = planAtSave({ preset: "emergency_fund", amountCents: 100_000, targetDate: null }, easternToday());
   expect(plan).toEqual({ targetDate: addMonthsIso(easternToday(), 6), monthlyCents: 16_667 });
   await expect(page.getByText(`Emergency fund: $1,000 by ${formatIsoDate(plan.targetDate)}`)).toBeVisible();
   const month = page.getByRole("region", { name: "Each month" });
@@ -202,7 +202,7 @@ test("a typed goal with a date, then changed and removed, at 320 wide with no si
   await fits("pick a goal, filled in");
   await page.getByRole("button", { name: "See my plan" }).click();
   await expect(planHeading(page)).toBeVisible();
-  const plan = planAtSave({ amountCents: 120_000, targetDate: by }, easternToday());
+  const plan = planAtSave({ preset: "other", amountCents: 120_000, targetDate: by }, easternToday());
   await expect(page.getByText(`Laptop: $1,200 by ${formatIsoDate(by)}`)).toBeVisible();
   await expect(page.getByRole("region", { name: "Each month" }).getByRole("listitem").nth(2)).toHaveText(`Set aside for your goal${moneyAmount(plan.monthlyCents)}`);
   await fits("your plan");
@@ -215,6 +215,18 @@ test("a typed goal with a date, then changed and removed, at 320 wide with no si
   await page.getByLabel("How much?").fill("600");
   await page.getByRole("button", { name: "See my plan" }).click();
   await expect(page.getByText(/^Trip: \$600 by /)).toBeVisible();
+
+  // Paying off the card sets nothing aside: safe to spend already holds it back.
+  await page.getByRole("link", { name: "Edit" }).click();
+  await goals(page).getByRole("button", { name: "Pay off my card" }).click();
+  await expect(page.getByLabel("By when?")).toHaveCount(0);
+  await page.getByRole("button", { name: "See my plan" }).click();
+  await expect(page.getByText("Pay off my card: $310")).toBeVisible();
+  await expect(page.getByText("Safe to spend already holds your card balance back, so nothing more is set aside.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Accept plan" })).toHaveCount(0);
+  await fits("your plan, card");
+  await checkA11y("your plan, card");
+  expect(await savedGoals(page)).toMatchObject([{ preset: "pay_off_card", amount_cents: 31_000, monthly_cents: 0 }]);
   await page.getByRole("link", { name: "Edit" }).click();
   await page.getByRole("button", { name: "Remove my goal" }).click();
   await expect(page.getByText("Remove your goal?", { exact: true })).toBeVisible();

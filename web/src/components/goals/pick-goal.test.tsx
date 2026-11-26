@@ -79,6 +79,15 @@ describe("PickGoal", () => {
     expect(saveGoal).not.toHaveBeenCalled();
   });
 
+  it("asks no date for Pay off my card", async () => {
+    saveGoal.mockResolvedValue({ kind: "ok", data: { goal: {} } });
+    render(<PickGoal saved={null} setAsideCents={0} today={TODAY} suggestions={SUGGESTIONS} />);
+    choose("Pay off my card");
+    expect(screen.queryByLabelText("By when?")).toBeNull();
+    submit();
+    await waitFor(() => expect(saveGoal).toHaveBeenCalledWith({ preset: "pay_off_card", name: "Pay off my card", amountCents: 31_000, targetDate: null }));
+  });
+
   it("asks what Something else is for", () => {
     render(<PickGoal saved={null} setAsideCents={0} today={TODAY} suggestions={SUGGESTIONS} />);
     fireEvent.click(screen.getByRole("button", { name: "More goals" }));
