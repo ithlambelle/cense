@@ -103,21 +103,29 @@ async function answerWhoCovers(page: Page, checkA11y?: (screen: string) => Promi
 
 // Right after linking, Cense reads the bank and answers the questions itself
 // (step L1, Ben Nov 21). These journeys check the questions, so they take
-// "Fix something" from the finished reading screen.
-async function throughReadingToQuestions(page: Page) {
+// "Fix something" from the finished reading screen. A bank that has sent no
+// history yet is not answered from: the reading says so and offers the
+// questions instead (thin).
+async function throughReadingToQuestions(page: Page, { thin = false } = {}) {
   await expect(page).toHaveURL(/\/safe-to-spend\/reading$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Here’s what we found" })).toBeVisible();
-  await page.getByRole("link", { name: "Fix something" }).click();
+  if (thin) {
+    await expect(page.getByRole("heading", { level: 1, name: "Your bank is still catching up" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Looks right" })).toHaveCount(0);
+    await page.getByRole("link", { name: "Answer a few questions" }).click();
+  } else {
+    await expect(page.getByRole("heading", { level: 1, name: "Here’s what we found" })).toBeVisible();
+    await page.getByRole("link", { name: "Fix something" }).click();
+  }
   await expect(page).toHaveURL(/\/safe-to-spend\/setup/);
 }
 
 // A new student who has linked the stand-in bank and answered, on Home.
-async function linkedStudent(page: Page, journey: string) {
+async function linkedStudent(page: Page, journey: string, options: { thin?: boolean } = {}) {
   const checkA11y = axeChecker(page);
   await signUp(page, uniqueEmail(journey), checkA11y);
   await page.goto("/safe-to-spend/connect");
   await page.getByRole("button", { name: "Link your bank" }).click();
-  await throughReadingToQuestions(page);
+  await throughReadingToQuestions(page, options);
   await answerWhoCovers(page);
   await expect(safeToSpendCard(page)).toContainText(DAILY);
   return checkA11y;
@@ -426,7 +434,9 @@ test("Your money: a student edits a bill on Today, reads This month from their o
 
 test("This month waits for the bank's transactions, then shows them after Refresh now", async ({ page }) => {
   behavior.transactions = "none";
-  await linkedStudent(page, "sts-month-waits");
+  // No history yet: nothing is answered from the bank (#137 review), so the
+  // student gets the questions.
+  await linkedStudent(page, "sts-month-waits", { thin: true });
   await page.goto("/safe-to-spend?tab=month");
   const hero = page.getByRole("region", { name: /each month/ });
   await expect(hero).toContainText("Not yet");
