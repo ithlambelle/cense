@@ -13,14 +13,24 @@ import { SENSITIVE } from "@/lib/analytics";
 import { loadDenialReason, type SavedDenialReason } from "@/lib/api-client/denial-reason";
 import { loadPlanSteps, savePlanStep, type PlanStepName } from "@/lib/api-client/plans";
 import { loadReminders, reapplyReminderFor } from "@/lib/api-client/reminders";
+import { AUTHORIZED_USER_SOURCE, NOT_YET_NEXT_STEPS, SECURED_LINK } from "@/lib/copy/results";
 import { formatIsoDate } from "@/lib/dates";
-import { deniedPath, ROUTES, signInPath } from "@/lib/routes";
+import { deniedPath, pennyPath, ROUTES, signInPath } from "@/lib/routes";
 import { useLoaded, type LoadOutcome } from "@/lib/use-loaded";
 import { cn } from "@/lib/utils";
 
 // `subtitle` is the row's one line (Flow F frames 477:2563, 477:2609); `body`
-// is the detail that opens under it.
-type Step = { id: PlanStepName; title: string; subtitle: string; body: string; link?: { href: string; label: string } };
+// is the detail that opens under it, then its link, or its options, each a
+// line with its own link. A link to another site opens in a new tab.
+type StepLink = { href: string; label: string; external: boolean };
+type Step = {
+  id: PlanStepName;
+  title: string;
+  subtitle: string;
+  body: string;
+  link?: StepLink;
+  options?: { text: string; link: StepLink }[];
+};
 
 // From Figma 144:2062 (Flow 2 frame 3). Collapsed steps hide their body in the
 // frame (144:2087, 2094, 2105, 2110); it shows when a step is opened.
@@ -49,7 +59,7 @@ const STEPS: Step[] = [
     title: "Check your credit reports",
     subtitle: "Free every week. Not urgent.",
     body: "Use the official free source. Checking your own reports does not hurt your score.",
-    link: { href: "https://www.annualcreditreport.com", label: "AnnualCreditReport.com" },
+    link: { href: "https://www.annualcreditreport.com", label: "AnnualCreditReport.com", external: true },
   },
   {
     id: "pause_applications",
@@ -57,11 +67,29 @@ const STEPS: Step[] = [
     subtitle: "Hold off. Use a preapproval check first.",
     body: "Hold off for now. Use a preapproval check first when you’re ready.",
   },
+  // Three options, each with a link (Mikhaela, 2026-11-09, and the persona
+  // walk, 2026-11-25: the step named options with nothing to tap). F1 has no
+  // detail for it. The credit-builder loan is left out: Cense has nothing to
+  // link it to yet, so the subtitle no longer names it.
   {
     id: "build_credit",
     title: "Build credit another way",
-    subtitle: "Secured card, credit-builder loan or authorized user.",
-    body: "Compare a secured card, credit-builder loan, or authorized-user option. No “apply now” pressure.",
+    subtitle: "A secured card or being an authorized user.",
+    body: "When you’re ready, no rush:",
+    options: [
+      {
+        text: "A secured card. You put down a deposit to open it, and it can help build credit.",
+        link: { href: ROUTES.results, label: "See cards that fit you", external: false },
+      },
+      {
+        text: NOT_YET_NEXT_STEPS.authorizedUser,
+        link: { ...AUTHORIZED_USER_SOURCE, external: true },
+      },
+      {
+        text: "Not sure what a secured card is?",
+        link: { href: pennyPath(SECURED_LINK.answerId), label: `Ask Penny: ${SECURED_LINK.label}`, external: false },
+      },
+    ],
   },
   {
     id: "reapply",
@@ -288,16 +316,16 @@ export function DeniedPlanScreen({
                       {expanded ? (
                         <div className="flex flex-col items-start gap-1.5 pr-7">
                           <p className="text-body-s text-indigo-black">{step.body}</p>
-                          {step.link ? (
-                            <a
-                              href={step.link.href}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-body-s text-violet underline focus-visible:outline-2 focus-visible:outline-ring"
-                            >
-                              {step.link.label}
-                              <span className="sr-only"> (opens in a new tab)</span>
-                            </a>
+                          {step.link ? <StepLinkView link={step.link} /> : null}
+                          {step.options ? (
+                            <ul className="flex list-disc flex-col gap-3 pl-5 text-body-s text-indigo-black marker:text-violet">
+                              {step.options.map((option) => (
+                                <li key={option.link.href}>
+                                  <p>{option.text}</p>
+                                  <StepLinkView link={option.link} />
+                                </li>
+                              ))}
+                            </ul>
                           ) : null}
                         </div>
                       ) : null}
@@ -326,6 +354,24 @@ export function DeniedPlanScreen({
         </main>
       </div>
     </div>
+  );
+}
+
+// A step's link: another site in a new tab, a Cense screen in place.
+function StepLinkView({ link }: { link: StepLink }) {
+  const className = "text-body-s text-violet underline focus-visible:outline-2 focus-visible:outline-ring";
+  if (!link.external) {
+    return (
+      <Link href={link.href} className={className}>
+        {link.label}
+      </Link>
+    );
+  }
+  return (
+    <a href={link.href} target="_blank" rel="noopener noreferrer" className={className}>
+      {link.label}
+      <span className="sr-only"> (opens in a new tab)</span>
+    </a>
   );
 }
 

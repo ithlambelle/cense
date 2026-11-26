@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DeniedPlanView } from "./plan-view";
@@ -111,6 +111,25 @@ describe("DeniedPlanView", () => {
     expect(fetchFn.mock.calls[2][0]).toBe(`${PLAN_URL}/steps/read_letter`);
     expect(fetchFn.mock.calls[2][1]?.method).toBe("DELETE");
     await waitFor(() => expect(screen.getByText("2 of 5 done")).toBeTruthy());
+  });
+
+  it("Build credit another way lists three options, each with a link", async () => {
+    server([{ status: 200, body: plan() }]);
+    render(<DeniedPlanView applicationId={ID} />);
+    await screen.findByText("0 of 5 done");
+    fireEvent.click(screen.getByRole("button", { name: /^Build credit another way/ }));
+    const detail = screen.getByText("When you’re ready, no rush:").parentElement as HTMLElement;
+    const options = within(detail).getAllByRole("listitem");
+    expect(options).toHaveLength(3);
+    const links = options.map((option) => within(option).getByRole("link"));
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      "/results",
+      "https://www.capitalone.com/learn-grow/money-management/do-authorized-users-build-credit/",
+      "/learn/penny?answer=secured-card",
+    ]);
+    // Only the other site opens in a new tab.
+    expect(links.map((link) => link.getAttribute("target"))).toEqual([null, "_blank", null]);
+    expect(options[1].textContent).toContain("authorized user");
   });
 
   it("tapping a row opens its detail, without marking it", async () => {
