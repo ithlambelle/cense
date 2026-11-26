@@ -1,14 +1,14 @@
 -- Created with Claude Code (2026-11-26). The application check-ins
 -- (20261126160000_application_check_ins.sql): "Heard back yet?" 7 and 21
--- days after applying, and "Has your letter come?" 10 days after a denial
--- the student is waiting on the letter for. Planned by refresh_reminders(),
+-- days after applying, and "Has your letter come?" 10 days after the student
+-- says they are waiting on the denial letter. Planned by refresh_reminders(),
 -- sent through claim_due_reminders(). One transaction, rolled back at the end.
 -- Every student is on America/New_York (no time zone saved) unless set.
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(27);
+select plan(29);
 
 create temp table students (name text primary key, id uuid, confirmed boolean default true);
 insert into students (name, id) values
@@ -22,7 +22,9 @@ insert into students (name, id) values
   ('letter9',      'c1000000-0000-4000-8000-000000000008'),
   ('letter10',     'c1000000-0000-4000-8000-000000000009'),
   ('letter_got',   'c1000000-0000-4000-8000-000000000010'),
-  ('forced',       'c1000000-0000-4000-8000-000000000011');
+  ('forced',       'c1000000-0000-4000-8000-000000000011'),
+  ('old_app',      'c1000000-0000-4000-8000-000000000013'),
+  ('late_wait',    'c1000000-0000-4000-8000-000000000014');
 insert into students (name, id, confirmed) values
   ('unverified',   'c1000000-0000-4000-8000-000000000012', false);
 insert into auth.users (id, email, email_confirmed_at)
@@ -57,8 +59,8 @@ begin
 end;
 $$;
 
--- A denial `p_days` ago that the student is waiting on the letter for. The
--- denial time is set straight (set_rejected_at keeps the first one), then planned.
+-- A denial `p_days` ago, and "Not yet, I'm waiting on the letter" saved
+-- today. The denial time is set straight (set_rejected_at keeps the first one).
 create function pg_temp.waiting_on_letter(p_student text, p_days int) returns uuid language plpgsql as $$
 declare
   v_id uuid;
@@ -67,11 +69,17 @@ begin
   values (pg_temp.student(p_student), 'Test card', 'application', 'rejected')
   returning id into v_id;
   set local session_replication_role = replica;
-  update public.card_applications set rejected_at = pg_temp.days_ago(p_days), denial_reason = 'no_letter_yet' where id = v_id;
+  update public.card_applications set rejected_at = pg_temp.days_ago(p_days) where id = v_id;
   set local session_replication_role = origin;
-  perform public.refresh_reminders(v_id);
+  update public.card_applications set denial_reason = 'no_letter_yet' where id = v_id;
   return v_id;
 end;
+$$;
+
+-- The letter check-in's day, moved as if `p_days` had passed since it was planned.
+create function pg_temp.letter_after(p_app uuid, p_days int) returns void language sql as $$
+  update public.reminders set occurrence = occurrence - p_days, due_at = due_at - make_interval(days => p_days)
+  where card_application_id = p_app and kind = 'letter_check';
 $$;
 
 create function pg_temp.check_ins(p_app uuid, p_kind text) returns setof date language sql as $$
@@ -88,9 +96,17 @@ insert into apps values
   ('setting_off',  pg_temp.applied('setting_off', 7)),
   ('unsubscribed', pg_temp.applied('unsubscribed', 7)),
   ('unverified',   pg_temp.applied('unverified', 7)),
-  ('letter9',      pg_temp.waiting_on_letter('letter9', 9)),
-  ('letter10',     pg_temp.waiting_on_letter('letter10', 10)),
-  ('letter_got',   pg_temp.waiting_on_letter('letter_got', 10));
+  ('letter9',      pg_temp.waiting_on_letter('letter9', 0)),
+  ('letter10',     pg_temp.waiting_on_letter('letter10', 0)),
+  ('letter_got',   pg_temp.waiting_on_letter('letter_got', 0)),
+  ('late_wait',    pg_temp.waiting_on_letter('late_wait', 20));
+
+-- An application added before the check-ins shipped (a stale row): never
+-- planned, so the first run after the migration emails no one about it.
+insert into apps
+select 'old_app', pg_temp.applied('old_app', 7);
+update public.card_applications set created_at = '2026-11-01T12:00:00Z' where id = (select id from apps where name = 'old_app');
+select public.refresh_reminders((select id from apps where name = 'old_app'));
 
 create function pg_temp.app(p_name text) returns uuid language sql as $$
   select id from apps where name = p_name;
@@ -108,16 +124,22 @@ select is_empty($$select pg_temp.check_ins(pg_temp.app('setting_off'), 'heard_ba
 select is_empty($$select pg_temp.check_ins(pg_temp.app('unsubscribed'), 'heard_back')$$,
   'nothing is planned for an unsubscribed student');
 select results_eq($$select pg_temp.check_ins(pg_temp.app('letter10'), 'letter_check')$$,
-  $$values (pg_temp.today())$$,
-  'waiting on the letter plans "Has your letter come?" 10 days after the denial');
+  $$values (pg_temp.today() + 10)$$,
+  'waiting on the letter plans "Has your letter come?" 10 days after saying so');
+select results_eq($$select pg_temp.check_ins(pg_temp.app('late_wait'), 'letter_check')$$,
+  $$values (pg_temp.today() + 10)$$,
+  'denied 20 days ago, waiting saved today: still 10 days from today');
+select is_empty($$select pg_temp.check_ins(pg_temp.app('old_app'), 'heard_back')$$,
+  'an application added before the check-ins shipped gets none');
+-- 9 and 10 days pass.
+select pg_temp.letter_after(pg_temp.app('letter9'), 9);
+select pg_temp.letter_after(pg_temp.app('letter10'), 10);
 
 -- An unsent letter check-in is kept while the student still waits: the
 -- daily re-plan neither moves nor duplicates it.
-update public.reminders set occurrence = pg_temp.today() + 3
-where card_application_id = pg_temp.app('letter9') and kind = 'letter_check';
 select public.refresh_reminders(pg_temp.app('letter9'));
 select results_eq($$select pg_temp.check_ins(pg_temp.app('letter9'), 'letter_check')$$,
-  $$values (pg_temp.today() + 3)$$,
+  $$values (pg_temp.today() + 1)$$,
   'the daily re-plan keeps an unsent letter check-in as it is');
 
 -- A decision removes the unsent check-ins.
@@ -173,9 +195,9 @@ select results_eq($$select pg_temp.claimed('claim1', 'third')$$, $$values ('hear
 select is_empty($$select pg_temp.claimed('claim1', 'setting_off')$$, 'nothing with Application updates off');
 select is_empty($$select pg_temp.claimed('claim1', 'unsubscribed')$$, 'nothing for an unsubscribed student');
 select is_empty($$select pg_temp.claimed('claim1', 'unverified')$$, 'nothing to an account whose email is not confirmed');
-select is_empty($$select pg_temp.claimed('claim1', 'letter9')$$, 'day 9 after the denial: no letter check-in yet');
+select is_empty($$select pg_temp.claimed('claim1', 'letter9')$$, 'day 9 after saying they wait on the letter: no check-in yet');
 select results_eq($$select pg_temp.claimed('claim1', 'letter10')$$, $$values ('letter_check')$$,
-  'day 10 after the denial: "Has your letter come?" is sent');
+  'day 10: "Has your letter come?" is sent');
 select is_empty($$select pg_temp.claimed('claim1', 'letter_got')$$, 'nothing once the letter''s reason is saved');
 
 -- Never a third, and the letter once: mark them sent, then re-plan with a

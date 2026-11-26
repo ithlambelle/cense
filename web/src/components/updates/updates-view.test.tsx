@@ -47,7 +47,7 @@ describe("UpdatesView", () => {
 
   it("says what will show up here when there is nothing yet", () => {
     render(<UpdatesView groups={groups([])} />);
-    expect(screen.getByText(/^Nothing yet\. When we email you a reminder/)).toBeTruthy();
+    expect(screen.getByText("Nothing yet. Reminders we email you show up here too.")).toBeTruthy();
     expect(screen.queryByText(/No updates yet/)).toBeNull();
   });
 });

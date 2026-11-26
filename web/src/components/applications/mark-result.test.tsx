@@ -167,4 +167,9 @@ describe("MarkResult", () => {
     expect(screen.getByRole("button", { name: "Yes, mark as denied" })).toBeTruthy();
     expect(fetchFn).not.toHaveBeenCalled();
   });
+
+  it("ignores an old email's pick once the card is decided", () => {
+    render(<MarkResult application={{ ...saved, status: "approved", creditLimitCents: 50000 }} initialChoice="denied" />);
+    expect(screen.queryByRole("button", { name: "Yes, mark as denied" })).toBeNull();
+  });
 });

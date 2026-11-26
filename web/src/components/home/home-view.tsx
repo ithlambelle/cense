@@ -315,11 +315,13 @@ function TrackedCard({ application }: { application: Application }) {
 }
 
 // While the student waits (persona walk, Nov 25): what to expect and what
-// not to do. The catalog has no decision times, so the first line stays
-// general. A new application usually means a hard credit check, which can
-// lower a score a little (myFICO, https://www.myfico.com/credit-education/credit-reports/credit-checks-and-inquiries).
+// not to do. The catalog has no decision times, so the first line is the
+// legal limit, in the waiting screen's words (Regulation B, 12 CFR
+// 1002.9(a)(1), https://www.consumerfinance.gov/rules-policy/regulations/1002/9/).
+// A new application usually means a hard credit check, which can lower a
+// score a little (myFICO, https://www.myfico.com/credit-education/credit-reports/credit-checks-and-inquiries).
 export const WHILE_YOU_WAIT = [
-  "Most issuers decide within a few days to a few weeks.",
+  "By law, an issuer has to tell you its decision within 30 days of getting your completed application.",
   "Don’t apply for other cards while you wait. Each application can lower your score a little.",
 ];
 

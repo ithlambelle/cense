@@ -8,9 +8,13 @@
 --   saved, "Heard back yet?", linking to "What did the issuer decide?". If
 --   still undecided at day 21, one more. Never a third, never for a decided
 --   application (approved or rejected).
--- - letter_check: 10 days after a denial the student is waiting on the
---   issuer's letter for (denial_reason 'no_letter_yet'), "Has your letter
+-- - letter_check: 10 days after the student says they are waiting on the
+--   issuer's denial letter (denial_reason 'no_letter_yet'), "Has your letter
 --   come?", linking to the step that records it. Once per application.
+--
+-- Only for applications added on or after 2026-11-26 (card_applications.
+-- created_at): no backfill, so the first run after this is applied emails
+-- no one about an older or stale application.
 --
 -- Days count on the student's calendar (their time zone, New York when none
 -- is saved), and every email goes at 9:00, as the card reminders do. They
@@ -31,8 +35,11 @@
 --    removes the unsent ones (unsent "heard back" ones are rebuilt on every
 --    refresh; an unsent letter one is kept while the student still waits).
 --    A check-in already sent (or being sent) is never planned again, even if
---    a time zone change moves its day by one. One already more than 6 days
---    past its day is not planned (the claim would never send it).
+--    a time zone change moves its day by one. A "heard back" one already more
+--    than 6 days past its day is not planned (the claim would never send it).
+--    The letter one is planned 10 days from the day it is first planned,
+--    which is the day the student says they are waiting (the denial_reason
+--    trigger below), and then kept.
 -- 4. The card_applications trigger also re-plans when denial_reason changes
 --    ("Not yet, I'm waiting on the letter" and "I got my letter" change only
 --    that) or applied_at does (students cannot change it; the journey tests
@@ -42,9 +49,6 @@
 --    with the new kinds' rules, marked NEW, and one new column back,
 --    card_application_id, for the email's links. A new return type, so the
 --    function is dropped and made again with the same grants.
--- 6. Applications waiting today are planned once, so the check-ins also reach
---    students who applied before this.
---
 -- To back it out: supabase/rollbacks/20261126160000_application_check_ins.down.sql.
 -- Applied by hand in the Supabase SQL editor, after every earlier migration.
 -- Safe to run again.
@@ -107,7 +111,9 @@ begin
       and sent_at is null and claimed_at is null;
   end if;
 
-  if v_subscribed and coalesce(v_profile.remind_application_updates, true) then
+  -- only applications added since the check-ins shipped: no backfill
+  if v_subscribed and coalesce(v_profile.remind_application_updates, true)
+     and v_app.created_at >= timestamptz '2026-11-26 00:00 America/New_York' then
     -- "Heard back yet?" 7 and 21 days after applying, while no decision is
     -- saved. Each is planned only when no check-in within 3 days of its day
     -- is left (one sent, or being sent), so there are never more than two.
@@ -126,13 +132,13 @@ begin
       end loop;
     end if;
 
-    -- "Has your letter come?" 10 days after the denial, while the student is
-    -- waiting on the issuer's letter. Once per application, ever.
-    if v_app.status = 'rejected' and v_app.denial_reason = 'no_letter_yet' and v_app.rejected_at is not null then
-      v_day := (v_app.rejected_at at time zone v_tz)::date + 10;
-      if v_day >= v_today - 6
-         and not exists (select 1 from public.reminders
-                         where card_application_id = v_app.id and kind = 'letter_check') then
+    -- "Has your letter come?" 10 days after the student says they are
+    -- waiting on the issuer's letter (it is first planned then, and kept).
+    -- Once per application, ever.
+    if v_app.status = 'rejected' and v_app.denial_reason = 'no_letter_yet' then
+      v_day := v_today + 10;
+      if not exists (select 1 from public.reminders
+                     where card_application_id = v_app.id and kind = 'letter_check') then
         insert into public.reminders (student_id, card_application_id, kind, occurrence, due_at)
         values (v_app.student_id, v_app.id, 'letter_check', v_day, (v_day + time '09:00') at time zone v_tz)
         on conflict (card_application_id, kind, occurrence) do nothing;
@@ -357,19 +363,5 @@ $$;
 
 revoke execute on function public.claim_due_reminders(int) from public, anon, authenticated;
 grant execute on function public.claim_due_reminders(int) to service_role;
-
--- 6
-do $$
-declare
-  v_id uuid;
-begin
-  for v_id in
-    select id from public.card_applications
-    where status = 'applied' or (status = 'rejected' and denial_reason = 'no_letter_yet')
-  loop
-    perform public.refresh_reminders(v_id);
-  end loop;
-end;
-$$;
 
 notify pgrst, 'reload schema';

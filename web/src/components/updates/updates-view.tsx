@@ -22,10 +22,9 @@ import { SnoozeSheet, type SnoozeTarget } from "./snooze-sheet";
 
 const ICONS: Record<UpdateIcon, ComponentType<SVGProps<SVGSVGElement>>> = { bell: Bell, file: File, calendar: Calendar };
 
-// With nothing yet: what will show here and when. Every update is a reminder
-// email that went out (in-app.ts), so it says so.
-export const UPDATES_EMPTY =
-  "Nothing yet. When we email you a reminder, like before a statement closes or to ask if you’ve heard back from an issuer, it shows up here too.";
+// With nothing yet: what will show here. Every update is a reminder email
+// that went out (in-app.ts), so it says so.
+export const UPDATES_EMPTY = "Nothing yet. Reminders we email you show up here too.";
 
 const GROUPS: { key: UpdateGroup; label: string }[] = [
   { key: "new", label: "New" },

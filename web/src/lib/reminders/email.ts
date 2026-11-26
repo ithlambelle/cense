@@ -179,7 +179,7 @@ function content(input: ReminderEmailInput): Content {
       const id = input.applicationId ?? "";
       return {
         subject: "Heard back yet?",
-        preview: "Tell us what the issuer decided. One tap.",
+        preview: "Tell us what the issuer decided.",
         parts: [
           p(`Has the issuer decided on your ${card} application? Tap one and we'll take it from there.`),
           appLinks([

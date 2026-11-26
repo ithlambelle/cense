@@ -89,6 +89,8 @@ describe("buildReminderEmail", () => {
   it("heard back: three buttons that answer on the application's own screens, each counted", () => {
     const email = buildReminderEmail(KINDS[5], LINKS);
     expect(email.subject).toBe("Heard back yet?");
+    // There is still a confirm step after the tap, so no "One tap".
+    expect(email.html).toContain(">Tell us what the issuer decided.</div>");
     expect(email.text).toContain("Has the issuer decided on your Savor Rewards for Students application?");
     const buttons = [...email.html.matchAll(/<a href="([^"]+)" style="display:inline-block[^"]*">([^<]+)<\/a>/g)].map(([, href, label]) => [label, href]);
     expect(buttons).toEqual([

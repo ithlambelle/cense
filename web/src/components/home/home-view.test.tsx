@@ -101,7 +101,7 @@ describe("HomeView", () => {
     render(<HomeView state={homeState([app("applied")], NONE, 1)} initial="M" />);
     const lines = within(screen.getByRole("region", { name: "Did you hear back?" })).getAllByRole("listitem");
     expect(lines.map((line) => line.textContent)).toEqual([
-      "Most issuers decide within a few days to a few weeks.",
+      "By law, an issuer has to tell you its decision within 30 days of getting your completed application.",
       "Don’t apply for other cards while you wait. Each application can lower your score a little.",
     ]);
   });
