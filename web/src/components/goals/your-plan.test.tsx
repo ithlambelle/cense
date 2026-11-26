@@ -25,6 +25,7 @@ const GOAL: Goal = {
   amountCents: 124_000,
   targetDate: "2027-05-26",
   monthlyCents: 20_667,
+  acceptedMonthlyCents: null,
   updatedAt: "2026-11-26T15:00:00.000Z",
 };
 const BILLS: BillAnswer[] = [

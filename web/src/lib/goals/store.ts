@@ -44,9 +44,11 @@ export async function saveGoal(student: Student, goal: SaveGoalBody & { name: st
   return { ok: true, value: goalFromRow(data as GoalRow) };
 }
 
-// Deletes the student's goal. Deleting when there is none is not an error.
-export async function deleteGoal(student: Student): Promise<StoreResult<null>> {
-  const { error } = await student.supabase.from("goals").delete().eq("student_id", student.studentId);
+// Deletes the student's goal through remove_goal(), which also clears the
+// set-aside when it still holds what Accept plan wrote. True when it did.
+// Deleting when there is no goal is not an error.
+export async function removeGoal(student: Student): Promise<StoreResult<boolean>> {
+  const { data, error } = await student.supabase.rpc("remove_goal");
   if (error) return { ok: false, error };
-  return { ok: true, value: null };
+  return { ok: true, value: data === "cleared" };
 }

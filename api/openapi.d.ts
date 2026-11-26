@@ -333,7 +333,7 @@ export interface paths {
         post?: never;
         /**
          * Remove the student's goal
-         * @description Answers 204 whether or not there was one. The set-aside stays as it is.
+         * @description Answers 200 whether or not there was one. The set-aside is cleared with it only when it still holds what Accept plan wrote (remove_goal()); one the student changed since stays.
          */
         delete: operations["deleteGoal"];
         options?: never;
@@ -1151,6 +1151,7 @@ export interface components {
             /** Format: date */
             targetDate: string;
             monthlyCents: number;
+            acceptedMonthlyCents: number | null;
             /** Format: date-time */
             updatedAt: string;
         };
@@ -1161,6 +1162,9 @@ export interface components {
             amountCents: number;
             /** Format: date */
             targetDate?: string | null;
+        };
+        RemovedGoal: {
+            setAsideCleared: boolean;
         };
         BankFindings: {
             findings: components["schemas"]["BankFinding"][];
@@ -2239,12 +2243,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Goal removed */
-            204: {
+            /** @description Success */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["RemovedGoal"];
+                };
             };
             /** @description Sign-in required */
             401: {

@@ -26,12 +26,23 @@ import { useIsMounted } from "@/lib/use-is-mounted";
 // from, and an optional date. See my plan saves it and opens Your plan; Not
 // now goes Home. No Figma frame exists for goals yet, so the screen is built
 // from the setup questions' parts. A saved goal comes back filled in, with a
-// way to remove it.
+// way to remove it that first says in one line what happens to the set-aside.
 
 type FieldError = { field: "pick" | "name" | "amount" | "date" | "form"; text: string };
 type Suggestions = Partial<Record<GoalPreset, Suggestion | null>>;
 
-export function PickGoal({ saved, today, suggestions }: { saved: Goal | null; today: string; suggestions: Suggestions }) {
+export function PickGoal({
+  saved,
+  setAsideCents,
+  today,
+  suggestions,
+}: {
+  saved: Goal | null;
+  // The student's set-aside now, for what Remove my goal does to it.
+  setAsideCents: number;
+  today: string;
+  suggestions: Suggestions;
+}) {
   const router = useRouter();
   const isMounted = useIsMounted();
   const titleId = useId();
@@ -44,6 +55,7 @@ export function PickGoal({ saved, today, suggestions }: { saved: Goal | null; to
   const [date, setDate] = useState(saved?.targetDate ?? "");
   const [error, setError] = useState<FieldError | null>(null);
   const [pending, setPending] = useState<"save" | "remove" | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   const suggestion = preset ? (suggestions[preset] ?? null) : null;
   const tomorrow = nextDay(today);
@@ -208,10 +220,21 @@ export function PickGoal({ saved, today, suggestions }: { saved: Goal | null; to
               <Link href={ROUTES.home} replace className={buttonVariants({ variant: "secondary" })}>
                 {GOAL_COPY.notNow}
               </Link>
-              {saved ? (
-                <Button type="button" variant="link" className="self-center" pending={pending === "remove"} disabled={pending === "save"} onClick={remove}>
+              {saved && !confirming ? (
+                <Button type="button" variant="link" className="self-center" disabled={pending !== null} onClick={() => setConfirming(true)}>
                   {GOAL_COPY.remove}
                 </Button>
+              ) : null}
+              {saved && confirming ? (
+                <div role="group" aria-label={GOAL_COPY.removeAsk} className="flex flex-col gap-2 pt-2">
+                  <p className={`${SENSITIVE} text-center text-body-s text-indigo-black`}>{removeLine(saved, setAsideCents)}</p>
+                  <Button type="button" variant="outline" pending={pending === "remove"} disabled={pending === "save"} onClick={remove}>
+                    {GOAL_COPY.removeConfirm}
+                  </Button>
+                  <Button type="button" variant="secondary" disabled={pending !== null} onClick={() => setConfirming(false)}>
+                    {GOAL_COPY.removeKeep}
+                  </Button>
+                </div>
               ) : null}
             </div>
           </form>
@@ -219,6 +242,15 @@ export function PickGoal({ saved, today, suggestions }: { saved: Goal | null; to
       </div>
     </div>
   );
+}
+
+// What Remove my goal will do, in one line: the set-aside goes with the goal
+// when it still holds what Accept plan wrote (remove_goal()); one the student
+// changed since stays.
+function removeLine(goal: Goal, setAsideCents: number): string {
+  if (setAsideCents === 0) return GOAL_COPY.removeAsk;
+  if (goal.acceptedMonthlyCents !== null && goal.acceptedMonthlyCents === setAsideCents) return GOAL_COPY.removeClears(moneyAmount(setAsideCents));
+  return GOAL_COPY.removeKeeps(moneyAmount(setAsideCents));
 }
 
 // The day after an ISO date.

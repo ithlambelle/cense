@@ -7,7 +7,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(32);
+select plan(39);
 
 insert into auth.users (id, email) values
   ('90a10000-0000-4000-8000-000000000001', 'goals-ana@example.com'),
@@ -90,6 +90,23 @@ set local role authenticated;
 set local request.jwt.claims = '{"sub":"90a10000-0000-4000-8000-000000000002","role":"authenticated"}';
 select is(public.accept_goal_plan(), 'no_bank', 'with no bank there is no set-aside to write');
 reset role;
+
+-- Remove my goal clears the set-aside only when it is still the plan's
+-- (remove_goal()).
+select ok(not has_function_privilege('anon', 'public.remove_goal()', 'execute'), 'signed out, no one removes a goal');
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"90a10000-0000-4000-8000-000000000001","role":"authenticated"}';
+select is(public.remove_goal(), 'cleared', 'removing a goal whose plan is still the set-aside clears it');
+select is((select set_aside_cents from public.bank_links), 0::bigint, 'the set-aside is back to nothing');
+select is(public.remove_goal(), 'none', 'removing again finds no goal');
+insert into public.goals (student_id, preset, name, amount_cents, target_date, monthly_cents, accepted_monthly_cents)
+  values ('90a10000-0000-4000-8000-000000000001', 'trip', 'Trip', 60000, current_date + 90, 20000, 20000);
+update public.bank_links set set_aside_cents = 7500;
+select is(public.remove_goal(), 'kept', 'a set-aside the student changed since the plan stays');
+select is((select set_aside_cents from public.bank_links), 7500::bigint, 'at what they set');
+reset role;
+select is((select count(*)::int from public.goals where student_id = '90a10000-0000-4000-8000-000000000002'), 1,
+  'another student''s goal is untouched');
 
 -- Deleting the account deletes the goal.
 delete from auth.users where id = '90a10000-0000-4000-8000-000000000002';

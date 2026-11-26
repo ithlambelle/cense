@@ -1048,6 +1048,10 @@ components:
           format: date
         monthlyCents:
           type: integer
+        acceptedMonthlyCents:
+          type:
+            - integer
+            - "null"
         updatedAt:
           type: string
           format: date-time
@@ -1057,6 +1061,7 @@ components:
         - amountCents
         - targetDate
         - monthlyCents
+        - acceptedMonthlyCents
         - updatedAt
       additionalProperties: false
     SaveGoal:
@@ -1088,6 +1093,14 @@ components:
         - preset
         - name
         - amountCents
+      additionalProperties: false
+    RemovedGoal:
+      type: object
+      properties:
+        setAsideCleared:
+          type: boolean
+      required:
+        - setAsideCleared
       additionalProperties: false
     BankFindings:
       type: object
@@ -2046,12 +2059,18 @@ paths:
     delete:
       operationId: deleteGoal
       summary: Remove the student's goal
-      description: Answers 204 whether or not there was one. The set-aside stays as it is.
+      description: Answers 200 whether or not there was one. The set-aside is cleared
+        with it only when it still holds what Accept plan wrote (remove_goal());
+        one the student changed since stays.
       security:
         - studentSession: []
       responses:
-        "204":
-          description: Goal removed
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RemovedGoal"
         "401":
           description: Sign-in required
           content:

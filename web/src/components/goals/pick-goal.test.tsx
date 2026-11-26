@@ -38,7 +38,7 @@ afterEach(() => {
 
 describe("PickGoal", () => {
   it("shows three goals first and the rest behind More goals, with no Start investing", () => {
-    render(<PickGoal saved={null} today={TODAY} suggestions={SUGGESTIONS} />);
+    render(<PickGoal saved={null} setAsideCents={0} today={TODAY} suggestions={SUGGESTIONS} />);
     expect(goals().getAllByRole("button").map((button) => button.textContent)).toEqual(["Emergency fund", "Pay off my card", "Trip"]);
     fireEvent.click(screen.getByRole("button", { name: "More goals" }));
     expect(goals().getAllByRole("button").map((button) => button.textContent)).toEqual([
@@ -54,7 +54,7 @@ describe("PickGoal", () => {
   });
 
   it("fills in the suggested amount and says where it came from", () => {
-    render(<PickGoal saved={null} today={TODAY} suggestions={SUGGESTIONS} />);
+    render(<PickGoal saved={null} setAsideCents={0} today={TODAY} suggestions={SUGGESTIONS} />);
     choose("Emergency fund");
     expect(amount().value).toBe("1240");
     expect(screen.getByText("Suggested $1,240: one month of your rent, bills and groceries.")).toBeTruthy();
@@ -67,7 +67,7 @@ describe("PickGoal", () => {
   });
 
   it("asks for a goal, then an amount, before saving", async () => {
-    render(<PickGoal saved={null} today={TODAY} suggestions={SUGGESTIONS} />);
+    render(<PickGoal saved={null} setAsideCents={0} today={TODAY} suggestions={SUGGESTIONS} />);
     submit();
     expect(screen.getByText("Pick a goal.")).toBeTruthy();
     choose("Trip");
@@ -80,7 +80,7 @@ describe("PickGoal", () => {
   });
 
   it("asks what Something else is for", () => {
-    render(<PickGoal saved={null} today={TODAY} suggestions={SUGGESTIONS} />);
+    render(<PickGoal saved={null} setAsideCents={0} today={TODAY} suggestions={SUGGESTIONS} />);
     fireEvent.click(screen.getByRole("button", { name: "More goals" }));
     choose("Something else");
     fireEvent.change(amount(), { target: { value: "400" } });
@@ -90,7 +90,7 @@ describe("PickGoal", () => {
   });
 
   it("refuses a date that is not after today, or too far out", () => {
-    render(<PickGoal saved={null} today={TODAY} suggestions={SUGGESTIONS} />);
+    render(<PickGoal saved={null} setAsideCents={0} today={TODAY} suggestions={SUGGESTIONS} />);
     choose("Trip");
     fireEvent.change(amount(), { target: { value: "600" } });
     expect(date().min).toBe("2026-11-27");
@@ -107,7 +107,7 @@ describe("PickGoal", () => {
 
   it("saves the suggestion with no date, then opens Your plan", async () => {
     saveGoal.mockResolvedValue({ kind: "ok", data: { goal: {} } });
-    render(<PickGoal saved={null} today={TODAY} suggestions={SUGGESTIONS} />);
+    render(<PickGoal saved={null} setAsideCents={0} today={TODAY} suggestions={SUGGESTIONS} />);
     choose("Emergency fund");
     submit();
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/start/plan"));
@@ -117,7 +117,7 @@ describe("PickGoal", () => {
 
   it("saves a typed amount and a date, and counts it as typed", async () => {
     saveGoal.mockResolvedValue({ kind: "ok", data: { goal: {} } });
-    render(<PickGoal saved={null} today={TODAY} suggestions={SUGGESTIONS} />);
+    render(<PickGoal saved={null} setAsideCents={0} today={TODAY} suggestions={SUGGESTIONS} />);
     choose("Emergency fund");
     fireEvent.change(amount(), { target: { value: "$2,000" } });
     fireEvent.change(date(), { target: { value: "2027-06-01" } });
@@ -129,7 +129,7 @@ describe("PickGoal", () => {
 
   it("says why a save failed and stays", async () => {
     saveGoal.mockResolvedValue({ kind: "failed", code: "data_unavailable", message: "Your data is temporarily unavailable. Please try again." });
-    render(<PickGoal saved={null} today={TODAY} suggestions={SUGGESTIONS} />);
+    render(<PickGoal saved={null} setAsideCents={0} today={TODAY} suggestions={SUGGESTIONS} />);
     choose("Emergency fund");
     submit();
     expect(await screen.findByText("Your data is temporarily unavailable. Please try again.")).toBeTruthy();
@@ -138,28 +138,52 @@ describe("PickGoal", () => {
   });
 
   it("goes Home on Not now, without saving", () => {
-    render(<PickGoal saved={null} today={TODAY} suggestions={SUGGESTIONS} />);
+    render(<PickGoal saved={null} setAsideCents={0} today={TODAY} suggestions={SUGGESTIONS} />);
     expect(screen.getByRole("link", { name: "Not now" }).getAttribute("href")).toBe("/home");
     expect(screen.queryByRole("button", { name: "Remove my goal" })).toBeNull();
   });
 
-  it("brings a saved goal back filled in, behind More goals, and can remove it", async () => {
-    const saved: Goal = {
-      preset: "other",
-      name: "Laptop",
-      amountCents: 90_050,
-      targetDate: "2027-08-01",
-      monthlyCents: 11_257,
-      updatedAt: "2026-11-26T15:00:00.000Z",
-    };
-    deleteGoal.mockResolvedValue({ kind: "ok", data: null });
-    render(<PickGoal saved={saved} today={TODAY} suggestions={SUGGESTIONS} />);
+  const LAPTOP: Goal = {
+    preset: "other",
+    name: "Laptop",
+    amountCents: 90_050,
+    targetDate: "2027-08-01",
+    monthlyCents: 11_257,
+    acceptedMonthlyCents: 11_257,
+    updatedAt: "2026-11-26T15:00:00.000Z",
+  };
+
+  it("brings a saved goal back filled in, behind More goals", () => {
+    render(<PickGoal saved={LAPTOP} setAsideCents={11_257} today={TODAY} suggestions={SUGGESTIONS} />);
     expect(goals().getByRole("button", { name: "Something else" }).getAttribute("aria-pressed")).toBe("true");
     expect((screen.getByLabelText("What is it for?") as HTMLInputElement).value).toBe("Laptop");
     expect(amount().value).toBe("900.50");
     expect(date().value).toBe("2027-08-01");
+  });
+
+  it("asks before removing, saying the plan's set-aside stops too, then removes and goes Home", async () => {
+    deleteGoal.mockResolvedValue({ kind: "ok", data: { setAsideCleared: true } });
+    render(<PickGoal saved={LAPTOP} setAsideCents={11_257} today={TODAY} suggestions={SUGGESTIONS} />);
     fireEvent.click(screen.getByRole("button", { name: "Remove my goal" }));
+    expect(deleteGoal).not.toHaveBeenCalled();
+    expect(screen.getByText("Remove your goal? Your $112.57 a month set-aside stops too.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Keep my goal" }));
+    expect(screen.queryByText(/Remove your goal\?/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Remove my goal" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
     expect(deleteGoal).toHaveBeenCalledTimes(1);
+  });
+
+  it("says a set-aside the student changed since stays, and where to change it", () => {
+    render(<PickGoal saved={LAPTOP} setAsideCents={5_000} today={TODAY} suggestions={SUGGESTIONS} />);
+    fireEvent.click(screen.getByRole("button", { name: "Remove my goal" }));
+    expect(screen.getByText("Remove your goal? Your $50 a month set-aside stays; change it on Your money.")).toBeTruthy();
+  });
+
+  it("asks plainly when there is no set-aside", () => {
+    render(<PickGoal saved={{ ...LAPTOP, acceptedMonthlyCents: null }} setAsideCents={0} today={TODAY} suggestions={SUGGESTIONS} />);
+    fireEvent.click(screen.getByRole("button", { name: "Remove my goal" }));
+    expect(screen.getByText("Remove your goal?")).toBeTruthy();
   });
 });

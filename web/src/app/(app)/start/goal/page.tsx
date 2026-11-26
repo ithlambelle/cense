@@ -29,6 +29,7 @@ export default async function StartGoalPage() {
   return (
     <PickGoal
       saved={goal.value}
+      setAsideCents={money.value.setAsideCents}
       today={today}
       suggestions={{ emergency_fund: suggestedAmount("emergency_fund", from), pay_off_card: suggestedAmount("pay_off_card", from) }}
     />

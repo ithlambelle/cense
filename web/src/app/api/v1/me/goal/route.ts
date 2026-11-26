@@ -7,7 +7,7 @@ import { databaseError } from "@/lib/api/database";
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { saveGoalSchema } from "@/lib/api/goals";
 import { addMonthsIso, easternToday, MAX_YEARS } from "@/lib/goals/plan";
-import { deleteGoal, saveGoal } from "@/lib/goals/store";
+import { removeGoal, saveGoal } from "@/lib/goals/store";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
@@ -35,7 +35,8 @@ export async function DELETE(): Promise<Response> {
   const student = await authenticatedStudent();
   if (!student) return apiError(401, "unauthorized", "Sign in to continue.");
 
-  const deleted = await deleteGoal(student);
-  if (!deleted.ok) return databaseError("goal_delete", deleted.error);
-  return new Response(null, { status: 204, headers: NO_STORE });
+  // Its set-aside goes too when it still holds what Accept plan wrote.
+  const removed = await removeGoal(student);
+  if (!removed.ok) return databaseError("goal_delete", removed.error);
+  return Response.json({ setAsideCleared: removed.value }, { headers: NO_STORE });
 }

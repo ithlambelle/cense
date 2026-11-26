@@ -4,5 +4,6 @@
 -- an accepted plan stays on bank_links, where the student can still change it
 -- on Your money. Safe to run again.
 
+drop function if exists public.remove_goal();
 drop function if exists public.accept_goal_plan();
 drop table if exists public.goals;

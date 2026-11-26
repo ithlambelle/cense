@@ -31,22 +31,29 @@ export const goalSchema = z
     // The plan, also fixed at the save and kept until the goal is edited: the
     // amount over the whole months left (at least 1), rounded up to the cent.
     monthlyCents: z.int(),
+    // What Accept plan last wrote to the set-aside; null until accepted.
+    acceptedMonthlyCents: z.int().nullable(),
     updatedAt: z.iso.datetime({ offset: true }),
   })
   .openapi("Goal");
 
 export const savedGoalSchema = z.strictObject({ goal: goalSchema }).openapi("SavedGoal");
 
+// DELETE: whether the set-aside was cleared with the goal (it still held what
+// Accept plan wrote) or kept (none, or the student changed it since).
+export const removedGoalSchema = z.strictObject({ setAsideCleared: z.boolean() }).openapi("RemovedGoal");
+
 export type Goal = z.infer<typeof goalSchema>;
 export type SaveGoalBody = z.infer<typeof saveGoalSchema>;
 
-export const GOAL_FIELDS = "preset, name, amount_cents, target_date, monthly_cents, updated_at";
+export const GOAL_FIELDS = "preset, name, amount_cents, target_date, monthly_cents, accepted_monthly_cents, updated_at";
 export type GoalRow = {
   preset: string;
   name: string;
   amount_cents: number | string;
   target_date: string;
   monthly_cents: number | string;
+  accepted_monthly_cents: number | string | null;
   updated_at: string;
 };
 
@@ -59,6 +66,7 @@ export function goalFromRow(row: GoalRow): Goal {
     amountCents: Number(row.amount_cents),
     targetDate: row.target_date,
     monthlyCents: Number(row.monthly_cents),
+    acceptedMonthlyCents: row.accepted_monthly_cents === null ? null : Number(row.accepted_monthly_cents),
     updatedAt: new Date(row.updated_at).toISOString(),
   };
 }

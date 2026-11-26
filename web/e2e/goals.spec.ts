@@ -143,6 +143,15 @@ test("a student picks Emergency fund with the suggestion, accepts the plan, and 
   await page.goto("/home");
   await page.goBack();
   await expect(page).not.toHaveURL(/\/start\/plan$/);
+
+  // Removing the goal says, then does, that its set-aside stops too.
+  await page.goto("/start/goal");
+  await page.getByRole("button", { name: "Remove my goal" }).click();
+  await expect(page.getByText("Remove your goal? Your $166.67 a month set-aside stops too.")).toBeVisible();
+  await page.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(page).toHaveURL(/\/home$/);
+  expect(await savedGoals(page)).toEqual([]);
+  expect((await safeToSpend(page)).setAsideCents).toBe(0);
 });
 
 test("Not now goes Home with no goal and nothing set aside, and the screens need a signed-in student", async ({ page, context }) => {
@@ -208,6 +217,8 @@ test("a typed goal with a date, then changed and removed, at 320 wide with no si
   await expect(page.getByText(/^Trip: \$600 by /)).toBeVisible();
   await page.getByRole("link", { name: "Edit" }).click();
   await page.getByRole("button", { name: "Remove my goal" }).click();
+  await expect(page.getByText("Remove your goal?", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Remove", exact: true }).click();
   await expect(page).toHaveURL(/\/home$/);
   expect(await savedGoals(page)).toEqual([]);
 });

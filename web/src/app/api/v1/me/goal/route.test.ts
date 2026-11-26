@@ -32,7 +32,7 @@ function student({ existing = { data: null, error: null }, saved = { data: null,
   };
 }
 
-const ROW = { preset: "emergency_fund", name: "Emergency fund", amount_cents: "124000", target_date: "2027-05-26", monthly_cents: "20667", updated_at: "2026-11-26T15:00:00+00:00" };
+const ROW = { preset: "emergency_fund", name: "Emergency fund", amount_cents: "124000", target_date: "2027-05-26", monthly_cents: "20667", accepted_monthly_cents: null, updated_at: "2026-11-26T15:00:00+00:00" };
 const saved = (row: Record<string, unknown> = ROW) => ({ saved: { data: row, error: null } });
 const BODY = { preset: "emergency_fund", name: "Emergency fund", amountCents: 124_000, targetDate: null };
 
@@ -136,20 +136,23 @@ describe("PUT /me/goal", () => {
 });
 
 describe("DELETE /me/goal", () => {
-  it("deletes only the student's own goal, and answers 204 whether or not there was one", async () => {
-    const s = student();
-    auth.authenticatedStudent.mockResolvedValue(s.value);
-    const response = await DELETE();
-    expect(response.status).toBe(204);
-    expect(s.calls.deleted).toBe(true);
-    expect(s.calls.eq).toEqual([["student_id", "student-1"]]);
+  it("removes only the student's own goal through remove_goal(), and says whether its set-aside went too", async () => {
+    for (const [outcome, cleared] of [["cleared", true], ["kept", false], ["none", false]] as const) {
+      const rpc = vi.fn(async () => ({ data: outcome, error: null }));
+      auth.authenticatedStudent.mockResolvedValue({ studentId: "student-1", email: null, supabase: { rpc } });
+      const response = await DELETE();
+      expect(response.status, outcome).toBe(200);
+      expect(rpc).toHaveBeenCalledWith("remove_goal");
+      expect(await response.json()).toEqual({ setAsideCleared: cleared });
+    }
   });
 
   it("needs a session, and answers 503 when the database fails", async () => {
     auth.authenticatedStudent.mockResolvedValue(null);
     expect((await DELETE()).status).toBe(401);
     vi.spyOn(console, "error").mockImplementation(() => {});
-    auth.authenticatedStudent.mockResolvedValue(student({ deleted: { data: null, error: { code: "42P01", message: "x" } } }).value);
+    const rpc = vi.fn(async () => ({ data: null, error: { code: "42883", message: "no function" } }));
+    auth.authenticatedStudent.mockResolvedValue({ studentId: "student-1", email: null, supabase: { rpc } });
     expect((await DELETE()).status).toBe(503);
   });
 });

@@ -33,10 +33,17 @@
 -- 'accepted', 'no_goal', 'no_bank', or 'nothing_to_set_aside' for a goal
 -- whose plan sets nothing aside (Pay off my card).
 --
+-- remove_goal(): Remove my goal on Pick a goal. Deletes the caller's goal,
+-- and clears their set-aside only when it still holds what Accept plan wrote
+-- for it (accepted_monthly_cents); a set-aside the student changed since is
+-- theirs and stays. Runs as the caller. Answers 'cleared', 'kept' or 'none'
+-- (no goal).
+--
 -- Check after applying:
 --   select relrowsecurity from pg_class where oid = 'public.goals'::regclass;  -- true
 --   select count(*) from pg_policies where tablename = 'goals';                  -- 4
 --   select has_function_privilege('anon', 'public.accept_goal_plan()', 'execute');  -- false
+--   select has_function_privilege('anon', 'public.remove_goal()', 'execute');       -- false
 
 create table if not exists public.goals (
   student_id uuid primary key references auth.users (id) on delete cascade,
@@ -66,7 +73,7 @@ create trigger goals_set_updated_at
 -- column it sends; row level security keeps it the student's own id.
 revoke all on table public.goals from public, anon, authenticated;
 grant select, delete on public.goals to authenticated;
-grant insert (student_id, preset, name, amount_cents, target_date, monthly_cents) on public.goals to authenticated;
+grant insert (student_id, preset, name, amount_cents, target_date, monthly_cents, accepted_monthly_cents) on public.goals to authenticated;
 grant update (student_id, preset, name, amount_cents, target_date, monthly_cents, accepted_monthly_cents) on public.goals to authenticated;
 
 alter table public.goals enable row level security;
@@ -117,3 +124,31 @@ $$;
 
 revoke execute on function public.accept_goal_plan() from public, anon;
 grant execute on function public.accept_goal_plan() to authenticated;
+
+create or replace function public.remove_goal()
+returns text
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_student uuid := auth.uid();
+  v_accepted bigint;
+begin
+  delete from public.goals where student_id = v_student returning accepted_monthly_cents into v_accepted;
+  if not found then
+    return 'none';
+  end if;
+  if v_accepted > 0 then
+    update public.bank_links set set_aside_cents = 0
+    where student_id = v_student and set_aside_cents = v_accepted;
+    if found then
+      return 'cleared';
+    end if;
+  end if;
+  return 'kept';
+end;
+$$;
+
+revoke execute on function public.remove_goal() from public, anon;
+grant execute on function public.remove_goal() to authenticated;

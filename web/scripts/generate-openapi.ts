@@ -33,7 +33,7 @@ import {
   updateReminderSettingsSchema,
 } from "../src/lib/api/reminders";
 import { privacySettingsSchema, updatePrivacySettingsSchema } from "../src/lib/api/privacy";
-import { savedGoalSchema, saveGoalSchema } from "../src/lib/api/goals";
+import { removedGoalSchema, savedGoalSchema, saveGoalSchema } from "../src/lib/api/goals";
 import {
   createBankLinkSchema,
   linkTokenSchema,
@@ -210,9 +210,9 @@ registry.registerPath({
 });
 registry.registerPath({
   method: "delete", path: "/me/goal", operationId: "deleteGoal", summary: "Remove the student's goal",
-  description: "Answers 204 whether or not there was one. The set-aside stays as it is.",
+  description: "Answers 200 whether or not there was one. The set-aside is cleared with it only when it still holds what Accept plan wrote (remove_goal()); one the student changed since stays.",
   security: [{ studentSession: [] }],
-  responses: { 204: { description: "Goal removed" }, ...protectedResponses },
+  responses: { 200: ok(removedGoalSchema), ...protectedResponses },
 });
 registry.registerPath({
   method: "get", path: "/cards", operationId: "listCards", summary: "List curated student cards",

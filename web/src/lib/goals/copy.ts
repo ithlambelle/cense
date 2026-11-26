@@ -38,6 +38,12 @@ export const GOAL_COPY = {
   continue: "See my plan",
   notNow: "Not now",
   remove: "Remove my goal",
+  // The one-line confirmation, by what happens to the set-aside.
+  removeAsk: "Remove your goal?",
+  removeClears: (amount: string) => `Remove your goal? Your ${amount} a month set-aside stops too.`,
+  removeKeeps: (amount: string) => `Remove your goal? Your ${amount} a month set-aside stays; change it on Your money.`,
+  removeConfirm: "Remove",
+  removeKeep: "Keep my goal",
   pickError: "Pick a goal.",
   nameError: "Say what it’s for.",
   amountError: "Enter an amount, like 500.",
