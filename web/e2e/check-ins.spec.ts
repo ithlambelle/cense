@@ -88,7 +88,7 @@ function buttons(html: string): Record<string, string> {
 async function applied(page: Page, journey: string) {
   const email = uniqueEmail(journey);
   await signUp(page, email, async () => {});
-  const created = await page.request.post("/api/v1/applications", { data: { ...DISCOVER, status: "applied" } });
+  const created = await page.request.post("/api/v1/applications", { data: { ...DISCOVER, status: "applied", creditLimitCents: null } });
   expect(created.status(), await created.text()).toBe(201);
   return { email, id: ((await created.json()) as { id: string }).id };
 }

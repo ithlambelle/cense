@@ -8,7 +8,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(26);
+select plan(27);
 
 create temp table students (name text primary key, id uuid, confirmed boolean default true);
 insert into students (name, id) values
@@ -110,6 +110,15 @@ select is_empty($$select pg_temp.check_ins(pg_temp.app('unsubscribed'), 'heard_b
 select results_eq($$select pg_temp.check_ins(pg_temp.app('letter10'), 'letter_check')$$,
   $$values (pg_temp.today())$$,
   'waiting on the letter plans "Has your letter come?" 10 days after the denial');
+
+-- An unsent letter check-in is kept while the student still waits: the
+-- daily re-plan neither moves nor duplicates it.
+update public.reminders set occurrence = pg_temp.today() + 3
+where card_application_id = pg_temp.app('letter9') and kind = 'letter_check';
+select public.refresh_reminders(pg_temp.app('letter9'));
+select results_eq($$select pg_temp.check_ins(pg_temp.app('letter9'), 'letter_check')$$,
+  $$values (pg_temp.today() + 3)$$,
+  'the daily re-plan keeps an unsent letter check-in as it is');
 
 -- A decision removes the unsent check-ins.
 update public.card_applications set status = 'approved' where id = pg_temp.app('decided');

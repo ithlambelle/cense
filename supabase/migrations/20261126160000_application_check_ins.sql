@@ -26,12 +26,13 @@
 --    it, like the other switches; changing it re-plans (the profiles trigger).
 -- 2. reminders.kind allows 'heard_back' and 'letter_check'.
 -- 3. refresh_reminders() plans them. The one from
---    20261025200000_reminder_fixes.sql with one new block, marked NEW. Unsent
---    ones are rebuilt on every refresh, so a decision, "I got my letter", a
---    setting turned off or an unsubscribe removes them. A check-in already
---    sent (or being sent) is never planned again, even if a time zone change
---    moves its day by one. One already more than 6 days past its day is not
---    planned (the claim would never send it).
+--    20261025200000_reminder_fixes.sql with one new block, marked NEW. A
+--    decision, "I got my letter", a setting turned off or an unsubscribe
+--    removes the unsent ones (unsent "heard back" ones are rebuilt on every
+--    refresh; an unsent letter one is kept while the student still waits).
+--    A check-in already sent (or being sent) is never planned again, even if
+--    a time zone change moves its day by one. One already more than 6 days
+--    past its day is not planned (the claim would never send it).
 -- 4. The card_applications trigger also re-plans when denial_reason changes
 --    ("Not yet, I'm waiting on the letter" and "I got my letter" change only
 --    that) or applied_at does (students cannot change it; the journey tests
@@ -90,12 +91,21 @@ begin
   v_today := coalesce(p_today, (now() at time zone v_tz)::date);
   v_subscribed := v_profile.reminders_unsubscribed_at is null;
 
-  -- NEW: the check-ins while the student waits on the issuer. Unsent ones are
-  -- rebuilt from the application's status and the student's settings.
+  -- NEW: the check-ins while the student waits on the issuer. Unsent "heard
+  -- back" ones are rebuilt from the applied date, status and settings; an
+  -- unsent letter one is kept while the student still waits on the letter
+  -- (it is planned once) and removed otherwise.
   delete from public.reminders
   where card_application_id = p_application_id
-    and kind in ('heard_back', 'letter_check')
+    and kind = 'heard_back'
     and sent_at is null and claimed_at is null;
+  if not (v_subscribed and coalesce(v_profile.remind_application_updates, true)
+          and v_app.status = 'rejected' and v_app.denial_reason is not distinct from 'no_letter_yet') then
+    delete from public.reminders
+    where card_application_id = p_application_id
+      and kind = 'letter_check'
+      and sent_at is null and claimed_at is null;
+  end if;
 
   if v_subscribed and coalesce(v_profile.remind_application_updates, true) then
     -- "Heard back yet?" 7 and 21 days after applying, while no decision is
