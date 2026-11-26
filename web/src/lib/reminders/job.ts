@@ -100,14 +100,25 @@ type SendOutcome = { ok: true } | { ok: false; status: number | null; code: stri
 async function spendLimits(supabase: ServiceClient, rows: ClaimedReminderRow[]): Promise<Map<string, number>> {
   const ids = rows.filter((row) => row.kind === "statement_closing").map((row) => row.reminder_id);
   if (ids.length === 0) return new Map();
-  const { data, error } = await supabase.from("reminders").select("id, card_applications(spend_limit_cents)").in("id", ids);
-  if (error) {
-    log("database_error", { operation: "reminder_spend_limits", code: error.code }, "error");
+  let data: unknown;
+  try {
+    const read = await supabase.from("reminders").select("id, card_applications(spend_limit_cents)").in("id", ids);
+    if (read.error) {
+      log("database_error", { operation: "reminder_spend_limits", code: read.error.code }, "error");
+      return new Map();
+    }
+    data = read.data;
+  } catch (error) {
+    log("database_error", { operation: "reminder_spend_limits", code: error instanceof Error ? error.name : "read_failed" }, "error");
     return new Map();
   }
   const limits = new Map<string, number>();
-  for (const entry of (data ?? []) as { id: string; card_applications: { spend_limit_cents: number | null } | null }[]) {
-    const cents = entry.card_applications?.spend_limit_cents;
+  // One card per reminder; PostgREST sends it as an object, the generated
+  // types as a list, so both are read.
+  type Card = { spend_limit_cents: number | null };
+  for (const entry of (data ?? []) as unknown as { id: string; card_applications: Card | Card[] | null }[]) {
+    const card = Array.isArray(entry.card_applications) ? entry.card_applications[0] : entry.card_applications;
+    const cents = card?.spend_limit_cents;
     if (cents !== null && cents !== undefined) limits.set(entry.id, Number(cents));
   }
   return limits;
