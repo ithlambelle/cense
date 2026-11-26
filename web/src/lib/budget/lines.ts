@@ -65,13 +65,14 @@ export type BudgetSummary = {
 export const SAVING_LABEL = "Saving";
 
 // Where the bank can show each bill the setup questions ask about, as Plaid
-// detailed categories. `own` is the bill's own category (the same as Penny's
-// reading of the bank); its first entry names the This month line the bill
-// belongs on, through censeCategory, so a bill from the answers lands where
-// the bank would have put it. `also` is where the same payment often lands
-// under another name: groceries bought at a superstore, car insurance. Money
-// sent through a payment app or to a person (TRANSFER_OUT, Other) can be any
-// bill, such as rent paid by Zelle.
+// detailed categories. `own` is the bill's own payment (the same categories
+// as Penny's reading of the bank, less the car's gas and parking); its first
+// entry names the This month line the bill belongs on, through censeCategory,
+// so a bill from the answers lands where the bank would have put it. `also`
+// is spending that is often part of the bill under another name: groceries
+// bought at a superstore, gas, parking and insurance for the car. Money sent
+// through a payment app or to a person (TRANSFER_OUT, Other) can be any bill,
+// such as rent paid by Zelle.
 const BILL_CATEGORIES: Record<Bill, { own: readonly (readonly [string, string])[]; also: readonly string[] }> = {
   rent: { own: [["RENT_AND_UTILITIES", "RENT_AND_UTILITIES_RENT"]], also: [] },
   phone: { own: [["RENT_AND_UTILITIES", "RENT_AND_UTILITIES_TELEPHONE"]], also: ["RENT_AND_UTILITIES_INTERNET_AND_CABLE"] },
@@ -81,12 +82,8 @@ const BILL_CATEGORIES: Record<Bill, { own: readonly (readonly [string, string])[
     also: ["GENERAL_MERCHANDISE_SUPERSTORES", "GENERAL_MERCHANDISE_DISCOUNT_STORES", "GENERAL_MERCHANDISE_CONVENIENCE_STORES"],
   },
   car: {
-    own: [
-      ["LOAN_PAYMENTS", "LOAN_PAYMENTS_CAR_PAYMENT"],
-      ["TRANSPORTATION", "TRANSPORTATION_GAS"],
-      ["TRANSPORTATION", "TRANSPORTATION_PARKING"],
-    ],
-    also: ["GENERAL_SERVICES_INSURANCE", "GENERAL_SERVICES_AUTOMOTIVE", "TRANSPORTATION_TOLLS"],
+    own: [["LOAN_PAYMENTS", "LOAN_PAYMENTS_CAR_PAYMENT"]],
+    also: ["TRANSPORTATION_GAS", "TRANSPORTATION_PARKING", "GENERAL_SERVICES_INSURANCE", "GENERAL_SERVICES_AUTOMOTIVE", "TRANSPORTATION_TOLLS"],
   },
 };
 
@@ -100,11 +97,13 @@ export type BillFromAnswers = BudgetLine["answers"][number];
 // The part of each bill the student pays that the month's spending does not
 // already show, by the line it belongs on. Totals only, so the rule is about
 // money, not names: each dollar the bank shows pays at most one bill.
-// 1. The bill's own category and the categories it often lands under count
-//    toward it, in part: groceries at a superstore, insurance toward the car.
-//    Spending there that is not the bill can only hide part of it (a $12
-//    parking charge leaves $288 of a $300 car bill), never add to it.
-// 2. Money sent to people or payment apps counts only when it covers all of
+// 1. Any spending in the bill's own category means the bank shows the bill:
+//    nothing is added, whatever the amount (the bank's month is the number).
+// 2. Spending where the bill often lands under another name counts toward it,
+//    in part: groceries at a superstore, insurance toward the car. Spending
+//    there that is not the bill can only hide part of it (a $12 parking
+//    charge leaves $288 of a $300 car bill), never add to it.
+// 3. Money sent to people or payment apps counts only when it covers all of
 //    what is left of the bill, as one payment would (rent by Zelle). Smaller
 //    sums are most likely friends being paid back, so they hide nothing.
 // Never counted twice: a bill the bank shows anywhere above adds nothing.
@@ -121,11 +120,14 @@ function billsFromAnswers(bills: BillAnswer[], totals: DetailedTotal[]): Partial
     if (used > 0) left.set(detailed, (left.get(detailed) ?? 0) - used);
     return cents - used;
   };
-  const paying = bills.filter((answer) => (answer.coveredBy === "me" || answer.coveredBy === "split") && (answer.monthlyCents ?? 0) > 0);
-  // Every bill's own category first, so one bill never takes another's.
+  const paying = bills.filter(
+    (answer) =>
+      (answer.coveredBy === "me" || answer.coveredBy === "split") &&
+      (answer.monthlyCents ?? 0) > 0 &&
+      !BILL_CATEGORIES[answer.bill].own.some(([, detailed]) => left.has(detailed)),
+  );
   const unseen = new Map<Bill, number>();
-  for (const answer of paying) unseen.set(answer.bill, BILL_CATEGORIES[answer.bill].own.reduce((cents, [, detailed]) => take(detailed, cents), answer.monthlyCents!));
-  for (const answer of paying) unseen.set(answer.bill, BILL_CATEGORIES[answer.bill].also.reduce((cents, detailed) => take(detailed, cents), unseen.get(answer.bill)!));
+  for (const answer of paying) unseen.set(answer.bill, BILL_CATEGORIES[answer.bill].also.reduce((cents, detailed) => take(detailed, cents), answer.monthlyCents!));
   const transfers = [...left.keys()].filter((detailed) => detailed.startsWith("TRANSFER_OUT_"));
   const byLine: Partial<Record<CategoryKey, BudgetLine["answers"]>> = {};
   for (const answer of paying) {

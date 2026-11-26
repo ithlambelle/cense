@@ -149,6 +149,11 @@ describe("bills from the safe-to-spend answers", () => {
     expect(line(lines, "transportation")).toMatchObject({ amountCents: 30000, bankCents: 1200, answers: [{ bill: "car", amountCents: 28800, seenCents: 1200 }] });
   });
 
+  it("keeps the bank's number when the bill's own category shows a different amount", () => {
+    const lines = buildBudgetLines({ ...bank(row("RENT_AND_UTILITIES", "RENT_AND_UTILITIES_RENT", 65000)), bills: only("rent", 70000) });
+    expect(line(lines, "rent_and_bills")).toMatchObject({ amountCents: 65000, answers: [] });
+  });
+
   it("adds rent paid elsewhere when the money sent to friends is less than the rent", () => {
     const lines = buildBudgetLines({ ...bank(row("TRANSFER_OUT", "TRANSFER_OUT_ACCOUNT_TRANSFER", 20000)), bills: only("rent", 65000) });
     expect(line(lines, "rent_and_bills")).toMatchObject({ amountCents: 65000, answers: [{ bill: "rent", amountCents: 65000, seenCents: 0 }] });
