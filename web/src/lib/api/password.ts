@@ -1,8 +1,17 @@
 import { z } from "zod";
 
+import { PASSWORD_MAX, PASSWORD_MIN, passwordProblem } from "@/lib/auth/password";
+
+// The forms' rule (lib/auth/password.ts), so the two can never disagree. The
+// lengths are repeated as min and max so the OpenAPI document shows them.
+const newPassword = z.string().min(PASSWORD_MIN).max(PASSWORD_MAX).superRefine((value, context) => {
+  const problem = passwordProblem(value);
+  if (problem) context.addIssue({ code: "custom", message: problem });
+});
+
 export const passwordCredentialsSchema = z.strictObject({
   email: z.email().max(254),
-  password: z.string().min(8).max(72).refine((value) => new TextEncoder().encode(value).length <= 72, "Use a password of 72 bytes or fewer."),
+  password: newPassword,
 });
 
 export const passwordSignInSchema = z.strictObject({

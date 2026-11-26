@@ -1,15 +1,17 @@
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { openedResetLink, passwordUpdateSchema } from "@/lib/api/password";
+import { passwordProblem } from "@/lib/auth/password";
 import { createStudentClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request): Promise<Response> {
   const body = await parseJson(request);
   const parsed = passwordUpdateSchema.safeParse(body);
   if (!parsed.success) {
-    if (typeof body === "object" && body !== null && "password" in body &&
-        typeof body.password === "string" && new TextEncoder().encode(body.password).length > 72) {
-      return apiError(400, "invalid_password", "Use a password of 72 bytes or fewer.");
-    }
+    // The same rule and words as the form (lib/auth/password.ts).
+    const problem = typeof body === "object" && body !== null && "password" in body && typeof body.password === "string"
+      ? passwordProblem(body.password)
+      : null;
+    if (problem) return apiError(400, "invalid_password", problem);
     return validationError(parsed.error);
   }
 

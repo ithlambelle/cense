@@ -10,7 +10,7 @@ import { ErrorMessage } from "@/components/ui/error-message";
 import { PasswordField } from "@/components/ui/password-field";
 import { SENSITIVE } from "@/lib/analytics";
 import { apiRequest, failureMessage } from "@/lib/api-client/client";
-import { PASSWORD_MIN, passwordProblem } from "@/lib/auth/password";
+import { PASSWORD_MIN, passwordFeedback, passwordProblem } from "@/lib/auth/password";
 import { ROUTES } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
 import { cn } from "@/lib/utils";
@@ -25,15 +25,19 @@ export function ResetPassword({ email = null }: { email?: string | null }) {
   const isMounted = useIsMounted();
   const [password, setPassword] = useState("");
   const [repeat, setRepeat] = useState("");
-  const [errors, setErrors] = useState<{ password?: string; repeat?: string; form?: string }>({});
+  const [errors, setErrors] = useState<{ repeat?: string; form?: string }>({});
   const [expired, setExpired] = useState(false);
   const [pending, setPending] = useState(false);
+  // True once Save password has been tapped: the rule then shows as an error,
+  // always for the password as it is now.
+  const [submitted, setSubmitted] = useState(false);
+  const rule = passwordFeedback(password, submitted);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (pending) return;
-    const problem = passwordProblem(password);
-    if (problem) return setErrors({ password: problem });
+    setSubmitted(true);
+    if (passwordProblem(password)) return setErrors({});
     if (repeat !== password) return setErrors({ repeat: "Let’s make those passwords match." });
     setErrors({});
     setPending(true);
@@ -78,7 +82,8 @@ export function ResetPassword({ email = null }: { email?: string | null }) {
           placeholder={`At least ${PASSWORD_MIN} characters`}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          error={errors.password}
+          hint={rule.hint}
+          error={rule.error}
           disabled={pending}
         />
         <PasswordField
