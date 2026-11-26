@@ -84,4 +84,9 @@ export const SECTION_7_STUDENTS: { name: string; answers: RuleAnswers }[] = [
   { name: "6. Case 1, turned down last month", answers: { ...CORE_STUDENT, recentDenial: true } },
   { name: "7. Age 20, part-time pay, student, missed payments", answers: { ...CORE_STUDENT, standing: "damaged" } },
   { name: "8. Case 1, cannot put down a deposit", answers: { ...CORE_STUDENT, canDeposit: false } },
+  // v1.4 (Notion "Fit Tier Rules v1.4", case 9): case 4 turned down last month.
+  {
+    name: "9. Case 4, authorized user, turned down last month",
+    answers: { ...CORE_STUDENT, standing: "limited", recentDenial: true },
+  },
 ];

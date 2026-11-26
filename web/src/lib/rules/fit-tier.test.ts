@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { listCards } from "../cards/catalog";
 import { moneyAmount } from "../money";
 import { QUESTIONS } from "../quiz/questions";
 import { evaluateFit, QUIZ_DEPOSIT_LIMIT_CENTS, RULES_VERSION } from "./fit-tier";
@@ -25,7 +26,9 @@ function pick(answers: RuleAnswers, cards: RuleCard[], values: YearOneValues = n
 
 // The table in section 7 of "Fit Tier Rules v1.2", copied cell by cell. v1.3
 // keeps it: it only adds a last tie-breaker, used when spending is answered.
-// Rows are students 1 to 8, columns are the cards in SECTION_7_CARDS order.
+// v1.4 adds case 9 below the table, worked out here from the gates and
+// cautions, which v1.4 leaves unchanged.
+// Rows are students 1 to 9, columns are the cards in SECTION_7_CARDS order.
 // A cell is the tier followed by the rule IDs that fired.
 const L = "likely_fit";
 // The four Bank of America student cards (columns 5 to 8) need established history.
@@ -39,6 +42,8 @@ const SECTION_7_TABLE: string[][] = [
   ["stretch C2", "stretch C2", "stretch C1 C2", "stretch C1 C2", ...BOFA("not_yet G5"), "stretch C2", "stretch C1 C2", "stretch C2", "stretch C2", "stretch C2"],
   ["stretch C3", "stretch C3", "stretch C1 C3", "stretch C1 C3", ...BOFA("not_yet G5"), "stretch C3", "stretch C1 C3", L, L, L],
   [L, L, "stretch C1", "stretch C1", ...BOFA("not_yet G5"), L, "stretch C1", "not_yet G6", "not_yet G6", L],
+  // 9 (v1.4): case 4's tiers, each with C2 added.
+  [...Array(4).fill("stretch C2"), ...BOFA("stretch C1 C2"), ...Array(5).fill("stretch C2")],
 ];
 
 // The recommended card for each student in section 7.
@@ -50,6 +55,9 @@ const SECTION_7_PICKS: (string | null)[] = [
   "chase-freedom-rise",
   "capital-one-platinum-secured",
   "capital-one-platinum-secured",
+  "discover-it-student-cash-back",
+  // v1.4: the recent-denial step no longer applies to a limited standing, so
+  // the pick follows steps 4 onward and is not a secured card.
   "discover-it-student-cash-back",
 ];
 
@@ -73,8 +81,8 @@ describe("fit tier rules: section 7 table", () => {
   });
 
   it("gives every result the rules version", () => {
-    expect(RULES_VERSION).toBe("fit-rules v1.3");
-    expect(evaluateFit(CORE_STUDENT, SECTION_7_CARDS).rulesVersion).toBe("fit-rules v1.3");
+    expect(RULES_VERSION).toBe("fit-rules v1.4");
+    expect(evaluateFit(CORE_STUDENT, SECTION_7_CARDS).rulesVersion).toBe("fit-rules v1.4");
   });
 });
 
@@ -487,6 +495,32 @@ describe("fit tier rules: picking the recommended card (section 6)", () => {
     expect(pick(CORE_STUDENT, [card("a-secured", "none", { secured: true }), card("b-plain")])).toBe("b-plain");
   });
 
+  // v1.4 (Ben, 2026-11-26): step 3 only for no credit, damaged credit or not sure.
+  it.each(["none", "damaged", "not_sure"] as const)("3 (v1.4). applies to a denied student whose standing is %s", (standing) => {
+    const answers = { ...CORE_STUDENT, standing, recentDenial: true };
+    // Same cautions on both (C2, and C3 for damaged), so only step 3 puts the secured card first.
+    expect(pick(answers, [card("a-plain"), card("b-secured", "none", { secured: true })])).toBe("b-secured");
+  });
+
+  it.each(["limited", "established"] as const)("3 (v1.4). never applies to a denied student whose standing is %s", (standing) => {
+    const answers = { ...CORE_STUDENT, standing, recentDenial: true };
+    // Step 9 (unsecured first) decides instead, so the secured card is not first.
+    expect(pick(answers, [card("a-secured", "none", { secured: true, okForRebuilding: true }), card("b-plain")])).toBe("b-plain");
+    expect(pick(answers, [card("a-rebuild", "none", { okForRebuilding: true }), card("b-plain", "none", { studentsOnly: true })])).toBe("b-plain");
+  });
+
+  it("3 (v1.4). on the real cards, a denied student who already has credit is not picked a secured card", () => {
+    const secured = new Set(SECTION_7_CARDS.filter((rule) => rule.secured).map((rule) => rule.id));
+    for (const standing of ["limited", "established"] as const) {
+      const answers = { ...CORE_STUDENT, standing, recentDenial: true, ...(standing === "established" ? { under21: false } : {}) };
+      const picked = pick(answers, SECTION_7_CARDS);
+      expect(picked).not.toBeNull();
+      expect(secured.has(picked as string)).toBe(false);
+    }
+    // Case 6 (no history, turned down) still picks the secured card.
+    expect(pick({ ...CORE_STUDENT, recentDenial: true }, SECTION_7_CARDS)).toBe("capital-one-platinum-secured");
+  });
+
   it("4. a history level the issuer publishes before an estimate or a decision", () => {
     expect(pick(CORE_STUDENT, [card("a-est", "none", { historyBasis: "estimate", studentsOnly: true }), card("b-pub")])).toBe("b-pub");
     expect(pick(CORE_STUDENT, [card("a-dec", "none", { historyBasis: "decision", studentsOnly: true }), card("b-pub")])).toBe("b-pub");
@@ -633,5 +667,69 @@ describe("fit tier rules: input that skipped the schema check", () => {
   it("ignores a goal that is not a real choice", () => {
     const cards = [card("a-plain"), card("b-upgrade", "none", { conditions: ["graduation_review"] })];
     expect(pick({ ...CORE_STUDENT, goal: "toString" } as unknown as RuleAnswers, cards)).toBe("a-plain");
+  });
+});
+
+// D10 (rank-blind links): partner and payout data are kept apart from card
+// facts, and nothing a referral deal could set may change the order. Every
+// answer combination is ranked on the real catalog three ways: as it is, with
+// every referral field stripped, and with referral fields filled with random
+// values, plus made-up payout fields. The ranking must be the same each time.
+describe("fit tier rules: ranking is blind to referral and payout data (D10)", () => {
+  // Every field name a deal could plausibly add or use.
+  const PARTNER_FIELD = /referral|partner|payout|affiliate|commission|bounty|sponsor|paid|apply/i;
+
+  it("reads no field whose name is about a referral, a partner or a payout", () => {
+    expect(Object.keys(card("any")).filter((key) => PARTNER_FIELD.test(key))).toEqual([]);
+  });
+
+  // A small seeded generator, so a failure always replays the same way.
+  function seeded(seed: number) {
+    let state = seed;
+    return () => {
+      state = (state * 1_103_515_245 + 12_345) % 2_147_483_648;
+      return state / 2_147_483_648;
+    };
+  }
+
+  const catalog = listCards();
+  const stripped = catalog.map((entry) => ({ ...entry, referralDisclosure: null }));
+  const random = seeded(20261126);
+  const randomised = catalog.map((entry) => ({
+    ...entry,
+    // Some cards with a deal and some without, so a rule that favoured either would show.
+    referralDisclosure: random() < 0.5 ? null : `Cense is paid ${moneyAmount(Math.floor(random() * 50_000))} if you are approved.`,
+    // A tracking link in place of the issuer's own: the value changes, never whether there is one.
+    applyUrl: `https://partner.example/track?card=${entry.id}&payout=${Math.floor(random() * 50_000)}`,
+    preapprovalUrl: entry.preapprovalUrl === null ? null : `https://partner.example/pre?r=${Math.floor(random() * 1e6)}`,
+    payoutCents: Math.floor(random() * 50_000),
+    partner: random() < 0.5,
+    commissionPercent: random() * 10,
+  }));
+
+  const bools = [true, false] as const;
+  const answerSets: RuleAnswers[] = [];
+  for (const under21 of bools)
+    for (const incomeBand of ["none", "savings_only", "under_5k", "5k_to_15k", "over_15k"] as const)
+      for (const student of bools)
+        for (const standing of ["none", "limited", "established", "damaged", "not_sure"] as const)
+          for (const recentDenial of bools)
+            for (const canDeposit of bools)
+              for (const goal of [undefined, "build_credit", "learn", "other"] as const)
+                answerSets.push({ under21, incomeBand, student, standing, recentDenial, canDeposit, goal });
+
+  it("ranks every answer combination the same with referral data stripped or randomised", () => {
+    const values = Object.fromEntries(catalog.map((entry, index) => [entry.id, (index * 7_919) % 20_000]));
+    expect(answerSets).toHaveLength(1_600);
+    for (const answers of answerSets) {
+      for (const given of [null, values]) {
+        const base = complete(evaluateFit(answers, catalog, given));
+        for (const variant of [stripped, randomised]) {
+          const other = complete(evaluateFit(answers, variant, given));
+          expect(other.ranking).toEqual(base.ranking);
+          expect(other.cards).toEqual(base.cards);
+        }
+      }
+    }
   });
 });

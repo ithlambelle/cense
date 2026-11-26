@@ -4,8 +4,14 @@ import type { cardSchema, quizAnswersSchema, recommendationSchema } from "../api
 import { moneyAmount } from "../money";
 
 // Fit Tier Rules. Every rule ID, reason and note below is quoted from the
-// team's Notion page "Fit Tier Rules v1.3 (Credit Card Recommender)". Change
+// team's Notion page "Fit Tier Rules v1.4 (Credit Card Recommender)". Change
 // this file only when the rules change, and bump RULES_VERSION with it.
+//
+// v1.4 (Ben, 2026-11-26) changes one step of the v1.3 pick order (section 6,
+// step 3): after a recent denial, secured and rebuilding cards go first only
+// when the student's standing (Q4) is none, damaged or not sure. A student who
+// already has a card or a loan is no longer steered to a secured card. Gates,
+// cautions, notes, tiers and reason text are unchanged.
 //
 // v1.3 (Ben, 2026-11-07) keeps the v1.2 pick order (section 6) and adds one
 // step at the very end, just before card ID: the higher estimated year-one
@@ -29,7 +35,7 @@ import { moneyAmount } from "../money";
 //   the build_credit goal favours a stated upgrade path.
 // It also removes note N3 (tax ID), counts "not sure" as no history, and
 // always asks Q6.
-export const RULES_VERSION = "fit-rules v1.3";
+export const RULES_VERSION = "fit-rules v1.4";
 
 type Card = z.infer<typeof cardSchema>;
 type QuizAnswers = z.infer<typeof quizAnswersSchema>;
@@ -369,6 +375,16 @@ function preferTrue(a: boolean, b: boolean): number {
   return a ? -1 : 1;
 }
 
+// v1.4: the standings (Q4) for which a recent denial puts secured and
+// rebuilding cards first. Written as a record so the compiler flags a new standing.
+const DENIAL_PREFERS_SECURED: Record<CompleteAnswers["standing"], boolean> = {
+  none: true,
+  damaged: true,
+  not_sure: true,
+  limited: false,
+  established: false,
+};
+
 function suitsRecentDenial(card: RuleCard): boolean {
   return card.secured || card.okForRebuilding;
 }
@@ -382,7 +398,7 @@ function statesUpgradePath(card: RuleCard): boolean {
 // plays no part in the order. A card missing from it counts as 0.
 export type YearOneValues = Readonly<Record<string, number>> | null;
 
-// Rules, section 6 (v1.3). A students-only card can only be a candidate for a
+// Rules, section 6 (v1.4). A students-only card can only be a candidate for a
 // student: gate G3 removes it for anyone else. Value, then card ID, break the
 // last ties.
 function compareForPick(answers: CompleteAnswers, values: YearOneValues) {
@@ -391,7 +407,8 @@ function compareForPick(answers: CompleteAnswers, values: YearOneValues) {
     // decides anything the cautions step would not. It stays to mirror the rules.
     if (a.fit.tier !== b.fit.tier) return TIER_RANK[a.fit.tier] - TIER_RANK[b.fit.tier];
     if (a.fit.ruleIds.length !== b.fit.ruleIds.length) return a.fit.ruleIds.length - b.fit.ruleIds.length;
-    if (answers.recentDenial) {
+    // v1.4: only for a student with no credit, damaged credit or not sure.
+    if (answers.recentDenial && DENIAL_PREFERS_SECURED[answers.standing]) {
       const denial = preferTrue(suitsRecentDenial(a.card), suitsRecentDenial(b.card));
       if (denial !== 0) return denial;
     }
