@@ -88,7 +88,7 @@ review sites for estimates, on 2026-10-15; 13 are `recommend`.
     `/auth/password/signup/confirm`, `/auth/password/signin`,
     `/auth/password/reset` and `POST /auth/password/reset/verify`) call
     `claim_auth_attempt_hashed(action, email_ip_hash, email_hash, ip_hash)`
-    and, for code checks, `auth_code_check(step, email_hash, ip_hash)`, and
+    and, for code checks, `auth_code_check(step, email_hash, ip_hash, send_ms)`, and
     nothing else, before anyone is signed in, with keys the server makes
     as HMAC-SHA256 with `AUTH_THROTTLE_KEY`, so the database never sees the
     email or IP. It counts tries in `auth_throttle_events`, which only that
@@ -111,14 +111,19 @@ review sites for estimates, on 2026-10-15; 13 are `recommend`.
     with `Retry-After`, before Supabase is called. A refused try is not
     counted. Each code check (`/auth/email/verify`,
     `/auth/password/signup/confirm`) is also counted against the code
-    (`20261126140000_sign_in_code_checks.sql`): after 5 checks of one email's
-    code, by the email alone, the route answers `401` `code_used_up`, "Too
-    many wrong codes. Tap Resend email for a new one.", even for the right
-    code, until a new code is sent (`/auth/email`, or a sign-up that sends
-    one; a reset email does not count). Per IP, 30 wrong codes per 10 minutes
-    and 100 a day across all emails, then `429` `rate_limited`; a right code
-    does not count. The place is taken before Supabase checks the code, so
-    parallel guesses cannot pass the count. When the count cannot be checked (the call fails or takes over 3
+    (`20261126150100_sign_in_code_checks.sql`): after 5 checks of one email's
+    code, by the email alone (lowercased and trimmed, +tag kept, as Supabase
+    keys accounts), the route answers `401` `code_used_up`, "Too many wrong
+    codes. Tap Resend email for a new one.", even for the right code, until a
+    new code is sent (`/auth/email`, or a sign-up that sends one; a reset
+    email does not count). The new code clears only checks made before its
+    send began. Per IP, 60 wrong codes per 10 minutes across all emails, then
+    `429` `rate_limited`; a right code does not count. The place is taken
+    before Supabase checks the code, so parallel guesses cannot pass the
+    count. These limits cover the app's routes only: Supabase Auth's own
+    `/auth/v1/verify` can be called directly with the public key, so its
+    dashboard settings (README, "Sign-in limit key, in order") still matter.
+    When the count cannot be checked (the call fails or takes over 3
     seconds, or production has no key), code and password checks answer `503`
     `sign_in_busy`, "Sign-in is busy right now. Try again in a minute.", and
     emails and reset links go ahead; both are logged.

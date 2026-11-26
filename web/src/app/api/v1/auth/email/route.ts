@@ -21,6 +21,7 @@ export async function POST(request: Request): Promise<Response> {
   const origin = emailLinkOrigin(request.url);
   if (!origin) logMissingAppBaseUrl("auth/email");
   const supabase = await createStudentClient();
+  const sendStarted = Date.now();
   const { error } = await supabase.auth.signInWithOtp({
     email: parsed.data.email,
     options: origin ? { emailRedirectTo: authCallbackUrl(origin, ROUTES.start) } : undefined,
@@ -29,7 +30,7 @@ export async function POST(request: Request): Promise<Response> {
     return apiError(502, "email_code_failed", "We could not send a code. Please try again.");
   }
   // A new code: the email's 5 tries start again.
-  await codeSent(parsed.data.email);
+  await codeSent(parsed.data.email, Date.now() - sendStarted);
 
   return Response.json({ status: "code_sent" }, { headers: { "Cache-Control": "no-store" } });
 }

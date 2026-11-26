@@ -82,7 +82,7 @@ describe("POST /auth/email", () => {
     auth.createStudentClient.mockResolvedValue({ auth: { signInWithOtp: auth.signInWithOtp } });
     auth.signInWithOtp.mockResolvedValue({ error: null });
     await send("https://cense.example/api/v1/auth/email");
-    expect(throttle.codeSent).toHaveBeenCalledWith("student@example.org");
+    expect(throttle.codeSent).toHaveBeenCalledWith("student@example.org", expect.any(Number));
     expect(auth.signInWithOtp.mock.invocationCallOrder[0]).toBeLessThan(throttle.codeSent.mock.invocationCallOrder[0]);
 
     // Supabase refused (its own wait between emails): the old code keeps its count.

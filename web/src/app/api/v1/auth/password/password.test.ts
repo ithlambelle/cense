@@ -361,7 +361,7 @@ describe("optional password auth", () => {
       auth.signUp.mockResolvedValue(EXISTING["a placeholder user with no identities (confirmation on)"]);
       otpAuth.signInWithOtp.mockResolvedValue({ data: {}, error: null });
       await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY));
-      expect(throttle.codeSent.mock.calls).toEqual([["student@example.com"], ["student@example.com"]]);
+      expect(throttle.codeSent.mock.calls).toEqual([["student@example.com", expect.any(Number)], ["student@example.com", expect.any(Number)]]);
     });
 
     it("keeps the count when no code went out, and a reset email never restarts it", async () => {

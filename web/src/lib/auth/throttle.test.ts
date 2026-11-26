@@ -241,7 +241,8 @@ describe("the code limit", () => {
     const keys = throttleKeys(SECRET, "student@example.com", "203.0.113.7");
     expect(claim.mock.calls).toEqual([
       ["claim_auth_attempt_hashed", { p_action: "verify", ...keys }],
-      ["auth_code_check", { p_step: "claim", p_email_hash: keys.p_email_hash, p_ip_hash: keys.p_ip_hash }],
+      // The code count keeps the +tag: Supabase treats student+x@ as its own account.
+      ["auth_code_check", { p_step: "claim", p_email_hash: throttleKey(SECRET, "code_email", "student+x@example.com"), p_ip_hash: keys.p_ip_hash, p_send_ms: null }],
     ]);
   });
 
@@ -280,16 +281,18 @@ describe("the code limit", () => {
     log.mockRestore();
   });
 
-  it("starts the count again for the counted email when a new code is sent", async () => {
+  it("starts the count again for exactly that email (+tag kept) when a new code is sent, from when the send began", async () => {
     databaseAnswers(ok);
-    await codeSent("Student+x@Example.com", VERCEL);
-    expect(claim).toHaveBeenCalledWith("auth_code_check", { p_step: "new_code", p_email_hash: throttleKey(SECRET, "email", "student@example.com"), p_ip_hash: null });
+    await codeSent(" Student+x@Example.com", 1234, VERCEL);
+    expect(claim).toHaveBeenCalledWith("auth_code_check", { p_step: "new_code", p_email_hash: throttleKey(SECRET, "code_email", "student+x@example.com"), p_ip_hash: null, p_send_ms: 1234 });
+    expect(throttleKey(SECRET, "code_email", "student+x@example.com")).not.toBe(throttleKey(SECRET, "code_email", "student@example.com"));
+    expect(throttleKey(SECRET, "code_email", "ana@example.com")).not.toBe(throttleKey(SECRET, "email", "ana@example.com"));
   });
 
   it("gives the IP's place back after a right code, and calls nothing when the IP is unknown", async () => {
     databaseAnswers(ok);
     await codeCheckPassed(request({ "x-forwarded-for": "203.0.113.7" }), VERCEL);
-    expect(claim).toHaveBeenCalledWith("auth_code_check", { p_step: "passed", p_email_hash: null, p_ip_hash: throttleKey(SECRET, "ip", "203.0.113.7") });
+    expect(claim).toHaveBeenCalledWith("auth_code_check", { p_step: "passed", p_email_hash: null, p_ip_hash: throttleKey(SECRET, "ip", "203.0.113.7"), p_send_ms: null });
     claim.mockClear();
     await codeCheckPassed(request({ "x-forwarded-for": "203.0.113.7" }), { SUPABASE_SERVICE_ROLE_KEY: "service-key" });
     expect(claim).not.toHaveBeenCalled();
@@ -298,7 +301,7 @@ describe("the code limit", () => {
   it("never throws when giving back or restarting fails, and logs no email or IP", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     database(new Error("connection reset"));
-    await expect(codeSent("student@example.com", VERCEL)).resolves.toBeUndefined();
+    await expect(codeSent("student@example.com", 10, VERCEL)).resolves.toBeUndefined();
     await expect(codeCheckPassed(request({ "x-forwarded-for": "203.0.113.7" }), VERCEL)).resolves.toBeUndefined();
     const logged = JSON.stringify(log.mock.calls);
     expect(logged).toContain("auth_code_sent");

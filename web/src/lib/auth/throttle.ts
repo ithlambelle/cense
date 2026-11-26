@@ -25,9 +25,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 // guessing attack spread over many addresses.
 //
 // A code check is also counted against the code itself (2026-11-26,
-// auth_code_check() in 20261126140000_sign_in_code_checks.sql): 5 checks per
+// auth_code_check() in 20261126150100_sign_in_code_checks.sql): 5 checks per
 // code sent, by the email alone, then the student must ask for a new code;
-// and per IP, 30 wrong codes per 10 minutes and 100 a day, across all emails.
+// and per IP, 60 wrong codes per 10 minutes, across all emails. The code
+// count keys the email as Supabase does, +tag kept (codeEmail).
 //
 // The database never sees the email or the IP (2026-11-21). This server sends
 // only HMAC-SHA256 keys made with AUTH_THROTTLE_KEY, a random secret kept in
@@ -110,7 +111,7 @@ const MIN_KEY_LENGTH = 32;
 // The key for one limit: HMAC-SHA256 of a label and the value, in lowercase
 // hex. The label keeps an email, an email with an IP and an IP from ever
 // sharing a key.
-export function throttleKey(secret: string, label: "email_ip" | "email" | "ip", value: string): string {
+export function throttleKey(secret: string, label: "email_ip" | "email" | "ip" | "code_email", value: string): string {
   return createHmac("sha256", secret).update(`${label}\n${value}`).digest("hex");
 }
 
@@ -180,7 +181,7 @@ const FAILED = Symbol("failed");
 async function count(
   client: ReturnType<typeof createServiceClient>,
   fn: "claim_auth_attempt_hashed" | "auth_code_check",
-  args: Record<string, string | null>,
+  args: Record<string, string | number | null>,
   action: AuthAction,
   operation = "auth_throttle",
 ): Promise<unknown> {
@@ -211,7 +212,7 @@ function tooMany(wait: number): Response {
 // request names, or null when it names none.
 //
 // A code check ("verify") is then also counted against that code
-// (auth_code_check(), 20261126140000_sign_in_code_checks.sql): after 5 checks
+// (auth_code_check(), 20261126150100_sign_in_code_checks.sql): after 5 checks
 // since the email's last code was sent, it answers 401 code_used_up until a
 // new code is sent (call codeSent), and 429 once the IP has made too many
 // wrong checks. The check's place is taken before the code is checked, so
@@ -231,7 +232,13 @@ export async function authThrottle(
   if (isWait(wait)) return tooMany(wait);
   if (action !== "verify") return null;
 
-  const code = await count(ready.client, "auth_code_check", { p_step: "claim", p_email_hash: keys.p_email_hash, p_ip_hash: keys.p_ip_hash }, action);
+  const counted = codeEmail(email);
+  const code = await count(ready.client, "auth_code_check", {
+    p_step: "claim",
+    p_email_hash: counted ? throttleKey(ready.secret, "code_email", counted) : null,
+    p_ip_hash: keys.p_ip_hash,
+    p_send_ms: null,
+  }, action);
   if (code === FAILED) return unchecked(action);
   if (code === -1) return apiError(401, "code_used_up", CODE_USED_UP_MESSAGE);
   if (isWait(code)) return tooMany(code);
@@ -248,17 +255,32 @@ export async function codeCheckPassed(request: Request, env: Record<string, stri
   if (!ip) return;
   const ready = counter("verify", env);
   if ("answer" in ready) return;
-  await count(ready.client, "auth_code_check", { p_step: "passed", p_email_hash: null, p_ip_hash: throttleKey(ready.secret, "ip", ip) }, "verify", "auth_code_passed");
+  await count(ready.client, "auth_code_check", { p_step: "passed", p_email_hash: null, p_ip_hash: throttleKey(ready.secret, "ip", ip), p_send_ms: null }, "verify", "auth_code_passed");
+}
+
+// The email as the code count keys it: lowercased and trimmed, +tag KEPT.
+// Supabase treats ana+1@x.com as its own account with its own code, so
+// sending ana+1@ a code must never restart ana@'s count. (The time limits use
+// throttleEmail, which drops the tag, so that a+1@ and a+2@ share them.)
+export function codeEmail(email: string | null): string | null {
+  return email?.trim().toLowerCase() || null;
 }
 
 // After Supabase has sent a new code to `email`: the email's code count
-// starts again. Only after a send that worked, so a refused send (Supabase's
-// own wait between emails) never gives the old code more tries. A failure is
-// logged; the student then sees code_used_up and can send again.
-export async function codeSent(email: string, env: Record<string, string | undefined> = process.env): Promise<void> {
-  const counted = throttleEmail(email);
+// starts again, except for checks made since the send began (`sendMs`
+// milliseconds ago), which may already have met the new code. Only after a
+// send that worked, so a refused send (Supabase's own wait between emails)
+// never gives the old code more tries. A failure is logged; the student then
+// sees code_used_up and can send again.
+export async function codeSent(email: string, sendMs: number, env: Record<string, string | undefined> = process.env): Promise<void> {
+  const counted = codeEmail(email);
   if (!counted) return;
   const ready = counter("send", env);
   if ("answer" in ready) return;
-  await count(ready.client, "auth_code_check", { p_step: "new_code", p_email_hash: throttleKey(ready.secret, "email", counted), p_ip_hash: null }, "send", "auth_code_sent");
+  await count(ready.client, "auth_code_check", {
+    p_step: "new_code",
+    p_email_hash: throttleKey(ready.secret, "code_email", counted),
+    p_ip_hash: null,
+    p_send_ms: Math.max(0, Math.round(sendMs)),
+  }, "send", "auth_code_sent");
 }

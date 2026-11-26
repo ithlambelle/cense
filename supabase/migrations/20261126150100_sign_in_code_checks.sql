@@ -9,8 +9,14 @@
 --
 --   bucket            key     limit  window   cleared
 --   code:email:day    email   5      1 day    when a new code is sent
---   code:ip           IP      30     10 min   a right code does not count
---   code:ip:day       IP      100    1 day    a right code does not count
+--   code:ip           IP      60     10 min   a right code does not count
+--
+-- The email key is the email lowercased and trimmed with its +tag KEPT
+-- (label code_email in web/src/lib/auth/throttle.ts): Supabase treats
+-- ana+1@x.com as its own account with its own code, so a code sent to it must
+-- never restart ana@x.com's count. There is no daily IP cap: a prankster on a
+-- shared network (Demo Day WiFi) could otherwise lock everyone on it out for
+-- a day. The per-code limit is the real protection.
 --
 -- Per email: after 5 checks since the last code was sent, every check is
 -- refused, even with the right code, until the student asks for a new one.
@@ -22,8 +28,8 @@
 -- Per IP: only wrong codes count. Each check reserves a place before the code
 -- is checked; a right code gives its own place back, so a room of students
 -- signing in together uses almost none, and someone guessing codes for many
--- emails from one address is stopped after 30 wrong ones in 10 minutes and
--- 100 a day. Off Vercel the IP is unknown and these are skipped.
+-- emails from one address is stopped after 60 wrong ones in 10 minutes. Off
+-- Vercel the IP is unknown and this is skipped.
 --
 -- Places are taken before Supabase checks the code, with the keys locked, so
 -- requests sent in parallel cannot all slip past the count: the sixth of 50
@@ -31,27 +37,32 @@
 --
 -- What is left: someone who knows a student's email can make 5 wrong tries
 -- and kill that student's code; the student asks for a new one (Resend
--- email). A new code clears the count while checks already reserved may
--- still be in flight, so at most 5 more guesses can reach the new code. The
--- per-email cap of 50 code checks a day still bounds all of it.
+-- email). A new code clears only checks claimed before its send began, so
+-- guesses made while it was being sent still count against it; checks
+-- claimed just before and still in flight (at most 5) can reach it. The
+-- per-email cap of 50 code checks a day still bounds all of it. These limits
+-- cover the app's routes only: Supabase Auth's /auth/v1/verify can be called
+-- directly with the public key, which only the hosted Auth settings limit
+-- (README, "Supabase Auth settings").
 --
--- auth_code_check(step, email_hash, ip_hash), keys made by the app's server
+-- auth_code_check(step, email_hash, ip_hash, send_ms), keys made by the app's server
 -- with AUTH_THROTTLE_KEY exactly as for claim_auth_attempt_hashed():
 --   'claim'     before a code check: 0 go ahead (place taken), -1 this code
 --               has had 5 tries (ask for a new one), or the seconds to wait
 --               when the IP is over its limit. A refused check takes no place.
 --   'passed'    after a right code: gives that check's IP place back.
---   'new_code'  after a new code is sent: clears the email's count.
+--   'new_code'  after a new code is sent: clears the email's checks claimed
+--               before the send began, send_ms milliseconds ago.
 -- Rows live in auth_throttle_events like every other sign-in count, so the
 -- daily purge deletes them after a day. Only the service role may call it.
 --
 -- Applied by hand in the Supabase SQL editor BEFORE the app code that calls
 -- it (cense-preview first, then production): without it, that code refuses
 -- code checks with 503 sign_in_busy. Safe to run again.
--- Rollback: supabase/rollbacks/20261126140000_sign_in_code_checks.down.sql,
+-- Rollback: supabase/rollbacks/20261126150100_sign_in_code_checks.down.sql,
 -- after rolling back the app.
 
-create or replace function public.auth_code_check(p_step text, p_email_hash text, p_ip_hash text)
+create or replace function public.auth_code_check(p_step text, p_email_hash text, p_ip_hash text, p_send_ms integer)
 returns integer
 language plpgsql
 security definer
@@ -84,8 +95,8 @@ begin
     v_keys := v_keys || v_email;
   end if;
   if v_ip is not null and p_step in ('claim', 'passed') then
-    v_buckets := v_buckets || array['code:ip', 'code:ip:day'];
-    v_keys := v_keys || array[v_ip, v_ip];
+    v_buckets := v_buckets || 'code:ip'::text;
+    v_keys := v_keys || v_ip;
   end if;
   if coalesce(array_length(v_buckets, 1), 0) = 0 then
     return 0;
@@ -102,16 +113,18 @@ begin
   end loop;
 
   if p_step = 'new_code' then
-    delete from public.auth_throttle_events where bucket = 'code:email:day' and key_hash = v_email;
+    -- Checks claimed since the send began may already have met the new code.
+    delete from public.auth_throttle_events
+      where bucket = 'code:email:day' and key_hash = v_email
+        and at < now() - make_interval(secs => greatest(coalesce(p_send_ms, 0), 0) / 1000.0);
     return 0;
   end if;
 
   if p_step = 'passed' then
-    delete from public.auth_throttle_events where id in (
-      select (select id from public.auth_throttle_events e
-              where e.bucket = b and e.key_hash = v_ip
-              order by e.at desc, e.id desc limit 1)
-      from unnest(array['code:ip', 'code:ip:day']) as t(b)
+    delete from public.auth_throttle_events where id = (
+      select id from public.auth_throttle_events
+      where bucket = 'code:ip' and key_hash = v_ip
+      order by at desc, id desc limit 1
     );
     return 0;
   end if;
@@ -119,13 +132,8 @@ begin
   if v_ip is not null then
     select count(*), min(at) into v_count, v_oldest from public.auth_throttle_events
       where bucket = 'code:ip' and key_hash = v_ip and at > now() - v_ten;
-    if v_count >= 30 then
+    if v_count >= 60 then
       v_wait := greatest(v_wait, ceil(extract(epoch from (v_oldest + v_ten - now())))::integer);
-    end if;
-    select count(*), min(at) into v_count, v_oldest from public.auth_throttle_events
-      where bucket = 'code:ip:day' and key_hash = v_ip and at > now() - v_day;
-    if v_count >= 100 then
-      v_wait := greatest(v_wait, ceil(extract(epoch from (v_oldest + v_day - now())))::integer);
     end if;
     if v_wait > 0 then
       return least(greatest(v_wait, 1), 86400);
@@ -146,5 +154,5 @@ begin
 end;
 $$;
 
-revoke execute on function public.auth_code_check(text, text, text) from public, anon, authenticated;
-grant execute on function public.auth_code_check(text, text, text) to service_role;
+revoke execute on function public.auth_code_check(text, text, text, integer) from public, anon, authenticated;
+grant execute on function public.auth_code_check(text, text, text, integer) to service_role;
