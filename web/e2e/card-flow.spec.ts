@@ -8,7 +8,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { NO_REFERRAL_DISCLOSURE } from "../src/lib/copy/issuer";
-import { SECURED_LINE } from "../src/lib/copy/results";
+import { SECURED_LINE, SECURED_NO_DEPOSIT_LINE } from "../src/lib/copy/results";
 import { axeChecker, blockExternalRequests, LIKELY_FIT_PICKS, signUp, takeQuiz, uniqueEmail } from "./helpers";
 
 const SHOTS = process.env.E2E_SHOTS;
@@ -46,6 +46,8 @@ test("no credit, turned down: secured cards first, each explained, Penny one tap
   const top = page.getByRole("region", { name: "Top match" });
   await expect(top.getByRole("heading", { level: 3 })).toHaveText("Capital One Platinum Secured");
   await expect(top.getByText(SECURED_LINE)).toBeVisible();
+  // The Chime Card, secured with no deposit, says so in its own words.
+  await expect(page.getByText(SECURED_NO_DEPOSIT_LINE)).toBeVisible();
   await expectDisclosureBeside(page.getByRole("button", { name: /^Check if you’re preapproved:/ }));
   await expectDisclosureBeside(page.getByRole("button", { name: /^Apply at Capital One:/ }));
   await checkA11y("results: secured top match");
@@ -83,6 +85,16 @@ test("no credit, turned down: secured cards first, each explained, Penny one tap
   await shot(page, "05-apply-sheet");
   await page.getByRole("button", { name: "Not ready yet" }).click();
 
+  // Turned down for a card: the denial plan offers a secured card to this student.
+  const denied = await track(page, { id: "capital-one-quicksilver-students", name: "Quicksilver Rewards for Students" }, "rejected");
+  await page.goto(`/denied/plan?application=${denied}`);
+  await page.getByRole("button", { name: /^Build credit another way/ }).click();
+  const plan = page.getByText("When you’re ready, no rush:").locator("xpath=..");
+  await expect(plan.getByText(/^A secured card\./)).toBeVisible();
+  await expect(plan.getByRole("link", { name: "Ask Penny: What is a secured card?" })).toBeVisible();
+  await shot(page, "07b-plan-secured-no-credit");
+  await page.goto("/cards/capital-one-platinum-secured");
+
   // From the card page, Penny's Back returns to it.
   await page.getByRole("link", { name: "What is a secured card?" }).click();
   await expect(page.getByText(/A secured card starts with a deposit/)).toBeVisible();
@@ -114,17 +126,19 @@ test("has a card, turned down: not steered to a secured card, neutral Home words
   await checkA11y("results: has a card, denied");
   await shot(page, "06-results-has-card-denied");
 
-  // The denial plan: three options, each a link that goes somewhere.
+  // The denial plan: three options, each a link that goes somewhere, and no
+  // secured card, which Your match does not lead with for this student.
   await page.goto(`/denied/plan?application=${denied}`);
   await page.getByRole("button", { name: /^Build credit another way/ }).click();
   const detail = page.getByText("When you’re ready, no rush:").locator("xpath=..");
   await expect(detail.getByRole("listitem")).toHaveCount(3);
+  await expect(detail.getByText(/secured/i)).toHaveCount(0);
   await expect(detail.getByRole("link", { name: "See cards that fit you" })).toHaveAttribute("href", "/results");
-  await expect(detail.getByRole("link", { name: /How it works, from Capital One/ })).toHaveAttribute("target", "_blank");
+  await expect(detail.getByRole("link", { name: /How it works, from the CFPB/ })).toHaveAttribute("target", "_blank");
   await checkA11y("denial plan: build credit open");
   await shot(page, "07-plan-build-credit");
-  await detail.getByRole("link", { name: "Ask Penny: What is a secured card?" }).click();
-  await expect(page.getByText(/A secured card starts with a deposit/)).toBeVisible();
+  await detail.getByRole("link", { name: "Ask Penny about credit" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Credit" })).toBeVisible();
   await page.goBack();
   await expect(page.getByRole("heading", { level: 1 })).toContainText("five-step");
   await page.getByRole("button", { name: /^Build credit another way/ }).click();
