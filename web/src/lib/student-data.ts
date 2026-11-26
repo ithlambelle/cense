@@ -130,7 +130,7 @@ export async function loadReminderSettings(student: Student): Promise<ReminderSe
   if (error) throw new Error("Could not read the student's reminder settings.");
   return data
     ? reminderSettingsFromRow(data as ReminderSettingsRow)
-    : { emailsOn: true, statementClosing: true, paymentDue: true, checkAutopay: true };
+    : { emailsOn: true, statementClosing: true, paymentDue: true, checkAutopay: true, applicationUpdates: true };
 }
 
 // The ids of the student's denied cards still waiting on the issuer's letter

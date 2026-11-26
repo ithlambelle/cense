@@ -6,7 +6,7 @@ vi.mock("@/lib/api/auth", () => auth);
 import { GET, PATCH } from "./route";
 
 type Result = { data: unknown; error: { code?: string; message: string } | null };
-const ROW = { reminders_unsubscribed_at: null, remind_statement_closing: true, remind_payment_due: true, remind_check_autopay: true };
+const ROW = { reminders_unsubscribed_at: null, remind_statement_closing: true, remind_payment_due: true, remind_check_autopay: true, remind_application_updates: true };
 
 // The profile read answers `current`; an update records its columns and
 // answers the row with them applied.
@@ -41,7 +41,7 @@ afterEach(() => {
 describe("GET /me/reminder-settings", () => {
   it("reads the toggles, with emailsOn from the unsubscribe time", async () => {
     student({ data: { ...ROW, remind_payment_due: false, reminders_unsubscribed_at: "2026-10-24T15:00:00Z" }, error: null });
-    expect(await (await GET()).json()).toEqual({ emailsOn: false, statementClosing: true, paymentDue: false, checkAutopay: true });
+    expect(await (await GET()).json()).toEqual({ emailsOn: false, statementClosing: true, paymentDue: false, checkAutopay: true, applicationUpdates: true });
   });
 
   it("needs a session", async () => {
@@ -57,6 +57,13 @@ describe("PATCH /me/reminder-settings", () => {
     expect(response.status).toBe(200);
     expect(writes).toEqual([{ remind_payment_due: false }]);
     expect((await response.json()).paymentDue).toBe(false);
+  });
+
+  it("turns Application updates off", async () => {
+    const writes = student({ data: ROW, error: null });
+    const response = await patch({ applicationUpdates: false });
+    expect(writes).toEqual([{ remind_application_updates: false }]);
+    expect((await response.json()).applicationUpdates).toBe(false);
   });
 
   it("unsubscribes once and keeps the first time", async () => {

@@ -1,6 +1,6 @@
 import { findCard } from "@/lib/cards/catalog";
 import { moneyAmount } from "@/lib/money";
-import { reminderArrivalPath, ROUTES } from "@/lib/routes";
+import { applicationPath, deniedPath, REMINDER_PARAM, reminderArrivalPath, ROUTES, waitingPath } from "@/lib/routes";
 
 import { addDays, nextOnDay, payDownTargetFor } from "./schedule";
 
@@ -10,9 +10,12 @@ import { addDays, nextOnDay, payDownTargetFor } from "./schedule";
 // button says "Open Cense" and opens Updates, where the same reminder is a
 // card with its action and a Snooze (Flow B). Its link carries the email's
 // kind, so the visit is counted, and nothing about the student; only the
-// unsubscribe link carries a signed token.
+// unsubscribe link carries a signed token. The check-ins while a student
+// waits on an issuer (heard_back, letter_check) instead have buttons that
+// open that application's own screens to answer on; those links carry the
+// application's id, which opens nothing without the student's sign-in.
 
-export type ReminderEmailKind = "statement_closing" | "payment_due" | "check_autopay" | "reapply";
+export type ReminderEmailKind = "statement_closing" | "payment_due" | "check_autopay" | "reapply" | "heard_back" | "letter_check";
 
 export type ReminderEmailInput = {
   kind: ReminderEmailKind;
@@ -26,6 +29,9 @@ export type ReminderEmailInput = {
   spendLimitCents?: number | null;
   autopayStatus: string;
   paymentDueDay: number | null;
+  // The card application, for the check-ins' buttons, which open its own
+  // screens. Without it they open Updates, as every other email does.
+  applicationId?: string | null;
 };
 
 export type ReminderEmailLinks = {
@@ -45,6 +51,8 @@ const WHY: Record<ReminderEmailKind, string> = {
   payment_due: "payment reminders are on",
   check_autopay: "the autopay check is on",
   reapply: "you set a reapply reminder",
+  heard_back: "application updates are on",
+  letter_check: "application updates are on",
 };
 
 // A calendar date as "Fri" or "Fri, Nov 12". The date is already on the
@@ -66,7 +74,10 @@ function escapeHtml(value: string): string {
 type Part =
   | { type: "p"; text: string; html: string }
   | { type: "list"; items: { text: string; html: string }[] }
-  | { type: "button" };
+  | { type: "button" }
+  // Buttons to the app's own screens, each marked with the email's kind (the
+  // check-ins). `path` is inside the app, for example /applications/<id>.
+  | { type: "links"; links: { label: string; path: string }[] };
 
 const BUTTON_LABEL = "Open Cense";
 const button: Part = { type: "button" };
@@ -82,6 +93,10 @@ function content(input: ReminderEmailInput): Content {
   const issuerApp = catalogCard ? `your ${catalogCard.brand} app` : "your card's app";
   const day = weekday(input.occurrence);
   const date = longDate(input.occurrence);
+
+  // The check-ins' buttons open the application's own screens; without its
+  // id, the usual Open Cense to Updates.
+  const appLinks = (links: { label: string; path: string }[]): Part => (input.applicationId ? { type: "links", links } : button);
 
   switch (input.kind) {
     case "statement_closing": {
@@ -159,6 +174,33 @@ function content(input: ReminderEmailInput): Content {
           button,
         ],
       };
+    case "heard_back": {
+      // Mark result's own words for its three choices.
+      const id = input.applicationId ?? "";
+      return {
+        subject: "Heard back yet?",
+        preview: "Tell us what the issuer decided. One tap.",
+        parts: [
+          p(`Has the issuer decided on your ${card} application? Tap one and we'll take it from there.`),
+          appLinks([
+            { label: "I was approved", path: `${applicationPath(id)}?choice=approved` },
+            { label: "I was denied", path: `${applicationPath(id)}?choice=denied` },
+            { label: "I haven't heard yet", path: waitingPath(id) },
+          ]),
+          p("No answer yet is normal. By law, an issuer has to tell you within 30 days of getting your completed application."),
+        ],
+      };
+    }
+    case "letter_check":
+      return {
+        subject: "Has your letter come?",
+        preview: "It says why. That's your next step.",
+        parts: [
+          p(`The issuer's letter about your ${card} application says why it was denied. Got it? Tell us the reason and we'll set up your next steps.`),
+          appLinks([{ label: "I got my letter", path: deniedPath("options", input.applicationId ?? null) }]),
+          p("Still waiting? Letters can take up to 30 days. Watch your mail and email."),
+        ],
+      };
   }
 }
 
@@ -175,9 +217,14 @@ export function buildReminderEmail(input: ReminderEmailInput, links: ReminderEma
   const settingsLink = `${links.appUrl}${ROUTES.reminderSettings}`;
   const footerText = `You're getting this because ${WHY[input.kind]}.`;
 
+  // A button to one of the app's screens, marked with the email's kind so
+  // the visit is counted (ReminderArrival) and the mark then dropped.
+  const markedLink = (path: string) => `${links.appUrl}${path}${path.includes("?") ? "&" : "?"}${REMINDER_PARAM}=${input.kind}`;
+
   const textParts = parts.map((part) => {
     if (part.type === "p") return part.text;
     if (part.type === "list") return part.items.map((item) => `- ${item.text}`).join("\n");
+    if (part.type === "links") return part.links.map((link) => `${link.label}: ${markedLink(link.path)}`).join("\n");
     return `${BUTTON_LABEL}: ${appLink}`;
   });
   const text = [
@@ -189,6 +236,11 @@ export function buildReminderEmail(input: ReminderEmailInput, links: ReminderEma
   const htmlParts = parts.map((part) => {
     if (part.type === "p") return `<p>${part.html}</p>`;
     if (part.type === "list") return `<ul>${part.items.map((item) => `<li>${item.html}</li>`).join("")}</ul>`;
+    if (part.type === "links") {
+      return `<p>${part.links
+        .map((link) => `<a href="${escapeHtml(markedLink(link.path))}" style="${STYLE.button}">${escapeHtml(link.label)}</a>`)
+        .join(" ")}</p>`;
+    }
     return `<p><a href="${escapeHtml(appLink)}" style="${STYLE.button}">${escapeHtml(BUTTON_LABEL)}</a></p>`;
   });
   const html = [

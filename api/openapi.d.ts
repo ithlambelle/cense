@@ -893,7 +893,7 @@ export interface components {
             /** Format: uuid */
             applicationId: string;
             /** @enum {string} */
-            kind: "statement_closing" | "payment_due" | "check_autopay" | "reapply";
+            kind: "statement_closing" | "payment_due" | "check_autopay" | "reapply" | "heard_back" | "letter_check";
             /** Format: date */
             occurrence: string;
             /** Format: date */
@@ -920,6 +920,7 @@ export interface components {
             statementClosing: boolean;
             paymentDue: boolean;
             checkAutopay: boolean;
+            applicationUpdates: boolean;
         };
         SavedReapplyReminder: {
             /** Format: uuid */
@@ -927,7 +928,7 @@ export interface components {
             /** Format: uuid */
             applicationId: string;
             /** @enum {string} */
-            kind: "statement_closing" | "payment_due" | "check_autopay" | "reapply";
+            kind: "statement_closing" | "payment_due" | "check_autopay" | "reapply" | "heard_back" | "letter_check";
             /** Format: date */
             occurrence: string;
             /** Format: date */
@@ -3116,6 +3117,7 @@ export interface operations {
                     statementClosing?: boolean;
                     paymentDue?: boolean;
                     checkAutopay?: boolean;
+                    applicationUpdates?: boolean;
                 };
             };
         };

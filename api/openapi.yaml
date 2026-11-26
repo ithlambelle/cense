@@ -520,6 +520,8 @@ components:
             - payment_due
             - check_autopay
             - reapply
+            - heard_back
+            - letter_check
         occurrence:
           type: string
           format: date
@@ -588,11 +590,14 @@ components:
           type: boolean
         checkAutopay:
           type: boolean
+        applicationUpdates:
+          type: boolean
       required:
         - emailsOn
         - statementClosing
         - paymentDue
         - checkAutopay
+        - applicationUpdates
       additionalProperties: false
     SavedReapplyReminder:
       type: object
@@ -610,6 +615,8 @@ components:
             - payment_due
             - check_autopay
             - reapply
+            - heard_back
+            - letter_check
         occurrence:
           type: string
           format: date
@@ -2877,6 +2884,8 @@ paths:
                 paymentDue:
                   type: boolean
                 checkAutopay:
+                  type: boolean
+                applicationUpdates:
                   type: boolean
               additionalProperties: false
       responses:

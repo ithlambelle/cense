@@ -21,7 +21,7 @@ const followUp = (over: Partial<Reminder> = {}): Reminder => ({
   readAt: null, snoozedUntil: null, dismissedAt: null, followUpAt: "2026-11-08T14:00:00.000Z",
   createdAt: "2026-11-01T15:00:00.000Z", ...over,
 });
-const CARD: OneReminder["card"] = { cardName: "Discover it", creditLimitCents: 50_000, spendLimitCents: null, paymentDueDay: 6, autopayStatus: "off", autopayPaymentType: null };
+const CARD: OneReminder["card"] = { cardName: "Discover it", creditLimitCents: 50_000, spendLimitCents: null, paymentDueDay: 6, autopayStatus: "off", autopayPaymentType: null, status: "approved", denialReason: null };
 const found = (reminder: Reminder, card = CARD): OneReminder => ({ reminder, card, timeZone: "America/New_York" });
 
 async function open(reminder: Reminder, card = CARD): Promise<"redirected" | "shown"> {

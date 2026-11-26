@@ -156,4 +156,15 @@ describe("MarkResult", () => {
     render(<MarkResult application={application} back={{ href: "/cards/chime-card", label: "Card details" }} />);
     expect(screen.getByRole("link", { name: "Back to Card details" }).getAttribute("href")).toBe("/cards/chime-card");
   });
+
+  it("starts on the answer a \"Heard back yet?\" email button picked, still to confirm", () => {
+    const fetchFn = server(200, saved);
+    const { unmount } = render(<MarkResult application={application} initialChoice="approved" />);
+    expect(screen.getByRole("button", { name: "I was approved" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByLabelText("Credit limit (optional)")).toBeTruthy();
+    unmount();
+    render(<MarkResult application={application} initialChoice="denied" />);
+    expect(screen.getByRole("button", { name: "Yes, mark as denied" })).toBeTruthy();
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
 });

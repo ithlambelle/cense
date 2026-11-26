@@ -123,7 +123,7 @@ test("Reminder settings: open from Your account, each toggle saves, all off and 
   await page.goto("/settings/reminders");
   await page.getByRole("button", { name: "Turn reminders back on" }).click();
   await expect(page.getByRole("switch", { name: "Payment due" })).toHaveAttribute("aria-checked", "true");
-  expect(await settings(page)).toEqual({ emailsOn: true, statementClosing: true, paymentDue: true, checkAutopay: true });
+  expect(await settings(page)).toEqual({ emailsOn: true, statementClosing: true, paymentDue: true, checkAutopay: true, applicationUpdates: true });
   await page.goto("/home");
   await expect(card.getByRole("link", { name: REMINDER_DONE })).toBeVisible();
 });

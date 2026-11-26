@@ -42,18 +42,22 @@ export function limitToCents(value: string): number | null | undefined {
 // "I haven't heard yet" saves nothing: there is no such status (plan P-3).
 // `back` is where the back arrow goes: Home, or the card's page it was opened
 // from (`from` "card"), which "I haven't heard yet" passes on to the waiting screen.
+// `initialChoice` starts an answer picked: the "Heard back yet?" email's
+// buttons. The student still confirms it here.
 export function MarkResult({
   application,
   back = { href: ROUTES.home, label: "Home" },
   from,
+  initialChoice = null,
 }: {
   application: Application;
   back?: { href: string; label: string };
   from?: ApplicationOrigin;
+  initialChoice?: "approved" | "denied" | null;
 }) {
   const router = useRouter();
   const isMounted = useIsMounted();
-  const [choice, setChoice] = useState<Choice | null>(null);
+  const [choice, setChoice] = useState<Choice | null>(initialChoice);
   // Starts from the saved limit, so marking an approved card again never erases it.
   const [limit, setLimit] = useState(centsToInput(application.creditLimitCents));
   const [limitError, setLimitError] = useState<string | null>(null);

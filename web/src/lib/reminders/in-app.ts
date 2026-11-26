@@ -1,7 +1,7 @@
 import type { Reminder, SnoozeChoice } from "@/lib/api/reminders";
 import { calendarDate } from "@/lib/api/reminders";
 import { moneyAmount } from "@/lib/money";
-import { cardSetupPath, deniedPath, updatePath } from "@/lib/routes";
+import { applicationPath, cardSetupPath, deniedPath, updatePath } from "@/lib/routes";
 
 import { addDays, nextOnDay, payDownTargetFor } from "./schedule";
 
@@ -23,7 +23,20 @@ export type ReminderCard = {
   // What autopay pays at the issuer ("statement_balance", "minimum",
   // "fixed_amount"), or null when autopay is not on or the type was not saved.
   autopayPaymentType: string | null;
+  // The application's status and denial reason: a check-in (heard_back,
+  // letter_check) closes once the student has told us.
+  status: string;
+  denialReason: string | null;
 };
+
+// A check-in is still waiting on the student: no decision saved yet
+// (heard_back), or still waiting on the denial letter (letter_check).
+// Every other kind is not a check-in, so this is true for it.
+export function stillWaiting(kind: Reminder["kind"], card: ReminderCard): boolean {
+  if (kind === "heard_back") return card.status === "applied";
+  if (kind === "letter_check") return card.status === "rejected" && card.denialReason === "no_letter_yet";
+  return true;
+}
 
 // The follow-up ("Time to pay off your card") counts only when autopay does
 // not already pay the full statement balance. The job no longer raises one for
@@ -109,6 +122,8 @@ export function reminderDeadline(reminder: Reminder, card: ReminderCard): { date
       return due ? { date: due, label: "Payment due" } : null;
     }
     case "reapply":
+    case "heard_back":
+    case "letter_check":
       return null;
   }
 }
@@ -256,6 +271,20 @@ function copy(reminder: Reminder, card: ReminderCard, today: string, application
         description: "Check your plan before you apply.",
         action: { type: "link", label: "See your plan", href: deniedPath("plan", applicationId) },
       };
+    case "heard_back":
+      return {
+        icon: "bell",
+        title: "Heard back yet?",
+        description: `${card.cardName ?? "Your card"}: tell us what the issuer decided.`,
+        action: { type: "link", label: "Tell us", href: applicationPath(applicationId) },
+      };
+    case "letter_check":
+      return {
+        icon: "file",
+        title: "Has your letter come?",
+        description: `${card.cardName ?? "Your card"}: tell us the reason it gives.`,
+        action: { type: "link", label: "I got my letter", href: deniedPath("options", applicationId) },
+      };
   }
 }
 
@@ -267,7 +296,10 @@ export function updateItem(reminder: Reminder, card: ReminderCard, now: Date, ti
   const today = calendarDate(now.toISOString(), timeZone);
   const surfaced = surfacedAt(reminder, now);
   const deadline = reminderDeadline(reminder, card);
-  const open = reminder.actedAt === null && (deadline
+  // A check-in the student has answered (a decision, or the letter's reason)
+  // is done, like one marked paid.
+  const answered = !stillWaiting(reminder.kind, card);
+  const open = reminder.actedAt === null && !answered && (deadline
     ? today <= deadline.date
     : daysBetween(calendarDate(surfaced, timeZone), today) < OPEN_DAYS_WITHOUT_DEADLINE);
   const snoozed = open && reminder.snoozedUntil !== null && new Date(reminder.snoozedUntil) > now;
@@ -278,7 +310,10 @@ export function updateItem(reminder: Reminder, card: ReminderCard, now: Date, ti
   const snoozeDay = snoozed ? calendarDate(reminder.snoozedUntil!, timeZone) : null;
   let description = base.description;
   let sensitive = base.sensitive ?? false;
-  if (reminder.actedAt) {
+  if (answered) {
+    description = reminder.kind === "heard_back" ? "You told us what they decided." : "You told us your letter came.";
+    sensitive = false;
+  } else if (reminder.actedAt) {
     // Before the close the button is "I paid it down", so the card says that.
     description = reminder.kind === "statement_closing" && !followedUp(reminder, card)
       ? "You marked it paid down."

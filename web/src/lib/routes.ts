@@ -262,7 +262,7 @@ export function paymentRemindersPath(applicationId: string, from?: ApplicationOr
 }
 
 // The reminder kinds an email can be about (reminders.kind).
-export const REMINDER_KINDS = ["statement_closing", "payment_due", "check_autopay", "reapply"] as const;
+export const REMINDER_KINDS = ["statement_closing", "payment_due", "check_autopay", "reapply", "heard_back", "letter_check"] as const;
 export type ReminderKind = (typeof REMINDER_KINDS)[number];
 
 // Where a reminder email's button goes: Updates, where the same reminder is a

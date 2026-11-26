@@ -30,6 +30,10 @@ function updateFor(reminder: Pick<Reminder, "kind" | "occurrence">): Omit<Profil
       return { title: "Your first statement is here", body: "Check autopay is set to the full balance." };
     case "reapply":
       return { title: "Time to check your plan", body: "You picked today to think about reapplying." };
+    case "heard_back":
+      return { title: "Heard back yet?", body: "Tell us what the issuer decided." };
+    case "letter_check":
+      return { title: "Has your letter come?", body: "Tell us the reason it gives." };
   }
 }
 

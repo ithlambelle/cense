@@ -237,4 +237,26 @@ describe("runReminderJob", () => {
     expect(result.sent).toBe(1);
     expect(JSON.parse(bodies[0]).text).toContain("pay it down to $300 or less");
   });
+
+  it("gives a check-in's email the application the claim returned, for its buttons", async () => {
+    const app = "00000000-0000-4000-8000-0000000000c1";
+    const supabase = {
+      rpc: async (name: string) => {
+        if (name === "claim_due_reminders") return { data: [{ ...row(1), kind: "heard_back", occurrence: "2026-11-19", card_application_id: app }], error: null };
+        return { data: name === "mark_reminder_sent" ? true : null, error: null };
+      },
+      from: () => ({ select: () => ({ in: async () => ({ data: [], error: null }) }) }),
+    } as unknown as ServiceClient;
+    const bodies: string[] = [];
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      bodies.push(String(init?.body));
+      return Response.json({ id: "x" });
+    });
+    const result = await runReminderJob(supabase, config, { fetch: fetchMock as unknown as typeof fetch, sleep: async () => {}, capture: async () => {} });
+    expect(result.sent).toBe(1);
+    const sent = JSON.parse(bodies[0]) as { subject: string; text: string };
+    expect(sent.subject).toBe("Heard back yet?");
+    expect(sent.text).toContain(`I was approved: https://app.test/applications/${app}?choice=approved&reminder=heard_back`);
+  });
 });
+
