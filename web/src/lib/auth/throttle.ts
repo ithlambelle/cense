@@ -165,7 +165,9 @@ export async function authThrottle(
   const keyed = secret && secret.length >= MIN_KEY_LENGTH ? secret : null;
   if (!keyed && env.VERCEL_ENV && !warnedNoKey) {
     warnedNoKey = true;
-    console.error(JSON.stringify({ event: "auth_throttle_not_configured", missing: ["AUTH_THROTTLE_KEY"] }));
+    // Set but too short reads differently from not set, so a mistyped key is
+    // found quickly.
+    console.error(JSON.stringify(secret ? { event: "auth_throttle_not_configured", invalid: ["AUTH_THROTTLE_KEY"], reason: "too_short" } : { event: "auth_throttle_not_configured", missing: ["AUTH_THROTTLE_KEY"] }));
   }
   if (!keyed && env.VERCEL_ENV === "production") return unchecked(action);
 

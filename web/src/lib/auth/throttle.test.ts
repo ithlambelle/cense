@@ -177,6 +177,26 @@ describe("authThrottle", () => {
     log.mockRestore();
   });
 
+  it("on a preview without the key, counts under the stand-in key, exactly", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    database({ data: 0, error: null });
+    const env = { VERCEL_ENV: "preview", SUPABASE_SERVICE_ROLE_KEY: "service-key" };
+    const req = request();
+    expect(await authThrottle(req, "verify", "Student@Example.com", env)).toBeNull();
+    const expected = throttleKeys("cense-local-auth-throttle-key-not-secret", throttleEmail("Student@Example.com"), clientIp(req.headers, env));
+    expect(claim).toHaveBeenCalledWith("claim_auth_attempt_hashed", expect.objectContaining(expected));
+  });
+
+  it("logs a key that is set but too short as invalid, not missing", async () => {
+    vi.resetModules();
+    const fresh = await import("./throttle");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    database({ data: 0, error: null });
+    await fresh.authThrottle(request(), "verify", "student@example.com", { ...VERCEL, AUTH_THROTTLE_KEY: "short" });
+    expect(JSON.parse(String(log.mock.calls[0][0]))).toEqual({ event: "auth_throttle_not_configured", invalid: ["AUTH_THROTTLE_KEY"], reason: "too_short" });
+    log.mockRestore();
+  });
+
   it("ignores an answer that is not a wait", async () => {
     database({ data: "0", error: null });
     expect(await authThrottle(request(), "link", null, VERCEL)).toBeNull();
