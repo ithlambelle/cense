@@ -1,3 +1,4 @@
+// Created with Claude Code (2026-11-21).
 import "server-only";
 
 import { detectRecurringTransactions, type RecurringCandidate, type RecurringTransaction } from "@/lib/budget/recurring";
@@ -95,13 +96,24 @@ function billRows(rows: readonly RecurringTransaction[], bill: Bill, asOf: numbe
   );
 }
 
-function monthlyCents(rows: readonly RecurringTransaction[]): number {
+// The middle month's total, over whole calendar months only: the window
+// always cuts into its first and last month, and a part month would pull the
+// answer down (and safe to spend up). With no whole month yet (a short
+// history), every month counts.
+function monthlyCents(rows: readonly RecurringTransaction[], asOf: number, lookbackDays: number): number {
   const byMonth = new Map<string, number>();
   for (const row of rows) {
     const month = row.posted_on.slice(0, 7);
     byMonth.set(month, (byMonth.get(month) ?? 0) + row.amount_cents);
   }
-  return Math.min(MAX_MONTHLY_CENTS, median([...byMonth.values()]));
+  const windowStart = asOf - lookbackDays * DAY;
+  const whole = [...byMonth].filter(([month]) => {
+    const first = time(`${month}-01`);
+    const [year, index] = month.split("-").map(Number);
+    const last = Date.UTC(year, index, 0);
+    return first > windowStart && last <= asOf;
+  });
+  return Math.min(MAX_MONTHLY_CENTS, median((whole.length ? whole : [...byMonth]).map(([, cents]) => cents)));
 }
 
 function biggestPayee(rows: readonly RecurringTransaction[]): string | null {
@@ -129,7 +141,7 @@ function inferBill(bill: Bill, rows: readonly RecurringTransaction[], asOf: numb
       finding: { key: bill, kind: bill, title: label, detail: `${dollars(total)} this semester`, found: true },
     };
   }
-  const amount = monthlyCents(seen);
+  const amount = monthlyCents(seen, asOf, RULES[bill].lookbackDays);
   const spread = bill === "groceries" || (bill === "car" && !seen.some((row) => row.category_detailed === "LOAN_PAYMENTS_CAR_PAYMENT"));
   const dueDay = spread ? SPREAD_DUE_DAY : mostCommon(seen.map((row) => dayOfMonth(row.posted_on)));
   const payee = bill === "phone" ? biggestPayee(seen) : null;

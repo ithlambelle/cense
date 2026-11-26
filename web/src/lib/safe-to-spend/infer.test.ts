@@ -1,3 +1,4 @@
+// Created with Claude Code (2026-11-21).
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
@@ -53,8 +54,21 @@ describe("inferring the setup answers from a linked bank", () => {
   });
 
   it("averages groceries by month, ignoring pending charges and refunds, and keeps them reserved all month", () => {
-    // September 110.48, October 110.47, November 55.00: the middle month wins.
-    expect(answer("groceries")).toEqual({ bill: "groceries", coveredBy: "me", monthlyCents: 11047, dueDay: 31 });
+    // Whole months only: September 110.48 and October 110.47. November is
+    // not over (55.00 so far), so it does not pull the answer down.
+    expect(answer("groceries")).toEqual({ bill: "groceries", coveredBy: "me", monthlyCents: 11048, dueDay: 31 });
+  });
+
+  it("leaves out the part months at both ends of the window", () => {
+    const rows = [
+      row("2026-08-25", 5000, "FOOD_AND_DRINK_GROCERIES", "Star Market"),
+      row("2026-09-12", 11000, "FOOD_AND_DRINK_GROCERIES", "Star Market"),
+      row("2026-10-12", 11000, "FOOD_AND_DRINK_GROCERIES", "Star Market"),
+      row("2026-11-10", 5500, "FOOD_AND_DRINK_GROCERIES", "Star Market"),
+    ];
+    expect(inferSetup(rows, "2026-11-21").bills.find((b) => b.bill === "groceries")?.monthlyCents).toBe(11000);
+    // A short history with no whole month yet still gets an answer.
+    expect(inferSetup([row("2026-11-10", 5500, "FOOD_AND_DRINK_GROCERIES", "Star Market")], "2026-11-21").bills.find((b) => b.bill === "groceries")?.monthlyCents).toBe(5500);
   });
 
   it("answers 'none' for a bill the bank never shows, with no question, and marks it not found", () => {

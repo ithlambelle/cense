@@ -3,5 +3,5 @@
 -- the current app writes the column on Looks right. Drops when each student
 -- last checked their budget, so Home asks them again once it is re-applied.
 
-revoke update (budget_checked_at) on public.profiles from authenticated;
+-- Dropping the column drops its grant too, so this is safe to run again.
 alter table public.profiles drop column if exists budget_checked_at;

@@ -33,7 +33,7 @@ const FINDINGS = [
   { key: "phone", kind: "phone", title: "Phone", detail: "", found: false },
 ];
 const found = (lastMonth: unknown = BUDGET) =>
-  readBankFindings.mockResolvedValue({ kind: "ok", data: { findings: FINDINGS, answeredFromBank: true, safeToSpend: {}, lastMonth } });
+  readBankFindings.mockResolvedValue({ kind: "ok", data: { findings: FINDINGS, answeredFromBank: true, enoughHistory: true, safeToSpend: { answered: true }, lastMonth } });
 
 // The rows land one by one; the buttons come once every row has.
 const finished = () => screen.findByRole("button", { name: "Looks right" }, { timeout: 5000 });
@@ -88,13 +88,63 @@ describe("ReadingView, Looks right?", () => {
     expect(markBudgetChecked).toHaveBeenCalledTimes(1);
   });
 
-  it("stays on the screen and says so when the check cannot be saved", async () => {
+  it("still goes Home when the check cannot be saved: it is only a note for Home, and it is logged", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     found();
     markBudgetChecked.mockResolvedValue({ kind: "failed", code: "data_unavailable", message: "Something went wrong. Please try again." });
     render(<ReadingView />);
     fireEvent.click(await finished());
-    expect(await screen.findByText("Something went wrong. Please try again.")).toBeTruthy();
-    expect(replace).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Looks right" })).toBeTruthy();
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/home"));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("budget_check_save_failed"));
+    warn.mockRestore();
+  });
+
+  it("adds the set-aside, so the lines add up to what is left over", async () => {
+    found({ ...BUDGET, saving: line("Savings goal", "saving", 10_000), remainingCents: 89_500 });
+    render(<ReadingView />);
+    await finished();
+    expect(within(screen.getByRole("region", { name: "Here’s October" })).getAllByRole("listitem").map((row) => row.textContent)).toEqual([
+      "Money in$2,100",
+      "Needs$925",
+      "Wants$180",
+      "Savings goal$100",
+      "Left over$895",
+    ]);
+  });
+});
+
+describe("ReadingView, when the bank cannot be answered from", () => {
+  it("sends a student whose bank has sent too little history to the questions, with no findings and no Looks right", async () => {
+    readBankFindings.mockResolvedValue({ kind: "ok", data: { findings: [], answeredFromBank: false, enoughHistory: false, safeToSpend: { answered: false }, lastMonth: null } });
+    render(<ReadingView />);
+    expect(await screen.findByRole("heading", { level: 1, name: "Your bank is still catching up" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Answer a few questions" }).getAttribute("href")).toBe("/safe-to-spend/setup");
+    expect(screen.queryByRole("list", { name: "What we found" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Looks right" })).toBeNull();
+    expect(screen.getByRole("main").getAttribute("aria-busy")).toBe("false");
+  });
+
+  it("still shows a student who already answered what was found, even with a short history", async () => {
+    readBankFindings.mockResolvedValue({ kind: "ok", data: { findings: FINDINGS, answeredFromBank: false, enoughHistory: false, safeToSpend: { answered: true }, lastMonth: null } });
+    render(<ReadingView />);
+    await finished();
+    expect(screen.getByRole("list", { name: "What we found" })).toBeTruthy();
+  });
+
+  it("says the read failed in the heading, not that it is still reading, and is no longer busy", async () => {
+    readBankFindings.mockResolvedValue({ kind: "failed", code: "data_unavailable", message: "Something went wrong. Please try again." });
+    render(<ReadingView />);
+    expect(await screen.findByRole("heading", { level: 1, name: "We couldn’t read your bank" })).toBeTruthy();
+    expect(screen.getByRole("main").getAttribute("aria-busy")).toBe("false");
+    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+  });
+
+  it("shows every row at once to a student who asked for less motion", async () => {
+    const matchMedia = window.matchMedia;
+    window.matchMedia = ((query: string) => ({ matches: query.includes("reduce"), media: query, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
+    found();
+    render(<ReadingView />);
+    expect(await screen.findByRole("button", { name: "Looks right" }, { timeout: 300 })).toBeTruthy();
+    window.matchMedia = matchMedia;
   });
 });

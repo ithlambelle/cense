@@ -30,11 +30,19 @@ import { cn } from "@/lib/utils";
 // How long each finding waits before it lands, so the screen reads as Penny
 // working through the bank, not a list dumped at once.
 const STEP_MS = 550;
+// A student who asked for less motion gets every row at once.
+const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 const STARS = 5;
 
 type Findings = BankFindingsData["findings"];
 type LastMonth = NonNullable<BankFindingsData["lastMonth"]>;
-type State = { kind: "reading" } | { kind: "found"; findings: Findings; lastMonth: LastMonth | null } | { kind: "failed"; message: string };
+type State =
+  | { kind: "reading" }
+  | { kind: "found"; findings: Findings; lastMonth: LastMonth | null }
+  // The bank has sent too little history to answer from (a just-opened
+  // account, or Plaid still sending it): the questions instead.
+  | { kind: "thin" }
+  | { kind: "failed"; message: string };
 
 const sum = (lines: { amountCents: number }[]) => lines.reduce((total, line) => total + line.amountCents, 0);
 
@@ -50,6 +58,7 @@ function LastMonthTotals({ budget }: { budget: LastMonth }) {
         <ReadRow label="Money in" value={moneyAmount(budget.income.amountCents)} />
         <ReadRow label="Needs" value={moneyAmount(sum(budget.needs))} />
         <ReadRow label="Wants" value={moneyAmount(sum(budget.wants))} />
+        {budget.saving.amountCents > 0 ? <ReadRow label={budget.saving.label} value={moneyAmount(budget.saving.amountCents)} /> : null}
         <TotalRow label={short ? "Short" : "Left over"} value={moneyAmount(short ? budget.shortfallCents : budget.remainingCents)} />
       </ul>
     </section>
@@ -74,12 +83,19 @@ function rows(findings: Findings): { key: string; title: string; detail: string;
   return missing.length ? [...found, { key: "missing", title: "Not in your bank", detail: missing.join(", "), found: false }] : found;
 }
 
+const HEADINGS = {
+  reading: { title: "Reading your bank", body: "Finding your pay and bills, so you don’t have to type them." },
+  found: { title: "Reading your bank", body: "Finding your pay and bills, so you don’t have to type them." },
+  done: { title: "Here’s what we found", body: "Fix anything that looks off. You can change it later too." },
+  thin: { title: "Your bank is still catching up", body: "We only see a few days so far. Answer a few quick questions instead." },
+  failed: { title: "We couldn’t read your bank", body: "Try again, or answer a few questions instead." },
+} as const;
+
 export function ReadingView() {
   const router = useRouter();
   const isMounted = useIsMounted();
   const [state, setState] = useState<State>({ kind: "reading" });
   const [checking, setChecking] = useState(false);
-  const [checkError, setCheckError] = useState<string | null>(null);
   const [shown, setShown] = useState(0);
   const [attempt, setAttempt] = useState(0);
 
@@ -92,6 +108,7 @@ export function ReadingView() {
         if (outcome.code === "not_linked") return router.replace(ROUTES.safeToSpendConnect);
         return setState({ kind: "failed", message: outcome.message });
       }
+      if (!outcome.data.enoughHistory && !outcome.data.safeToSpend.answered) return setState({ kind: "thin" });
       setState({ kind: "found", findings: outcome.data.findings, lastMonth: outcome.data.lastMonth });
     });
     return () => {
@@ -102,25 +119,27 @@ export function ReadingView() {
   const total = state.kind === "found" ? rows(state.findings).length : 0;
   useEffect(() => {
     if (state.kind !== "found" || shown >= total) return;
+    if (reducedMotion()) {
+      setShown(total);
+      return;
+    }
     const timer = setTimeout(() => setShown((n) => n + 1), STEP_MS);
     return () => clearTimeout(timer);
   }, [state.kind, shown, total]);
 
   const done = state.kind === "found" && shown >= total;
 
-  // Saved first, then Home, and stays pending while Home loads. Replace: the
-  // reading is done, so Back never returns to it.
+  // Saved, then Home, and stays pending while Home loads. The check is a note
+  // for Home's next step, not something the student is waiting on, so a failed
+  // save is logged and they go Home anyway. Replace: the reading is done, so
+  // Back never returns to it.
   async function looksRight() {
     if (checking) return;
     setChecking(true);
-    setCheckError(null);
     const outcome = await markBudgetChecked();
     if (!isMounted()) return;
     if (outcome.kind === "signed-out") return router.replace(signInPath(ROUTES.safeToSpendReading));
-    if (outcome.kind === "failed") {
-      setChecking(false);
-      return setCheckError(outcome.message);
-    }
+    if (outcome.kind === "failed") console.warn(JSON.stringify({ event: "budget_check_save_failed", code: outcome.code ?? null }));
     router.replace(ROUTES.home);
   }
   // One star per fifth of the rows, the last one when everything has landed.
@@ -128,16 +147,22 @@ export function ReadingView() {
 
   return (
     <div className="flex min-h-dvh justify-center bg-background">
-      <main className="flex w-full max-w-phone flex-col items-center gap-4 px-6 pt-12 pb-6" aria-busy={!done}>
+      <main className="flex w-full max-w-phone flex-col items-center gap-4 px-6 pt-12 pb-6" aria-busy={state.kind === "reading" || (state.kind === "found" && !done)}>
         {/* Avatar, Penny, Large (371:3348). */}
         <Image src="/mascot/astro-pig/avatar.png" alt="" width={64} height={64} priority className="size-16 shrink-0 rounded-pill bg-light-blue/50" />
         <div className="w-full max-w-[299px]">
           <Constellation count={lit} layout="five" />
         </div>
-        <h1 className="text-center font-heading text-h3 font-semibold text-navy">{done ? "Here’s what we found" : "Reading your bank"}</h1>
-        <p className="text-center text-body-m text-indigo-black/70">
-          {done ? "Fix anything that looks off. You can change it later too." : "Finding your pay and bills, so you don’t have to type them."}
-        </p>
+        <h1 className="text-center font-heading text-h3 font-semibold text-navy">{HEADINGS[done ? "done" : state.kind].title}</h1>
+        <p className="text-center text-body-m text-indigo-black/70">{HEADINGS[done ? "done" : state.kind].body}</p>
+
+        {state.kind === "thin" ? (
+          <div className="flex w-full flex-col gap-3 pt-2">
+            <Link href={safeToSpendSetupPath()} replace className={buttonVariants()}>
+              Answer a few questions
+            </Link>
+          </div>
+        ) : null}
 
         {state.kind === "failed" ? (
           <div className="flex w-full flex-col gap-3">
@@ -171,7 +196,6 @@ export function ReadingView() {
         {done ? (
           <div className="mt-auto flex w-full flex-col gap-2 pt-4 motion-safe:animate-fade-up">
             <h2 className="pb-1 text-center font-heading text-h6 font-medium text-navy">Looks right?</h2>
-            {checkError ? <ErrorMessage>{checkError}</ErrorMessage> : null}
             <Button type="button" pending={checking} onClick={looksRight}>
               Looks right
             </Button>

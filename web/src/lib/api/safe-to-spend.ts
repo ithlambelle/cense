@@ -129,10 +129,15 @@ export const bankFindingsSchema = z
     // True when this call filled in the setup answers; false when the student
     // had already answered, so nothing they chose was replaced.
     answeredFromBank: z.boolean(),
+    // False when the bank has sent less than three weeks of history: nothing
+    // was answered from it, and findings is empty for a student who has not
+    // answered yet (they get the questions instead).
+    enoughHistory: z.boolean(),
     safeToSpend: safeToSpendSchema,
     // Last month from the bank, for "Looks right?" (step 3): the This month
-    // budget. Null when it could not be read; the findings still show.
-    lastMonth: budgetSchema.nullable(),
+    // budget. Null when it could not be read or the bank's history does not
+    // reach back to the start of that month; the findings still show.
+    lastMonth: z.union([budgetSchema, z.null()]),
   })
   .openapi("BankFindings");
 

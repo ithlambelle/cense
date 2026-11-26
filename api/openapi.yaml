@@ -1028,17 +1028,18 @@ components:
             $ref: "#/components/schemas/BankFinding"
         answeredFromBank:
           type: boolean
+        enoughHistory:
+          type: boolean
         safeToSpend:
           $ref: "#/components/schemas/SafeToSpend"
         lastMonth:
-          allOf:
+          anyOf:
             - $ref: "#/components/schemas/Budget"
-            - type:
-                - object
-                - "null"
+            - type: "null"
       required:
         - findings
         - answeredFromBank
+        - enoughHistory
         - safeToSpend
         - lastMonth
       additionalProperties: false

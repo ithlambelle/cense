@@ -1099,8 +1099,9 @@ export interface components {
         BankFindings: {
             findings: components["schemas"]["BankFinding"][];
             answeredFromBank: boolean;
+            enoughHistory: boolean;
             safeToSpend: components["schemas"]["SafeToSpend"];
-            lastMonth: components["schemas"]["Budget"] & (Record<string, never> | null);
+            lastMonth: components["schemas"]["Budget"] | null;
         };
         BankFinding: {
             key: string;
