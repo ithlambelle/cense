@@ -91,6 +91,28 @@ describe("PUT /me/goal", () => {
     expect(s.calls.upsert).toMatchObject({ monthly_cents: 25_000 });
   });
 
+  it("names a preset goal itself, whatever the body says, and needs no name for one", async () => {
+    for (const body of [{ ...BODY, preset: "trip", name: "Anything at all" }, { preset: "trip", amountCents: 60_000 }]) {
+      const s = student(saved());
+      auth.authenticatedStudent.mockResolvedValue(s.value);
+      expect((await put(body)).status).toBe(200);
+      expect(s.calls.upsert).toMatchObject({ preset: "trip", name: "Trip" });
+    }
+  });
+
+  it("keeps what the student typed for Something else, without invisible characters, and refuses a name with nothing visible", async () => {
+    let s = student(saved());
+    auth.authenticatedStudent.mockResolvedValue(s.value);
+    expect((await put({ preset: "other", name: " \u200bLaptop\u200d ", amountCents: 90_000 })).status).toBe(200);
+    expect(s.calls.upsert).toMatchObject({ preset: "other", name: "Laptop" });
+    for (const name of ["\u200b\u200c\u200d", "\u2060 \ufeff", "\u00a0\u3000", undefined]) {
+      s = student(saved());
+      auth.authenticatedStudent.mockResolvedValue(s.value);
+      expect((await put({ preset: "other", name, amountCents: 90_000 })).status, JSON.stringify(name)).toBe(400);
+      expect(s.calls.upsert).toBeUndefined();
+    }
+  });
+
   it("never takes a student id from the body", async () => {
     const s = student(saved());
     auth.authenticatedStudent.mockResolvedValue(s.value);
@@ -110,8 +132,8 @@ describe("PUT /me/goal", () => {
     auth.authenticatedStudent.mockResolvedValue(student(saved()).value);
     expect((await put({ ...BODY, preset: "start_investing" })).status).toBe(400);
     expect((await put({ ...BODY, preset: "" })).status).toBe(400);
-    expect((await put({ ...BODY, name: "   " })).status).toBe(400);
-    expect((await put({ ...BODY, name: "x".repeat(41) })).status).toBe(400);
+    expect((await put({ ...BODY, preset: "other", name: "   " })).status).toBe(400);
+    expect((await put({ ...BODY, preset: "other", name: "x".repeat(41) })).status).toBe(400);
   });
 
   it("takes a date from today to 30 years out, and refuses one before or after", async () => {

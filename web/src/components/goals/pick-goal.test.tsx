@@ -88,6 +88,16 @@ describe("PickGoal", () => {
     await waitFor(() => expect(saveGoal).toHaveBeenCalledWith({ preset: "pay_off_card", name: "Pay off my card", amountCents: 31_000, targetDate: null }));
   });
 
+  it("says the most a goal can be when the amount is over it", () => {
+    render(<PickGoal saved={null} setAsideCents={0} today={TODAY} suggestions={SUGGESTIONS} />);
+    choose("Trip");
+    fireEvent.change(amount(), { target: { value: "1,000,001" } });
+    submit();
+    expect(screen.getByText("Goals go up to $1,000,000.")).toBeTruthy();
+    expect(screen.queryByText("Enter an amount, like 500.")).toBeNull();
+    expect(saveGoal).not.toHaveBeenCalled();
+  });
+
   it("asks what Something else is for", () => {
     render(<PickGoal saved={null} setAsideCents={0} today={TODAY} suggestions={SUGGESTIONS} />);
     fireEvent.click(screen.getByRole("button", { name: "More goals" }));

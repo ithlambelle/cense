@@ -12,11 +12,10 @@ import { TextField } from "@/components/ui/text-field";
 import { SENSITIVE, track } from "@/lib/analytics";
 import type { Goal } from "@/lib/api/goals";
 import { deleteGoal, saveGoal } from "@/lib/api-client/goals";
-import { parseDollarsToCents } from "@/lib/budget/amount";
 import { GOAL_COPY, GOAL_LABELS, suggestionHint } from "@/lib/goals/copy";
 import { addMonthsIso, MAX_YEARS } from "@/lib/goals/plan";
-import { FIRST_PRESETS, MORE_PRESETS, type GoalPreset, type Suggestion } from "@/lib/goals/presets";
-import { centsToInput, moneyAmount } from "@/lib/money";
+import { FIRST_PRESETS, MAX_GOAL_CENTS, MORE_PRESETS, type GoalPreset, type Suggestion } from "@/lib/goals/presets";
+import { centsToInput, dollarsToCents, moneyAmount } from "@/lib/money";
 import { ROUTES, signInPath } from "@/lib/routes";
 import { useIsMounted } from "@/lib/use-is-mounted";
 
@@ -84,8 +83,9 @@ export function PickGoal({
     if (!preset) return setError({ field: "pick", text: GOAL_COPY.pickError });
     const goalName = preset === "other" ? name.trim() : GOAL_LABELS[preset];
     if (!goalName) return setError({ field: "name", text: GOAL_COPY.nameError });
-    const amountCents = parseDollarsToCents(amount);
-    if (amountCents === null || amountCents === 0) return setError({ field: "amount", text: GOAL_COPY.amountError });
+    const amountCents = dollarsToCents(amount, { minCents: 1, maxCents: Number.MAX_SAFE_INTEGER });
+    if (amountCents === null) return setError({ field: "amount", text: GOAL_COPY.amountError });
+    if (amountCents > MAX_GOAL_CENTS) return setError({ field: "amount", text: GOAL_COPY.amountTooBig });
     // The picker's min and max only guide it; a typed date can pass them.
     // ISO dates compare as text.
     const targetDate = preset === "pay_off_card" ? "" : date;

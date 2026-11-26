@@ -3,7 +3,8 @@
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { z } from "zod";
 
-import { GOAL_PRESETS, MAX_GOAL_CENTS } from "@/lib/goals/presets";
+import { GOAL_LABELS } from "@/lib/goals/copy";
+import { GOAL_PRESETS, MAX_GOAL_CENTS, type GoalPreset } from "@/lib/goals/presets";
 
 extendZodWithOpenApi(z);
 
@@ -12,8 +13,10 @@ export const goalPresetSchema = z.enum(GOAL_PRESETS);
 export const saveGoalSchema = z
   .strictObject({
     preset: goalPresetSchema,
-    // The preset's own name, or what the student typed for "Something else".
-    name: z.string().trim().min(1).max(40),
+    // What the student typed for "Something else": up to 40 characters once
+    // invisible ones are taken out. A preset is named by the server, so any
+    // name sent with one is ignored.
+    name: z.string().max(200).optional(),
     amountCents: z.int().min(1).max(MAX_GOAL_CENTS),
     // Optional; from today, up to 30 years out (checked by the route, which
     // knows today). Left out or null: 6 months from the day it is saved.
@@ -36,6 +39,19 @@ export const goalSchema = z
     updatedAt: z.iso.datetime({ offset: true }),
   })
   .openapi("Goal");
+
+// Zero-width and other invisible formatting characters (Unicode Cf), which a
+// pasted name can carry and which would otherwise pass as a name.
+const INVISIBLE = /\p{Cf}/gu;
+
+// The name saved with a goal: a preset's own, or what the student typed for
+// Something else without invisible characters or surrounding space. Null when
+// that leaves nothing, or more than 40 characters.
+export function goalName(preset: GoalPreset, typed: string | undefined): string | null {
+  if (preset !== "other") return GOAL_LABELS[preset];
+  const name = (typed ?? "").replace(INVISIBLE, "").trim();
+  return name.length >= 1 && name.length <= 40 ? name : null;
+}
 
 export const savedGoalSchema = z.strictObject({ goal: goalSchema }).openapi("SavedGoal");
 

@@ -1158,7 +1158,7 @@ export interface components {
         SaveGoal: {
             /** @enum {string} */
             preset: "emergency_fund" | "pay_off_card" | "trip" | "car" | "home" | "other";
-            name: string;
+            name?: string;
             amountCents: number;
             /** Format: date */
             targetDate?: string | null;

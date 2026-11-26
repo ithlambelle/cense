@@ -5,7 +5,7 @@
 import { authenticatedStudent } from "@/lib/api/auth";
 import { databaseError } from "@/lib/api/database";
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
-import { saveGoalSchema } from "@/lib/api/goals";
+import { goalName, saveGoalSchema } from "@/lib/api/goals";
 import { addMonthsIso, easternToday, MAX_YEARS } from "@/lib/goals/plan";
 import { removeGoal, saveGoal } from "@/lib/goals/store";
 
@@ -26,7 +26,10 @@ export async function PUT(request: Request): Promise<Response> {
     return apiError(400, "invalid_request", "Pick a date between today and 30 years from now.");
   }
 
-  const saved = await saveGoal(student, parsed.data, today);
+  const name = goalName(parsed.data.preset, parsed.data.name);
+  if (name === null) return apiError(400, "invalid_request", "Say what it’s for, in up to 40 characters.");
+
+  const saved = await saveGoal(student, { ...parsed.data, name }, today);
   if (!saved.ok) return databaseError("goal_save", saved.error);
   return Response.json({ goal: saved.value }, { headers: NO_STORE });
 }

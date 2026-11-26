@@ -1078,8 +1078,7 @@ components:
             - other
         name:
           type: string
-          minLength: 1
-          maxLength: 40
+          maxLength: 200
         amountCents:
           type: integer
           minimum: 1
@@ -1091,7 +1090,6 @@ components:
           format: date
       required:
         - preset
-        - name
         - amountCents
       additionalProperties: false
     RemovedGoal:

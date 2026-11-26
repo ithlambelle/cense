@@ -47,6 +47,7 @@ export const GOAL_COPY = {
   pickError: "Pick a goal.",
   nameError: "Say what it’s for.",
   amountError: "Enter an amount, like 500.",
+  amountTooBig: "Goals go up to $1,000,000.",
   dateAfterToday: "Pick a date after today.",
   dateTooLate: "Pick a date in the next 30 years.",
 } as const;
