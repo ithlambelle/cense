@@ -462,7 +462,7 @@ function approvedSections(detail: ApplicationDetail, reminders: ReminderStatus, 
           <Body>
             <Lines lines={spendLimitLines(detail)} />
             <Actions>
-              <Link href={spendLimitPath(detail.id, detail.creditLimitCents, "card", from)} className={TEXT_ACTION}>
+              <Link href={spendLimitPath(detail.id, detail.creditLimitCents, "card", from, detail.spendLimitCents)} className={TEXT_ACTION}>
                 {detail.spendLimitCents === null ? "Set a spend limit" : "Change your limit"}
               </Link>
             </Actions>

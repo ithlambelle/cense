@@ -61,9 +61,11 @@ test("autopay on the full balance and a $100 limit: Home, Updates and Reminder s
   const id = ((await created.json()) as { id: string }).id;
   const studentId = ((await (await page.request.get("/api/v1/me")).json()) as { id: string }).id;
 
-  // The setup list names its three steps as Home does, not "Three steps" over four rows.
+  // The setup list heads its steps without a count, not "Three steps" over
+  // four rows, and links to the card's own page.
   await page.goto(`/applications/${id}/setup`);
-  await expect(page.getByRole("heading", { level: 2, name: "Your first month" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Your steps" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Card details" })).toHaveAttribute("href", `/cards/${DISCOVER.cardId}`);
   await expect(page.getByText("Three steps")).toHaveCount(0);
 
   await setUpAutopay(page, id);

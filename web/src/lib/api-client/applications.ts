@@ -17,18 +17,6 @@ export async function saveCreditLimit(applicationId: string, cents: number | nul
   return { kind: "failed", message: failureMessage(result) };
 }
 
-// Autopay is the card's own status, not a plan step: on lights Home's autopay
-// star, off puts it out. Safe to repeat.
-export async function saveAutopay(applicationId: string, on: boolean): Promise<ApplicationSave> {
-  const result = await apiRequest("patch", "/applications/{id}", {
-    pathParams: { id: applicationId },
-    body: { autopayStatus: on ? "on" : "off" },
-  });
-  if (result.ok) return { kind: "ok" };
-  if (isUnauthorized(result)) return { kind: "signed-out" };
-  return { kind: "failed", message: failureMessage(result) };
-}
-
 // What the student said on "Did you turn on autopay?" (US-10, I3): autopay on
 // with the payment type, or "Not yet", which saves autopay off and clears it.
 export async function saveAutopayAnswer(

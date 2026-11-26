@@ -24,7 +24,7 @@ export const ROUTES = {
   startNextStep: "/start/next-step",
   // The rejection guide (Figma Denial Overview frames).
   denied: "/denied",
-  // The first-month plan for an approved card.
+  // The retired first-month plan: redirects to a card's setup list (old links).
   plan: "/plan",
   // For a student who already has a card.
   addCard: "/home/add-card",

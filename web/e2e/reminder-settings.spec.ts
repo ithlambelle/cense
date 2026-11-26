@@ -172,9 +172,15 @@ test("a second approved card reaches its reminders from its own page, and Back a
   await track(page, CHIME);
   await page.goto("/home");
   // Chime leads Home; Discover is under Your other cards, which opens its
-  // setup list (home-autopay-limit.spec.ts). Its own page, opened from Home.
+  // setup list, and its page is the setup list's Card details.
   await expect(page.getByRole("region", { name: CHIME.name })).toBeVisible();
-  await page.goto(`/cards/${DISCOVER.id}?from=home`);
+  const openCardPage = async () => {
+    await page.getByRole("region", { name: "Your other cards" }).getByRole("link", { name: new RegExp(`^${DISCOVER.name}`) }).click();
+    await expect(page).toHaveURL(new RegExp(`/applications/${discover}/setup$`));
+    await page.getByRole("link", { name: "Card details" }).click();
+    await expect(page).toHaveURL(new RegExp(`/cards/${DISCOVER.id}$`));
+  };
+  await openCardPage();
 
   // K1 (Figma 821:8748): the reminders are in Autopay and reminders, the days in Your dates.
   const section = page.getByRole("button", { name: /^Autopay and reminders/ });
@@ -183,21 +189,22 @@ test("a second approved card reaches its reminders from its own page, and Back a
   await checkA11y("card page: reminders not set");
   await section.click();
   await page.getByRole("link", { name: "Choose your reminders" }).click();
-  await expect(page).toHaveURL(new RegExp(`/applications/${discover}/reminders\\?from=card&card_from=home$`));
+  await expect(page).toHaveURL(new RegExp(`/applications/${discover}/reminders\\?from=card$`));
 
-  // Back returns to the card's page as it was opened from Home, so its own
-  // Back still goes Home (not to the card list).
+  // Back returns to the card's page, and its own Back to the setup list it
+  // was opened from, then Home.
   await page.getByRole("link", { name: "Back to Card details" }).click();
-  await expect(page).toHaveURL(new RegExp(`/cards/${DISCOVER.id}\\?from=home$`));
+  await expect(page).toHaveURL(new RegExp(`/cards/${DISCOVER.id}$`));
+  await page.getByRole("link", { name: "Back to Card setup" }).click();
+  await expect(page).toHaveURL(new RegExp(`/applications/${discover}/setup$`));
   await page.getByRole("link", { name: "Back to Home" }).click();
   await expect(page).toHaveURL(/\/home$/);
-  await page.goto(`/cards/${DISCOVER.id}?from=home`);
+  await openCardPage();
 
   // Saving from Your dates returns there too, now on, and it survives a reload.
   await page.getByRole("region", { name: "Your dates" }).getByRole("link", { name: "Add your dates" }).click();
   await saveDays(page, "20", "15");
-  await expect(page).toHaveURL(new RegExp(`/cards/${DISCOVER.id}\\?from=home$`));
-  await page.getByRole("link", { name: "Back to Home" }).waitFor();
+  await expect(page).toHaveURL(new RegExp(`/cards/${DISCOVER.id}$`));
   for (const pass of ["after saving", "after a reload"]) {
     await expect(page.getByRole("button", { name: /^Your dates/ }), pass).toContainText("Statement closes day 20 · due day 15");
     await expect(section, pass).toContainText("reminders on");
