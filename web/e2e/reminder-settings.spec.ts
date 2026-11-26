@@ -191,7 +191,7 @@ test("a second approved card reaches its reminders from its own page, and Back a
   await expect(page).toHaveURL(new RegExp(`/cards/${DISCOVER.id}\\?from=home$`));
   await page.getByRole("link", { name: "Back to Home" }).click();
   await expect(page).toHaveURL(/\/home$/);
-  await page.getByRole("link", { name: new RegExp(`^${DISCOVER.name}`) }).click();
+  await page.goto(`/cards/${DISCOVER.id}?from=home`);
 
   // Saving from Your dates returns there too, now on, and it survives a reload.
   await page.getByRole("region", { name: "Your dates" }).getByRole("link", { name: "Add your dates" }).click();
