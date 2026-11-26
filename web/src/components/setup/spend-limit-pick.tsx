@@ -26,9 +26,10 @@ import {
   type CardOrigin,
   type SpendLimitOrigin,
 } from "@/lib/routes";
+import { useIsMounted } from "@/lib/use-is-mounted";
 import { cn } from "@/lib/utils";
 
-import { FRAME_FIELD, InfoCallout, SetupHeading, SetupScreen, Spacer } from "./setup-parts";
+import { FRAME_FIELD, InfoCallout, SAVED_PAUSE_MS, SavedLimitStatus, SetupHeading, SetupScreen, Spacer } from "./setup-parts";
 
 // True when the amount picked, or typed in "Another amount", is over the 30%
 // suggestion. An amount that cannot be read yet is not.
@@ -61,6 +62,9 @@ export function SpendLimitPick({
   cardFrom?: CardOrigin;
 }) {
   const router = useRouter();
+  const isMounted = useIsMounted();
+  // The limit just saved, said before the screen moves on.
+  const [justSaved, setJustSaved] = useState<number | null>(null);
   const choices = [
     ...(tighterCents === null ? [] : [{ cents: tighterCents, label: `${moneyAmount(tighterCents)} a month, tighter` }]),
     { cents: suggestedCents, label: `${moneyAmount(suggestedCents)} a month, ${SPEND_LIMIT_PERCENT}% of your limit` },
@@ -87,7 +91,11 @@ export function SpendLimitPick({
     setFailed(null);
     setSaving(true);
     const result = await saveSpendLimit(applicationId, cents);
+    if (!isMounted()) return;
     if (result.kind === "ok") {
+      setJustSaved(cents);
+      await new Promise((resolve) => setTimeout(resolve, SAVED_PAUSE_MS));
+      if (!isMounted()) return;
       // In place of this screen, so Back does not reopen a saved form. Stays
       // pending while that screen loads, so Save cannot go twice.
       router.replace(spendLimitBackLink(applicationId, from, cardId, cardFrom).href);
@@ -154,6 +162,7 @@ export function SpendLimitPick({
           </div>
         ) : null}
         {failed ? <ErrorMessage>{failed}</ErrorMessage> : null}
+        <SavedLimitStatus cents={justSaved} />
         <Button type="submit" pending={saving}>
           Save my limit
         </Button>

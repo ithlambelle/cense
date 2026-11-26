@@ -10,6 +10,8 @@ import { SpendLimitSuggestion } from "./spend-limit-suggestion";
 
 const router = { push: vi.fn(), replace: vi.fn(), refresh: vi.fn() };
 vi.mock("next/navigation", () => ({ usePathname: () => "/", useRouter: () => router }));
+// The "Saved" line's pause before moving on, made instant here.
+vi.mock("./setup-parts", async (original) => ({ ...(await original<typeof import("./setup-parts")>()), SAVED_PAUSE_MS: 0 }));
 
 const ID = "00000000-0000-4000-8000-000000000001";
 const BASE = `/applications/${ID}/setup/spend-limit`;
@@ -69,8 +71,11 @@ describe("S2, A limit to try this month", () => {
     expect(screen.getByText("$500")).toBeTruthy();
     expect(screen.getAllByText("$150")).toHaveLength(2);
     expect(screen.getByRole("link", { name: "Pick my own" }).getAttribute("href")).toBe(`${BASE}/pick?from=home`);
+    expect(screen.getByRole("status").textContent).toBe("");
     fireEvent.click(screen.getByRole("button", { name: "Use $150" }));
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/home"));
+    // Said before the screen moves on.
+    expect(screen.getByRole("status").textContent).toBe("Saved: $150 a month.");
     expect(body(fetchFn, 0)).toEqual({ spendLimitCents: 15000 });
     expect(fetchFn.mock.calls[1][1]?.method).toBe("PUT");
   });
@@ -147,6 +152,7 @@ describe("S3, Pick your limit", () => {
     fireEvent.click(screen.getByRole("radio", { name: /\$100 a month, tighter/ }));
     fireEvent.click(screen.getByRole("button", { name: "Save my limit" }));
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith(`/applications/${ID}/setup`));
+    expect(screen.getByRole("status").textContent).toBe("Saved: $100 a month.");
     expect(body(fetchFn, 0)).toEqual({ spendLimitCents: 10000 });
   });
 

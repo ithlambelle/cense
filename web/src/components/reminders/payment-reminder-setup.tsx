@@ -1,11 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState, type FormEvent } from "react";
 
 import { AppHeader } from "@/components/ui/app-header";
 import { BottomNav } from "@/components/ui/bottom-nav";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { Switch } from "@/components/ui/switch";
 import { TextField } from "@/components/ui/text-field";
@@ -20,6 +21,8 @@ import { useIsMounted } from "@/lib/use-is-mounted";
 import { cn } from "@/lib/utils";
 
 const DAY_ERROR = "Enter a day from 1 to 31.";
+// Where the two days are (persona walk, Nov 25: "1 to 31" alone gave no help).
+export const DAYS_HINT = "Find both days in your card’s app or on a statement.";
 
 // The fields as drawn: white fill, off-white 1.5px edge, 20px corners, 16px
 // sides and 14px top and bottom (Figma 144:1828). The padding is on the input,
@@ -144,6 +147,7 @@ export function PaymentReminderSetup({
 
           <TextField
             label="Statement closes on day"
+            hint={DAYS_HINT}
             inputMode="numeric"
             autoComplete="off"
             maxLength={2}
@@ -211,6 +215,13 @@ export function PaymentReminderSetup({
           >
             Save reminders
           </Button>
+          {/* Before any days are saved, a way on without them: nothing is
+              saved and the star stays out, so it can be done later. */}
+          {statementClosingDay === null && paymentDueDay === null ? (
+            <Link href={doneHref} className={buttonVariants({ variant: "link" })}>
+              I don’t know yet
+            </Link>
+          ) : null}
         </form>
         <div className="sticky bottom-0">
           <BottomNav />

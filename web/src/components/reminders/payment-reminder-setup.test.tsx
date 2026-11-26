@@ -200,4 +200,15 @@ describe("PaymentReminderSetup", () => {
     );
     expect(replace).not.toHaveBeenCalledWith("/home");
   });
+
+  it("says where to find the days, and offers a way on without them before any are saved", () => {
+    renderSetup(undefined, { doneHref: "/applications/x/setup" });
+    expect(closingField().getAttribute("aria-describedby")).toBeTruthy();
+    expect(screen.getByText("Find both days in your card’s app or on a statement.")).toBeTruthy();
+    const skip = screen.getByRole("link", { name: "I don’t know yet" });
+    expect(skip.getAttribute("href")).toBe("/applications/x/setup");
+    cleanup();
+    renderSetup({ closing: 12, due: 9 });
+    expect(screen.queryByRole("link", { name: "I don’t know yet" })).toBeNull();
+  });
 });

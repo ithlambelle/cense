@@ -181,7 +181,7 @@ test("Dismiss for this billing cycle hides the reminder for good", async ({ page
   await page.getByRole("dialog", { name: "Remind me again" }).getByRole("button", { name: "Dismiss for this billing cycle" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("article")).toHaveCount(0);
-  await expect(page.getByText("No updates yet.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Nothing yet.", { exact: false })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("article")).toHaveCount(0);
 });
