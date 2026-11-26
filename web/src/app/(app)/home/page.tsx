@@ -7,7 +7,7 @@ import { plaidConfig } from "@/lib/plaid/config";
 import { loadSafeToSpend } from "@/lib/plaid/store";
 import { CELEBRATE_PARAM, REMINDER_PARAM, reminderKindParam, ROUTES } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
-import { loadApplicationDetail, loadComingUpCards, loadReminderSettings, loadStudentSnapshot } from "@/lib/student-data";
+import { loadApplicationDetail, loadComingUpCards, loadReminderSettings, loadStudentSnapshot, loadWaitingOnLetter } from "@/lib/student-data";
 
 export const metadata: Metadata = { title: "Home | CENSE" };
 
@@ -26,7 +26,10 @@ export default async function HomePage({ searchParams }: PageProps<"/home">) {
   // Safe to spend (US-12) is read alongside, only when Plaid is set up. A
   // failed read leaves its card out rather than failing Home. So does Coming
   // up's (D1): the approved cards' dates, with the bills from safe to spend.
-  const [detailAndSettings, safeToSpend, comingUpCards] = await Promise.all([
+  // Denied cards listed under "Your other cards" open their plan, or their
+  // denial options while they wait on the letter (read only when listed).
+  const otherDenied = state.kind === "tracking" && state.others.some((application) => application.status === "rejected");
+  const [detailAndSettings, safeToSpend, comingUpCards, waitingOnLetter] = await Promise.all([
     needsDetail(state)
       ? Promise.all([
           loadApplicationDetail(student, state.primary.id),
@@ -35,6 +38,7 @@ export default async function HomePage({ searchParams }: PageProps<"/home">) {
       : null,
     plaidConfig() ? loadSafeToSpend(student) : null,
     loadComingUpCards(student),
+    otherDenied ? loadWaitingOnLetter(student) : [],
   ]);
   const [detail, settings] = detailAndSettings ?? [null, ALL_REMINDERS_ON];
   const celebrateId = params[CELEBRATE_PARAM];
@@ -64,6 +68,8 @@ export default async function HomePage({ searchParams }: PageProps<"/home">) {
       fromReminder={fromReminder}
       safeToSpend={safeToSpend?.ok ? safeToSpend.value : undefined}
       comingUp={comingUp}
+      today={comingUpCards?.today ?? null}
+      waitingOnLetter={waitingOnLetter ?? []}
     />
   );
 }

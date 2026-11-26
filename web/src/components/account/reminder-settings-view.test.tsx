@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ReminderSettings, ReminderSettingsSave } from "@/lib/api-client/reminder-settings";
 
-import { ReminderSettingsView } from "./reminder-settings-view";
+import { paymentDueDetail, ReminderSettingsView } from "./reminder-settings-view";
 
 const router = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/settings/reminders", useRouter: () => router }));
@@ -16,6 +16,29 @@ afterEach(() => {
 });
 
 const toggle = (name: string) => screen.getByRole("switch", { name });
+
+describe("Payment due with autopay on", () => {
+  it("says the due-date email is skipped for a card with autopay on", () => {
+    render(<ReminderSettingsView settings={ALL_ON} email={null} cards={[{ name: "Discover", autopayOn: true }]} save={vi.fn()} />);
+    expect(screen.getByText("Skipped while autopay is on")).toBeTruthy();
+    expect(toggle("Payment due").getAttribute("aria-describedby")).toBeTruthy();
+  });
+
+  it("names only the cards it skips", () => {
+    expect(paymentDueDetail([])).toBe("Before it’s due");
+    expect(paymentDueDetail([{ name: "Chase", autopayOn: false }])).toBe("Before it’s due");
+    expect(paymentDueDetail([{ name: "Discover", autopayOn: true }, { name: "Chase", autopayOn: false }])).toBe(
+      "Before it’s due. Skipped for Discover: autopay is on",
+    );
+    expect(
+      paymentDueDetail([
+        { name: "Discover", autopayOn: true },
+        { name: "Capital One", autopayOn: true },
+        { name: "Chase", autopayOn: false },
+      ]),
+    ).toBe("Before it’s due. Skipped for Discover and Capital One: autopay is on");
+  });
+});
 
 describe("ReminderSettingsView", () => {
   it("shows the three emails as the frame does, with the student's address and the one-a-day line", () => {

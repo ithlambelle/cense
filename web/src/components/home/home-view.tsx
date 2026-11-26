@@ -27,11 +27,11 @@ import { SENSITIVE } from "@/lib/analytics";
 import type { Application } from "@/lib/api/application";
 import type { SafeToSpend } from "@/lib/api/safe-to-spend";
 import type { ComingUpRow } from "@/lib/home/coming-up";
-import { ALL_REMINDERS_ON, celebrating, paymentReminderOn, type CardDetail, type HomeState, type StarSettings } from "@/lib/home/state";
+import { ALL_REMINDERS_ON, celebrating, nextStatementLabel, paymentReminderOn, type CardDetail, type HomeState, type StarSettings } from "@/lib/home/state";
 import { moneyAmount } from "@/lib/money";
 import { quizProgress } from "@/lib/quiz/progress";
 import { QUIZ_STEP_COUNT } from "@/lib/quiz/spending";
-import { applicationPath, cardPath, deniedPath, planPath, ROUTES, type ReminderKind } from "@/lib/routes";
+import { applicationPath, cardPath, cardSetupPath, deniedPath, ROUTES, type ReminderKind } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
@@ -50,6 +50,11 @@ type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 // not exist there). `safeToSpend` is the student's sandbox bank link (null:
 // none yet); left out when safe to spend is off. `comingUp` is Coming up's
 // rows (D1): the dates ahead, shown under the card module when there are any.
+// `today` is the student's calendar date (YYYY-MM-DD), for when a set-up
+// card's next statement closes; null when it could not be read.
+// `waitingOnLetter` are the ids of denied cards still waiting on the issuer's
+// letter: among "Your other cards" they open the denial options, every other
+// denied card its plan.
 export function HomeView({
   state,
   initial,
@@ -60,6 +65,8 @@ export function HomeView({
   sampleStars,
   safeToSpend,
   comingUp = [],
+  today = null,
+  waitingOnLetter = [],
 }: {
   state: HomeState;
   initial: string;
@@ -70,6 +77,8 @@ export function HomeView({
   sampleStars?: number;
   safeToSpend?: SafeToSpend | null;
   comingUp?: ComingUpRow[];
+  today?: string | null;
+  waitingOnLetter?: readonly string[];
 }) {
   const celebrate = celebrating(state, celebrateId);
   return (
@@ -105,6 +114,8 @@ export function HomeView({
             reminderSettings={reminderSettings}
             celebrate={celebrate}
             sampleStars={sampleStars}
+            today={today}
+            waitingOnLetter={waitingOnLetter}
             top={safeToSpend !== undefined ? <SafeToSpendHome safeToSpend={safeToSpend} preview={!celebrate} /> : null}
             ahead={<ComingUp rows={comingUp} />}
           />
@@ -125,6 +136,8 @@ function HomeContent({
   reminderSettings,
   celebrate,
   sampleStars,
+  today,
+  waitingOnLetter,
   top,
   ahead,
 }: {
@@ -133,6 +146,8 @@ function HomeContent({
   reminderSettings: StarSettings;
   celebrate: boolean;
   sampleStars?: number;
+  today: string | null;
+  waitingOnLetter: readonly string[];
   // Safe to spend, shown right after the greeting.
   top: ReactNode;
   // Coming up: right after the leading card's module (safe to spend stays
@@ -228,12 +243,14 @@ function HomeContent({
           autopayOn={detail?.autopayStatus === "on"}
           autopayPaymentType={detail?.autopayPaymentType ?? null}
           spendLimitSet={detail?.spendLimitCents != null}
+          spendLimitCents={detail?.spendLimitCents ?? null}
+          nextStatement={nextStatementLabel(detail?.statementClosingDay ?? null, today)}
           paymentReminderOn={paymentReminderOn(detail, reminderSettings)}
           celebrate={celebrate}
           sampleStars={sampleStars}
         />
         {ahead}
-        {others.length > 0 ? <OtherCards applications={others} /> : null}
+        {others.length > 0 ? <OtherCards applications={others} waitingOnLetter={waitingOnLetter} /> : null}
       </>
     );
   }
@@ -248,7 +265,7 @@ function HomeContent({
           sampleStars={sampleStars}
         />
         {ahead}
-        {others.length > 0 ? <OtherCards applications={others} /> : null}
+        {others.length > 0 ? <OtherCards applications={others} waitingOnLetter={waitingOnLetter} /> : null}
       </>
     );
   }
@@ -259,7 +276,7 @@ function HomeContent({
       <TrackedCard application={primary} />
       <TrackedNextStep application={primary} />
       {ahead}
-      {others.length > 0 ? <OtherCards applications={others} /> : null}
+      {others.length > 0 ? <OtherCards applications={others} waitingOnLetter={waitingOnLetter} /> : null}
     </>
   );
 }
@@ -446,7 +463,20 @@ function QuizPrompt({ answered }: { answered: number }) {
   );
 }
 
-function OtherCards({ applications }: { applications: Application[] }) {
+// Each card opens where its next step is: an applied card Mark result, a
+// denied card its five-step plan (or the denial options while it waits on the
+// letter), as Home's own denied card does, and an approved card its setup
+// list, as Home's approved card does (persona walk, Nov 25: a second card
+// opened the old first-month plan, and a denied one the reason question again).
+export function otherCardHref(application: Application, waitingOnLetter: readonly string[]): string {
+  if (application.status === "applied") return applicationPath(application.id);
+  if (application.status === "rejected") {
+    return deniedPath(waitingOnLetter.includes(application.id) ? "options" : "plan", application.id);
+  }
+  return cardSetupPath(application.id);
+}
+
+function OtherCards({ applications, waitingOnLetter }: { applications: Application[]; waitingOnLetter: readonly string[] }) {
   return (
     <section aria-labelledby="other-cards" className="flex flex-col gap-3">
       <h2 id="other-cards" className="font-heading text-h6 font-medium text-indigo-black">
@@ -456,17 +486,7 @@ function OtherCards({ applications }: { applications: Application[] }) {
         {applications.map((application) => (
           <li key={application.id}>
             <Link
-              href={
-                application.status === "applied"
-                  ? applicationPath(application.id)
-                  : application.status === "rejected"
-                    ? deniedPath("options", application.id)
-                    : // An approved card opens its own page (status and Update
-                      // status). The old first-month page could not save autopay.
-                      application.cardId
-                      ? cardPath(application.cardId, "home")
-                      : planPath(application.id)
-              }
+              href={otherCardHref(application, waitingOnLetter)}
               className="flex items-center justify-between gap-3 rounded-card border border-hairline bg-white px-5 py-4 hover:bg-off-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               <span className="min-w-0 truncate font-heading text-h6 font-medium text-navy">{application.cardName}</span>

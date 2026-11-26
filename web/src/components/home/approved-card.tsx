@@ -45,9 +45,9 @@ const STEPS: { key: StepKey; title: string; detail: string; opens: "setup" | "sp
   { key: "paymentReminder", title: "Choose your reminders", detail: "One email before each date", opens: "reminders" },
 ];
 
-function stepHref(opens: (typeof STEPS)[number]["opens"], application: Application): string {
+function stepHref(opens: (typeof STEPS)[number]["opens"], application: Application, spendLimitCents: number | null): string {
   if (opens === "setup") return cardSetupPath(application.id);
-  if (opens === "spendLimit") return spendLimitPath(application.id, application.creditLimitCents, "home");
+  if (opens === "spendLimit") return spendLimitPath(application.id, application.creditLimitCents, "home", undefined, spendLimitCents);
   return paymentRemindersPath(application.id);
 }
 
@@ -78,6 +78,8 @@ export function ApprovedCard({
   autopayOn,
   autopayPaymentType = null,
   spendLimitSet = false,
+  spendLimitCents = null,
+  nextStatement = null,
   paymentReminderOn = false,
   celebrate,
   sampleStars,
@@ -89,6 +91,10 @@ export function ApprovedCard({
   autopayPaymentType?: PaymentType | null;
   // The card has a saved spend limit (spendLimitCents is not null).
   spendLimitSet?: boolean;
+  // The saved spend limit, shown once the card is set up.
+  spendLimitCents?: number | null;
+  // When the next statement closes ("Dec 12"), or null when the day is not saved.
+  nextStatement?: string | null;
   // The card's payment reminder is really on (paymentReminderOn in lib/home/state.ts).
   paymentReminderOn?: boolean;
   celebrate: boolean;
@@ -97,6 +103,9 @@ export function ApprovedCard({
 }) {
   if (sampleStars !== undefined) {
     const start = Object.fromEntries(STEPS.map((step, index) => [step.key, index < sampleStars])) as Lit;
+    if (sampleStars >= STEPS.length) {
+      return <SetUpCard application={application} spendLimitCents={spendLimitCents} nextStatement={nextStatement} sample />;
+    }
     return (
       <>
         {celebrate ? <ArrivalEffects /> : null}
@@ -118,6 +127,8 @@ export function ApprovedCard({
       autopayOn={autopayOn}
       autopayPaymentType={autopayPaymentType}
       spendLimitSet={spendLimitSet}
+      spendLimitCents={spendLimitCents}
+      nextStatement={nextStatement}
       paymentReminderOn={paymentReminderOn}
       celebrate={celebrate}
     />
@@ -129,6 +140,8 @@ function SavedCard({
   autopayOn,
   autopayPaymentType,
   spendLimitSet,
+  spendLimitCents,
+  nextStatement,
   paymentReminderOn,
   celebrate,
 }: {
@@ -136,6 +149,8 @@ function SavedCard({
   autopayOn: boolean;
   autopayPaymentType: PaymentType | null;
   spendLimitSet: boolean;
+  spendLimitCents: number | null;
+  nextStatement: string | null;
   paymentReminderOn: boolean;
   celebrate: boolean;
 }) {
@@ -144,6 +159,17 @@ function SavedCard({
     [application.id, autopayOn, spendLimitSet, paymentReminderOn],
   );
   const { loaded, retry } = useLoaded(load, signInPath(ROUTES.home));
+  // Once every star is lit, the first month is over: the card shows as set up
+  // (persona walk, Nov 25: "Your first month" stayed on year-old cards).
+  // While the saved step loads, what the server already knows decides, so a
+  // set-up card does not open as the star list first.
+  const setUp =
+    loaded.status === "ready"
+      ? STEPS.every((step) => loaded.data[step.key])
+      : loaded.status === "loading" && autopayOn && spendLimitSet && paymentReminderOn;
+  if (setUp && !celebrate) {
+    return <SetUpCard application={application} spendLimitCents={spendLimitCents} nextStatement={nextStatement} />;
+  }
   // A key per load state, so the stars start again from what was loaded.
   // The arrival effects sit outside it, so they run once.
   return (
@@ -153,6 +179,7 @@ function SavedCard({
         key={loaded.status}
         application={application}
         autopayPaymentType={autopayPaymentType}
+        spendLimitCents={spendLimitCents}
         celebrate={celebrate}
         start={loaded.status === "ready" ? loaded.data : { ...NONE_LIT, autopay: autopayOn, spendLimit: spendLimitSet }}
         loadError={loaded.status === "failed" ? loaded.message : null}
@@ -165,6 +192,7 @@ function SavedCard({
 function CardModule({
   application,
   autopayPaymentType,
+  spendLimitCents = null,
   celebrate,
   start: lit,
   loadError,
@@ -173,6 +201,8 @@ function CardModule({
 }: {
   application: Application;
   autopayPaymentType: PaymentType | null;
+  // The saved spend limit, so its row reopens on it.
+  spendLimitCents?: number | null;
   celebrate: boolean;
   start: Lit;
   loadError: string | null;
@@ -218,7 +248,7 @@ function CardModule({
         {STEPS.map((step) => (
           <li key={step.key}>
             {/* Lit or not, it opens the screen, so the student can change it there. */}
-            <Link href={stepHref(step.opens, application)} className={ROW}>
+            <Link href={stepHref(step.opens, application, spendLimitCents)} className={ROW}>
               <StepRowContent
                 title={step.title}
                 detail={step.key === "autopay" ? autopayCadence(autopayPaymentType) : step.detail}
@@ -229,12 +259,6 @@ function CardModule({
         ))}
       </ul>
 
-      {count === STEPS.length ? (
-        <p role="status" className="flex animate-fade-in items-center gap-3 rounded-input bg-off-white px-4 py-3 text-body-s text-indigo-black">
-          <StarFill aria-hidden="true" width={20} height={20} className="shrink-0 text-amber" />
-          All three stars lit. Your card is set up to build good credit.
-        </p>
-      ) : null}
       {loadError ? (
         <div className="flex flex-col gap-2">
           <ErrorMessage>{loadError}</ErrorMessage>
@@ -242,6 +266,59 @@ function CardModule({
             Try again
           </Button>
         </div>
+      ) : null}
+    </section>
+  );
+}
+
+// The card once its first month's three steps are done: its limit, the spend
+// limit the student saved and when the next statement closes, so Home stops
+// saying "Your first month". No frame draws it yet (Home's next step is being
+// redesigned); it is the module's own parts. The title row still opens the
+// card setup list, where every step can be changed.
+function SetUpCard({
+  application,
+  spendLimitCents,
+  nextStatement,
+  sample = false,
+}: {
+  application: Application;
+  spendLimitCents: number | null;
+  nextStatement: string | null;
+  sample?: boolean;
+}) {
+  const rows = [
+    ...(spendLimitCents !== null ? [{ label: "Spend limit", value: `${moneyAmount(spendLimitCents)} a month` }] : []),
+    ...(nextStatement ? [{ label: "Next statement", value: nextStatement }] : []),
+  ];
+  return (
+    <section aria-label={application.cardName} className="flex flex-col gap-3.5 rounded-card border-[1.5px] border-violet bg-white p-5">
+      <TitleRow application={application}>
+        <span aria-hidden="true" className="relative h-[38px] w-14 shrink-0 rounded-[6px] bg-navy">
+          <span className="absolute top-[9px] left-[7px] h-2 w-[11px] rounded-[2px] bg-amber" />
+          <span className="absolute top-[27px] left-[7px] h-[3px] w-[26px] rounded-[2px] bg-white/35" />
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h2 className="font-heading text-h6 font-medium text-navy">{application.cardName}</h2>
+          <p className="flex items-center gap-1 text-[13px] leading-normal text-indigo-black/70">
+            <StarFill aria-hidden="true" width={12} height={12} className="shrink-0 text-amber" />
+            Set up
+          </p>
+        </div>
+      </TitleRow>
+      <CreditLimit application={application} sample={sample} />
+      {rows.length > 0 ? (
+        <>
+          <div className="h-[1.5px] bg-off-white" />
+          <dl className="flex flex-col gap-3">
+            {rows.map((row) => (
+              <div key={row.label} className="flex items-start justify-between gap-3 text-body-s">
+                <dt className="text-indigo-black">{row.label}</dt>
+                <dd className={cn(SENSITIVE, "font-semibold text-navy")}>{row.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </>
       ) : null}
     </section>
   );

@@ -295,6 +295,13 @@ describe("CardDetailView, the student's own card (K1)", () => {
     );
   });
 
+  it("opens Change your limit on a limit of the student's own, not the suggestion", () => {
+    render(<CardDetailView card={catalogCard(DISCOVER)} signedIn tracked={TRACKED} detail={{ ...SET_UP, spendLimitCents: 10000 }} reminders="off" />);
+    expect(open("Spend limit").getByRole("link", { name: "Change your limit" }).getAttribute("href")).toBe(
+      `/applications/${ID}/setup/spend-limit/pick?from=card`,
+    );
+  });
+
   it("keeps the page's own origin on autopay and spend limit links, so their Back and Save return to it as it was opened", () => {
     const { unmount } = render(
       <CardDetailView card={catalogCard(DISCOVER)} signedIn tracked={TRACKED} detail={SET_UP} reminders="on" from="home" />,

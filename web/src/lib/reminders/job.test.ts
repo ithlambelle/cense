@@ -184,4 +184,57 @@ describe("runReminderJob", () => {
     expect(capture).not.toHaveBeenCalledWith(expect.arrayContaining([expect.anything()]));
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("analytics_consent_read_failed"));
   });
+
+  it("reads the saved spend limits for statement emails once, and pays down to them", async () => {
+    const closing = (n: number, credit: number) => ({ ...row(n), kind: "statement_closing", occurrence: "2026-12-12", credit_limit_cents: credit });
+    const reads: { table: string; ids: string[] }[] = [];
+    const limits: Record<string, number | null> = { [row(1).reminder_id]: 80_000, [row(2).reminder_id]: null };
+    const supabase = {
+      rpc: async (name: string) => {
+        if (name === "claim_due_reminders") return { data: [closing(1, 100_000), closing(2, 100_000), row(3)], error: null };
+        return { data: name === "mark_reminder_sent" ? true : null, error: null };
+      },
+      from: (table: string) => ({
+        select: () => ({
+          in: async (_column: string, ids: string[]) => {
+            reads.push({ table, ids });
+            if (table === "reminders") return { data: ids.map((id) => ({ id, card_applications: { spend_limit_cents: limits[id] ?? null } })), error: null };
+            return { data: [], error: null };
+          },
+        }),
+      }),
+    } as unknown as ServiceClient;
+    const bodies: string[] = [];
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      bodies.push(String(init?.body));
+      return Response.json({ id: "x" });
+    });
+    await runReminderJob(supabase, config, { fetch: fetchMock as unknown as typeof fetch, sleep: async () => {}, capture: async () => {} });
+    // One read, for the two statement reminders only.
+    expect(reads.filter((r) => r.table === "reminders")).toEqual([{ table: "reminders", ids: [row(1).reminder_id, row(2).reminder_id] }]);
+    expect(JSON.parse(bodies[0]).text).toContain("pay it down to $800 or less");
+    // No saved limit: 30% of the credit limit, as before.
+    expect(JSON.parse(bodies[1]).text).toContain("pay it down to $300 or less");
+  });
+
+  it("still sends the statement emails at 30% when the spend limits cannot be read", async () => {
+    const supabase = {
+      rpc: async (name: string) => {
+        if (name === "claim_due_reminders") return { data: [{ ...row(1), kind: "statement_closing", credit_limit_cents: 100_000 }], error: null };
+        return { data: name === "mark_reminder_sent" ? true : null, error: null };
+      },
+      from: (table: string) => ({
+        select: () => ({ in: async () => (table === "reminders" ? { data: null, error: { code: "57014" } } : { data: [], error: null }) }),
+      }),
+    } as unknown as ServiceClient;
+    const bodies: string[] = [];
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      bodies.push(String(init?.body));
+      return Response.json({ id: "x" });
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await runReminderJob(supabase, config, { fetch: fetchMock as unknown as typeof fetch, sleep: async () => {}, capture: async () => {} });
+    expect(result.sent).toBe(1);
+    expect(JSON.parse(bodies[0]).text).toContain("pay it down to $300 or less");
+  });
 });

@@ -20,7 +20,7 @@ const reminder = (over: Partial<Reminder> = {}): Reminder => ({
   dueAt: "2026-11-10T14:00:00.000Z", sentAt: "2026-11-08T22:30:00.000Z", actedAt: null, readAt: null,
   snoozedUntil: null, dismissedAt: null, followUpAt: null, createdAt: "2026-11-01T15:00:00.000Z", ...over,
 });
-const card: ReminderCard = { cardName: "Discover it", creditLimitCents: 50_000, paymentDueDay: 6, autopayStatus: "off" };
+const card: ReminderCard = { cardName: "Discover it", creditLimitCents: 50_000, spendLimitCents: null, paymentDueDay: 6, autopayStatus: "off", autopayPaymentType: null };
 const row = (over: Record<string, unknown> = {}) => ({
   id: REM, card_application_id: APP, kind: "statement_closing", occurrence: "2026-11-13", due_at: "2026-11-10T14:00:00+00:00",
   sent_at: "2026-11-08T22:30:00+00:00", acted_at: null, read_at: null, snoozed_until: "2026-11-09T14:00:00+00:00",

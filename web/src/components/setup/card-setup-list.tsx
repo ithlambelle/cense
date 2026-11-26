@@ -7,7 +7,7 @@ import Link from "next/link";
 
 import { ButtonChevron, buttonVariants } from "@/components/ui/button";
 import type { SetupProgress } from "@/lib/setup/progress";
-import { autopayOnPath, autopayStepsPath, paymentRemindersPath, ROUTES, spendLimitPath } from "@/lib/routes";
+import { autopayOnPath, autopayStepsPath, cardPath, paymentRemindersPath, ROUTES, spendLimitPath } from "@/lib/routes";
 
 import { SetupHeading, SetupScreen, Spacer, StarRow, UpNextRow } from "./setup-parts";
 
@@ -15,15 +15,22 @@ export function CardSetupList({
   applicationId,
   cardName,
   brand,
+  cardId = null,
   creditLimitCents,
+  spendLimitCents = null,
   progress,
 }: {
   applicationId: string;
   cardName: string;
   // Opens the spend limit at the suggestion (S2) when known, else S1.
   creditLimitCents: number | null;
+  // The saved spend limit, so "Set a spend limit" reopens on it.
+  spendLimitCents?: number | null;
   // "Discover", or null for a card added from outside the catalog.
   brand: string | null;
+  // The card's catalog id, for a link to its page (its status and Update
+  // status); null for a card added from outside the catalog, which has none.
+  cardId?: string | null;
   progress: SetupProgress;
 }) {
   const reminders = paymentRemindersPath(applicationId, "setup");
@@ -41,11 +48,23 @@ export function CardSetupList({
           <span className="text-body-m leading-[normal] font-medium text-indigo-black">{cardName}</span>
           <span className="text-body-s leading-[normal] text-indigo-black/70">Approved</span>
         </span>
+        {/* Home's other cards open this list, so the card's own page (its
+            status, Update status) stays one tap away. */}
+        {cardId ? (
+          <Link
+            href={cardPath(cardId)}
+            className="relative shrink-0 text-body-s font-medium text-violet underline underline-offset-2 after:absolute after:-inset-3 hover:text-violet-deep focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            Card details
+          </Link>
+        ) : null}
       </div>
 
       <StarRow title="Add your dates" subtitle="Statement and due day" done={progress.dates} href={reminders} />
 
-      <h2 className="text-body-m font-semibold text-navy">Three steps</h2>
+      {/* No count: "Three steps" sat over four rows with the dates row above
+          it (persona walk, Nov 25). */}
+      <h2 className="text-body-m font-semibold text-navy">Your steps</h2>
 
       <ul className="flex flex-col gap-4">
         <li>
@@ -65,7 +84,7 @@ export function CardSetupList({
             title="Set a spend limit"
             subtitle="A monthly limit to try"
             done={progress.spendLimit}
-            href={spendLimitPath(applicationId, creditLimitCents)}
+            href={spendLimitPath(applicationId, creditLimitCents, undefined, undefined, spendLimitCents)}
           />
         </li>
         <li>

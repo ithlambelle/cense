@@ -37,6 +37,14 @@ describe("buildReminderEmail", () => {
     expect(email.text).toContain("Open Cense: https://app.test/updates?reminder=statement_closing");
   });
 
+  it("statement closing: pays down to the spend limit the student saved, as Home does", () => {
+    const email = buildReminderEmail({ ...base, creditLimitCents: 100_000, spendLimitCents: 80_000 }, LINKS);
+    expect(email.html).toContain("Pay down to $800 first.");
+    expect(email.text).toContain("pay it down to $800 or less in your Capital One app");
+    expect(email.html).toContain("<strong>$800 or less</strong>");
+    expect(email.text).not.toContain("$300");
+  });
+
   it("has one button, Open Cense, to Home marked with the email's kind, and promises nothing it cannot do", () => {
     for (const input of KINDS) {
       const email = buildReminderEmail(input, LINKS);

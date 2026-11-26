@@ -23,12 +23,15 @@ export function FollowUpView({
   id,
   cardName,
   due,
+  autopay = null,
   choices,
 }: {
   id: string;
   cardName: string;
   // "Dec 6", or null when the card has no due day saved.
   due: string | null;
+  // "Autopay covers the minimum.", when autopay pays only part of it.
+  autopay?: string | null;
   choices: SnoozeTarget["choices"];
 }) {
   const router = useRouter();
@@ -81,7 +84,9 @@ export function FollowUpView({
           <section aria-label="Pay your statement balance" className="flex flex-col gap-1.5 rounded-card border-[1.5px] border-off-white bg-white p-5">
             <p className="text-body-s text-indigo-black">Pay your statement balance</p>
             <p className="font-number text-[36px] leading-[44px] font-semibold text-navy">In full</p>
-            <p className="text-body-s text-indigo-black/75">Paying it in full by {by} avoids interest.</p>
+            <p className="text-body-s text-indigo-black/75">
+              {autopay ? `${autopay} Pay the rest by ${by} to avoid interest.` : `Paying it in full by ${by} avoids interest.`}
+            </p>
             <p className="text-[13px] leading-[18px] text-indigo-black">Check the balance in your card app first.</p>
           </section>
           <section aria-labelledby="why-full" className="flex items-start gap-3 rounded-card bg-light-blue/50 p-[18px]">

@@ -14,7 +14,6 @@ import { ReminderSavedView } from "@/components/denied/reminder-saved-view";
 import { ReminderSetup } from "@/components/denied/reminder-setup";
 import { SecondLook } from "@/components/denied/second-look";
 import { AddCardScreen } from "@/components/home/add-card-form";
-import { FirstMonthPlan } from "@/components/plan/first-month-plan";
 import { findCard, listCards } from "@/lib/cards/catalog";
 import { localDevOnly } from "@/lib/dev-only";
 
@@ -101,7 +100,6 @@ const SCREENS = {
   "second-look-not-approved": () => <SecondLook applicationId={SAMPLE_ID} initialView="not-approved" />,
   account: () => <AccountView email="student@example.edu" card={{ ...SAMPLE_APPLICATION, status: "approved", creditLimitCents: 50000 }} />,
   "add-card": () => <AddCardScreen />,
-  plan: () => <FirstMonthPlan application={{ ...SAMPLE_APPLICATION, status: "approved", creditLimitCents: 50000 }} />,
   // Sample answers held in the browser; saving never calls the API.
   "payment-reminders": () => <PaymentRemindersPreview outcome="saves" />,
   "payment-reminders-error": () => <PaymentRemindersPreview outcome="fails" />,

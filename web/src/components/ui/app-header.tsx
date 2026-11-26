@@ -2,9 +2,9 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useSyncExternalStore, type MouseEvent } from "react"
+import { useCallback, useSyncExternalStore, type MouseEvent } from "react"
 
-import { browserNavigation, currentPreviousScreen, screenName } from "@/lib/back-navigation"
+import { backTarget, browserNavigation, currentPreviousScreen, screenName } from "@/lib/back-navigation"
 import { cn } from "@/lib/utils"
 
 // The one back control (Figma G6, revised 2026-10-24): the designers' quiz
@@ -32,9 +32,9 @@ function subscribe(onChange: () => void) {
   return () => navigation?.removeEventListener("currententrychange", onChange)
 }
 
-// The previous Cense screen's address, as a string so React can compare it.
-function previousHref(): string | null {
-  return currentPreviousScreen()?.href ?? null
+// The screen the arrow returns to right now (backTarget), or null.
+function previousFor(parentHref: string): URL | null {
+  return backTarget(currentPreviousScreen(), parentHref)
 }
 
 // `href` and `label` are the logical parent, used when there is no Cense
@@ -50,6 +50,8 @@ function BackLink({
   label: string
   tone?: "dark" | "light"
 }) {
+  // As a string, so React can compare it.
+  const previousHref = useCallback(() => previousFor(href)?.href ?? null, [href])
   const previous = useSyncExternalStore(subscribe, previousHref, () => null)
   const name = previous ? (screenName(new URL(previous)) ?? "the last screen") : label
 
@@ -57,7 +59,7 @@ function BackLink({
     // A new tab or window (modifier keys) opens the parent, as a link should.
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return
     // Read again at the moment of the tap: the history may have changed.
-    if (!currentPreviousScreen()) return
+    if (!previousFor(href)) return
     event.preventDefault()
     window.history.back()
   }

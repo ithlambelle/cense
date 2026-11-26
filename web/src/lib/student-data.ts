@@ -133,6 +133,23 @@ export async function loadReminderSettings(student: Student): Promise<ReminderSe
     : { emailsOn: true, statementClosing: true, paymentDue: true, checkAutopay: true };
 }
 
+// The ids of the student's denied cards still waiting on the issuer's letter
+// (denial_reason no_letter_yet), so Home's "Your other cards" opens their
+// denial options rather than their plan. Null when the read fails.
+export async function loadWaitingOnLetter(student: Student): Promise<string[] | null> {
+  const { data, error } = await student.supabase
+    .from("card_applications")
+    .select("id")
+    .eq("student_id", student.studentId)
+    .eq("status", "rejected")
+    .eq("denial_reason", "no_letter_yet");
+  if (error) {
+    console.warn(JSON.stringify({ event: "waiting_on_letter_read_failed" }));
+    return null;
+  }
+  return (data as { id: string }[]).map((row) => row.id);
+}
+
 // What Home's Coming up needs besides the bills (D1): every approved card with
 // its closing and due days, limit and autopay, named as its rows name it, and
 // the student's calendar date in their time zone (New York when none is
@@ -169,6 +186,7 @@ export async function loadComingUpCards(student: Student): Promise<{ cards: Comi
       applicationId: row.id,
       name: names.get(row.id) ?? row.cardName,
       creditLimitCents: row.creditLimitCents,
+      spendLimitCents: row.spendLimitCents,
       statementClosingDay: row.statementClosingDay,
       paymentDueDay: row.paymentDueDay,
       autopayStatus: row.autopayStatus === "on" || row.autopayStatus === "off" ? row.autopayStatus : "unknown",

@@ -1,5 +1,5 @@
 // Journeys for the MVP2 screens no test drove before (audit H-P1-08): add a
-// card you already have, the first-month plan, your account, the reapply
+// card you already have, the retired first-month plan, your account, the reapply
 // reminder and its saved check, and "still waiting". Each test uses every
 // control as a student would, reloads to check what was saved, follows every
 // link and tries the edges. Forgot and reset password are in
@@ -97,65 +97,33 @@ test("a student adds a card they already have, and it stays on Home", async ({ p
   await visitor.context().close();
 });
 
-test("the first-month plan saves autopay, opens the spend limit and reminder screens, and shows only the student's own card", async ({ page, browser }) => {
+test("the retired first-month plan: a listed card opens its setup list, and an old /plan link does too, only for the student's own card", async ({ page, browser }) => {
   const checkA11y = axeChecker(page);
   await signUp(page, uniqueEmail("plan"), checkA11y);
-  // Two cards added by name: Home leads with the newer one and lists the other,
-  // which opens the first-month plan (cards not in the catalog have no card page).
+  // Two cards added by name: Home leads with the newer one and lists the
+  // other, which opens its own setup list (persona walk, Nov 25: it opened
+  // the old first-month plan, whose advice contradicted card setup).
   const older = await track(page, { cardId: null, cardName: "Older Credit Union Card" }, "approved");
   await track(page, { cardId: null, cardName: "Newer Store Card" }, "approved");
   await page.goto("/home");
   await page.getByRole("link", { name: /Older Credit Union Card/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/plan\\?application=${older}$`));
-  await expect(page.getByRole("heading", { level: 1, name: "Your first-month plan" })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 2, name: "Older Credit Union Card" })).toBeVisible();
-  await expect(page.getByRole("checkbox", { name: /Turn on autopay/ })).toBeEnabled();
-  await expect(page.getByText("0 of 3 done")).toBeVisible();
-  await checkA11y("first-month plan");
-  await fitsEverySize(page, "first-month plan");
+  await expect(page).toHaveURL(new RegExp(`/applications/${older}/setup$`));
+  await expect(page.getByRole("heading", { level: 1, name: "Set up your card" })).toBeVisible();
+  await expect(page.getByText("Older Credit Union Card")).toBeVisible();
+  await checkA11y("card setup from Your other cards");
+  await fitsEverySize(page, "card setup from Your other cards");
 
-  // The spend limit opens its screens rather than ticking (no limit saved
-  // without one behind it); with no credit limit, it asks for that first.
-  await expect(page.getByRole("checkbox", { name: /Set a spend limit/ })).toHaveCount(0);
-  await page.getByRole("link", { name: /^Set a spend limit/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/applications/${older}/setup/spend-limit$`));
-  await page.goBack();
-  await expect(page).toHaveURL(new RegExp(`/plan\\?application=${older}$`));
-
-  // Autopay is saved on the card, as on Home: it survives a reload, ticked and unticked.
-  for (const on of [true, false]) {
-    const autopay = page.getByRole("checkbox", { name: /Turn on autopay/ });
-    await expect(autopay).toBeEnabled();
-    const write = page.waitForResponse((r) => r.url().endsWith(`/api/v1/applications/${older}`) && r.request().method() === "PATCH");
-    await autopay.click();
-    expect((await write).ok()).toBe(true);
-    await page.reload();
-    await expect(page.getByRole("checkbox", { name: /Turn on autopay/ })).toHaveAttribute("aria-checked", String(on));
-    await expect(page.getByText(`${on ? 1 : 0} of 3 done`)).toBeVisible();
-  }
-
-  // The reminder row opens that card's reminder screen; Back returns here.
-  await page.getByRole("link", { name: /Set a payment reminder/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/applications/${older}/reminders$`));
-  await page.goBack();
-  await expect(page).toHaveURL(new RegExp(`/plan\\?application=${older}$`));
-
-  await page.getByRole("link", { name: "Go to Home" }).click();
-  await expect(page).toHaveURL(/\/home$/);
+  // An old /plan link (an email, a bookmark) opens the same setup list.
   await page.goto(`/plan?application=${older}`);
-  await page.getByRole("link", { name: "Back to Home" }).click();
-  await expect(page).toHaveURL(/\/home$/);
+  await expect(page).toHaveURL(new RegExp(`/applications/${older}/setup$`));
 
-  // Another student with this card's id sees their own (empty) plan, never this card.
+  // Another student with this card's id has no approved card: Home, never this card.
   const other = await (await browser.newContext({ baseURL: test.info().project.use.baseURL, reducedMotion: "reduce" })).newPage();
   await blockExternalRequests(other.context());
   await signUp(other, uniqueEmail("plan-intruder"), async () => {});
   await other.goto(`/plan?application=${older}`);
-  await expect(other.getByRole("heading", { level: 1, name: "No approved card yet" })).toBeVisible();
-  await expect(other.getByText("Older Credit Union Card")).toHaveCount(0);
-  await axeChecker(other)("first-month plan: no approved card");
-  await other.getByRole("link", { name: "Go to Home" }).click();
   await expect(other).toHaveURL(/\/home$/);
+  await expect(other.getByText("Older Credit Union Card")).toHaveCount(0);
   await other.context().close();
 });
 

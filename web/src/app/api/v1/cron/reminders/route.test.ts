@@ -30,6 +30,10 @@ const claimed = (over: Record<string, unknown> = {}) => ({
   credit_limit_cents: 50_000, autopay_status: "off", payment_due_day: 9, time_zone: "America/New_York", ...over,
 });
 
+// The job's one table read (claimed cards' spend limits, and the analytics
+// consent read): no rows.
+const from = () => ({ select: () => ({ in: async () => ({ data: [], error: null }) }) });
+
 // The service client: each rpc name answers from its own queue (or ok/null).
 function database(answers: Record<string, Result[]> = {}) {
   const calls: { name: string; args?: unknown }[] = [];
@@ -38,6 +42,7 @@ function database(answers: Record<string, Result[]> = {}) {
       calls.push({ name, args });
       return answers[name]?.shift() ?? { data: name === "mark_reminder_sent" ? true : null, error: null };
     },
+    from,
   });
   return calls;
 }
@@ -121,6 +126,7 @@ describe("GET /cron/reminders", () => {
         if (name === "claim_due_reminders") return { data: [claimed()], error: null };
         return { data: null, error: null };
       },
+      from,
     });
     const fetchMock = resend();
     const body = await (await cron()).json();

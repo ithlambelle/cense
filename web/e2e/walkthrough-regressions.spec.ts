@@ -91,15 +91,21 @@ test("a tracked card's page shows its status, not the preapproval check or apply
   await expect(page.getByRole("button", { name: /^Apply at/ })).toBeVisible();
 });
 
-test("a second approved card on Home opens its card page, where its status lives", async ({ page }) => {
+test("a second approved card on Home opens its setup list, with its card page (its status) one tap away", async ({ page }) => {
   await signUp(page, uniqueEmail("second-approved"), async () => {});
   await track(page, DISCOVER, "approved", 50000);
   await track(page, CHIME, "approved", 30000);
   await page.goto("/home");
-  // Home leads with the most recently changed card; the other one is listed below.
+  // Home leads with the most recently changed card; the other one is listed
+  // below and opens its own setup list, as Home's own card does.
   const other = page.getByRole("region", { name: "Your other cards" }).getByRole("link").first();
-  await expect(other).toHaveAttribute("href", new RegExp(`^/cards/(${DISCOVER.id}|${CHIME.id})\\?from=home$`));
+  await expect(other).toHaveAttribute("href", /^\/applications\/[0-9a-f-]{36}\/setup$/);
   await other.click();
-  await expect(page).toHaveURL(new RegExp(`/cards/(${DISCOVER.id}|${CHIME.id})\\?from=home$`));
+  await expect(page).toHaveURL(/\/applications\/[0-9a-f-]{36}\/setup$/);
+  await expect(page.getByRole("heading", { level: 1, name: /^Set up your/ })).toBeVisible();
+  // Its page, where the status and Update status live, is one tap away.
+  await page.getByRole("link", { name: "Card details" }).click();
+  await expect(page).toHaveURL(new RegExp(`/cards/(${DISCOVER.id}|${CHIME.id})$`));
   await expect(page.getByRole("region", { name: "Your status" })).toHaveText("Approved");
+  await expect(page.getByRole("link", { name: "Update status" })).toBeVisible();
 });

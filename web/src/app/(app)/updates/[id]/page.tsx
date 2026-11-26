@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { FollowUpView } from "@/components/updates/follow-up-view";
 import { applicationIdSchema } from "@/lib/api/schemas";
-import { followUpView, updateItem } from "@/lib/reminders/in-app";
+import { followedUp, followUpView, updateItem } from "@/lib/reminders/in-app";
 import { loadOneReminder } from "@/lib/reminders/in-app-data";
 import { ROUTES, updatePath } from "@/lib/routes";
 import { requireStudent } from "@/lib/session";
@@ -22,8 +22,8 @@ export default async function FollowUpPage({ params }: PageProps<"/updates/[id]"
   if (!found) redirect(ROUTES.updates);
   const { reminder, card, timeZone } = found;
   const item = updateItem(reminder, card, new Date(), timeZone);
-  if (reminder.kind !== "statement_closing" || !reminder.followUpAt || !item?.action) redirect(ROUTES.updates);
+  if (reminder.kind !== "statement_closing" || !followedUp(reminder, card) || !item?.action) redirect(ROUTES.updates);
   const view = followUpView(reminder, card);
   const choices = item.snooze;
-  return <FollowUpView id={reminder.id} cardName={view.cardName} due={view.due} choices={choices} />;
+  return <FollowUpView id={reminder.id} cardName={view.cardName} due={view.due} autopay={view.autopay} choices={choices} />;
 }

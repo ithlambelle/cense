@@ -93,7 +93,43 @@ const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(r
 
 type SendOutcome = { ok: true } | { ok: false; status: number | null; code: string };
 
-async function sendEmail(row: ClaimedReminderRow, config: ReminderJobConfig, fetchImpl: typeof fetch): Promise<SendOutcome> {
+// The spend limit each claimed statement-closing reminder's card has saved,
+// by reminder id: the email's pay-down target, as Home and Updates use it
+// (payDownTargetFor). One read; claim_due_reminders does not return it. A
+// failed read is logged and the emails use 30% of the credit limit instead.
+async function spendLimits(supabase: ServiceClient, rows: ClaimedReminderRow[]): Promise<Map<string, number>> {
+  const ids = rows.filter((row) => row.kind === "statement_closing").map((row) => row.reminder_id);
+  if (ids.length === 0) return new Map();
+  let data: unknown;
+  try {
+    const read = await supabase.from("reminders").select("id, card_applications(spend_limit_cents)").in("id", ids);
+    if (read.error) {
+      log("database_error", { operation: "reminder_spend_limits", code: read.error.code }, "error");
+      return new Map();
+    }
+    data = read.data;
+  } catch (error) {
+    log("database_error", { operation: "reminder_spend_limits", code: error instanceof Error ? error.name : "read_failed" }, "error");
+    return new Map();
+  }
+  const limits = new Map<string, number>();
+  // One card per reminder; PostgREST sends it as an object, the generated
+  // types as a list, so both are read.
+  type Card = { spend_limit_cents: number | null };
+  for (const entry of (data ?? []) as unknown as { id: string; card_applications: Card | Card[] | null }[]) {
+    const card = Array.isArray(entry.card_applications) ? entry.card_applications[0] : entry.card_applications;
+    const cents = card?.spend_limit_cents;
+    if (cents !== null && cents !== undefined) limits.set(entry.id, Number(cents));
+  }
+  return limits;
+}
+
+async function sendEmail(
+  row: ClaimedReminderRow,
+  config: ReminderJobConfig,
+  fetchImpl: typeof fetch,
+  spendLimitCents: number | null,
+): Promise<SendOutcome> {
   const unsubscribeUrl = `${config.appUrl}/api/v1/reminders/unsubscribe?token=${unsubscribeToken(row.student_id, config.unsubscribeSecret)}`;
   const email = buildReminderEmail(
     {
@@ -102,6 +138,7 @@ async function sendEmail(row: ClaimedReminderRow, config: ReminderJobConfig, fet
       cardId: row.card_id,
       cardName: row.card_name,
       creditLimitCents: row.credit_limit_cents === null ? null : Number(row.credit_limit_cents),
+      spendLimitCents,
       autopayStatus: row.autopay_status,
       paymentDueDay: row.payment_due_day,
     },
@@ -176,6 +213,7 @@ export async function runReminderJob(
   const claim = await supabase.rpc("claim_due_reminders", { p_limit: CLAIM_LIMIT });
   if (claim.error) throw new ReminderJobError("reminder_claim", claim.error.code);
   const rows = (claim.data ?? []) as ClaimedReminderRow[];
+  const limits = await spendLimits(supabase, rows);
 
   const result: ReminderJobResult = { claimed: rows.length, sent: 0, failed: 0, unconfirmed: 0, deferred: 0, abandoned: 0, refreshed };
   const sent: ServerEvent<"reminder_sent">[] = [];
@@ -202,7 +240,7 @@ export async function runReminderJob(
 
     let outcome: SendOutcome;
     try {
-      outcome = await sendEmail(row, config, fetchImpl);
+      outcome = await sendEmail(row, config, fetchImpl, limits.get(row.reminder_id) ?? null);
     } catch (error) {
       // building the email failed (unexpected data); nothing was sent
       outcome = { ok: false, status: null, code: error instanceof Error ? error.name : "build_failed" };
