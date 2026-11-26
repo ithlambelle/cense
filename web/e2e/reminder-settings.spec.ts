@@ -171,10 +171,10 @@ test("a second approved card reaches its reminders from its own page, and Back a
   const discover = await track(page, DISCOVER);
   await track(page, CHIME);
   await page.goto("/home");
-  // Chime leads Home; Discover is under Your other cards and opens its page.
+  // Chime leads Home; Discover is under Your other cards, which opens its
+  // setup list (home-autopay-limit.spec.ts). Its own page, opened from Home.
   await expect(page.getByRole("region", { name: CHIME.name })).toBeVisible();
-  await page.getByRole("link", { name: new RegExp(`^${DISCOVER.name}`) }).click();
-  await expect(page).toHaveURL(new RegExp(`/cards/${DISCOVER.id}\\?from=home$`));
+  await page.goto(`/cards/${DISCOVER.id}?from=home`);
 
   // K1 (Figma 821:8748): the reminders are in Autopay and reminders, the days in Your dates.
   const section = page.getByRole("button", { name: /^Autopay and reminders/ });

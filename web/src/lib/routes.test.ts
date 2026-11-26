@@ -17,7 +17,6 @@ import {
   learnTopicPath,
   paymentRemindersPath,
   pennyPath,
-  planPath,
   quizBackHref,
   quizPath,
   remindersBackLink,
@@ -125,8 +124,7 @@ describe("tracked card paths", () => {
     expect(deniedPath("secondLook", null)).toBe("/denied/second-look");
   });
 
-  it("builds the plan and waiting screens for one card, both allowed after sign-in", () => {
-    expect(planPath(ID)).toBe(`/plan?application=${ID}`);
+  it("builds the waiting screen for one card, allowed after sign-in", () => {
     expect(waitingPath(ID)).toBe(`/applications/${ID}/waiting`);
     expect(allowedNext(waitingPath(ID))).toBe(waitingPath(ID));
   });
@@ -167,6 +165,10 @@ describe("tracked card paths", () => {
     expect(spendLimitPath(ID, 50000)).toBe(`${base}/suggestion`);
     expect(spendLimitPath(ID, null, "home")).toBe(`${base}?from=home`);
     expect(spendLimitPath(ID, 0)).toBe(base);
+    // A limit of the student's own reopens on it (S3); the suggestion saved stays on S2.
+    expect(spendLimitPath(ID, 100000, "home", undefined, 10000)).toBe(`${base}/pick?from=home`);
+    expect(spendLimitPath(ID, 100000, undefined, undefined, 30000)).toBe(`${base}/suggestion`);
+    expect(spendLimitPath(ID, null, "home", undefined, 10000)).toBe(`${base}?from=home`);
     expect(spendLimitPickPath(ID, "home")).toBe(`${base}/pick?from=home`);
     expect(spendLimitPickPath(ID, "setup")).toBe(`${base}/pick`);
     for (const path of [spendLimitCreditPath(ID), spendLimitSuggestionPath(ID), spendLimitPickPath(ID)]) {

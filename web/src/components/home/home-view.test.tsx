@@ -112,10 +112,15 @@ describe("HomeView", () => {
     expect(await screen.findByText("0 of 5 lit")).toBeTruthy();
   });
 
-  it("calls a denied card in the list NOT APPROVED and opens its denial guide", () => {
+  it("calls a denied card in the list NOT APPROVED and opens its plan, or its options while it waits on the letter", () => {
     const older = app("rejected", { id: "00000000-0000-4000-8000-000000000002", cardName: "Older Card", statusUpdatedAt: "2026-01-01T00:00:00Z" });
-    render(<HomeView state={homeState([older, app("applied")], NONE, 1)} initial="M" />);
+    const { unmount } = render(<HomeView state={homeState([older, app("applied")], NONE, 1)} initial="M" />);
     expect(screen.getByRole("link", { name: /Older Card/ }).textContent).toContain("NOT APPROVED");
+    expect(screen.getByRole("link", { name: /Older Card/ }).getAttribute("href")).toBe(
+      "/denied/plan?application=00000000-0000-4000-8000-000000000002",
+    );
+    unmount();
+    render(<HomeView state={homeState([older, app("applied")], NONE, 1)} initial="M" waitingOnLetter={[older.id]} />);
     expect(screen.getByRole("link", { name: /Older Card/ }).getAttribute("href")).toBe(
       "/denied?application=00000000-0000-4000-8000-000000000002",
     );
@@ -159,10 +164,24 @@ describe("HomeView", () => {
     const older = app("approved", { id: "00000000-0000-4000-8000-000000000002", cardName: "Older Card", statusUpdatedAt: "2026-01-01T00:00:00Z" });
     render(<HomeView state={homeState([older, app("applied")], NONE, 1)} initial="M" />);
     expect(screen.getByRole("heading", { name: "Your other cards" })).toBeTruthy();
-    // Each approved card opens its own plan, not the newest approved card's.
+    // Each approved card opens its own setup list, as Home's own card does,
+    // never the retired first-month plan.
     expect(screen.getByRole("link", { name: /Older Card/ }).getAttribute("href")).toBe(
-      "/plan?application=00000000-0000-4000-8000-000000000002",
+      "/applications/00000000-0000-4000-8000-000000000002/setup",
     );
+  });
+
+  it("opens a catalog card in the list on its setup list too, never /plan", () => {
+    const older = app("approved", {
+      id: "00000000-0000-4000-8000-000000000002",
+      cardId: "chase-freedom-rise",
+      cardName: "Chase Freedom Rise",
+      statusUpdatedAt: "2026-01-01T00:00:00Z",
+    });
+    render(<HomeView state={homeState([older, app("approved", { creditLimitCents: 50000 })], NONE, 1)} initial="M" />);
+    const href = screen.getByRole("link", { name: /Chase Freedom Rise/ }).getAttribute("href");
+    expect(href).toBe("/applications/00000000-0000-4000-8000-000000000002/setup");
+    expect(document.querySelector('a[href^="/plan"]')).toBeNull();
   });
 
   it("links the pig avatar to the account screen and marks Home in the bottom bar", () => {

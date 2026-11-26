@@ -112,6 +112,15 @@ export function browserNavigation(): NavigationLike | null {
   return navigation && typeof navigation.entries === "function" ? navigation : null;
 }
 
+// Welcome is the signed-out front door: for a signed-in student it only sends
+// them on to Home, so "Back to Welcome" opened Home (persona walk, Nov 25,
+// from Your money). It is a back target only for a screen whose own parent is
+// Welcome, the signed-out ones (sign in, sign up, the card list).
+export function backTarget(previous: URL | null, parentHref: string): URL | null {
+  if (previous?.pathname === ROUTES.welcome && parentHref !== ROUTES.welcome) return null;
+  return previous;
+}
+
 // The previous Cense screen in this tab right now, or null.
 export function currentPreviousScreen(): URL | null {
   const navigation = browserNavigation();

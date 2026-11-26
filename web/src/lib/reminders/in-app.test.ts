@@ -10,7 +10,7 @@ const APP = "00000000-0000-4000-8000-000000000001";
 const NOW = new Date("2026-11-08T23:00:00Z");
 
 const card = (over: Partial<ReminderCard> = {}): ReminderCard => ({
-  cardName: "Discover it Student Cash Back", creditLimitCents: 50_000, paymentDueDay: 6, autopayStatus: "off", ...over,
+  cardName: "Discover it Student Cash Back", creditLimitCents: 50_000, spendLimitCents: null, paymentDueDay: 6, autopayStatus: "off", autopayPaymentType: null, ...over,
 });
 
 const reminder = (over: Partial<Reminder> = {}): Reminder => ({
@@ -131,6 +131,37 @@ describe("updateItem", () => {
     });
   });
 
+  it("pays down to the saved spend limit before the statement closes", () => {
+    expect(updateItem(reminder(), card({ spendLimitCents: 10_000 }), NOW, NY)?.description).toBe("Pay down to $100 or less.");
+    expect(updateItem(reminder(), card(), NOW, NY)?.description).toBe("Pay down to $150 or less.");
+  });
+
+  it("never asks a card whose autopay pays the full balance to pay it off", () => {
+    const followUp = reminder({ occurrence: "2026-11-06", sentAt: "2026-11-03T14:00:00.000Z", followUpAt: "2026-11-08T14:00:00.000Z", readAt: "2026-11-07T12:00:00.000Z" });
+    const item = updateItem(followUp, card({ autopayStatus: "on", autopayPaymentType: "statement_balance" }), NOW, NY);
+    expect(item).toMatchObject({ group: "earlier", title: "Statement closed Fri", action: null, href: null, dismissable: false });
+    expect(item?.description).not.toMatch(/full balance|pay it off/i);
+    expect(reminderDeadline(followUp, card({ autopayStatus: "on", autopayPaymentType: "statement_balance" }))).toEqual({
+      date: "2026-11-06", label: "Statement closes",
+    });
+  });
+
+  it("keeps the follow-up for autopay on the minimum or a set amount, and says so", () => {
+    const followUp = reminder({ occurrence: "2026-11-06", sentAt: "2026-11-03T14:00:00.000Z", followUpAt: "2026-11-08T14:00:00.000Z", readAt: "2026-11-07T12:00:00.000Z" });
+    expect(updateItem(followUp, card({ autopayStatus: "on", autopayPaymentType: "minimum" }), NOW, NY)).toMatchObject({
+      title: "Time to pay off your card",
+      description: "Statement closed Fri. Autopay covers the minimum. Pay the rest by Dec 6.",
+      action: { type: "paid", label: "I paid it" },
+    });
+    expect(updateItem(followUp, card({ autopayStatus: "on", autopayPaymentType: "fixed_amount" }), NOW, NY)?.description).toBe(
+      "Statement closed Fri. Autopay pays a set amount. Pay the rest by Dec 6.",
+    );
+    // Autopay saved before its type was asked: the full-balance words stay.
+    expect(updateItem(followUp, card({ autopayStatus: "on", autopayPaymentType: null }), NOW, NY)?.description).toBe(
+      "Statement closed Fri. Pay the full balance by Dec 6.",
+    );
+  });
+
   it("can be dismissed whenever its action shows, even with no snooze time left", () => {
     // Due today: no snooze time is left, but Dismiss still is.
     const dueToday = updateItem(reminder({ kind: "payment_due", occurrence: "2026-11-08" }), card(), NOW, NY);
@@ -153,7 +184,7 @@ describe("updateItem", () => {
       title: "Payment due Dec 6", description: "Pay the full statement balance.", action: { type: "paid", label: "I paid it" },
     });
     expect(updateItem(reminder({ kind: "check_autopay", occurrence: "2026-11-06" }), card(), NOW, NY)?.action).toEqual({
-      type: "link", label: "Check autopay", href: `/plan?application=${APP}`,
+      type: "link", label: "Check autopay", href: `/applications/${APP}/setup`,
     });
     expect(updateItem(reminder({ kind: "reapply", occurrence: "2026-11-08" }), card(), NOW, NY)?.action).toEqual({
       type: "link", label: "See your plan", href: `/denied/plan?application=${APP}`,

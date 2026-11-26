@@ -15,6 +15,7 @@ function card(extra: Partial<ComingUpCard> = {}): ComingUpCard {
     applicationId: DISCOVER_ID,
     name: "Discover",
     creditLimitCents: 50_000,
+    spendLimitCents: null,
     statementClosingDay: 13,
     paymentDueDay: 6,
     autopayStatus: "off",
@@ -199,6 +200,13 @@ describe("comingUp", () => {
     for (const day of [0, 32, 1.5]) {
       expect(comingUp({ today: "2026-11-09", cards: [card({ statementClosingDay: day, paymentDueDay: day })], bills: [rent(day)] })).toEqual([]);
     }
+  });
+
+  it("pays down to the spend limit the student saved, not the 30% suggestion", () => {
+    const [close] = comingUpRows({ today: "2026-11-09", cards: [card({ creditLimitCents: 100_000, spendLimitCents: 10_000, paymentDueDay: null })], bills: [] });
+    expect(close).toMatchObject({ title: "Nov 13  Statement closes", subtitle: "Discover · pay down to $100", sensitive: true });
+    const [suggested] = comingUpRows({ today: "2026-11-09", cards: [card({ creditLimitCents: 100_000, paymentDueDay: null })], bills: [] });
+    expect(suggested.subtitle).toBe("Discover · pay down to $300");
   });
 
   it("says only the card's name before the close when the limit is unknown", () => {

@@ -1,3 +1,5 @@
+import { suggestedSpendLimitCents } from "@/lib/plan/spend-limit";
+
 // Every screen address in one place, and the only places a visitor may be
 // sent after signing in.
 export const ROUTES = {
@@ -165,16 +167,21 @@ export function spendLimitPickPath(applicationId: string, from?: SpendLimitOrigi
 }
 
 // Where "Set a spend limit" opens: S2 when the card has a credit limit, or S1
-// to ask for it first (the frames' branch, 477:1087).
+// to ask for it first (the frames' branch, 477:1087). With a limit of their
+// own saved (`savedCents`, not the suggestion), S3, which opens on it: S2
+// shows only the suggestion (persona walk, Nov 25).
 export function spendLimitPath(
   applicationId: string,
   creditLimitCents: number | null,
   from?: SpendLimitOrigin,
   cardFrom?: CardOrigin,
+  savedCents: number | null = null,
 ): string {
-  return creditLimitCents !== null && creditLimitCents > 0
-    ? spendLimitSuggestionPath(applicationId, from, cardFrom)
-    : spendLimitCreditPath(applicationId, from, cardFrom);
+  if (creditLimitCents === null || creditLimitCents <= 0) return spendLimitCreditPath(applicationId, from, cardFrom);
+  if (savedCents !== null && savedCents !== suggestedSpendLimitCents(creditLimitCents)) {
+    return spendLimitPickPath(applicationId, from, cardFrom);
+  }
+  return spendLimitSuggestionPath(applicationId, from, cardFrom);
 }
 
 // A spend limit screen's origin read back from an address: Home or the card's
@@ -279,11 +286,6 @@ export function updateSnoozedPath(reminderId: string): string {
 
 export function reminderKindParam(value: string | string[] | undefined): ReminderKind | null {
   return typeof value === "string" && (REMINDER_KINDS as readonly string[]).includes(value) ? (value as ReminderKind) : null;
-}
-
-// The first-month plan for one approved card.
-export function planPath(applicationId: string): string {
-  return withApplication(ROUTES.plan, applicationId);
 }
 
 // The rejection guide's screens, starting from Denial Options.

@@ -1,6 +1,7 @@
 import type { Application, ApplicationDetail } from "../api/application";
 import type { ReminderSettings } from "../api/reminders";
-import { addDays } from "../reminders/schedule";
+import { monthDay } from "../reminders/in-app";
+import { addDays, nextOnDay } from "../reminders/schedule";
 import type { ResultOption, ResultView } from "../results/compute";
 
 export type HomeState =
@@ -44,6 +45,16 @@ export function paymentReminderOn(
     return detail.statementClosingDay !== null && detail.paymentDueDay !== null && settings.statementClosing;
   }
   return detail.paymentDueDay !== null && settings.paymentDue;
+}
+
+// When a set-up card's next statement closes ("Dec 12"), from its saved
+// closing day and the student's calendar date (YYYY-MM-DD), found the way the
+// reminder emails find it. Today counts, as the statement closes today. Null
+// when either is missing.
+export function nextStatementLabel(statementClosingDay: number | null, today: string | null): string | null {
+  if (statementClosingDay === null || today === null || !Number.isInteger(statementClosingDay)) return null;
+  if (statementClosingDay < 1 || statementClosingDay > 31) return null;
+  return monthDay(nextOnDay(statementClosingDay, today));
 }
 
 // The card's first-statement email (check_autopay) as scheduled, if it is.

@@ -57,6 +57,25 @@ describe("AppHeader back arrow", () => {
     expect(back).not.toHaveBeenCalled();
   });
 
+  it("never returns a signed-in screen to Welcome, which only sends the student on", () => {
+    stubHistory(["/", "/safe-to-spend"]);
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+    render(<AppHeader backHref="/home" backLabel="Home" />);
+    const link = screen.getByRole("link", { name: "Back to Home" });
+    expect(link.getAttribute("href")).toBe("/home");
+    click();
+    expect(back).not.toHaveBeenCalled();
+  });
+
+  it("still returns a signed-out screen to Welcome when that is where the visitor was", () => {
+    stubHistory(["/", "/cards"]);
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+    render(<AppHeader backHref="/" backLabel="Welcome" />);
+    expect(screen.getByRole("link", { name: "Back to Welcome" })).toBeTruthy();
+    click();
+    expect(back).toHaveBeenCalledOnce();
+  });
+
   it("goes to the parent in a browser without the Navigation API", () => {
     const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
     render(<AppHeader backHref="/home" backLabel="Home" />);

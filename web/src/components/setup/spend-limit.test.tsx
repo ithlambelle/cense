@@ -142,7 +142,7 @@ describe("S3, Pick your limit", () => {
     const fetchFn = server([{ status: 200, body: {} }, { status: 201, body: STEP }]);
     pick();
     expect(screen.getByRole("radio", { name: /\$150 a month, 30% of your limit/ }).getAttribute("aria-checked")).toBe("true");
-    expect(screen.getByText("Above $150")).toBeTruthy();
+    expect(screen.queryByText("Above $150")).toBeNull();
     expect(screen.getByRole("link", { name: "Back to Your suggestion" }).getAttribute("href")).toBe(`${BASE}/suggestion`);
     fireEvent.click(screen.getByRole("radio", { name: /\$100 a month, tighter/ }));
     fireEvent.click(screen.getByRole("button", { name: "Save my limit" }));
@@ -160,6 +160,7 @@ describe("S3, Pick your limit", () => {
     expect(screen.getByText("Enter an amount from $1 to $500.")).toBeTruthy();
     expect(fetchFn).not.toHaveBeenCalled();
     fireEvent.change(other, { target: { value: "$200" } });
+    expect(screen.getByText("Above $150")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Save my limit" }));
     await waitFor(() => expect(router.replace).toHaveBeenCalled());
     expect(body(fetchFn, 0)).toEqual({ spendLimitCents: 20000 });
@@ -167,5 +168,24 @@ describe("S3, Pick your limit", () => {
 
     pick(20000);
     expect((screen.getByLabelText("Another amount") as HTMLInputElement).value).toBe("200");
+  });
+});
+
+describe("S3's over-30% fact", () => {
+  it("shows only while the amount is over the suggestion", () => {
+    render(<SpendLimitPick applicationId={ID} creditLimitCents={100000} suggestedCents={30000} tighterCents={20000} savedCents={null} from="setup" />);
+    const other = screen.getByLabelText("Another amount");
+    for (const [typed, shown] of [["100", false], ["$300", false], ["300.01", true], ["1,000", true], ["", false], ["abc", false]] as const) {
+      fireEvent.change(other, { target: { value: typed } });
+      expect(screen.queryByText("Above $300") !== null, typed).toBe(shown);
+    }
+    fireEvent.click(screen.getByRole("radio", { name: /\$200 a month, tighter/ }));
+    expect(screen.queryByText("Above $300")).toBeNull();
+  });
+
+  it("is not shown on a saved limit under the suggestion", () => {
+    render(<SpendLimitPick applicationId={ID} creditLimitCents={100000} suggestedCents={30000} tighterCents={20000} savedCents={10000} from="home" />);
+    expect((screen.getByLabelText("Another amount") as HTMLInputElement).value).toBe("100");
+    expect(screen.queryByText("Above $300")).toBeNull();
   });
 });

@@ -119,3 +119,12 @@ export function payDownTargetCents(creditLimitCents: number): number {
   }
   return Math.floor(creditLimitCents * PAY_DOWN_SHARE);
 }
+
+// The pay-down target on Home's Coming up and in Updates: the monthly spend
+// limit the student saved, when there is one (persona walk, Nov 25: a saved
+// $100 showed as "pay down to $300"), else 30% of the credit limit. Null
+// with neither.
+export function payDownTargetFor(creditLimitCents: number | null, spendLimitCents: number | null): number | null {
+  if (spendLimitCents !== null && Number.isInteger(spendLimitCents) && spendLimitCents > 0) return spendLimitCents;
+  return creditLimitCents && creditLimitCents > 0 ? payDownTargetCents(creditLimitCents) : null;
+}

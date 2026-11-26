@@ -172,11 +172,43 @@ describe("Home approved card", () => {
     expect(lit.getAttribute("href")).toBe(`/applications/${ID}/reminders`);
   });
 
-  it("shows all stars lit once the three are done", async () => {
-    server([{ status: 200, body: plan("payment_reminder") }]);
-    render(<HomeView state={state} initial="M" detail={{ ...DAYS_SAVED, autopayStatus: "on", spendLimitCents: 15000 }} />);
-    await screen.findByText("All stars lit");
-    expect(screen.getByText("All three stars lit. Your card is set up to build good credit.")).toBeTruthy();
+  it("once the three stars are lit, shows the card as set up: limit, spend limit and next statement, no first month", async () => {
+    const fetchFn = server([{ status: 200, body: plan("payment_reminder") }]);
+    render(
+      <HomeView
+        state={state}
+        initial="M"
+        today="2026-11-25"
+        detail={{ ...DAYS_SAVED, autopayStatus: "on", autopayPaymentType: "statement_balance", spendLimitCents: 10000 }}
+      />,
+    );
+    // Known from the server already, so it opens set up, without the star list first.
+    expect(screen.getByText("Set up")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Your first month" })).toBeNull();
+    await waitFor(() => expect(fetchFn).toHaveBeenCalledOnce());
+    expect(screen.queryByRole("heading", { name: "Your first month" })).toBeNull();
+    expect(screen.queryByText(/stars lit/)).toBeNull();
+    expect(screen.getByText("$500")).toBeTruthy();
+    expect(screen.getByText("Spend limit").nextElementSibling?.textContent).toBe("$100 a month");
+    // Closing day 14, today Nov 25: the next one is Dec 14.
+    expect(screen.getByText("Next statement").nextElementSibling?.textContent).toBe("Dec 14");
+    expect(screen.getByRole("link", { name: "Set up your card" }).getAttribute("href")).toBe(`/applications/${ID}/setup`);
+  });
+
+  it("goes back to the star list when the saved step says one is not done after all", async () => {
+    server([{ status: 200, body: plan() }]);
+    render(<HomeView state={state} initial="M" detail={{ ...DAYS_SAVED, autopayStatus: "on", spendLimitCents: 10000 }} />);
+    expect(await screen.findByText("2 of 3 lit")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Your first month" })).toBeTruthy();
+  });
+
+  it("reopens a saved spend limit of the student's own on it, not on the suggestion", async () => {
+    server([{ status: 200, body: plan() }]);
+    render(<HomeView state={homeState([{ ...approved, creditLimitCents: 100000 }], computeResult(undefined, listCards()), 0)} initial="M" detail={{ ...NO_DETAIL, spendLimitCents: 10000 }} />);
+    await screen.findByText("1 of 3 lit");
+    expect(screen.getByRole("link", { name: /^Set a spend limit/ }).getAttribute("href")).toBe(
+      `/applications/${ID}/setup/spend-limit/pick?from=home`,
+    );
   });
 
   it("opens the card setup list from the autopay row instead of ticking it (US-10)", async () => {

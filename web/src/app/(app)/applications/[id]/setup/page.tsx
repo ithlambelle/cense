@@ -24,6 +24,7 @@ export default async function CardSetupPage({ params }: PageProps<"/applications
       cardName={setup.application.cardName}
       brand={setup.brand}
       creditLimitCents={setup.application.creditLimitCents}
+      spendLimitCents={setup.application.spendLimitCents}
       progress={setup.progress}
     />
   );

@@ -143,9 +143,11 @@ test("from the setup list with no credit limit: S1 asks for it, then S3 saves an
 
   await page.getByRole("link", { name: "Pick my own" }).click();
   await expect(page.getByRole("radio", { name: /\$160 a month, tighter/ })).toBeVisible();
-  await expect(page.getByText("Above $240")).toBeVisible();
+  // The over-30% fact shows only while the amount is over the suggestion.
+  await expect(page.getByText("Above $240")).toHaveCount(0);
   const other = page.getByLabel("Another amount");
   await other.fill("900");
+  await expect(page.getByText("Above $240")).toBeVisible();
   await page.getByRole("button", { name: "Save my limit" }).click();
   await expect(page.getByText("Enter an amount from $1 to $800.")).toBeVisible();
   await other.fill("300");

@@ -18,7 +18,7 @@
 
 import { moneyAmount } from "@/lib/money";
 import { monthDay } from "@/lib/reminders/in-app";
-import { addDays, nextOnDay, payDownTargetCents } from "@/lib/reminders/schedule";
+import { addDays, nextOnDay, payDownTargetFor } from "@/lib/reminders/schedule";
 import { autopayStepsPath, paymentRemindersPath, ROUTES } from "@/lib/routes";
 import { BILL_COPY } from "@/lib/safe-to-spend/copy";
 import { SPREAD_DAYS, type Bill, type BillAnswer } from "@/lib/safe-to-spend/compute";
@@ -37,6 +37,8 @@ export type ComingUpCard = {
   // What the rows call the card ("Discover"): see comingUpCardNames.
   name: string;
   creditLimitCents: number | null;
+  // The monthly spend limit the student saved, or null (or left out).
+  spendLimitCents?: number | null;
   statementClosingDay: number | null;
   paymentDueDay: number | null;
   autopayStatus: "on" | "off" | "unknown";
@@ -47,8 +49,8 @@ export type Paycheck = { date: string; amountCents: number };
 
 export type ComingUpEvent =
   | { kind: "paycheck"; date: string; amountCents: number }
-  // payDownToCents: 30% of the credit limit, as in the closing email; null
-  // when the student has not given the limit.
+  // payDownToCents: the saved spend limit, else 30% of the credit limit
+  // (payDownTargetFor); null with neither.
   | { kind: "statement_closes"; date: string; card: ComingUpCard; payDownToCents: number | null }
   | { kind: "payment_due"; date: string; card: ComingUpCard }
   | { kind: "bill"; date: string; bill: Bill; share: boolean; amountCents: number };
@@ -93,7 +95,7 @@ export function comingUp({
 
   for (const card of cards) {
     if (isDay(card.statementClosingDay)) {
-      const payDownToCents = card.creditLimitCents && card.creditLimitCents > 0 ? payDownTargetCents(card.creditLimitCents) : null;
+      const payDownToCents = payDownTargetFor(card.creditLimitCents, card.spendLimitCents ?? null);
       for (const date of datesOnDay(card.statementClosingDay, today, last)) {
         events.push({ kind: "statement_closes", date, card, payDownToCents });
       }

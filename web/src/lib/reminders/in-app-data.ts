@@ -24,17 +24,21 @@ type CardRow = {
   id: string;
   card_name: string | null;
   credit_limit_cents: number | null;
+  spend_limit_cents: number | null;
   payment_due_day: number | null;
   autopay_status: string;
+  autopay_payment_type: string | null;
 };
 
-const CARD_FIELDS = "id, card_name, credit_limit_cents, payment_due_day, autopay_status";
+const CARD_FIELDS = "id, card_name, credit_limit_cents, spend_limit_cents, payment_due_day, autopay_status, autopay_payment_type";
 
 const cardFromRow = (row: CardRow): ReminderCard => ({
   cardName: row.card_name,
   creditLimitCents: row.credit_limit_cents,
+  spendLimitCents: row.spend_limit_cents,
   paymentDueDay: row.payment_due_day,
   autopayStatus: row.autopay_status,
+  autopayPaymentType: row.autopay_payment_type,
 });
 
 async function timeZoneOf(student: Student): Promise<string> {

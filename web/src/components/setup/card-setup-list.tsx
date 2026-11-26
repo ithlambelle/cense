@@ -16,12 +16,15 @@ export function CardSetupList({
   cardName,
   brand,
   creditLimitCents,
+  spendLimitCents = null,
   progress,
 }: {
   applicationId: string;
   cardName: string;
   // Opens the spend limit at the suggestion (S2) when known, else S1.
   creditLimitCents: number | null;
+  // The saved spend limit, so "Set a spend limit" reopens on it.
+  spendLimitCents?: number | null;
   // "Discover", or null for a card added from outside the catalog.
   brand: string | null;
   progress: SetupProgress;
@@ -45,7 +48,9 @@ export function CardSetupList({
 
       <StarRow title="Add your dates" subtitle="Statement and due day" done={progress.dates} href={reminders} />
 
-      <h2 className="text-body-m font-semibold text-navy">Three steps</h2>
+      {/* Named as Home names them: "Three steps" sat over four rows with the
+          dates row above it (persona walk, Nov 25). */}
+      <h2 className="text-body-m font-semibold text-navy">Your first month</h2>
 
       <ul className="flex flex-col gap-4">
         <li>
@@ -65,7 +70,7 @@ export function CardSetupList({
             title="Set a spend limit"
             subtitle="A monthly limit to try"
             done={progress.spendLimit}
-            href={spendLimitPath(applicationId, creditLimitCents)}
+            href={spendLimitPath(applicationId, creditLimitCents, undefined, undefined, spendLimitCents)}
           />
         </li>
         <li>

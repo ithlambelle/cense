@@ -25,9 +25,23 @@ const KINDS: { key: Kind; setting: "statement_closing" | "payment_due" | "check_
   { key: "checkAutopay", setting: "check_autopay", title: "Check autopay", detail: "Once, after your first statement" },
 ];
 
+// "Payment due" says which cards it skips: no due-date email goes out for a
+// card whose autopay is on (claim_due_reminders, Ben, Nov 4), so the switch
+// alone read as if those emails were coming (persona walk, Nov 25). `cards`
+// are the student's approved cards.
+export function paymentDueDetail(cards: { name: string; autopayOn: boolean }[]): string {
+  const autopay = cards.filter((card) => card.autopayOn).map((card) => card.name);
+  if (autopay.length === 0) return "Before it’s due";
+  if (autopay.length === cards.length) return "Skipped while autopay is on";
+  const names = autopay.length === 1 ? autopay[0] : `${autopay.slice(0, -1).join(", ")} and ${autopay.at(-1)}`;
+  return `Before it’s due. Skipped for ${names}: autopay is on`;
+}
+
 type Props = {
   settings: ReminderSettings;
   email: string | null;
+  // The approved cards, for the Payment due line (paymentDueDetail).
+  cards?: { name: string; autopayOn: boolean }[];
   // Replaced in tests and the dev preview, so they never call the API.
   save?: typeof saveReminderSetting;
 };
@@ -38,7 +52,7 @@ type Props = {
 // they cover every card. "Turn off all reminders" is what the unsubscribe link
 // does; the off state is not drawn and is built in the frame's parts: one
 // line and a button to turn them back on, which keeps each kind as it was.
-export function ReminderSettingsView({ settings: initial, email, save = saveReminderSetting }: Props) {
+export function ReminderSettingsView({ settings: initial, email, cards = [], save = saveReminderSetting }: Props) {
   const router = useRouter();
   const [settings, setSettings] = useState(initial);
   // Settings whose save is in flight; each is locked until its answer arrives.
@@ -95,7 +109,7 @@ export function ReminderSettingsView({ settings: initial, email, save = saveRemi
                   <li key={kind.key} className={index > 0 ? "border-t-[1.5px] border-off-white" : undefined}>
                     <ToggleRow
                       title={kind.title}
-                      detail={kind.detail}
+                      detail={kind.key === "paymentDue" ? paymentDueDetail(cards) : kind.detail}
                       checked={settings[kind.key]}
                       disabled={saving.has(kind.key) || saving.has("emailsOn")}
                       onChange={(value) => change(kind.key, value, true)}

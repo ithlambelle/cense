@@ -1,9 +1,9 @@
 import type { Reminder, SnoozeChoice } from "@/lib/api/reminders";
 import { calendarDate } from "@/lib/api/reminders";
 import { moneyAmount } from "@/lib/money";
-import { deniedPath, planPath, updatePath } from "@/lib/routes";
+import { cardSetupPath, deniedPath, updatePath } from "@/lib/routes";
 
-import { addDays, nextOnDay, payDownTargetCents } from "./schedule";
+import { addDays, nextOnDay, payDownTargetFor } from "./schedule";
 
 // In-app reminders (US-08, Flow B on the Design Edits board, 477:1183). Once
 // its email is sent, a reminder is a card in Updates with its one action and a
@@ -16,9 +16,31 @@ import { addDays, nextOnDay, payDownTargetCents } from "./schedule";
 export type ReminderCard = {
   cardName: string | null;
   creditLimitCents: number | null;
+  // The monthly spend limit the student saved: the pay-down target when set.
+  spendLimitCents: number | null;
   paymentDueDay: number | null;
   autopayStatus: string;
+  // What autopay pays at the issuer ("statement_balance", "minimum",
+  // "fixed_amount"), or null when autopay is not on or the type was not saved.
+  autopayPaymentType: string | null;
 };
+
+// The follow-up ("Time to pay off your card") counts only when autopay does
+// not already pay the full statement balance. The job no longer raises one for
+// such a card (20261126140500_follow_up_skips_full_autopay.sql); this also
+// covers one raised before autopay was turned on, so the card stays a plain
+// closed-statement reminder and never asks "I paid it".
+export function followedUp(reminder: Pick<Reminder, "followUpAt">, card: ReminderCard): boolean {
+  return reminder.followUpAt !== null && !(card.autopayStatus === "on" && card.autopayPaymentType === "statement_balance");
+}
+
+// The follow-up's line when autopay pays only part of the statement.
+function autopayPart(card: ReminderCard): string | null {
+  if (card.autopayStatus !== "on") return null;
+  if (card.autopayPaymentType === "minimum") return "Autopay covers the minimum.";
+  if (card.autopayPaymentType === "fixed_amount") return "Autopay pays a set amount.";
+  return null;
+}
 
 export const SNOOZE_HOUR = 9;
 
@@ -76,7 +98,7 @@ function dueAfter(closing: string, card: ReminderCard): string | null {
 export function reminderDeadline(reminder: Reminder, card: ReminderCard): { date: string; label: string } | null {
   switch (reminder.kind) {
     case "statement_closing": {
-      if (!reminder.followUpAt) return { date: reminder.occurrence, label: "Statement closes" };
+      if (!followedUp(reminder, card)) return { date: reminder.occurrence, label: "Statement closes" };
       const due = dueAfter(reminder.occurrence, card);
       return due ? { date: due, label: "Payment due" } : null;
     }
@@ -179,17 +201,22 @@ type Copy = { icon: UpdateIcon; title: string; description: string; sensitive?: 
 function copy(reminder: Reminder, card: ReminderCard, today: string, applicationId: string): Copy {
   switch (reminder.kind) {
     case "statement_closing": {
-      if (reminder.followUpAt) {
+      if (followedUp(reminder, card)) {
         const due = dueAfter(reminder.occurrence, card);
+        const by = due ? monthDay(due) : "the due date";
+        const part = autopayPart(card);
         return {
           icon: "file",
           title: "Time to pay off your card",
-          description: `Statement closed ${nearDay(reminder.occurrence, today)}. Pay the full balance by ${due ? monthDay(due) : "the due date"}.`,
+          description: part
+            ? `Statement closed ${nearDay(reminder.occurrence, today)}. ${part} Pay the rest by ${by}.`
+            : `Statement closed ${nearDay(reminder.occurrence, today)}. Pay the full balance by ${by}.`,
           action: { type: "paid", label: "I paid it" },
         };
       }
       const closed = reminder.occurrence < today;
-      const target = card.creditLimitCents ? moneyAmount(payDownTargetCents(card.creditLimitCents)) : null;
+      const targetCents = payDownTargetFor(card.creditLimitCents, card.spendLimitCents);
+      const target = targetCents === null ? null : moneyAmount(targetCents);
       return {
         icon: "bell",
         title: `Statement ${closed ? "closed" : "closes"} ${nearDay(reminder.occurrence, today)}`,
@@ -220,7 +247,7 @@ function copy(reminder: Reminder, card: ReminderCard, today: string, application
         icon: "file",
         title: "Your first statement is here",
         description: "Is autopay set to the full balance?",
-        action: { type: "link", label: "Check autopay", href: planPath(applicationId) },
+        action: { type: "link", label: "Check autopay", href: cardSetupPath(applicationId) },
       };
     case "reapply":
       return {
@@ -253,7 +280,7 @@ export function updateItem(reminder: Reminder, card: ReminderCard, now: Date, ti
   let sensitive = base.sensitive ?? false;
   if (reminder.actedAt) {
     // Before the close the button is "I paid it down", so the card says that.
-    description = reminder.kind === "statement_closing" && !reminder.followUpAt
+    description = reminder.kind === "statement_closing" && !followedUp(reminder, card)
       ? "You marked it paid down."
       : "You marked it paid.";
     sensitive = false;
@@ -273,7 +300,7 @@ export function updateItem(reminder: Reminder, card: ReminderCard, now: Date, ti
     action: open && !snoozed ? base.action : null,
     snooze: open && !snoozed ? snoozeOptions(reminder, card, now, timeZone).map(({ choice, label }) => ({ choice, label })) : [],
     dismissable: open && !snoozed,
-    href: reminder.kind === "statement_closing" && reminder.followUpAt && open ? updatePath(reminder.id) : null,
+    href: reminder.kind === "statement_closing" && followedUp(reminder, card) && open ? updatePath(reminder.id) : null,
   };
 }
 
@@ -299,9 +326,10 @@ export function updateGroups(
 }
 
 // The follow-up screen's numbers (N3): the card, the due date.
-export function followUpView(reminder: Reminder, card: ReminderCard): { cardName: string; due: string | null } {
+// `autopay` is the line for autopay that pays only part of it, or null.
+export function followUpView(reminder: Reminder, card: ReminderCard): { cardName: string; due: string | null; autopay: string | null } {
   const due = dueAfter(reminder.occurrence, card);
-  return { cardName: card.cardName ?? "Your card", due: due ? monthDay(due) : null };
+  return { cardName: card.cardName ?? "Your card", due: due ? monthDay(due) : null, autopay: autopayPart(card) };
 }
 
 // The Snoozed screen's words (N4): "tomorrow" or the weekday it comes back.

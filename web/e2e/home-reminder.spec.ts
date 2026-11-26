@@ -152,9 +152,12 @@ test("the reminder row opens the reminder screen instead of ticking, and saving 
   await page.getByRole("button", { name: "Use $150" }).click();
   expect((await write).ok()).toBe(true);
   await expect(page).toHaveURL(/\/home$/);
-  await expect(card.getByText("All three stars lit.", { exact: false })).toBeVisible();
+  // Every star lit: the card shows as set up, its first month over.
+  await expect(card.getByText("Set up", { exact: true })).toBeVisible();
+  await expect(card.getByText("$150 a month")).toBeVisible();
   await page.reload();
-  await expect(card.getByText("All stars lit")).toBeVisible();
+  await expect(card.getByText("Set up", { exact: true })).toBeVisible();
+  await expect(card.getByRole("heading", { name: "Your first month" })).toHaveCount(0);
 });
 
 test("the reminder screen refuses bad days and a failed save, and saves once on a double tap", async ({ page }) => {

@@ -57,7 +57,6 @@ const GROUPS: { title: string; entries: Entry[] }[] = [
       { label: "S19 Still waiting", href: "/dev/preview?screen=waiting" },
       { label: "S13 Card list (signed in, quiz done)", href: "/dev/preview?screen=cards-matched" },
       { label: "S14 Card page (signed in, for the hand-off sheets)", href: "/dev/preview?screen=card-signed-in" },
-      { label: "S20 First-month plan", href: "/dev/preview?screen=plan" },
       { label: "US-08 Payment reminders", href: "/dev/preview?screen=payment-reminders" },
       { label: "US-08 Payment reminders: save fails", href: "/dev/preview?screen=payment-reminders-error" },
       { label: "S21 Denial Options", href: "/dev/preview?screen=denied" },

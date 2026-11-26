@@ -9,6 +9,7 @@ import {
   firstStatementEmailUpcoming,
   homeState,
   needsDetail,
+  nextStatementLabel,
   paymentReminderOn,
   planApplication,
   profileInitial,
@@ -190,5 +191,22 @@ describe("firstStatementEmailUpcoming", () => {
     expect(firstStatementEmailUpcoming({ ...base, source: "added" })).toBe(false);
     expect(firstStatementEmailUpcoming({ ...base, checkAutopay: false })).toBe(false);
     expect(firstStatementEmailUpcoming({ ...base, autopayStatus: "on" })).toBe(false);
+  });
+});
+
+describe("nextStatementLabel", () => {
+  it("is the next closing day on or after today, as the reminder emails find it", () => {
+    expect(nextStatementLabel(14, "2026-11-25")).toBe("Dec 14");
+    expect(nextStatementLabel(25, "2026-11-25")).toBe("Nov 25");
+    // A day a short month lacks falls on its last day.
+    expect(nextStatementLabel(31, "2027-02-01")).toBe("Feb 28");
+    expect(nextStatementLabel(12, "2026-12-20")).toBe("Jan 12");
+  });
+
+  it("is null without a saved day, a readable today or a real day", () => {
+    expect(nextStatementLabel(null, "2026-11-25")).toBeNull();
+    expect(nextStatementLabel(14, null)).toBeNull();
+    expect(nextStatementLabel(0, "2026-11-25")).toBeNull();
+    expect(nextStatementLabel(32, "2026-11-25")).toBeNull();
   });
 });

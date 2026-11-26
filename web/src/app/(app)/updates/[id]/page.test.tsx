@@ -21,12 +21,11 @@ const followUp = (over: Partial<Reminder> = {}): Reminder => ({
   readAt: null, snoozedUntil: null, dismissedAt: null, followUpAt: "2026-11-08T14:00:00.000Z",
   createdAt: "2026-11-01T15:00:00.000Z", ...over,
 });
-const found = (reminder: Reminder): OneReminder => ({
-  reminder, card: { cardName: "Discover it", creditLimitCents: 50_000, paymentDueDay: 6, autopayStatus: "off" }, timeZone: "America/New_York",
-});
+const CARD: OneReminder["card"] = { cardName: "Discover it", creditLimitCents: 50_000, spendLimitCents: null, paymentDueDay: 6, autopayStatus: "off", autopayPaymentType: null };
+const found = (reminder: Reminder, card = CARD): OneReminder => ({ reminder, card, timeZone: "America/New_York" });
 
-async function open(reminder: Reminder): Promise<"redirected" | "shown"> {
-  data.loadOneReminder.mockResolvedValue(found(reminder));
+async function open(reminder: Reminder, card = CARD): Promise<"redirected" | "shown"> {
+  data.loadOneReminder.mockResolvedValue(found(reminder, card));
   try {
     const element = await FollowUpPage({ params: Promise.resolve({ id: ID }) } as Parameters<typeof FollowUpPage>[0]);
     return isValidElement(element) ? "shown" : "redirected";
@@ -65,5 +64,10 @@ describe("FollowUpPage", () => {
   it("goes back to Updates for a reminder that is not a follow-up", async () => {
     expect(await open(followUp({ followUpAt: null }))).toBe("redirected");
     expect(await open(followUp({ kind: "payment_due" }))).toBe("redirected");
+  });
+
+  it("goes back to Updates for a card whose autopay pays the full statement balance", async () => {
+    expect(await open(followUp(), { ...CARD, autopayStatus: "on", autopayPaymentType: "statement_balance" })).toBe("redirected");
+    expect(await open(followUp(), { ...CARD, autopayStatus: "on", autopayPaymentType: "minimum" })).toBe("shown");
   });
 });

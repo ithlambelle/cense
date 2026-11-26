@@ -30,6 +30,13 @@ import { cn } from "@/lib/utils";
 
 import { FRAME_FIELD, InfoCallout, SetupHeading, SetupScreen, Spacer } from "./setup-parts";
 
+// True when the amount picked, or typed in "Another amount", is over the 30%
+// suggestion. An amount that cannot be read yet is not.
+export function overSuggestion(picked: number | null, other: string, suggestedCents: number): boolean {
+  const cents = picked ?? dollarsToCents(other, { minCents: 1, maxCents: Number.MAX_SAFE_INTEGER });
+  return cents !== null && cents > suggestedCents;
+}
+
 export function SpendLimitPick({
   applicationId,
   creditLimitCents,
@@ -137,11 +144,15 @@ export function SpendLimitPick({
           labelClassName={FRAME_FIELD.labelClassName}
         />
         <Spacer />
-        <div className={SENSITIVE}>
-          <InfoCallout title={`Above ${moneyAmount(suggestedCents)}`}>
-            That is over {SPEND_LIMIT_PERCENT}% of your limit. It can raise the balance your issuer reports.
-          </InfoCallout>
-        </div>
+        {/* Only while the amount is over the suggestion: it showed while a
+            student typed $100 of $1,000 (persona walk, Nov 25). */}
+        {overSuggestion(picked, other, suggestedCents) ? (
+          <div className={SENSITIVE}>
+            <InfoCallout title={`Above ${moneyAmount(suggestedCents)}`}>
+              That is over {SPEND_LIMIT_PERCENT}% of your limit. It can raise the balance your issuer reports.
+            </InfoCallout>
+          </div>
+        ) : null}
         {failed ? <ErrorMessage>{failed}</ErrorMessage> : null}
         <Button type="submit" pending={saving}>
           Save my limit
