@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { confirmedByThisCode, unusablePassword } from "@/lib/api/confirmation";
-import { authThrottle } from "@/lib/auth/throttle";
+import { authThrottle, codeCheckPassed } from "@/lib/auth/throttle";
 import { createStudentClient } from "@/lib/supabase/server";
 
 const requestSchema = z.strictObject({
@@ -27,6 +27,8 @@ export async function POST(request: Request): Promise<Response> {
   if (error) {
     return apiError(401, "invalid_code", "The code is wrong or expired. Request a new one.");
   }
+  // Only wrong codes count against the student's address.
+  await codeCheckPassed(request);
 
   // A password set before the inbox was proven may not be the student's: anyone
   // can sign up with someone else's email. When this code is what confirms the

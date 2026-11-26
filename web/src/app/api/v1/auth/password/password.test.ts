@@ -31,7 +31,11 @@ vi.mock("@/lib/supabase/server", () => ({
 
 // The app-level limits (src/lib/auth/throttle.ts, tested there): let through
 // unless a test says otherwise.
-const throttle = vi.hoisted(() => ({ authThrottle: vi.fn<(...args: unknown[]) => Promise<Response | null>>(async () => null) }));
+const throttle = vi.hoisted(() => ({
+  authThrottle: vi.fn<(...args: unknown[]) => Promise<Response | null>>(async () => null),
+  codeSent: vi.fn(async () => {}),
+  codeCheckPassed: vi.fn(async () => {}),
+}));
 vi.mock("@/lib/auth/throttle", () => throttle);
 
 import { POST as signUp } from "./signup/route";
@@ -349,6 +353,39 @@ describe("optional password auth", () => {
       expect((await answer.json()).error.code).toBe("sign_in_busy");
       expect(auth.signInWithPassword).not.toHaveBeenCalled();
       throttle.authThrottle.mockImplementation(async () => null);
+    });
+
+    it("starts the email's code count again after every sign-up that sends a code, new account or not", async () => {
+      auth.signUp.mockResolvedValue(NEW_STUDENT);
+      await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY));
+      auth.signUp.mockResolvedValue(EXISTING["a placeholder user with no identities (confirmation on)"]);
+      otpAuth.signInWithOtp.mockResolvedValue({ data: {}, error: null });
+      await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY));
+      expect(throttle.codeSent.mock.calls).toEqual([["student@example.com"], ["student@example.com"]]);
+    });
+
+    it("keeps the count when no code went out, and a reset email never restarts it", async () => {
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      auth.signUp.mockResolvedValue(EXISTING["a placeholder user with no identities (confirmation on)"]);
+      otpAuth.signInWithOtp.mockResolvedValue({ data: {}, error: new AuthApiError("Too many requests", 429, "over_email_send_rate_limit") });
+      await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY));
+      auth.signUp.mockResolvedValue({ data: { user: null, session: null }, error: new AuthApiError("Too many requests", 429, "over_email_send_rate_limit") });
+      await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY));
+      auth.signUp.mockResolvedValue({ data: { user: { id: "new", identities: [{ provider: "email" }] }, session: {} }, error: null });
+      await signUp(request("/api/v1/auth/password/signup", SIGN_UP_BODY));
+      auth.resetPasswordForEmail.mockResolvedValue({ error: null });
+      await reset(request("/api/v1/auth/password/reset", { email: "student@example.com" }));
+      expect(throttle.codeSent).not.toHaveBeenCalled();
+      log.mockRestore();
+    });
+
+    it("gives a sign-up code check's place back only when the code was right", async () => {
+      auth.verifyOtp.mockResolvedValue({ data: { user: null }, error: new AuthApiError("Token has expired or is invalid", 403, "otp_expired") });
+      await confirmSignUp(request("/api/v1/auth/password/signup/confirm", { ...SIGN_UP_BODY, code: "123456" }));
+      expect(throttle.codeCheckPassed).not.toHaveBeenCalled();
+      auth.verifyOtp.mockResolvedValue({ data: { user: { email_confirmed_at: "2026-10-01T09:00:00Z", last_sign_in_at: "2026-11-17T09:00:00Z" } }, error: null });
+      await confirmSignUp(request("/api/v1/auth/password/signup/confirm", { ...SIGN_UP_BODY, code: "123456" }));
+      expect(throttle.codeCheckPassed).toHaveBeenCalledOnce();
     });
 
     it("does not count a request that fails validation", async () => {

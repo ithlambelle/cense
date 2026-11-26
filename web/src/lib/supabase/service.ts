@@ -17,8 +17,8 @@ import { supabaseConfig } from "./config";
 // - Delete my account (DELETE /api/v1/me): checks the cleanup trigger and
 //   deletes only the signed-in student's own sign-in record;
 // - the sign-in limits (lib/auth/throttle.ts): claim_auth_attempt_hashed()
-//   and nothing else, before anyone is signed in, with keys the server makes
-//   as HMAC-SHA256 with AUTH_THROTTLE_KEY;
+//   and auth_code_check() and nothing else, before anyone is signed in, with
+//   keys the server makes as HMAC-SHA256 with AUTH_THROTTLE_KEY;
 // - the Ask Penny and confirmation email limits (lib/api/quota.ts):
 //   claim_penny_ask and claim_confirmation_email, with the id of the student
 //   in the verified session.

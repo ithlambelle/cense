@@ -2,7 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const auth = vi.hoisted(() => ({ createStudentClient: vi.fn(), signInWithOtp: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createStudentClient: auth.createStudentClient }));
-const throttle = vi.hoisted(() => ({ authThrottle: vi.fn<(...args: unknown[]) => Promise<Response | null>>(async () => null) }));
+const throttle = vi.hoisted(() => ({
+  authThrottle: vi.fn<(...args: unknown[]) => Promise<Response | null>>(async () => null),
+  codeSent: vi.fn(async () => {}),
+  codeCheckPassed: vi.fn(async () => {}),
+}));
 vi.mock("@/lib/auth/throttle", () => throttle);
 
 import { POST } from "./route";
@@ -11,6 +15,7 @@ afterEach(() => {
   auth.createStudentClient.mockReset();
   auth.signInWithOtp.mockReset();
   throttle.authThrottle.mockClear();
+  throttle.codeSent.mockClear();
   vi.unstubAllEnvs();
 });
 
@@ -71,5 +76,21 @@ describe("POST /auth/email", () => {
     const limited = await send("https://cense.example/api/v1/auth/email");
     expect(limited.status).toBe(429);
     expect(auth.signInWithOtp).not.toHaveBeenCalled();
+  });
+
+  it("starts the email's code count again only once a new code is sent", async () => {
+    auth.createStudentClient.mockResolvedValue({ auth: { signInWithOtp: auth.signInWithOtp } });
+    auth.signInWithOtp.mockResolvedValue({ error: null });
+    await send("https://cense.example/api/v1/auth/email");
+    expect(throttle.codeSent).toHaveBeenCalledWith("student@example.org");
+    expect(auth.signInWithOtp.mock.invocationCallOrder[0]).toBeLessThan(throttle.codeSent.mock.invocationCallOrder[0]);
+
+    // Supabase refused (its own wait between emails): the old code keeps its count.
+    throttle.codeSent.mockClear();
+    auth.signInWithOtp.mockResolvedValue({ error: { code: "over_email_send_rate_limit", status: 429 } });
+    expect((await send("https://cense.example/api/v1/auth/email")).status).toBe(502);
+    throttle.authThrottle.mockResolvedValueOnce(Response.json({ error: { code: "rate_limited", message: "Too many tries." } }, { status: 429 }));
+    expect((await send("https://cense.example/api/v1/auth/email")).status).toBe(429);
+    expect(throttle.codeSent).not.toHaveBeenCalled();
   });
 });

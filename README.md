@@ -245,11 +245,11 @@ Before it can run:
 
 ### Sign-in limit key, in order
 
-1. Paste `supabase/migrations/20261121210000_keyed_auth_throttle.sql` (cense-preview, then production). Harmless on its own: the deployed code does not call it yet.
+1. Paste `supabase/migrations/20261121210000_keyed_auth_throttle.sql` and `supabase/migrations/20261126140000_sign_in_code_checks.sql` (cense-preview, then production). Harmless on their own: the deployed code does not call them yet. Code that calls `auth_code_check` refuses every code check (503) until the second one is in.
 2. Set `AUTH_THROTTLE_KEY` on Production and Preview, then deploy the code that calls `claim_auth_attempt_hashed`.
 3. Once that deploy is live, paste `supabase/migrations/20261121210100_retire_unkeyed_auth_throttle.sql`. On cense-preview, first rebase or merge every open branch onto this change: a preview still on the old code refuses code and password sign-ins once the retire step is in.
 
-Rolling back after step 3: run `supabase/rollbacks/20261121210100_retire_unkeyed_auth_throttle.down.sql` first, then roll back the app (Vercel Instant Rollback included), then `supabase/rollbacks/20261121210000_keyed_auth_throttle.down.sql`.
+Rolling back after step 3: run `supabase/rollbacks/20261121210100_retire_unkeyed_auth_throttle.down.sql` first, then roll back the app (Vercel Instant Rollback included), then `supabase/rollbacks/20261121210000_keyed_auth_throttle.down.sql` and `supabase/rollbacks/20261126140000_sign_in_code_checks.down.sql`.
 
 To run it by hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/v1/cron/reminders`. It answers with counts only: `claimed`, `sent`, `failed`, `unconfirmed` (sent but not marked), `deferred` (out of time, sent next run) and `abandoned` (failed for the third time, never tried again). Running it again the same day does not retry a failed send; that waits for the next day.
 

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { authCallbackUrl } from "@/lib/api/password";
 import { emailLinkOrigin, logMissingAppBaseUrl } from "@/lib/auth/email-links";
-import { authThrottle } from "@/lib/auth/throttle";
+import { authThrottle, codeSent } from "@/lib/auth/throttle";
 import { ROUTES } from "@/lib/routes";
 import { createStudentClient } from "@/lib/supabase/server";
 
@@ -28,6 +28,8 @@ export async function POST(request: Request): Promise<Response> {
   if (error) {
     return apiError(502, "email_code_failed", "We could not send a code. Please try again.");
   }
+  // A new code: the email's 5 tries start again.
+  await codeSent(parsed.data.email);
 
   return Response.json({ status: "code_sent" }, { headers: { "Cache-Control": "no-store" } });
 }

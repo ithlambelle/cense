@@ -8,7 +8,11 @@ const auth = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ createStudentClient: async () => ({ auth }) }));
-const throttle = vi.hoisted(() => ({ authThrottle: vi.fn<(...args: unknown[]) => Promise<Response | null>>(async () => null) }));
+const throttle = vi.hoisted(() => ({
+  authThrottle: vi.fn<(...args: unknown[]) => Promise<Response | null>>(async () => null),
+  codeSent: vi.fn(async () => {}),
+  codeCheckPassed: vi.fn(async () => {}),
+}));
 vi.mock("@/lib/auth/throttle", () => throttle);
 
 import { POST as verify } from "./verify/route";
@@ -98,6 +102,27 @@ describe("verifying an email code", () => {
     auth.verifyOtp.mockClear();
     const limited = await verify(request(BODY));
     expect(limited.status).toBe(429);
+    expect(auth.verifyOtp).not.toHaveBeenCalled();
+  });
+
+  it("gives the check's place back after a right code, never after a wrong one", async () => {
+    auth.verifyOtp.mockResolvedValue({ data: { user: CONFIRMED_EARLIER }, error: null });
+    await verify(request(BODY));
+    expect(throttle.codeCheckPassed).toHaveBeenCalledOnce();
+    expect(throttle.codeCheckPassed).toHaveBeenCalledWith(expect.any(Request));
+
+    throttle.codeCheckPassed.mockClear();
+    auth.verifyOtp.mockResolvedValue({ data: { user: null }, error: new AuthApiError("Token has expired or is invalid", 403, "otp_expired") });
+    await verify(request(BODY));
+    expect(throttle.codeCheckPassed).not.toHaveBeenCalled();
+  });
+
+  it("refuses a code that has had 5 tries before Supabase sees it, even the right one", async () => {
+    throttle.authThrottle.mockResolvedValueOnce(Response.json({ error: { code: "code_used_up", message: "Too many wrong codes. Tap Resend email for a new one." } }, { status: 401 }));
+    auth.verifyOtp.mockResolvedValue({ data: { user: CONFIRMED_EARLIER }, error: null });
+    const response = await verify(request(BODY));
+    expect(response.status).toBe(401);
+    expect((await response.json()).error.code).toBe("code_used_up");
     expect(auth.verifyOtp).not.toHaveBeenCalled();
   });
 });

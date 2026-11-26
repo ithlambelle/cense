@@ -1,7 +1,7 @@
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { authCallbackUrl, passwordCredentialsSchema } from "@/lib/api/password";
 import { emailLinkOrigin, logMissingAppBaseUrl } from "@/lib/auth/email-links";
-import { authThrottle } from "@/lib/auth/throttle";
+import { authThrottle, codeSent } from "@/lib/auth/throttle";
 import { createCookielessClient, createStudentClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request): Promise<Response> {
@@ -45,6 +45,7 @@ export async function POST(request: Request): Promise<Response> {
     // Only the code: the email must not reach the logs. A failed send keeps
     // the same answer, and the code screen offers Resend.
     if (otpError) console.error("Sign-in code for an existing account failed", { code: otpError.code, status: otpError.status });
+    else await codeSent(parsed.data.email);
     return checkEmail();
   }
 
@@ -54,9 +55,11 @@ export async function POST(request: Request): Promise<Response> {
     return apiError(502, "sign_up_failed", "We could not create your account. Please try again.");
   }
 
-  return data.session
-    ? Response.json({ status: "signed_in" }, { headers: { "Cache-Control": "no-store" } })
-    : checkEmail();
+  if (data.session) return Response.json({ status: "signed_in" }, { headers: { "Cache-Control": "no-store" } });
+  // A confirmation code was sent: the email's 5 tries start again, exactly
+  // as for an existing account above.
+  await codeSent(parsed.data.email);
+  return checkEmail();
 }
 
 function checkEmail(): Response {

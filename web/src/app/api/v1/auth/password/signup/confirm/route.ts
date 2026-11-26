@@ -1,7 +1,7 @@
 import { apiError, parseJson, validationError } from "@/lib/api/errors";
 import { confirmedByThisCode } from "@/lib/api/confirmation";
 import { passwordSignUpConfirmSchema } from "@/lib/api/password";
-import { authThrottle } from "@/lib/auth/throttle";
+import { authThrottle, codeCheckPassed } from "@/lib/auth/throttle";
 import { createStudentClient } from "@/lib/supabase/server";
 
 // Confirms a password sign-up with the emailed code. When this code is what
@@ -25,6 +25,8 @@ export async function POST(request: Request): Promise<Response> {
   const supabase = await createStudentClient();
   const { data, error } = await supabase.auth.verifyOtp({ email, token: code, type: "email" });
   if (error) return apiError(401, "invalid_code", "The code is wrong or expired. Request a new one.");
+  // Only wrong codes count against the student's address.
+  await codeCheckPassed(request);
 
   if (!confirmedByThisCode(data.user)) return signedIn(false);
 
