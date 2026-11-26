@@ -2,7 +2,7 @@
 
 # Analytics events
 
-Tracking plan version 6. Every event Cense sends to PostHog, the question it answers and the only properties it may carry. `track()` in `web/src/lib/analytics.ts` (the browser) and `captureServer()` in `web/src/lib/analytics-server.ts` (the server, for moments with no browser open) reject anything not listed here, and a lint rule stops code from calling PostHog any other way.
+Tracking plan version 7. Every event Cense sends to PostHog, the question it answers and the only properties it may carry. `track()` in `web/src/lib/analytics.ts` (the browser) and `captureServer()` in `web/src/lib/analytics-server.ts` (the server, for moments with no browser open) reject anything not listed here, and a lint rule stops code from calling PostHog any other way.
 
 Sent with every event: `plan_version`, `platform`, `app_version`, `environment`, `is_internal`, `$geoip_disable`. PostHog adds its own (`$current_url` and the like), with everything after "?" or "#" removed before sending. Events marked with a ledger copy a Postgres row; the falsifiers and the D24 numbers are counted from Postgres, and PostHog is checked against it.
 
@@ -28,3 +28,5 @@ Sent with every event: `plan_version`, `platform`, `app_version`, `environment`,
 | `reminder_settings_changed` | Which reminder emails do students turn off or back on, and where: Reminder settings or an email's unsubscribe link? | `setting`: `emails`, `statement_closing`, `payment_due`, `check_autopay`<br>`on`: boolean<br>`source`: `settings`, `email_link` | browser and server | profiles (the settings) | Ben | 3 |
 | `your_money_viewed` | US-12: do students open Your money from the safe-to-spend card, and which tab do they read: how today's number adds up, or the month's budget? | `tab`: `today`, `this_month` | browser | PostHog only | Ben | 5 |
 | `money_amount_saved` | US-12: do students correct the numbers on Your money, and which kind of line? Never the amount or the category. | `tab`: `today`, `this_month`<br>`line`: `bill`, `set_aside`, `income`, `need`, `want` | browser | bill_coverage and bank_links (Today), budget_amounts (This month) | Ben | 5 |
+| `goal_saved` | US-17: after Looks right, do students pick a goal, which one, and do they keep the amount Cense suggested? Never the amount or the name. | `preset`: `emergency_fund`, `pay_off_card`, `trip`, `car`, `home`, `other`<br>`amount`: `suggested`, `typed`<br>`dated`: boolean | browser | goals | Ben | 7 |
+| `goal_plan_saved` | US-17: do students who pick a goal accept its plan (Accept plan on Your plan), so the set-aside changes safe to spend? | `preset`: `emergency_fund`, `pay_off_card`, `trip`, `car`, `home`, `other` | browser | bank_links.set_aside_cents | Ben | 7 |

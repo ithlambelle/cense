@@ -41,6 +41,8 @@ describe("allowedNext", () => {
     "/safe-to-spend",
     "/safe-to-spend/connect",
     "/safe-to-spend/setup",
+    "/start/goal",
+    "/start/plan",
     "/settings",
     "/settings/reminders",
     "/settings/accounts",

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { GOAL_PRESETS } from "./goals/presets";
 import { PENNY_ANSWER_IDS } from "./penny/answers";
 
 // The tracking plan: every analytics event Cense sends, the question it
@@ -21,7 +22,7 @@ import { PENNY_ANSWER_IDS } from "./penny/answers";
 // reminder job, an email's unsubscribe link).
 
 // Bump when an event or property is added, changed or removed.
-export const TRACKING_PLAN_VERSION = 6;
+export const TRACKING_PLAN_VERSION = 7;
 
 const cardId = z.string().regex(/^[a-z0-9-]{1,100}$/);
 const fitTier = z.enum(["likely_fit", "stretch", "not_yet"]);
@@ -213,6 +214,25 @@ export const EVENTS = {
       tab: z.enum(["today", "this_month"]),
       line: z.enum(["bill", "set_aside", "income", "need", "want"]),
     }),
+  },
+  goal_saved: {
+    question: "US-17: after Looks right, do students pick a goal, which one, and do they keep the amount Cense suggested? Never the amount or the name.",
+    owner: "Ben",
+    addedIn: 7,
+    ledger: "goals",
+    properties: z.strictObject({
+      preset: z.enum(GOAL_PRESETS),
+      // suggested: the amount Cense filled in, unchanged. typed: the student's own.
+      amount: z.enum(["suggested", "typed"]),
+      dated: z.boolean(),
+    }),
+  },
+  goal_plan_saved: {
+    question: "US-17: do students who pick a goal accept its plan (Accept plan on Your plan), so the set-aside changes safe to spend?",
+    owner: "Ben",
+    addedIn: 7,
+    ledger: "bank_links.set_aside_cents",
+    properties: z.strictObject({ preset: z.enum(GOAL_PRESETS) }),
   },
 } satisfies Record<string, CatalogEntry>;
 

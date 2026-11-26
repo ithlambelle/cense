@@ -1019,6 +1019,94 @@ components:
         - typed
         - recurrence
       additionalProperties: false
+    GoalResponse:
+      type: object
+      properties:
+        goal:
+          anyOf:
+            - $ref: "#/components/schemas/Goal"
+            - type: "null"
+      required:
+        - goal
+      additionalProperties: false
+    Goal:
+      type: object
+      properties:
+        preset:
+          type: string
+          enum:
+            - emergency_fund
+            - pay_off_card
+            - trip
+            - car
+            - home
+            - other
+        name:
+          type: string
+        amountCents:
+          type: integer
+        targetDate:
+          type:
+            - string
+            - "null"
+          format: date
+        plan:
+          type: object
+          properties:
+            months:
+              type: integer
+            monthlyCents:
+              type: integer
+            byDate:
+              type: string
+              format: date
+          required:
+            - months
+            - monthlyCents
+            - byDate
+          additionalProperties: false
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - preset
+        - name
+        - amountCents
+        - targetDate
+        - plan
+        - updatedAt
+      additionalProperties: false
+    SaveGoal:
+      type: object
+      properties:
+        preset:
+          type: string
+          enum:
+            - emergency_fund
+            - pay_off_card
+            - trip
+            - car
+            - home
+            - other
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        amountCents:
+          type: integer
+          minimum: 1
+          maximum: 100000000
+        targetDate:
+          type:
+            - string
+            - "null"
+          format: date
+      required:
+        - preset
+        - name
+        - amountCents
+        - targetDate
+      additionalProperties: false
     BankFindings:
       type: object
       properties:
@@ -1923,6 +2011,92 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "404":
           description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /me/goal:
+    get:
+      operationId: getGoal
+      summary: Read the student's goal and its plan
+      description: "One goal per student. `goal` is null when they have none. The plan
+        is worked out on the app's calendar today: whole months left (6 with no
+        date, at least 1) and the amount over them, rounded up to the cent."
+      security:
+        - studentSession: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoalResponse"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    put:
+      operationId: saveGoal
+      summary: Save the student's goal, replacing any they had
+      description: The date is optional, from today to 30 years out. Accepting the
+        plan is a separate save of the set-aside (PUT /safe-to-spend/answers).
+      security:
+        - studentSession: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveGoal"
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoalResponse"
+        "400":
+          description: Invalid goal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Data unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteGoal
+      summary: Remove the student's goal
+      description: Answers 204 whether or not there was one. The set-aside stays as it is.
+      security:
+        - studentSession: []
+      responses:
+        "204":
+          description: Goal removed
+        "401":
+          description: Sign-in required
           content:
             application/json:
               schema:

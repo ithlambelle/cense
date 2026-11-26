@@ -24,8 +24,8 @@ import { cn } from "@/lib/utils";
 // constellation lighting star by star, then one row per thing found. The
 // student checks it against their own life and fixes anything that is off.
 // Then step 3, "Looks right?": last month from the bank (the This month
-// budget, in totals), Looks right (saved for Home's next step, then Home) or
-// Fix something (the questions, filled in).
+// budget, in totals), Looks right (saved for Home's next step, then Pick a
+// goal) or Fix something (the questions, filled in).
 
 // How long each finding waits before it lands, so the screen reads as Penny
 // working through the bank, not a list dumped at once.
@@ -133,10 +133,10 @@ export function ReadingView() {
 
   const done = state.kind === "found" && landed >= total;
 
-  // Saved, then Home, and stays pending while Home loads. The check is a note
-  // for Home's next step, not something the student is waiting on, so a failed
-  // save is logged and they go Home anyway. Replace: the reading is done, so
-  // Back never returns to it.
+  // Saved, then Pick a goal (Demo Day step 4), and stays pending while it
+  // loads. The check is a note for Home's next step, not something the
+  // student is waiting on, so a failed save is logged and they go on anyway.
+  // Replace: the reading is done, so Back never returns to it.
   async function looksRight() {
     if (checking) return;
     setChecking(true);
@@ -144,7 +144,7 @@ export function ReadingView() {
     if (!isMounted()) return;
     if (outcome.kind === "signed-out") return router.replace(signInPath(ROUTES.safeToSpendReading));
     if (outcome.kind === "failed") console.warn(JSON.stringify({ event: "budget_check_save_failed", code: outcome.code ?? null }));
-    router.replace(ROUTES.home);
+    router.replace(ROUTES.startGoal);
   }
   // One star per fifth of the rows, the last one when everything has landed.
   const lit = done ? STARS : total ? Math.min(STARS - 1, Math.floor((landed / total) * STARS)) : 0;

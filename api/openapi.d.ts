@@ -317,6 +317,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/goal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the student's goal and its plan
+         * @description One goal per student. `goal` is null when they have none. The plan is worked out on the app's calendar today: whole months left (6 with no date, at least 1) and the amount over them, rounded up to the cent.
+         */
+        get: operations["getGoal"];
+        /**
+         * Save the student's goal, replacing any they had
+         * @description The date is optional, from today to 30 years out. Accepting the plan is a separate save of the set-aside (PUT /safe-to-spend/answers).
+         */
+        put: operations["saveGoal"];
+        post?: never;
+        /**
+         * Remove the student's goal
+         * @description Answers 204 whether or not there was one. The set-aside stays as it is.
+         */
+        delete: operations["deleteGoal"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/cards": {
         parameters: {
             query?: never;
@@ -1095,6 +1123,33 @@ export interface components {
             typed: boolean;
             /** @enum {string|null} */
             recurrence: "recurring" | "variable" | null;
+        };
+        GoalResponse: {
+            goal: components["schemas"]["Goal"] | null;
+        };
+        Goal: {
+            /** @enum {string} */
+            preset: "emergency_fund" | "pay_off_card" | "trip" | "car" | "home" | "other";
+            name: string;
+            amountCents: number;
+            /** Format: date */
+            targetDate: string | null;
+            plan: {
+                months: number;
+                monthlyCents: number;
+                /** Format: date */
+                byDate: string;
+            };
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        SaveGoal: {
+            /** @enum {string} */
+            preset: "emergency_fund" | "pay_off_card" | "trip" | "car" | "home" | "other";
+            name: string;
+            amountCents: number;
+            /** Format: date */
+            targetDate: string | null;
         };
         BankFindings: {
             findings: components["schemas"]["BankFinding"][];
@@ -2095,6 +2150,131 @@ export interface operations {
             };
             /** @description Profile not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    getGoal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalResponse"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    saveGoal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SaveGoal"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalResponse"];
+                };
+            };
+            /** @description Invalid goal */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Sign-in required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Data unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    deleteGoal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Goal removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Sign-in required */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

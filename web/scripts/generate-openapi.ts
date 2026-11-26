@@ -33,6 +33,7 @@ import {
   updateReminderSettingsSchema,
 } from "../src/lib/api/reminders";
 import { privacySettingsSchema, updatePrivacySettingsSchema } from "../src/lib/api/privacy";
+import { goalResponseSchema, saveGoalSchema } from "../src/lib/api/goals";
 import {
   createBankLinkSchema,
   linkTokenSchema,
@@ -193,6 +194,25 @@ registry.registerPath({
   description: "Saves when the student tapped Looks right after Penny read their bank (profiles.budget_checked_at), for Home's next step. Each tap saves the latest time.",
   security: [{ studentSession: [] }],
   responses: { 204: { description: "Budget marked as checked" }, 404: failure("Profile not found"), ...protectedResponses },
+});
+registry.registerPath({
+  method: "get", path: "/me/goal", operationId: "getGoal", summary: "Read the student's goal and its plan",
+  description: "One goal per student. `goal` is null when they have none. The plan is worked out on the app's calendar today: whole months left (6 with no date, at least 1) and the amount over them, rounded up to the cent.",
+  security: [{ studentSession: [] }],
+  responses: { 200: ok(goalResponseSchema), ...protectedResponses },
+});
+registry.registerPath({
+  method: "put", path: "/me/goal", operationId: "saveGoal", summary: "Save the student's goal, replacing any they had",
+  description: "The date is optional, from today to 30 years out. Accepting the plan is a separate save of the set-aside (PUT /safe-to-spend/answers).",
+  security: [{ studentSession: [] }],
+  request: { body: body(saveGoalSchema) },
+  responses: { 200: ok(goalResponseSchema), 400: failure("Invalid goal"), ...protectedResponses },
+});
+registry.registerPath({
+  method: "delete", path: "/me/goal", operationId: "deleteGoal", summary: "Remove the student's goal",
+  description: "Answers 204 whether or not there was one. The set-aside stays as it is.",
+  security: [{ studentSession: [] }],
+  responses: { 204: { description: "Goal removed" }, ...protectedResponses },
 });
 registry.registerPath({
   method: "get", path: "/cards", operationId: "listCards", summary: "List curated student cards",
