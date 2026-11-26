@@ -57,7 +57,12 @@ export async function POST(): Promise<Response> {
     return Response.json(body, { headers: NO_STORE });
   }
 
-  const { bills, findings } = inferSetup(rows.value, today);
+  const inferred = inferSetup(rows.value, today);
+  const { bills } = inferred;
+  // A student who already answered sees what the bank shows, but a bill they
+  // said they pay is never listed as "not in your bank".
+  const paid = new Set<string>(before.value.answered ? before.value.bills.filter((b) => b.coveredBy !== "none").map((b) => b.bill) : []);
+  const findings = inferred.findings.filter((finding) => finding.found || !paid.has(finding.kind));
 
   let answeredFromBank = false;
   if (!before.value.answered) {

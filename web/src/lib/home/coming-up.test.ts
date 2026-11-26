@@ -44,7 +44,7 @@ describe("comingUp", () => {
     });
     expect(rows.map(({ title, subtitle }) => [title, subtitle])).toEqual([
       ["Nov 13  Statement closes", "Discover · pay down to $150"],
-      ["Nov 15  Rent, $650", "You cover it · you typed this"],
+      ["Nov 15  Rent, $650", "You cover it"],
       ["Nov 20  Paycheck, $480", "Looks like pay · from your bank"],
       ["Dec 6  Payment due", "Autopay is off. Set it up"],
     ]);
@@ -134,7 +134,7 @@ describe("comingUp", () => {
       // Same day: the statement before the payment.
       ["Nov 12  Statement closes", "Chime"],
       ["Nov 12  Payment due", "Discover · autopay is on"],
-      ["Nov 15  Rent, $650", "You cover it · you typed this"],
+      ["Nov 15  Rent, $650", "You cover it"],
       ["Nov 20  Statement closes", "Discover · pay down to $150"],
     ]);
     // The fifth, Chime's payment on the 25th, waits.
@@ -165,8 +165,8 @@ describe("comingUp", () => {
     ];
     const rows = comingUpRows({ today: "2026-11-09", cards: [], bills });
     expect(rows.map(({ title, subtitle }) => [title, subtitle])).toEqual([
-      ["Nov 12  Phone, $40", "Your share · you typed this"],
-      ["Nov 15  Rent, $650", "You cover it · you typed this"],
+      ["Nov 12  Phone, $40", "Your share"],
+      ["Nov 15  Rent, $650", "You cover it"],
     ]);
   });
 

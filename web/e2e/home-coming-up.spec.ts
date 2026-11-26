@@ -168,8 +168,8 @@ test("Coming up lists an approved card's dates and the bills the student pays, a
   // Four rows at most, soonest first, and no groceries.
   const expected = [
     [`${monthDay(closes)}  Statement closes`, "Discover · pay down to $150"],
-    [`${monthDay(rent)}  Rent, $650`, "You cover it · you typed this"],
-    [`${monthDay(phone)}  Phone, $40`, "Your share · you typed this"],
+    [`${monthDay(rent)}  Rent, $650`, "You cover it"],
+    [`${monthDay(phone)}  Phone, $40`, "Your share"],
     [`${monthDay(due)}  Payment due`, "Turn on autopay"],
   ];
   await expect(rows(page)).toHaveCount(4);

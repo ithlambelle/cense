@@ -94,6 +94,22 @@ describe("POST /bank-link/findings", () => {
     expect(json.findings.find((f: { kind: string }) => f.kind === "rent")).toMatchObject({ found: true });
   });
 
+  it("never lists a bill the student said they pay as not in their bank", async () => {
+    const answers = [
+      { bill: "rent", coveredBy: "me", monthlyCents: 65_000, dueDay: 1 },
+      { bill: "phone", coveredBy: "me", monthlyCents: 4_500, dueDay: 15 },
+      { bill: "tuition", coveredBy: "none", monthlyCents: null, dueDay: null },
+      { bill: "groceries", coveredBy: "none", monthlyCents: null, dueDay: null },
+      { bill: "car", coveredBy: "none", monthlyCents: null, dueDay: null },
+    ];
+    store.loadSafeToSpend.mockResolvedValue({ ok: true, value: { ...LINK(true), bills: answers } });
+    store.recentTransactions.mockResolvedValue({ ok: true, value: HISTORY });
+    const { json } = await body();
+    const missing = json.findings.filter((f: { found: boolean }) => !f.found).map((f: { kind: string }) => f.kind);
+    expect(missing).not.toContain("phone");
+    expect(missing).toEqual(expect.arrayContaining(["tuition", "groceries", "car"]));
+  });
+
   it("leaves last month out when the history starts after its first week", async () => {
     store.recentTransactions.mockResolvedValue({ ok: true, value: [row("2026-10-20", 65_000, "RENT_AND_UTILITIES_RENT"), row("2026-11-01", 65_000, "RENT_AND_UTILITIES_RENT")] });
     const { json } = await body();

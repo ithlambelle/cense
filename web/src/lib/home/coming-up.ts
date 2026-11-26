@@ -184,7 +184,9 @@ export function comingUpRow(event: ComingUpEvent, { nameCards }: { nameCards: bo
       return {
         key: `bill-${event.bill}-${event.date}`,
         title: `${day}  ${BILL_COPY[event.bill].label}, ${moneyAmount(event.amountCents)}`,
-        subtitle: event.share ? "Your share · you typed this" : "You cover it · you typed this",
+        // No "you typed this": since Penny reads the bank (#137) most answers
+        // come from it, and nothing records which did.
+        subtitle: event.share ? "Your share" : "You cover it",
         // Your money, where the amounts and due days are edited.
         href: ROUTES.safeToSpend,
         sensitive: true,
