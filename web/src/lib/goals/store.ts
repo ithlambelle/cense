@@ -1,6 +1,6 @@
 // Created with Claude Code (2026-11-26). Every read and write of a student's
 // goal, with their own session (row level security,
-// supabase/migrations/20261126140000_goals.sql).
+// supabase/migrations/20261126150200_goals.sql).
 import "server-only";
 
 import type { Student } from "@/lib/api/auth";

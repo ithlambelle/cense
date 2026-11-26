@@ -1,5 +1,5 @@
 -- Created with Claude Code (2026-11-26). public.goals
--- (20261126140000_goals.sql): one goal per student, only their own, only
+-- (20261126150200_goals.sql): one goal per student, only their own, only
 -- sensible values, and gone with the account.
 -- Run with `npx supabase test db` on the local stack (CI does this in the e2e
 -- job). One transaction, rolled back at the end.

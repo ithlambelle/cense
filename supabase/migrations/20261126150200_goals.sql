@@ -19,7 +19,7 @@
 --
 -- Applied by hand in the Supabase SQL editor: cense-preview first, then
 -- production, BEFORE the app change that reads it is deployed. Safe to run
--- again. To back it out: supabase/rollbacks/20261126140000_goals.down.sql.
+-- again. To back it out: supabase/rollbacks/20261126150200_goals.down.sql.
 --
 -- Check after applying:
 --   select relrowsecurity from pg_class where oid = 'public.goals'::regclass;  -- true
