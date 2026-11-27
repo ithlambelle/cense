@@ -53,14 +53,16 @@ flowchart LR
 | Read stored transactions into setup findings | #137 now ready for review | Shared route, first-link inference and confirmation UI. Review found a concurrent-answer overwrite and a #143 spread-spending integration conflict. |
 | Rolling dated-bill calculation | #143 in review | Correctly counts actual due dates; continuous groceries/gas must not use the same day-31 sentinel when combined with #137. |
 | Calendar and five-tab navigation | #141 and #142 in review | #142 remains stacked on feat/calendar-c1. No base branches deleted. |
-| Bank update notices and real-bank redirect | Assigned for November 30 | Pending implementation and independent pilot checks; no live-bank readiness claimed. |
-| Recurring runs, persistent stream corrections, forecasts/goals | Follow-up / proposed model | Use a durable link-scoped identity; the unnamed detector candidate hash can change with amount bands. Confirm product scope against the roadmap. |
+| Controlled production pilot switch | #144 open against main | Allowlist and Item-budget implementation is in review; main remains sandbox-only. No live-bank readiness claimed. |
+| Bank update notices and real-bank redirect | Assigned for November 30 | Track separately from the pilot switch; implementation and independent pilot checks still need reconciliation. |
+| Goal and plan screens | #147 open, stacked on #137 | Implementation is in review, not deployed on main. This ERD does not model its goal persistence. |
+| Recurring runs, persistent stream corrections and forecast scenarios | Follow-up / proposed model | Use a durable link-scoped identity; the unnamed detector candidate hash can change with amount bands. Confirm product scope against the roadmap. |
 
 Ben owns the separate consent, row-cap and inactive-account deletion changes. This document does not authorize merges or production deployment.
 
 ## Mentor discussion
 
-1. Do the implemented controls and the pending work support a truthful sandbox demo of bank link → findings → corrections → goal/plan → next action? Goal/plan screens must be identified as pending until shipped.
+1. Do the implemented controls and the pending work support a truthful sandbox demo of bank link → findings → corrections → goal/plan → next action? Goal/plan screens in #147 must be identified as in review until shipped.
 2. For recurring corrections, should a student correct an individual inferred occurrence, the ongoing stream, or both? Preserve that distinction in the ERD.
 3. What evidence is needed before attempting a real-bank rehearsal? Keep sandbox demo readiness separate from pilot sign-off.
 

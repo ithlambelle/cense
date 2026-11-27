@@ -2,7 +2,7 @@
 
 Updated November 27, 2026. This is a planning ERD for Your money, not a map of the deployed database. It combines the bank-link and transaction model on main (`82098ab`) with explicitly proposed detection, correction and forecasting entities. #94 and #109 are merged. Counterparty/location columns and their sync integration remain pending in #135/#136. Detection runs, persistent recurring corrections and forecast entities below are proposals, not shipped tables.
 
-The November 23 demo direction is link bank → read findings → confirm/fix → choose a goal → accept/edit a plan → show one next action on Home. Goal and plan persistence are outside this diagram; do not treat forecast scenarios as an implemented goals feature. Ben owns the pending shared findings route in #137, which is now ready for review. Integrate with that route after review instead of creating a competing detector path.
+The November 23 demo direction is link bank → read findings → confirm/fix → choose a goal → accept/edit a plan → show one next action on Home. Goal and plan persistence in the pending [#147](https://github.com/ithlambelle/cense/pull/147), stacked on #137, are outside this diagram; do not treat forecast scenarios as an implemented goals feature. Ben owns the pending shared findings route in #137, which is now ready for review. Integrate with that route after review instead of creating a competing detector path.
 
 ```mermaid
 erDiagram
